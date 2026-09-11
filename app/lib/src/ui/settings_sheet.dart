@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../platform/widget_service.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
@@ -47,6 +48,20 @@ Future<void> showSettingsSheet(
                 onTap: () => _pickDnd(context, settings),
               ),
               const Divider(),
+              // §2.1-1 核心入口:主屏幕点一下直达
+              ListTile(
+                leading: const Icon(Icons.widgets_outlined),
+                title: const Text('把圈子放到主屏幕'),
+                subtitle: const Text('主屏幕点一下,直接进圈'),
+                onTap: () async {
+                  final ok = await WidgetService.requestPin();
+                  if (ctx.mounted && !ok) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('当前设备不支持,请长按桌面手动添加')),
+                    );
+                  }
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.speed_rounded),
                 title: const Text('状态'),

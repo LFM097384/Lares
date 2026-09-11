@@ -22,6 +22,16 @@ class WidgetService {
   RoomController? _controller;
   bool _pushPresence = false;
 
+  /// 请求把 Widget 固定到主屏幕(Android 部分 Launcher 支持,API 26+)
+  static Future<bool> requestPin() async {
+    if (PlatformInfo.current != 'android') return false;
+    final supported =
+        await HomeWidget.isRequestPinWidgetSupported() ?? false;
+    if (!supported) return false;
+    await HomeWidget.requestPinWidget(qualifiedAndroidName: _androidProvider);
+    return true;
+  }
+
   Future<void> init(RoomController controller, {CircleStore? circleStore}) async {
     final platform = PlatformInfo.current;
     // 深链:Android/iOS/macOS;主屏 Widget:仅移动端(macOS 走托盘)
