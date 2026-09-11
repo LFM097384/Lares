@@ -37,7 +37,19 @@ http
       // SPA 回退
       file = join(root, 'index.html');
     }
-    res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
+    // 缓存策略(性能优化):带内容哈希的静态资产长缓存,index.html 不缓存
+    const name = file.split(/[\\/]/).pop() ?? '';
+    const isHtml = name === 'index.html';
+    const isHashed = /\.(wasm|js|otf|ttf|woff2?)$/.test(name) || file.includes('canvaskit');
+    const cacheControl = isHtml
+      ? 'no-cache'
+      : isHashed
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=3600';
+    res.writeHead(200, {
+      'content-type': MIME[extname(file)] ?? 'application/octet-stream',
+      'cache-control': cacheControl,
+    });
     createReadStream(file).pipe(res);
   })
   .listen(port, () => console.log(`[serve] http://127.0.0.1:${port} -> ${root}`));
