@@ -119,9 +119,7 @@ jobs:
       - name: Pub get
         run: flutter pub get
       - name: Build Windows
-        run: |
-          flutter build windows --release \
-            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
+        run: flutter build windows --release --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
       - name: Package
         shell: pwsh
         run: |
