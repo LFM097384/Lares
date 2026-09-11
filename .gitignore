@@ -1,0 +1,29 @@
+# Node
+node_modules/
+npm-debug.log
+
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+app/pubspec.lock
+*.iml
+.idea/
+
+# 环境与密钥(绝不提交 LiveKit 凭据)
+.env
+*.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 运行时数据与日志
+*.log
+server/data/
+server/tool/node_modules/
+
+# Flutter 插件链接(Junction,指向本机 pub 缓存)
+**/.plugin_symlinks/

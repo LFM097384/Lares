@@ -1,0 +1,55 @@
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// 设置(§2.2 耗电与流量透明度、防打扰),本地持久化。
+class SettingsStore extends ChangeNotifier {
+  SettingsStore._();
+
+  static const _kWifiOnlyHq = 'lares.wifiOnlyHq';
+  static const _kDndStart = 'lares.dndStart'; // -1 = 未设置
+  static const _kDndEnd = 'lares.dndEnd';
+
+  /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
+  bool wifiOnlyHq = true;
+
+  /// 免打扰时段(小时 0-23,-1 表示不启用);跨零点时段支持
+  int dndStartHour = -1;
+  int dndEndHour = -1;
+
+  static Future<SettingsStore> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = SettingsStore._();
+    s.wifiOnlyHq = prefs.getBool(_kWifiOnlyHq) ?? true;
+    s.dndStartHour = prefs.getInt(_kDndStart) ?? -1;
+    s.dndEndHour = prefs.getInt(_kDndEnd) ?? -1;
+    return s;
+  }
+
+  bool get dndEnabled => dndStartHour >= 0 && dndEndHour >= 0;
+
+  /// 当前是否处于免打扰时段(支持 22:00-7:00 跨零点)
+  bool get inDndNow {
+    if (!dndEnabled) return false;
+    final h = DateTime.now().hour;
+    if (dndStartHour == dndEndHour) return true; // 全天
+    return dndStartHour < dndEndHour
+        ? (h >= dndStartHour && h < dndEndHour)
+        : (h >= dndStartHour || h < dndEndHour);
+  }
+
+  Future<void> setWifiOnlyHq(bool value) async {
+    wifiOnlyHq = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kWifiOnlyHq, value);
+  }
+
+  Future<void> setDnd(int startHour, int endHour) async {
+    dndStartHour = startHour;
+    dndEndHour = endHour;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kDndStart, startHour);
+    await prefs.setInt(_kDndEnd, endHour);
+  }
+}

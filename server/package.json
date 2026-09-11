@@ -1,0 +1,15 @@
+{
+  "name": "lares-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lares 一键进圈 — presence 信令服务 + LiveKit token 签发",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "livekit-server-sdk": "^2.13.0",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,87 @@
+# Lares 公网全栈:Caddy(TLS 终结) + LiveKit(SFU) + lares-server(信令/便签)
+# 用法:cp .env.example .env 填好后 docker compose up -d
+name: lares
+
+services:
+  livekit:
+    image: livekit/livekit-server:v1.13.6
+    command: --config /etc/livekit.yaml
+    configs:
+      - source: livekit_config
+        target: /etc/livekit.yaml
+    ports:
+      - "7880:7880"        # HTTP/WebSocket(经 Caddy 反代 wss)
+      - "7881:7881"        # RTC over TCP(弱网兜底)
+      - "7882:7882/udp"    # RTC over UDP(主媒体通道)
+      - "5349:5349"        # TURN/TLS(严格 NAT 环境)
+    restart: unless-stopped
+
+  lares-server:
+    build: ../server
+    environment:
+      LARES_PORT: "8787"
+      # 下发给客户端的公网地址(必须与 Caddy 反代一致)
+      LIVEKIT_URL: ${LIVEKIT_PUBLIC_URL}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LARES_DATA_DIR: /app/data
+    volumes:
+      - lares-data:/app/data
+    restart: unless-stopped
+    depends_on:
+      - livekit
+
+  caddy:
+    image: caddy:2-alpine
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      LARES_DOMAIN: ${LARES_DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      - lares-server
+      - livekit
+
+configs:
+  livekit_config:
+    content: |
+      port: 7880
+      bind_addresses: ["0.0.0.0"]
+      rtc:
+        tcp_port: 7881
+        port_range_start: 50000
+        port_range_end: 60000
+        use_external_ip: true
+      keys:
+        ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+      turn:
+        enabled: true
+        domain: ${LARES_DOMAIN}
+        tls_port: 5349
+        udp_port: 3478
+        external_tls: false
+  caddyfile:
+    content: |
+      {$LARES_DOMAIN} {
+        # 信令 / 便签 API
+        handle /notes* {
+          reverse_proxy lares-server:8787
+        }
+        handle /health {
+          reverse_proxy lares-server:8787
+        }
+        handle /ws {
+          reverse_proxy lares-server:8787
+        }
+        # LiveKit(HTTP + WebSocket + WHIP)
+        handle {
+          reverse_proxy livekit:7880
+        }
+      }
+
+volumes:
+  lares-data:
