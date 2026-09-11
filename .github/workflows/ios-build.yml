@@ -1,0 +1,77 @@
+# iOS 云端构建(GitHub Actions macOS runner,无需本地 Mac)
+# 触发:手动 workflow_dispatch;或打 tag(v*)。
+# 产物:未签名 .ipa(模拟器/开发侧载用)——上架/TestFlight 签名见 deploy/ios-ci.md
+name: iOS Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.3'
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      # macOS 上插件链接用真 symlink,无需 Windows 的 Junction 脚本
+      - name: Build iOS (unsigned)
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
+
+      - name: Package .ipa
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -qry lares_app.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lares-ios-unsigned
+          path: app/build/ios/iphoneos/lares_app.ipa
+          retention-days: 14
+
+  # macOS 桌面端顺带构建(同一 runner,产物 .app)
+  build-macos:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.3'
+          channel: stable
+          cache: true
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+      - name: Pub get
+        run: flutter pub get
+      - name: Build macOS
+        run: |
+          flutter build macos --release \
+            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
+      - name: Package .app
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -qry lares-macos.zip lares_app.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lares-macos
+          path: app/build/macos/Build/Products/Release/lares-macos.zip
+          retention-days: 14
