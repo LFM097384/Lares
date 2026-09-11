@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -56,6 +58,15 @@ Future<void> main() async {
   );
   // P0 预热:提前为默认圈子备 RTC token,进房时信令与媒体并行
   controller.prefetchToken(LaresConfig.defaultCircleId);
+
+  // 常驻挂机模式:启动即自动进默认圈(信令连接建立后)
+  if (LaresConfig.autoJoin) {
+    Timer(const Duration(milliseconds: 1500), () {
+      if (controller.phase == RoomPhase.idle) {
+        controller.join(LaresConfig.defaultCircleId);
+      }
+    });
+  }
 
   // 桌面托盘:常驻入口,点图标即一键进房(Web 为空操作)
   final tray = TrayService(

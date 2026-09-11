@@ -27,6 +27,9 @@ class LaresConfig {
   /// 公网/生产必须为 false)
   static const bool hostOnlyIce = bool.fromEnvironment('LARES_HOST_ONLY_ICE');
 
+  /// 启动即自动进默认圈(常驻挂机端/浸泡测试:开机自启 → 自动在圈)
+  static const bool autoJoin = bool.fromEnvironment('LARES_AUTO_JOIN');
+
   static bool get isDesktop => PlatformInfo.isDesktop;
 
   static String get platformName => PlatformInfo.current;
