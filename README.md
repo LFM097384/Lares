@@ -113,6 +113,7 @@ flutter run -d android --dart-define=LARES_SIGNALING=ws://192.168.x.x:8787
 - [x] Release 构建:APK ✓、`--split-per-abi` 后 **arm64 36.9MB**(原 106MB,-65%)、Windows ✓(已启动);`.ico` 需 PNG 压缩格式(`tool/make_ico.ps1`,png-to-ico 的旧式 DIB 会被 RC 拒)
 - [x] 挂机浸泡测试:`scripts/soak.ps1` 每 5 分钟记录 4 客户端(Web×2 + Android + Windows Release)在房情况到 `soak.log`(§8.4 挂机稳定性验收的自动化)
 - [x] 常驻挂机端:`LARES_AUTO_JOIN=true` 启动即自动进房(实测 Release 进房 556ms),已加入开机自启(`shell:startup` 快捷方式);桌面快捷方式同步指向 Release
+- [x] Web WASM 构建:`flutter build web --wasm` 通过,进房 1325ms 实测(RTC/信令/presence 在 wasm 下全正常)
 - [x] **Android 前台服务保活**(浸泡抓到的真问题:后台被系统杀→presence 掉线):仅进房且媒体在线时持有服务(mic 类型 + WiFiLock),出房/闲时降级立即释放;后台 65s presence 存活实证,浸泡自动恢复 streak=0
 - [x] 桌面快捷方式:`~/Desktop/一键进圈.lnk`(指向 Release 版)
 - [x] 服务端数据目录可配置(`LARES_DATA_DIR`),测试与本机数据隔离
