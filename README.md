@@ -126,3 +126,4 @@ flutter run -d android --dart-define=LARES_SIGNALING=ws://192.168.x.x:8787
 - `home_widget` 锁 0.7.x(0.8 依赖 glance 1.3.0-alpha 需要未发布的 compileSdk 37)
 - 模拟器/真机访问本机服务:LiveKit 必须 `--bind 0.0.0.0 --node-ip <局域网IP>`(--dev 默认只绑回环),`scripts/dev.ps1` 已自动处理
 - 构建 APK 时给模拟器/真机传局域网信令地址:`--dart-define=LARES_SIGNALING=ws://<局域网IP>:8787`
+- **局域网 IP 漂移**(实测遇到:DHCP 换网后 10.0.0.185→10.150.49.251):LiveKit node-ip、信令 LIVEKIT_URL、APK 内的 LARES_SIGNALING 三处会同时失效,客户端表现为"presence 在但进房失败"。换网后用 `scripts/dev.ps1` 重启全栈(自动探测当前 IP)并用当前 IP 重建 APK
