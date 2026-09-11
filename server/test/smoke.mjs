@@ -126,6 +126,20 @@ try {
   const knock = await a.waitFor((m) => m.t === 'knock');
   check('a 收到敲门', knock.userId === 'u_b');
 
+  // 非圈内成员的放行无效(授权检查);c 不在 vip
+  c.send({ t: 'knock_allow', circleId: 'vip', userId: 'u_b' });
+  await wait(400);
+  check('圈外人的放行被拒绝', !b.inbox.some((m) => m.t === 'room' && m.circleId === 'vip'));
+
+  // 圈外人也无权改敲门设置;c 改 vip 应被拒绝(a 在 vip 内)
+  const beforeSet = c.inbox.length;
+  c.send({ t: 'knock_mode_set', circleId: 'vip', enabled: false });
+  await wait(600);
+  check(
+    '圈外人改敲门设置被拒绝(无新摘要)',
+    !c.inbox.slice(beforeSet).some((m) => m.t === 'circle_summary' && m.circleId === 'vip'),
+  );
+
   // a 放行:b 完成进房
   a.send({ t: 'knock_allow', circleId: 'vip', userId: 'u_b' });
   const roomVip = await b.waitFor((m) => m.t === 'room' && m.circleId === 'vip');

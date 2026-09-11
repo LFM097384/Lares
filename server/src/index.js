@@ -107,11 +107,11 @@ async function mintLiveKitToken(circleId, userId, name) {
 // ── 连接会话 ──────────────────────────────────────────────────────────────
 function handleConnection(ws) {
   // 每条连接绑定 (userId, deviceId);一个用户可多端在线
-  const session = { userId: null, deviceId: null, circleId: null, alive: true };
-
-  ws.on('pong', () => { session.alive = true; });
+  const session = { userId: null, deviceId: null, circleId: null };
 
   ws.on('message', async (raw) => {
+    // 消息体上限 64KB(防内存 DoS;正常协议消息 << 1KB)
+    if (raw.length > 64 * 1024) return send(ws, { t: 'error', message: 'too_large' });
     let msg;
     try { msg = JSON.parse(raw); } catch { return send(ws, { t: 'error', message: 'bad_json' }); }
 
@@ -145,17 +145,26 @@ function handleConnection(ws) {
       }
 
       case 'knock_allow': {
-        // 房内成员放行:完成敲门者的进房
-        const pending = pendingKnocks.get(msg.circleId);
+        // 授权检查:只有圈内成员才能放行(否则敲门形同虚设)
+        const circleId = typeof msg.circleId === 'string' ? msg.circleId : '';
+        const approver = circleId ? getCircle(circleId).get(session.userId) : null;
+        if (!approver || !approver.devices.has(session.deviceId)) return;
+        const pending = pendingKnocks.get(circleId);
         const target = pending?.get(msg.userId);
         if (!target) return;
         pending.delete(msg.userId);
-        await joinCircle(target.ws, target.session, msg.circleId);
+        await joinCircle(target.ws, target.session, circleId);
         break;
       }
 
       case 'knock_mode_set': {
         if (typeof msg.circleId !== 'string' || typeof msg.enabled !== 'boolean') return;
+        // 授权:圈内成员可改;空圈任何人可预设(创建者场景)
+        const circle = getCircle(msg.circleId);
+        if (circle.size > 0) {
+          const setter = circle.get(session.userId);
+          if (!setter || !setter.devices.has(session.deviceId)) return;
+        }
         circleSettings[msg.circleId] = { knockRequired: msg.enabled };
         saveSettings();
         broadcastLobbySummary(msg.circleId);
