@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../net/signaling_client.dart';
 import '../rtc/rtc_service.dart';
 import 'models.dart';
+import 'settings_store.dart';
 
 /// 房间状态机:信令 presence + RTC 媒体的粘合层。
 ///
@@ -44,7 +45,7 @@ class RoomController extends ChangeNotifier {
   final RtcService _rtc;
 
   /// 设置(可选;§2.2 流量透明度)与 WiFi 检测(可注入,默认真=高音质)
-  final dynamic settings; // SettingsStore,避免循环依赖
+  final SettingsStore? settings;
   final Future<bool> Function()? isOnWifi;
 
   final String userId;
@@ -212,7 +213,7 @@ class RoomController extends ChangeNotifier {
   /// 仅 WiFi 下高音质:移动网络自动降码率(§2.2 流量透明度)
   Future<bool> _currentHighQuality() async {
     final s = settings;
-    if (s != null && s.wifiOnlyHq == true && isOnWifi != null) {
+    if (s != null && s.wifiOnlyHq && isOnWifi != null) {
       return isOnWifi!();
     }
     return true;
@@ -438,9 +439,15 @@ class RoomController extends ChangeNotifier {
       {Member? member, MemberStatus? status}) {
     final i = _members.indexWhere((m) => m.userId == targetUserId);
     if (i >= 0) {
-      _members[i] = _members[i].copyWith(
-        status: status ?? member?.status,
-        deviceCount: member?.deviceCount,
+      final existing = _members[i];
+      _members[i] = Member(
+        userId: existing.userId,
+        // 名字:改名(member)优先,否则保留
+        name: member?.name ?? existing.name,
+        // 状态:显式 status 优先,其次 member 携带,否则保留
+        status: status ?? member?.status ?? existing.status,
+        // 设备数:仅服务器快照(member)可更新,否则保留原值
+        deviceCount: member?.deviceCount ?? existing.deviceCount,
       );
     } else if (member != null) {
       _members.add(member);
