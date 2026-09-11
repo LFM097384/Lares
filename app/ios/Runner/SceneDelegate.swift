@@ -33,8 +33,8 @@ class SceneDelegate: FlutterSceneDelegate, FlutterStreamHandler {
 
   private func setupChannels() {
     guard methodChannel == nil,
-          let controller = window?.rootViewController as? FlutterViewController,
-          let engine = controller.engine else { return }
+          let controller = window?.rootViewController as? FlutterViewController else { return }
+    let engine = controller.engine
     let mc = FlutterMethodChannel(name: channelName, binaryMessenger: engine.binaryMessenger)
     mc.setMethodCallHandler { [weak self] call, result in
       if call.method == "consumeLink" {
