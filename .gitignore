@@ -36,3 +36,6 @@ dist/
 
 # 临时缓存
 .tmp-npm-cache/
+
+# 部署运行时状态(VPS 上的端口基线/回滚快照,机器相关,不入库)
+deploy/.state/

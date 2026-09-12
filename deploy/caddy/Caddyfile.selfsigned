@@ -1,0 +1,43 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# ⚠️⚠️⚠️ LARES_TLS_MODE=selfsigned —— **不安全**,仅供「还没买域名」时冒烟测试
+#
+# 这份配置用 Caddy 内置 CA 签自签证书。请务必清楚它的后果:
+#
+#   ❌ 浏览器(Chrome / Safari / Edge)会红屏拦截 —— Flutter Web 客户端**不可用**
+#   ❌ iOS ATS 会直接拒绝连接 —— iOS 客户端**不可用**(且无法在设置里绕过)
+#   ❌ Android 7+ 默认不信任用户 CA —— 除非改 network_security_config,否则不可用
+#   ✅ 只有「显式关闭证书校验」的桌面端 / 命令行客户端能连上
+#
+#   → 结论:这是**联调用的临时挡板**,不是部署形态。
+#     买到域名后立刻切回 LARES_TLS_MODE=dns。
+#
+# 另外:Caddy 内置 CA 的**叶子证书默认只有 12 小时有效期**,
+#       长期挂着必然过期。再次说明它只适合当场测完就走。
+#
+# 用法(无域名,直接用公网 IP):
+#   .env:
+#     LARES_TLS_MODE=selfsigned
+#     LARES_DOMAIN=203.0.113.10          # 服务器公网 IP
+#     LIVEKIT_PUBLIC_URL=wss://203.0.113.10:8444
+#     LARES_CADDY_IMAGE=caddy:2-alpine   # 无需自建镜像
+#
+# 验证连通性(必须加 -k 跳过证书校验,这本身就说明了问题):
+#   curl -k https://<IP>:8444/health
+# ──────────────────────────────────────────────────────────────────────────────
+{
+	# 与 file 模式同理:必须 off 而非 disable_redirects,
+	# 否则证书自动化仍开着,HTTP-01 求解器可能去碰 :80。
+	auto_https off
+
+	# 容器里装不了系统信任库,别浪费时间尝试(官方文档明确说 Docker 下会失败)
+	skip_install_trust
+}
+
+import routes.caddyfile
+
+{$LARES_DOMAIN}:{$LARES_HTTPS_PORT} {
+	# 内置 CA 自签。对裸 IP 同样有效(Caddy 会签 IP 证书)。
+	tls internal
+
+	import lares_routes
+}

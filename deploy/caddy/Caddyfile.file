@@ -1,0 +1,38 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# LARES_TLS_MODE=file —— 自备证书路线(不依赖 Cloudflare,也不跑 ACME)
+#
+# 适用于:
+#   · 域名不在 Cloudflare、或不想给 Caddy 一个 DNS API Token
+#   · 已经用别的方式拿到证书(acme.sh / certbot / 云厂商 / 公司 CA)
+#
+# 用法:
+#   1) 把证书放到宿主机某目录,例如 /etc/lares/certs/
+#        fullchain.pem  (证书链,leaf 在前)
+#        privkey.pem    (私钥,chmod 600)
+#   2) .env:
+#        LARES_TLS_MODE=file
+#        LARES_CERT_DIR=/etc/lares/certs
+#        LARES_CADDY_IMAGE=caddy:2-alpine     # 无需自建镜像
+#   3) 证书到期需自行续签并 `docker compose restart caddy`
+#      (Caddy 不会替你续自备证书 —— 这是本模式最大的运维负担,记得设日历提醒)
+#
+# ⚠️ 这里必须 `auto_https off` 而不是 disable_redirects:
+#    已核对源码,disable_redirects 只停掉常驻的 :80 跳转服务器,
+#    **证书自动化仍开着**,HTTP-01 求解器依然可能去监听 :80。
+#    只有 auto_https off 才会彻底关闭「证书管理 + 跳转」两件事。
+#    本模式证书由我们自己提供,不需要任何 ACME,所以直接全关最安全。
+# ──────────────────────────────────────────────────────────────────────────────
+{
+	# 全关:不签证书、不跳转、不碰 80/443。证书完全由下面的 tls 指令提供。
+	auto_https off
+}
+
+import routes.caddyfile
+
+{$LARES_DOMAIN}:{$LARES_HTTPS_PORT} {
+	# 顺序固定:先证书链,后私钥。只给一个是非法配置。
+	# 证书里的 SAN 必须包含 {$LARES_DOMAIN},否则客户端校验失败。
+	tls {$LARES_CERT_FILE} {$LARES_KEY_FILE}
+
+	import lares_routes
+}

@@ -1,0 +1,42 @@
+[Unit]
+# LiveKit SFU —— 只承载音频
+Description=LiveKit SFU for Lares
+Documentation=https://docs.livekit.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lares
+Group=lares
+
+# API 密钥建议放这里(LIVEKIT_KEYS="key: secret"),避免写进 yaml
+EnvironmentFile=-/etc/lares/livekit.env
+
+ExecStart=/usr/local/bin/livekit-server --config /etc/lares/livekit.yaml
+
+Restart=on-failure
+RestartSec=5s
+StartLimitBurst=5
+StartLimitIntervalSec=600
+
+# ── 内存上限 ──────────────────────────────────────────────────────────────
+MemoryMax=256M
+MemoryHigh=224M
+OOMScoreAdjust=500
+
+# ── 安全加固 ──────────────────────────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/lares
+
+[Install]
+WantedBy=multi-user.target

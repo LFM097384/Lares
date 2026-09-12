@@ -1,0 +1,44 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# 反代路由片段 —— 被 Caddyfile.dns / Caddyfile.file / Caddyfile.selfsigned 共用
+# 改路由只改这一处,三种 TLS 模式自动一致(避免三份副本各自漂移)。
+#
+# 分工:
+#   lares-server:8787  —— presence 信令 WS(/ 与 /ws)、/health、/notes REST
+#   livekit:7880       —— LiveKit 信令 WS(SDK 会在 base URL 后自动追加 /rtc)
+# ──────────────────────────────────────────────────────────────────────────────
+(lares_routes) {
+	# ── lares-server ────────────────────────────────────────────────────────
+	# 语音便签 REST(GET / POST / DELETE)
+	handle /notes* {
+		reverse_proxy lares-server:8787
+	}
+	handle /health {
+		reverse_proxy lares-server:8787
+	}
+	# presence 信令 WebSocket。Caddy 的 reverse_proxy 会自动透传 Upgrade 头,
+	# 无需额外配置;WS 长连接也不受 write timeout 影响(默认不设超时)。
+	handle /ws {
+		reverse_proxy lares-server:8787
+	}
+
+	# ── LiveKit ─────────────────────────────────────────────────────────────
+	# 客户端拿到的 LIVEKIT_URL 是 wss://域名:8444,SDK 自己追加 /rtc
+	handle /rtc* {
+		reverse_proxy livekit:7880
+	}
+	# LiveKit 服务端 API(token 校验、房间管理走 twirp)
+	handle /twirp* {
+		reverse_proxy livekit:7880
+	}
+
+	# 兜底:其余路径交给 LiveKit(与历史行为一致,含 WHIP 等)
+	handle {
+		reverse_proxy livekit:7880
+	}
+
+	# 访问日志:限量滚动,别把 20GB 磁盘写满
+	log {
+		output stderr
+		level WARN
+	}
+}

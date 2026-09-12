@@ -1,0 +1,43 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# LARES_TLS_MODE=dns —— 默认且推荐路线:DNS-01 签发证书
+#
+# 为什么必须是 DNS-01(而不是「反正端口写了 8444 就不会碰 443」):
+#   已核对 Caddy 源码 modules/caddyhttp/autohttps.go —— 站点写成 `域名:8444`
+#   **不会**让 Caddy 只在 8444 上验证。它唯一的端口豁免条件是「只监听 HTTP 端口」。
+#   CertMagic 的 challenge 端口取自全局默认值,与站点监听端口无关,于是:
+#     · TLS-ALPN-01 会去用 :443   ← 机场 Reality 入站,碰不得
+#     · HTTP-01     会去用 :80
+#   而文档明确:「启用 DNS challenge 后,其它 challenge 默认关闭」。
+#   所以 DNS-01 不只是「最方便」,它是这台机器上唯一能既签下证书又不碰 443 的方式。
+#
+# 需要:带 caddy-dns/cloudflare 插件的自建镜像(官方 caddy:2-alpine 不含 DNS 插件)
+#   cd deploy/caddy && ./build-caddy.sh
+#   .env 里设 LARES_CADDY_IMAGE=lares-caddy:dns
+#
+# Cloudflare API Token 权限:Zone.Zone:Read + Zone.DNS:Edit(仅该域名的 Zone)
+# ──────────────────────────────────────────────────────────────────────────────
+{
+	# 关掉 HTTP→HTTPS 跳转服务器,否则 Caddy 会常驻监听 :80。
+	# 注意:单靠这一条并不保证不碰 :80(HTTP-01 求解器仍可能临时监听),
+	#       真正的保证来自下面的 acme_dns —— 它会关闭其它所有 challenge。
+	#       两者叠加才是「确定不碰 80/443」。
+	auto_https disable_redirects
+
+	# DNS-01:零入站端口即可签发。密钥用 {env.} 运行时读取,不落进 adapt 出的 JSON。
+	# 用 acme_dns(而非 2.10+ 才有的裸 dns 选项),兼容 2.7/2.8。
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+
+	# 证书到期提醒邮箱(留空则不注册邮箱)
+	email {$LARES_ACME_EMAIL}
+
+	# 首次上线建议先切到 LE staging 验证链路,确认无误再改回来,免得撞速率限制:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# 先引入共用路由片段,再定义站点(片段必须先于使用处出现)
+import routes.caddyfile
+
+# {$VAR} 是解析前的文本替换,可以用在站点地址里(运行时占位符 {env.} 不行)
+{$LARES_DOMAIN}:{$LARES_HTTPS_PORT} {
+	import lares_routes
+}

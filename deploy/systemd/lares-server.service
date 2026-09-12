@@ -1,0 +1,55 @@
+[Unit]
+# Lares 信令服务(presence + LiveKit token 签发 + 语音便签)
+Description=Lares signaling server
+Documentation=https://github.com/your/lares
+After=network-online.target lares-livekit.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lares
+Group=lares
+WorkingDirectory=/opt/lares
+
+# 所有配置(含密钥)来自这个文件,权限应为 600
+# 缺少必填项时 lares-server 会在启动期 exit 1(失败关闭,不会裸奔)
+EnvironmentFile=/etc/lares/lares.env
+
+ExecStart=/usr/bin/node /opt/lares/src/index.js
+
+Restart=on-failure
+RestartSec=5s
+# 反复崩溃时别把 1 vCPU 拖垮:10 分钟内超过 5 次就停下等人工介入
+StartLimitBurst=5
+StartLimitIntervalSec=600
+
+# ── 内存上限 ──────────────────────────────────────────────────────────────
+# 与 compose 的 mem_limit 等价。超限时被杀的是本服务,
+# 不会连累 xray —— 这正是在 1GB 共享机器上必须设它的原因。
+MemoryMax=128M
+MemoryHigh=112M
+# 明确让 OOM killer 优先挑我们,而不是机场
+OOMScoreAdjust=500
+
+# ── 安全加固 ──────────────────────────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# 唯一可写的目录 —— 语音便签与圈子设置。
+# ProtectSystem=strict 把整个文件系统设为只读,所以机场的配置
+# 即便脚本写错了也**物理上写不进去**。
+ReadWritePaths=/var/lib/lares
+
+[Install]
+WantedBy=multi-user.target

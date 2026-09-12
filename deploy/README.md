@@ -1,50 +1,162 @@
-# Lares 公网部署
+# Lares 炉灵 — 公网部署
 
-两种路线,按场景二选一。
+> ⚠️ **先读这一段。** 本目录的 compose 是为「**与已有服务共存的 VPS**」重写的。
+> 目标机器(RackNerd)上 `443/tcp` 是 VLESS+Reality 主入站、`8443/tcp` 是次入站、
+> `3443/udp` 是 Hysteria2、`9721` 是 3x-ui 面板。**这些端口绝对不能碰。**
+> 历史版本的 compose 把 Caddy 映射到 `80:80` + `443:443` —— 照那样跑会直接
+> 抢走 Reality 入站,把翻墙线路打死。现在的配置刻意避开了全部已占用端口。
 
-## 路线 A:LiveKit Cloud(推荐,最省事)
+---
 
-1. 在 [cloud.livekit.io](https://cloud.livekit.io) 建项目,拿 `LIVEKIT_URL / API_KEY / API_SECRET`。
-2. 只需部署 `lares-server`(信令+便签,单容器或 `node src/index.js` + PM2/systemd 均可):
-   ```bash
-   cd server && docker build -t lares-server .
-   docker run -d --name lares -p 8787:8787 \
-     -e LIVEKIT_URL=wss://your-project.livekit.cloud \
-     -e LIVEKIT_API_KEY=xxx -e LIVEKIT_API_SECRET=xxx \
-     -v lares-data:/app/data lares-server
-   ```
-3. 用任意反代(Caddy/Nginx/Cloudflare)给 8787 挂 TLS,WS 路径 `/ws`。
+## 两种拓扑(用户已决定:**两套都配,客户端设置页可切**)
 
-## 路线 B:全自托管(本目录 docker-compose)
+| | 路线 A:LiveKit Cloud 托管媒体 | 路线 B:全自托管 |
+|---|---|---|
+| 媒体(语音) | LiveKit Cloud 全球边缘节点 | 自己的 VPS(Seattle) |
+| 信令 | 自己的 VPS | 自己的 VPS |
+| 国内延迟 | **更优**(就近边缘接入) | 单点 190ms + 移动 QoS 风险 |
+| 隐私 | 语音流经第三方 SFU | 全链路自持 |
+| VPS 负载 | 极低(只有一个 Node 进程) | LiveKit + Caddy + Node |
+| 成本 | 免费档有额度 | 带宽自担(语音约 30~50kbps/路) |
 
-包含:Caddy(自动 TLS)+ LiveKit SFU + lares-server。
+> 建议:**国内用户日常走 A,隐私敏感场合切 B。** 两者共用同一套信令服务,
+> 客户端只是换 `LARES_SIGNALING` 指向和服务端下发的 `LIVEKIT_URL`。
 
-1. 一台有公网 IP 的 VPS(≥1C1G 即可,语音 SFU 很轻),装好 Docker。
-2. 域名 A 记录指向 VPS(如 `rtc.example.com`)。
-3. 防火墙放行:`80,443/tcp`(TLS/HTTP)、`7881/tcp`、`7882/udp`(RTC 主通道)、`50000-60000/udp`(媒体端口段)、`5349/tcp`(TURN)。
-4. 配置并启动:
-   ```bash
-   cd deploy
-   cp .env.example .env   # 填域名和凭据
-   docker compose up -d
-   docker compose logs -f lares-server
-   ```
+---
+
+## 端口分配(已验证零冲突)
+
+| 端口 | 服务 | 说明 |
+|---|---|---|
+| `8444/tcp` | Caddy TLS | **不是 443**。客户端 URL 需显式带 `:8444` |
+| `7881/tcp` | LiveKit RTC over TCP | 弱网/严格 NAT 兜底 |
+| `7882/udp` | LiveKit RTC over UDP | 主媒体通道,**单端口 mux** |
+| `8787` | lares-server | 仅容器内 expose,**不发布到宿主** |
+
+**刻意避开**:`443` `8443` `3443` `9721` `2096` `22` `80`
+
+**为什么 UDP 只开一个端口**:官方建议 mux 端口数 ≥ vCPU 数;这台机器 1 vCPU,
+1 个端口即最优,同时避免原先 `50000-60000`(10001 个端口)造成的 conntrack 膨胀。
+⚠️ LiveKit 源码 `webrtc_config.go` 的判定顺序是「先看端口段,端口段没设才用 mux」,
+所以**端口段必须留空**才会真正走 mux。
+
+**⚠️ 宿主端口必须与容器端口一致**:LiveKit 会把端口号写进 ICE candidate,
+一旦做端口转换,客户端拿到的候选地址就是错的,媒体必定连不通。
+
+---
+
+## 部署步骤
+
+```bash
+cd deploy
+cp .env.example .env
+$EDITOR .env                 # 填域名、LiveKit 凭据、鉴权密钥
+
+./preflight.sh               # 只读检查,不过就别继续
+./deploy.sh                  # 会先自动再跑一次 preflight
+```
+
+`deploy.sh` 的三重机场保护:
+1. 部署前 `preflight.sh` 记录**端口基线**,不通过直接退出(绝不带病部署)
+2. **静态断言**:脚本自检不含任何对 `xray`/`x-ui` 的 `systemctl` 写操作
+3. 部署后**三路复核** —— 基线端口是否仍在监听 / systemd unit 是否仍 active /
+   `443` 主动 TLS 握手探活。任一失败 → **立即自动拆栈并告警**
+
+出问题:`./rollback.sh`(保留数据)或 `./rollback.sh --purge`(连数据卷一起删)。
+
+---
+
+## TLS 方案(四选一,`.env` 里切)
+
+| 方案 | 需要的入站端口 | 适用 |
+|---|---|---|
+| **DNS-01**(默认,最安全) | **零** | 有 Cloudflare 等 DNS API |
+| HTTP-01 | `80/tcp` | 80 确认空闲且愿意开 |
+| 外部证书挂载 | 零 | 证书从别处签好 |
+| 自签 | 零 | **仅本机冒烟测试** |
+
+自签路径:浏览器和 iOS **会拒绝**,只能原生端跳过校验用于冒烟,不要用于日常。
+
+> DNS-01 需要带 DNS 插件的 Caddy —— `caddy/Dockerfile` 用 `xcaddy` 现编,
+> 跑 `caddy/build-caddy.sh` 即可。stock `caddy:2-alpine` 不含任何 DNS 插件。
+
+---
+
+## 防火墙
+
+```bash
+sudo ufw allow 8444/tcp comment 'Lares TLS'
+sudo ufw allow 7881/tcp comment 'Lares RTC TCP'
+sudo ufw allow 7882/udp comment 'Lares RTC UDP'
+```
+
+> ⚠️ **Docker 发布端口会绕过 UFW**:DNAT 发生在 `DOCKER` 链,先于 ufw 的 `INPUT`
+> 规则。compose 里 `ports:` 出现的端口一律**直接对公网开放**,`ufw deny` 拦不住。
+> 真要限制来源,得写 `DOCKER-USER` 链规则。
+>
+> ⚠️ 机器上 **fail2ban 在跑**(3x-ui 自带 IP Limit jail)。不要盲目重置 ufw 规则。
+
+---
+
+## 鉴权(公网必开)
+
+服务端支持 HMAC 挑战/响应,两种模式(见 `server/src/index.js`):
+
+```bash
+# 模式一:共享 Bearer Token
+LARES_AUTH_MODE=token
+LARES_AUTH_TOKEN=$(openssl rand -hex 32)
+
+# 模式二:圈子口令(可按圈子分别设)
+LARES_AUTH_MODE=circle
+LARES_CIRCLE_PASSCODE=$(openssl rand -hex 16)
+LARES_CIRCLE_PASSCODES='{"home":"xxx","work":"yyy"}'
+
+# 两种都收
+LARES_AUTH_MODE=token,circle
+```
+
+**`LARES_AUTH_MODE=none` 只可用于本机联调。** 缺密钥时服务端会拒绝启动(fail closed)。
+
+> ⚠️ **部署前必须处理**:`clientIp()` 刻意不信任可伪造的 `X-Forwarded-For`。
+> 走 Caddy 反代后所有连接共享反代 IP,**限流会退化为全局而非按客户端**。
+> 需要在 Caddy 侧解析可信客户端 IP 后再传给上游。
+
+---
 
 ## 客户端指向公网
 
 ```bash
-# 移动端/桌面端
 flutter build apk --release --split-per-abi \
-  --dart-define=LARES_SIGNALING=wss://rtc.example.com/ws
-# Web
-flutter build web --dart-define=LARES_SIGNALING=wss://rtc.example.com/ws
+  --dart-define=LARES_SIGNALING=wss://rtc.example.com:8444/ws
+flutter build web \
+  --dart-define=LARES_SIGNALING=wss://rtc.example.com:8444/ws
 ```
 
-> 客户端不要再传 `LARES_HOST_ONLY_ICE=true`(仅局域网联调用)。
+> 也可以不重新打包 —— App 设置页里直接改「服务器地址」。
+> 公网下**不要**再传 `LARES_HOST_ONLY_ICE=true`(那是局域网联调专用)。
+
+---
 
 ## 注意事项
 
-- **WSS 是必须的**:浏览器要求安全上下文,移动 ATS 同理,不要裸 ws 上公网。
-- **TURN**:多数家用/办公 NAT 下 UDP 直连即可;对称 NAT(部分校园网/企业网)需要 TURN,compose 已内置基础配置,严格环境按 LiveKit 文档再调。
-- **成本**:自托管 LiveKit 不收分钟费,但带宽自担;语音每路约 30~50kbps。
-- **升级**:`docker compose pull && docker compose up -d`;lares-server 改动后 `docker compose build lares-server && docker compose up -d`。
+- **WSS 是硬要求**:浏览器要安全上下文才给麦克风,iOS ATS 同理。裸 `ws://` 上公网不可行。
+- **TURN 默认关闭**:开 TURN 要额外证书和端口,而 UDP mux + ICE/TCP 已覆盖绝大多数 NAT。
+  真遇到对称 NAT(部分校园网/企业网)再按 LiveKit 文档开。
+- **内存**:机器只有 1 GB 且与 xray 共享。compose 已给每个服务设了内存上限,
+  防止泄漏 OOM-kill 掉机场。极限情况可改用 `systemd/` 下的 unit(更省内存,无 Docker 开销)。
+- **升级**:`docker compose pull && docker compose up -d`;
+  改了 lares-server 则 `docker compose build lares-server && docker compose up -d`。
+
+---
+
+## 已知未验证项
+
+以下在真实 VPS 上跑过 `preflight.sh` 之前都属推断:
+
+- `80/tcp` 是否真的空闲(README 记录为「疑似空闲,未核实」)
+- 实际可用内存余量
+- Docker 版本与 `docker compose` v2 插件是否就位
+- 现有 ufw / iptables 规则形态
+
+`preflight.sh` 会把这些**全部**查一遍并给出 PASS/FAIL。

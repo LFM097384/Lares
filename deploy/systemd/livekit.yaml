@@ -1,0 +1,41 @@
+# LiveKit 配置(systemd 方案)—— 与 docker-compose.yml 内联的那份保持一致
+# 安装到:/etc/lares/livekit.yaml
+port: 7880
+bind_addresses: ["0.0.0.0"]
+
+logging:
+  # 用 logging.level;顶层 log_level 已废弃且会反过来覆盖这里,不要同时写
+  level: info
+
+# 建议改用环境变量 LIVEKIT_KEYS="key: secret"(见 livekit.env),
+# 避免密钥落在这个文件里。若确实要写在这里:
+# keys:
+#   <API_KEY>: <API_SECRET>
+
+rtc:
+  # ICE/TCP 兜底(UDP 被限速时回落)
+  tcp_port: 7881
+
+  # ⚠️ UDP 单端口复用。绝对不要同时出现 port_range_start / port_range_end ——
+  #    LiveKit 源码是「先判断端口段,端口段没设才用 mux」,与官方文档写反了。
+  #    一旦设了端口段,下面这行会被**静默忽略**。
+  udp_port: 7882
+
+  # NAT 机器必须开(默认其实是 false),否则把内网 IP 当候选发给客户端
+  use_external_ip: true
+
+turn:
+  # 默认关闭:UDP mux + ICE/TCP 已覆盖绝大多数 NAT
+  enabled: false
+
+room:
+  # 语音场景:只允许 opus
+  enabled_codecs:
+    - mime: audio/opus
+  empty_timeout: 300
+  departure_timeout: 20
+  max_participants: 20
+
+limit:
+  # 1 vCPU:给 track 数一个硬顶
+  num_tracks: 100
