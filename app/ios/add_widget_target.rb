@@ -6,7 +6,6 @@ require 'xcodeproj'
 PROJ_PATH = File.join(__dir__, 'Runner.xcodeproj')
 WIDGET_NAME = 'LaresWidget'
 APP_GROUP = 'group.com.example.lares_app'
-BUNDLE_PREFIX = 'com.example.lares_app'
 
 proj = Xcodeproj::Project.open(PROJ_PATH)
 
@@ -17,6 +16,13 @@ end
 
 app_target = proj.targets.find { |t| t.name == 'Runner' }
 abort '找不到 Runner target' if app_target.nil?
+
+# 父 App 的真实 bundle id(注意 Flutter 默认是驼峰 laresApp 而非 lares_app)
+BUNDLE_PREFIX = app_target.build_configurations
+  .map { |c| c.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] }
+  .find { |id| id.is_a?(String) && !id.empty? && !id.start_with?('$') }
+abort '读不到父 App bundle id' if BUNDLE_PREFIX.nil?
+puts "父 App bundle id: #{BUNDLE_PREFIX}"
 
 # 1) 创建 Widget Extension target
 widget = proj.new_target(:app_extension, WIDGET_NAME, :ios, '17.0')
