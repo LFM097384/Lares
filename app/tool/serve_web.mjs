@@ -37,18 +37,19 @@ http
       // SPA 回退
       file = join(root, 'index.html');
     }
-    // 缓存策略(性能优化):带内容哈希的静态资产长缓存,index.html 不缓存
+    // 缓存策略:仅内容稳定的资源(canvaskit/字体)长缓存;
+    // 应用产物(html/js/mjs/wasm)每次构建都变,必须 no-cache(血泪教训)
     const name = file.split(/[\\/]/).pop() ?? '';
-    const isHtml = name === 'index.html';
-    const isHashed = /\.(wasm|js|otf|ttf|woff2?)$/.test(name) || file.includes('canvaskit');
-    const cacheControl = isHtml
-      ? 'no-cache'
-      : isHashed
-        ? 'public, max-age=31536000, immutable'
-        : 'public, max-age=3600';
+    const isStable = file.includes('canvaskit') || /\.(otf|ttf|woff2?)$/.test(name);
+    const cacheControl = isStable
+      ? 'public, max-age=31536000, immutable'
+      : 'no-cache';
     res.writeHead(200, {
       'content-type': MIME[extname(file)] ?? 'application/octet-stream',
       'cache-control': cacheControl,
+      // WASM skwasm 多线程 + SharedArrayBuffer 需要跨源隔离
+      'cross-origin-opener-policy': 'same-origin',
+      'cross-origin-embedder-policy': 'require-corp',
     });
     createReadStream(file).pipe(res);
   })

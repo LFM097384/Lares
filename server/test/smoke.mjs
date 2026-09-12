@@ -46,11 +46,11 @@ function client(userId, name) {
 }
 
 try {
-  await wait(800);
+  await wait(1500);
 
   // /ws 路径也可接入(反代按路径分流用)
   const pathClient = new WebSocket(`ws://127.0.0.1:${PORT}/ws`);
-  await new Promise((r) => pathClient.on('open', r));
+  await new Promise((r, j) => { pathClient.on('open', r); pathClient.on('error', j); });
   check('/ws 路径可连接', true);
   pathClient.close();
 
@@ -150,8 +150,26 @@ try {
   await a.waitFor((m) => m.t === 'room' && m.circleId === 'home');
   b.send({ t: 'join', circleId: 'home' });
   await b.waitFor((m) => m.t === 'room' && m.circleId === 'home');
-  b.send({ t: 'leave' });
+
+  // ── 位置共享 ──
+  b.send({ t: 'loc', lat: 39.9042, lng: 116.4074 });
+  const loc = await a.waitFor((m) => m.t === 'member_loc');
+  check('a 收到 b 的位置', loc.userId === 'u_b' && Math.abs(loc.lat - 39.9042) < 1e-6);
+
+  // ── 踢人 ──
+  // 圈外人不能踢人
+  const beforeKick = b.inbox.length;
+  c.send({ t: 'kick', circleId: 'home', userId: 'u_b' });
+  await wait(400);
+  check('圈外人踢人被拒绝', !b.inbox.slice(beforeKick).some((m) => m.t === 'kicked'));
+  // 圈内 a 踢 b:b 收到 kicked,a 看到 member_left
+  a.send({ t: 'kick', circleId: 'home', userId: 'u_b' });
+  const kicked = await b.waitFor((m) => m.t === 'kicked');
+  check('b 收到被踢通知', kicked.circleId === 'home');
   await a.waitFor((m) => m.t === 'member_left' && m.userId === 'u_b');
+  check('a 看到 b 被移出', true);
+
+  b.send({ t: 'leave' });
 
   // b 离开,c 的大厅摘要应变为 1 人
   const cSummaryAfter = c.waitFor((m) => m.t === 'circle_summary' && m.count === 1);

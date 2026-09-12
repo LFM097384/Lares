@@ -32,6 +32,10 @@ dependencies:
   http: ^1.2.0
   # 网络类型检测(仅 WiFi 下高音质)
   connectivity_plus: ^7.0.0
+  # 位置共享(Snapchat 式):GPS + 开源地图(免 API key)
+  geolocator: ^14.0.0
+  flutter_map: ^8.2.0
+  latlong2: ^0.9.1
 
 dev_dependencies:
   flutter_test:

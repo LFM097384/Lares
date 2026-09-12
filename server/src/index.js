@@ -55,6 +55,8 @@ function memberSnapshot(member) {
     name: member.name,
     status: member.status,
     deviceCount: member.devices.size,
+    // 位置共享:有则带上(后进房的人也能看到)
+    ...(member.loc ? { loc: member.loc } : {}),
   };
 }
 
@@ -154,6 +156,56 @@ function handleConnection(ws) {
         if (!target) return;
         pending.delete(msg.userId);
         await joinCircle(target.ws, target.session, circleId);
+        break;
+      }
+
+      case 'kick': {
+        // 踢人:圈内成员可把目标用户请出房间(非封禁,可再进)
+        const circleId = typeof msg.circleId === 'string' ? msg.circleId : '';
+        const targetId = typeof msg.userId === 'string' ? msg.userId : '';
+        const circle = circleId ? getCircle(circleId) : null;
+        const actor = circle?.get(session.userId);
+        // 授权:发起者必须是圈内成员;不能踢自己
+        if (!actor || !actor.devices.has(session.deviceId) || !targetId || targetId === session.userId) return;
+        const target = circle.get(targetId);
+        if (!target) return;
+        // 先通知目标端,再移出房间
+        for (const tws of target.devices.values()) {
+          send(tws, { t: 'kicked', circleId, by: actor.name });
+        }
+        circle.delete(targetId);
+        broadcast(circleId, { t: 'member_left', circleId, userId: targetId });
+        if (circle.size === 0) circles.delete(circleId);
+        broadcastLobbySummary(circleId);
+        break;
+      }
+
+      case 'loc': {
+        // 位置共享(Snapchat 式):仅转发给同房成员,不落盘
+        if (!session.circleId || !session.userId) return;
+        const member = getCircle(session.circleId).get(session.userId);
+        if (!member) return;
+        const lat = Number(msg.lat), lng = Number(msg.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        member.loc = { lat, lng, ts: Date.now() };
+        broadcast(session.circleId, {
+          t: 'member_loc',
+          circleId: session.circleId,
+          userId: session.userId,
+          name: member.name,
+          lat,
+          lng,
+          ts: member.loc.ts,
+        });
+        break;
+      }
+
+      case 'loc_off': {
+        // 关闭共享:广播清除自己的位置
+        if (!session.circleId || !session.userId) return;
+        const member = getCircle(session.circleId).get(session.userId);
+        if (member) delete member.loc;
+        broadcast(session.circleId, { t: 'member_loc_off', circleId: session.circleId, userId: session.userId });
         break;
       }
 

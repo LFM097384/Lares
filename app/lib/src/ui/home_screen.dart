@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../state/circle_store.dart';
 import '../state/identity.dart';
+import '../state/location_share_stub.dart'
+    if (dart.library.io) '../state/location_share.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
@@ -19,12 +21,14 @@ class HomeScreen extends StatelessWidget {
     required this.circleStore,
     required this.settings,
     this.voiceNotes,
+    this.locationShare,
   });
 
   final RoomController controller;
   final CircleStore circleStore;
   final SettingsStore settings;
   final VoiceNotesController? voiceNotes;
+  final LocationShareService? locationShare;
 
   String _circleName(String? circleId) {
     if (circleId == null) return '';
@@ -44,11 +48,23 @@ class HomeScreen extends StatelessWidget {
           listenable: controller,
           builder: (context, _) {
             final inRoom = controller.phase != RoomPhase.idle;
+            // 被踢提示(弹出一次即清)
+            if (controller.kickedBy != null) {
+              final by = controller.kickedBy!;
+              controller.kickedBy = null;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text('你被${by.isEmpty ? '管理员' : by}请出了房间')),
+                );
+              });
+            }
             final roomScreen = RoomScreen(
               controller: controller,
               circleName: _circleName(controller.circleId),
               voiceNotes: voiceNotes,
               settings: settings,
+              locationShare: locationShare,
             );
             if (!wide) {
               // 移动端:在房 -> 房间页整屏;未在房 -> 圈子列表
@@ -284,6 +300,12 @@ class _CircleTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 邀请入口前置(用户反馈:找不到获取圈子链接的地方)
+            IconButton(
+              tooltip: '邀请朋友进圈',
+              icon: const Icon(Icons.ios_share_rounded, size: 18),
+              onPressed: () => _showInviteDialog(context),
+            ),
             if (summary?.knockRequired == true)
               Padding(
                 padding: const EdgeInsets.only(right: LaresSpacing.xs),

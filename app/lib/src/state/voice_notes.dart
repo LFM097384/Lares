@@ -57,7 +57,18 @@ class VoiceNotesController extends ChangeNotifier {
   RoomPhase _lastPhase = RoomPhase.idle;
 
   final AudioRecorder _recorder = AudioRecorder();
-  final Player _player = Player();
+  Player? _player;
+  bool _mediaKitReady = false;
+
+  /// 惰性初始化 media_kit:首次播放时才初始化
+  /// (启动更快;Web/WASM 下初始化异常不影响 App 启动)
+  Future<Player> _ensurePlayer() async {
+    if (!_mediaKitReady) {
+      MediaKit.ensureInitialized();
+      _mediaKitReady = true;
+    }
+    return _player ??= Player();
+  }
 
   bool recording = false;
   bool playing = false;
@@ -166,12 +177,13 @@ class VoiceNotesController extends ChangeNotifier {
     final queue = List.of(_notes);
     for (final note in queue) {
       try {
+        final player = await _ensurePlayer();
         final media = await Media.memory(
           base64Decode(note.audioBase64),
           type: 'audio/aac',
         );
-        await _player.open(media, play: true);
-        await _player.stream.completed.first.timeout(
+        await player.open(media, play: true);
+        await player.stream.completed.first.timeout(
           Duration(seconds: note.durationSec.ceil() + 5),
         );
       } catch (e) {
@@ -193,7 +205,7 @@ class VoiceNotesController extends ChangeNotifier {
   void dispose() {
     _room.removeListener(_onRoomChanged);
     _recorder.dispose();
-    _player.dispose();
+    _player?.dispose();
     super.dispose();
   }
 }

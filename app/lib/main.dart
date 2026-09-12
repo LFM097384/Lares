@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
 
 import 'src/config.dart';
 import 'src/net/signaling_client.dart';
@@ -15,6 +14,8 @@ import 'src/platform/window_setup.dart'
 import 'src/rtc/livekit_rtc_service.dart';
 import 'src/state/circle_store.dart';
 import 'src/state/identity.dart';
+import 'src/state/location_share_stub.dart'
+    if (dart.library.io) 'src/state/location_share.dart';
 import 'src/state/models.dart';
 import 'src/state/room_controller.dart';
 import 'src/state/settings_store.dart';
@@ -24,7 +25,6 @@ import 'src/ui/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized(); // 语音便签播放
 
   // 桌面端窗口配置(Web/移动为空操作)
   await setupDesktopWindow();
@@ -113,11 +113,15 @@ Future<void> main() async {
     room: controller,
   );
 
+  // 位置共享(Snapchat 式,产品反馈):显式开启,出房即停
+  final locationShare = LocationShareService(room: controller);
+
   runApp(LaresApp(
     controller: controller,
     voiceNotes: voiceNotes,
     circleStore: circleStore,
     settings: settings,
+    locationShare: locationShare,
   ));
 }
 
@@ -128,12 +132,14 @@ class LaresApp extends StatelessWidget {
     required this.circleStore,
     required this.settings,
     this.voiceNotes,
+    this.locationShare,
   });
 
   final RoomController controller;
   final CircleStore circleStore;
   final SettingsStore settings;
   final VoiceNotesController? voiceNotes;
+  final LocationShareService? locationShare;
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +155,7 @@ class LaresApp extends StatelessWidget {
         circleStore: circleStore,
         settings: settings,
         voiceNotes: voiceNotes,
+        locationShare: locationShare,
       ),
     );
   }

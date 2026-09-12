@@ -1,30 +1,43 @@
 import 'package:flutter/material.dart';
 
+import '../state/location_share_stub.dart'
+    if (dart.library.io) '../state/location_share.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
+import 'map_panel.dart';
 import 'widgets/avatar_orb.dart';
 
 /// 房间内界面(设计.md §3.2-2):极简 —— 头像网格 + 波纹 + 底部两个主按钮。
-/// 不做打字聊天区,陪伴而非会议。
-class RoomScreen extends StatelessWidget {
+/// 不做打字聊天区,陪伴而非会议。地图视图:位置共享(Snapchat 式)。
+class RoomScreen extends StatefulWidget {
   const RoomScreen({
     super.key,
     required this.controller,
     required this.circleName,
     this.voiceNotes,
     this.settings,
+    this.locationShare,
   });
 
   final RoomController controller;
   final String circleName;
   final VoiceNotesController? voiceNotes;
   final SettingsStore? settings;
+  final LocationShareService? locationShare;
+
+  @override
+  State<RoomScreen> createState() => _RoomScreenState();
+}
+
+class _RoomScreenState extends State<RoomScreen> {
+  bool _showMap = false;
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     return Scaffold(
       body: Stack(
         children: [
@@ -32,10 +45,25 @@ class RoomScreen extends StatelessWidget {
           SafeArea(
             child: Column(
               children: [
-                _RoomHeader(controller: controller, circleName: circleName),
-                _KnockBanner(controller: controller, settings: settings),
-                Expanded(child: _MemberGrid(controller: controller)),
-                _ControlBar(controller: controller, voiceNotes: voiceNotes),
+                _RoomHeader(
+                  controller: controller,
+                  circleName: widget.circleName,
+                  showMap: _showMap,
+                  onToggleMap: widget.locationShare == null
+                      ? null
+                      : () => setState(() => _showMap = !_showMap),
+                ),
+                _KnockBanner(controller: controller, settings: widget.settings),
+                Expanded(
+                  child: _showMap && widget.locationShare != null
+                      ? MapPanel(
+                          controller: controller,
+                          locationShare: widget.locationShare!,
+                        )
+                      : _MemberGrid(controller: controller),
+                ),
+                _ControlBar(
+                    controller: controller, voiceNotes: widget.voiceNotes),
               ],
             ),
           ),
@@ -152,10 +180,17 @@ class _KnockBanner extends StatelessWidget {
 }
 
 class _RoomHeader extends StatelessWidget {
-  const _RoomHeader({required this.controller, required this.circleName});
+  const _RoomHeader({
+    required this.controller,
+    required this.circleName,
+    this.showMap = false,
+    this.onToggleMap,
+  });
 
   final RoomController controller;
   final String circleName;
+  final bool showMap;
+  final VoidCallback? onToggleMap;
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +225,15 @@ class _RoomHeader extends StatelessWidget {
                 ],
               ),
               const Spacer(),
+              if (onToggleMap != null)
+                IconButton(
+                  tooltip: showMap ? '回到房间' : '位置共享地图',
+                  onPressed: onToggleMap,
+                  icon: Icon(
+                    showMap ? Icons.groups_rounded : Icons.map_outlined,
+                    color: showMap ? LaresColors.ember : null,
+                  ),
+                ),
               if (controller.lastJoinLatency != null)
                 Tooltip(
                   message: '本次进房耗时',
@@ -255,6 +299,29 @@ class _VoiceNoteButton extends StatelessWidget {
   }
 }
 
+/// 踢人确认
+Future<void> _confirmKick(
+    BuildContext context, RoomController controller, Member m) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('把「${m.name}」请出房间?'),
+      content: const Text('对方会被移出房间(可以稍后再进来,不是封禁)'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('算了'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('请出'),
+        ),
+      ],
+    ),
+  );
+  if (ok == true) controller.kick(m.userId);
+}
+
 class _MemberGrid extends StatelessWidget {
   const _MemberGrid({required this.controller});
 
@@ -284,10 +351,16 @@ class _MemberGrid extends StatelessWidget {
           itemBuilder: (context, i) {
             final m = members[i];
             final isMe = m.userId == controller.userId;
-            return AvatarOrb(
-              member: m,
-              speaking: controller.speakingIds.contains(m.userId),
-              muted: isMe && controller.muted,
+            return GestureDetector(
+              // 长按头像:踢出(自己除外)
+              onLongPress: isMe
+                  ? null
+                  : () => _confirmKick(context, controller, m),
+              child: AvatarOrb(
+                member: m,
+                speaking: controller.speakingIds.contains(m.userId),
+                muted: isMe && controller.muted,
+              ),
             );
           },
         );

@@ -84,6 +84,16 @@ class RoomController extends ChangeNotifier {
   /// 收到的敲门请求(我在房内时)
   final List<({String userId, String name})> knockRequests = [];
 
+  /// 被踢通知(UI 弹出后即清)
+  String? kickedBy;
+
+  /// 位置共享(Snapchat 式):同房成员的最新位置
+  final Map<String, ({String name, double lat, double lng, int ts})> locations =
+      {};
+
+  /// 我是否正在共享位置(由 LocationShareService 驱动)
+  bool sharingMyLocation = false;
+
   Timer? _knockTimer;
 
   static const knockTimeout = Duration(seconds: 30);
@@ -177,6 +187,7 @@ class RoomController extends ChangeNotifier {
     _lastRtcUrl = null;
     _lastRtcToken = null;
     mediaDowngraded = false;
+    locations.clear();
     _signaling.leave();
     await _rtc.leave();
     phase = RoomPhase.idle;
@@ -248,6 +259,24 @@ class RoomController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 踢人:把目标用户请出房间(服务端做圈内授权)
+  void kick(String targetUserId) {
+    _signaling
+        .send({'t': 'kick', 'circleId': circleId, 'userId': targetUserId});
+  }
+
+  /// 位置共享:开启/关闭(LocationShareService 驱动)
+  void setSharingMyLocation(bool sharing) {
+    sharingMyLocation = sharing;
+    if (!sharing) _signaling.send({'t': 'loc_off'});
+    notifyListeners();
+  }
+
+  /// 上报一次位置(LocationShareService 节流后调用)
+  void reportLocation(double lat, double lng) {
+    _signaling.send({'t': 'loc', 'lat': lat, 'lng': lng});
+  }
+
   /// 房内成员:放敲门的人进来
   void allowKnock(String userId) {
     _signaling
@@ -299,11 +328,26 @@ class RoomController extends ChangeNotifier {
         if (msg['circleId'] != circleId) return;
         knocking = false; // 进房成功(直接进或敲门被放行)
         _knockTimer?.cancel();
+        final wireMembers = (msg['members'] as List? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
         _members
           ..clear()
-          ..addAll((msg['members'] as List? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map(Member.fromWire));
+          ..addAll(wireMembers.map(Member.fromWire));
+        // 恢复成员的位置共享状态(后进房也能看到)
+        locations.clear();
+        for (final m in wireMembers) {
+          final loc = m['loc'];
+          final uid = m['userId'] as String?;
+          if (uid != null && loc is Map) {
+            locations[uid] = (
+              name: m['name'] as String? ?? '圈友',
+              lat: (loc['lat'] as num).toDouble(),
+              lng: (loc['lng'] as num).toDouble(),
+              ts: (loc['ts'] as num?)?.toInt() ?? 0,
+            );
+          }
+        }
         notifyListeners();
       case 'member_joined':
         if (msg['circleId'] != circleId) return;
@@ -386,6 +430,27 @@ class RoomController extends ChangeNotifier {
           userId: msg['userId'] as String? ?? '',
           name: msg['name'] as String? ?? '圈友',
         ));
+        notifyListeners();
+      case 'kicked':
+        // 我被请出房间:清理本地房间态,UI 弹提示
+        kickedBy = msg['by'] as String? ?? '';
+        leave();
+      case 'member_loc':
+        if (msg['circleId'] != circleId) return;
+        final uid = msg['userId'] as String? ?? '';
+        final lat = (msg['lat'] as num?)?.toDouble();
+        final lng = (msg['lng'] as num?)?.toDouble();
+        if (uid.isEmpty || lat == null || lng == null) return;
+        locations[uid] = (
+          name: msg['name'] as String? ?? '圈友',
+          lat: lat,
+          lng: lng,
+          ts: (msg['ts'] as num?)?.toInt() ?? 0,
+        );
+        notifyListeners();
+      case 'member_loc_off':
+        if (msg['circleId'] != circleId) return;
+        locations.remove(msg['userId']);
         notifyListeners();
       case '_disconnected':
         if (phase == RoomPhase.inRoom) {

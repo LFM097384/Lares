@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   flutter_webrtc
+  geolocator_windows
   livekit_client
   media_kit_libs_windows_audio
   record_windows
