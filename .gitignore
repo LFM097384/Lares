@@ -33,3 +33,6 @@ server/livekit/
 
 # 本地下载的构建产物
 dist/
+
+# 临时缓存
+.tmp-npm-cache/
