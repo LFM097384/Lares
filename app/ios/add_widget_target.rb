@@ -54,10 +54,20 @@ app_target.build_configurations.each do |c|
 end
 
 # 5) 依赖 + 嵌入到主 App
+# Embed 阶段必须插在 Flutter 模板的收尾脚本(Thin Binary)之前,否则 Xcode 报构建环(Cycle)
 app_target.add_dependency(widget)
 embed = app_target.new_copy_files_build_phase('Embed App Extensions')
 embed.symbol_dst_subfolder_spec = :plug_ins
 embed.add_file_reference(widget.product_reference)
+app_target.build_phases.delete(embed)
+thin_idx = app_target.build_phases.index { |p| p.name == 'Thin Binary' }
+if thin_idx
+  app_target.build_phases.insert(thin_idx, embed)
+else
+  # 没有 Thin Binary 时插到最后一个 Run Script 之前
+  script_idx = app_target.build_phases.rindex { |p| p.is_a?(Xcodeproj::Project::Object::PBXShellScriptBuildPhase) }
+  script_idx ? app_target.build_phases.insert(script_idx, embed) : app_target.build_phases << embed
+end
 
 proj.save(PROJ_PATH)
 puts "#{WIDGET_NAME} target 已添加并嵌入 Runner"
