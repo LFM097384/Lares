@@ -8,6 +8,7 @@ class SettingsStore extends ChangeNotifier {
   static const _kWifiOnlyHq = 'lares.wifiOnlyHq';
   static const _kDndStart = 'lares.dndStart'; // -1 = 未设置
   static const _kDndEnd = 'lares.dndEnd';
+  static const _kSignalingOverride = 'lares.signalingOverride';
 
   /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
   bool wifiOnlyHq = true;
@@ -16,13 +17,28 @@ class SettingsStore extends ChangeNotifier {
   int dndStartHour = -1;
   int dndEndHour = -1;
 
+  /// 信令地址覆盖(真机联调:局域网 IP 常变,不用重打包;改动后重启 App 生效)
+  String? signalingOverride;
+
   static Future<SettingsStore> load() async {
     final prefs = await SharedPreferences.getInstance();
     final s = SettingsStore._();
     s.wifiOnlyHq = prefs.getBool(_kWifiOnlyHq) ?? true;
     s.dndStartHour = prefs.getInt(_kDndStart) ?? -1;
     s.dndEndHour = prefs.getInt(_kDndEnd) ?? -1;
+    s.signalingOverride = prefs.getString(_kSignalingOverride);
     return s;
+  }
+
+  Future<void> setSignalingOverride(String? url) async {
+    signalingOverride = (url == null || url.trim().isEmpty) ? null : url.trim();
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (signalingOverride == null) {
+      await prefs.remove(_kSignalingOverride);
+    } else {
+      await prefs.setString(_kSignalingOverride, signalingOverride!);
+    }
   }
 
   bool get dndEnabled => dndStartHour >= 0 && dndEndHour >= 0;

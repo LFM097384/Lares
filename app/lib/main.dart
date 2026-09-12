@@ -33,7 +33,9 @@ Future<void> main() async {
   final circleStore = await CircleStore.load();
   final settings = await SettingsStore.load();
 
-  final signaling = SignalingClient(url: LaresConfig.signalingUrl);
+  // 信令地址:设置里的覆盖优先(真机联调局域网 IP 常变,免重打包)
+  final signalingUrl = settings.signalingOverride ?? LaresConfig.signalingUrl;
+  final signaling = SignalingClient(url: signalingUrl);
   final controller = RoomController(
     signaling: signaling,
     rtc: LiveKitRtcService(hostOnlyIce: LaresConfig.hostOnlyIce),
@@ -107,7 +109,7 @@ Future<void> main() async {
 
   // 语音便签(§2.2):没人时留一条 15s 语音
   final voiceNotes = VoiceNotesController(
-    httpBase: httpBaseFromWs(LaresConfig.signalingUrl),
+    httpBase: httpBaseFromWs(signalingUrl),
     room: controller,
   );
 

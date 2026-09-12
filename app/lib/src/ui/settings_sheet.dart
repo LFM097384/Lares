@@ -62,6 +62,45 @@ Future<void> showSettingsSheet(
                   }
                 },
               ),
+              // 真机联调:局域网 IP 常变,免重打包改地址
+              ListTile(
+                leading: const Icon(Icons.dns_outlined),
+                title: const Text('服务器地址'),
+                subtitle: Text(
+                  settings.signalingOverride ?? '默认(打包内置)\n改完重启 App 生效',
+                ),
+                onTap: () async {
+                  final field = TextEditingController(
+                      text: settings.signalingOverride ?? '');
+                  final input = await showDialog<String>(
+                    context: ctx,
+                    builder: (d) => AlertDialog(
+                      title: const Text('服务器地址'),
+                      content: TextField(
+                        controller: field,
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          hintText: 'ws://192.168.x.x:8787(留空恢复默认)',
+                        ),
+                        onSubmitted: (_) => Navigator.pop(d, field.text),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(d),
+                          child: const Text('算了'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(d, field.text),
+                          child: const Text('保存'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (input != null) {
+                    await settings.setSignalingOverride(input);
+                  }
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.speed_rounded),
                 title: const Text('状态'),
