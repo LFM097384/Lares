@@ -1,8 +1,9 @@
-// Lares 一键进圈 — presence 信令服务
+// Lares 炉灵 — presence 信令服务
 // 职责:维护「谁在哪个圈子房间」「轻状态」实时广播,并为进房成员签发 LiveKit token。
 // MVP:内存态,单进程。后续按设计.md §4.2 演进为 Redis Pub/Sub 集群。
 
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +15,190 @@ const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY ?? '';
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET ?? '';
 const RTC_CONFIGURED = Boolean(LIVEKIT_URL && LIVEKIT_API_KEY && LIVEKIT_API_SECRET);
+
+// ── 鉴权配置(公网暴露前的最小防线)──────────────────────────────────────────
+// 产品决策:不做账号体系。用「共享密钥」或「圈子口令」的挑战应答证明把门,
+// 保护约 20 人的熟人圈 —— 足以挡住扫描器与顺手薅带宽的人,不追求企业级身份。
+// LARES_AUTH_MODE: none(默认,本地开发) | token | circle | "token,circle"(任一通过即可)
+const AUTH_MODES = new Set(
+  String(process.env.LARES_AUTH_MODE ?? 'none').split(',').map((s) => s.trim()).filter(Boolean),
+);
+if (AUTH_MODES.size === 0) AUTH_MODES.add('none');
+const AUTH_TOKEN = process.env.LARES_AUTH_TOKEN ?? '';
+const CIRCLE_PASSCODE = process.env.LARES_CIRCLE_PASSCODE ?? '';
+// 可选:给特定圈子单独设口令,优先于全站口令。无需圈子注册表即可做到按圈隔离。
+let CIRCLE_PASSCODES = {};
+const ALLOWED_ORIGIN = process.env.LARES_ALLOWED_ORIGIN ?? '';
+// nonce 有效期,默认 60s;可覆盖以便测试快速验证「过期」分支
+const NONCE_TTL_MS = Number(process.env.LARES_AUTH_NONCE_TTL_MS ?? 60_000);
+
+// 启动期配置校验:声明了模式却没给密钥 —— 必须「失败关闭」,绝不静默降级成裸奔
+function validateAuthConfig() {
+  const fatal = (m) => { console.error(`[auth] 致命配置错误:${m}`); process.exit(1); };
+  for (const m of AUTH_MODES) {
+    if (m !== 'none' && m !== 'token' && m !== 'circle') fatal(`未知的 LARES_AUTH_MODE 取值 "${m}"(可选 none/token/circle)`);
+  }
+  // none 与其它模式混写语义含糊(到底验不验?),一律拒启动
+  if (AUTH_MODES.has('none') && AUTH_MODES.size > 1) fatal('LARES_AUTH_MODE 不能把 none 与其它模式混用');
+  if (process.env.LARES_CIRCLE_PASSCODES) {
+    try {
+      const parsed = JSON.parse(process.env.LARES_CIRCLE_PASSCODES);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('不是 JSON 对象');
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v !== 'string' || !v) throw new Error(`圈子 "${k}" 的口令为空`);
+      }
+      CIRCLE_PASSCODES = parsed;
+    } catch (e) {
+      fatal(`LARES_CIRCLE_PASSCODES 不是合法的 {"circleId":"passcode"} JSON:${e.message}`);
+    }
+  }
+  if (AUTH_MODES.has('token') && !AUTH_TOKEN) fatal('LARES_AUTH_MODE 含 token,但 LARES_AUTH_TOKEN 为空');
+  if (AUTH_MODES.has('circle') && !CIRCLE_PASSCODE && Object.keys(CIRCLE_PASSCODES).length === 0) {
+    fatal('LARES_AUTH_MODE 含 circle,但 LARES_CIRCLE_PASSCODE 与 LARES_CIRCLE_PASSCODES 均为空');
+  }
+  if (!Number.isFinite(NONCE_TTL_MS) || NONCE_TTL_MS <= 0) fatal('LARES_AUTH_NONCE_TTL_MS 必须是正数毫秒');
+}
+validateAuthConfig();
+
+const AUTH_REQUIRED = !AUTH_MODES.has('none');
+// 下发给客户端的可用模式,客户端 UI 据此决定弹「口令框」还是「密钥框」
+const AUTH_MODE_LIST = AUTH_REQUIRED ? [...AUTH_MODES] : [];
+
+/// 取某圈子适用的口令:按圈覆盖优先,否则回落全站口令
+function passcodeFor(circleId) {
+  const specific = CIRCLE_PASSCODES[circleId];
+  if (typeof specific === 'string' && specific) return specific;
+  return CIRCLE_PASSCODE || null;
+}
+
+/// 定长比较:先比长度再 timingSafeEqual(长度不等时 timingSafeEqual 会直接抛)
+function safeEqualStr(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ba = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+function hmacHex(key, msg) {
+  return crypto.createHmac('sha256', key).update(msg, 'utf8').digest('hex');
+}
+
+// ── nonce 池:一次性 + 60s 过期,防重放 ─────────────────────────────────────
+const MAP_CAP = 10_000; // nonce / 限流表容量上限,防止被打爆内存
+const nonces = new Map(); // nonce -> issuedAt
+
+function issueNonce() {
+  // Map 保持插入序:超容量时淘汰最旧的一条
+  while (nonces.size >= MAP_CAP) nonces.delete(nonces.keys().next().value);
+  const nonce = crypto.randomBytes(16).toString('hex'); // 32 hex chars
+  nonces.set(nonce, Date.now());
+  return nonce;
+}
+
+/// 消费 nonce:无论成败都删除(单次有效)。返回它是否仍然有效。
+function consumeNonce(nonce) {
+  const issuedAt = nonces.get(nonce);
+  if (issuedAt === undefined) return false;
+  nonces.delete(nonce);
+  return Date.now() - issuedAt <= NONCE_TTL_MS;
+}
+
+function sweepNonces() {
+  const now = Date.now();
+  for (const [nonce, issuedAt] of nonces) {
+    if (now - issuedAt > NONCE_TTL_MS) nonces.delete(nonce);
+    else break; // 插入序 = 时间序,遇到第一个未过期的即可停
+  }
+}
+
+// ── 按 IP 的失败计数与封禁(轻量内存版,单进程够用)─────────────────────────
+const RL_WINDOW_MS = 5 * 60_000;
+const RL_MAX_FAILS = 10; // 5 分钟内超过 10 次失败即封禁
+const RL_BLOCK_MS = 5 * 60_000;
+const authFailures = new Map(); // ip -> { count, first, blockedUntil }
+
+function clientIp(req) {
+  // 只认 socket 对端地址:X-Forwarded-For 可伪造。反代场景需在入口层收敛可信来源。
+  const raw = req?.socket?.remoteAddress ?? 'unknown';
+  return raw.startsWith('::ffff:') ? raw.slice(7) : raw; // 归一 IPv4-mapped
+}
+
+function isRateLimited(ip) {
+  const rec = authFailures.get(ip);
+  if (!rec) return false;
+  if (rec.blockedUntil && Date.now() < rec.blockedUntil) return true;
+  if (rec.blockedUntil) authFailures.delete(ip); // 封禁已到期,放行并清账
+  return false;
+}
+
+function recordAuthFailure(ip) {
+  const now = Date.now();
+  let rec = authFailures.get(ip);
+  if (!rec || now - rec.first > RL_WINDOW_MS) rec = { count: 0, first: now, blockedUntil: 0 };
+  rec.count += 1;
+  if (rec.count > RL_MAX_FAILS) rec.blockedUntil = now + RL_BLOCK_MS;
+  while (authFailures.size >= MAP_CAP && !authFailures.has(ip)) {
+    authFailures.delete(authFailures.keys().next().value); // 淘汰最旧
+  }
+  authFailures.set(ip, rec);
+}
+
+function clearAuthFailures(ip) { authFailures.delete(ip); }
+
+function sweepRateLimits() {
+  const now = Date.now();
+  for (const [ip, rec] of authFailures) {
+    const dead = rec.blockedUntil ? now >= rec.blockedUntil : now - rec.first > RL_WINDOW_MS;
+    if (dead) authFailures.delete(ip);
+  }
+}
+
+/// 校验 hello.auth 的挑战应答证明。原文里始终不出现明文密钥。
+/// token 模式:proof = HMAC_SHA256(LARES_AUTH_TOKEN, `${nonce}:${userId}`)
+/// circle 模式:proof = HMAC_SHA256(passcodeFor(circleId), `${nonce}:${userId}:${circleId}`)
+/// 返回 { ok:true, mode, circleId } 或 { ok:false, reason }
+function verifyAuth(auth, userId, sessionNonce) {
+  if (!auth || typeof auth !== 'object') return { ok: false, reason: 'auth_required' };
+  const mode = typeof auth.mode === 'string' ? auth.mode : '';
+  // 客户端可回显 nonce 便于自检;一旦回显就必须与本连接下发的那条一致,杜绝跨连接重放
+  if (auth.nonce !== undefined && auth.nonce !== sessionNonce) return { ok: false, reason: 'auth_failed' };
+  // 未启用的模式一律不接受,避免「声明弱模式绕过强模式」
+  if (!AUTH_MODES.has(mode)) return { ok: false, reason: 'auth_failed' };
+  if (typeof auth.proof !== 'string' || !auth.proof) return { ok: false, reason: 'auth_failed' };
+  // nonce 一次性:验成验败都在此消费掉
+  if (!consumeNonce(sessionNonce)) return { ok: false, reason: 'auth_failed' };
+
+  if (mode === 'token') {
+    const expect = hmacHex(AUTH_TOKEN, `${sessionNonce}:${userId}`);
+    return safeEqualStr(auth.proof.toLowerCase(), expect)
+      ? { ok: true, mode: 'token', circleId: null }
+      : { ok: false, reason: 'auth_failed' };
+  }
+  // circle 模式:证明的是「某个具体圈子」的口令,因此该连接只能进那个圈子
+  const circleId = typeof auth.circleId === 'string' && auth.circleId ? auth.circleId : '';
+  if (!circleId) return { ok: false, reason: 'auth_failed' };
+  const pass = passcodeFor(circleId);
+  if (!pass) return { ok: false, reason: 'auth_failed' };
+  const expect = hmacHex(pass, `${sessionNonce}:${userId}:${circleId}`);
+  return safeEqualStr(auth.proof.toLowerCase(), expect)
+    ? { ok: true, mode: 'circle', circleId }
+    : { ok: false, reason: 'auth_failed' };
+}
+
+/// 连接是否有权操作该圈子。circle 模式钉死在证明过的那个圈子;token 模式不限。
+function circleAllowed(session, circleId) {
+  if (!AUTH_REQUIRED) return true;
+  if (session.authMode === 'circle') return session.authCircleId === circleId;
+  return true;
+}
+
+/// circle 模式下,不带 circleId 的请求默认落到已授权的那个圈子(而非写死的 'home'),
+/// 这样客户端少写一个字段也不会莫名撞上 auth_scope。
+function defaultCircleFor(session) {
+  if (AUTH_REQUIRED && session.authMode === 'circle' && session.authCircleId) return session.authCircleId;
+  return 'home';
+}
 
 // ── 房间状态 ──────────────────────────────────────────────────────────────
 // circleId -> Map<userId, Member>
@@ -91,6 +276,9 @@ function circleSummaryMsg(circleId) {
 function broadcastLobbySummary(circleId) {
   const data = JSON.stringify(circleSummaryMsg(circleId));
   for (const ws of lobby) {
+    // 修补越权泄露:circle 模式下的连接只证明了一个圈子的口令,
+    // 不该从大厅摘要里看到别的圈子「几个人在、都叫什么」。
+    if (ws._laresSession && !circleAllowed(ws._laresSession, circleId)) continue;
     if (ws.readyState === ws.OPEN) ws.send(data);
   }
 }
@@ -102,14 +290,34 @@ async function mintLiveKitToken(circleId, userId, name) {
     // token 短寿命,进房即签,降低泄露面
     ttl: '2h',
   });
-  at.addGrant({ roomJoin: true, room: circleId, canPublish: true, canSubscribe: true });
+  // canPublishData:即将上线的「圈内发文字/图片」走 LiveKit data channel。
+  // 其余维持房间级最小授权,不放宽。
+  at.addGrant({ roomJoin: true, room: circleId, canPublish: true, canSubscribe: true, canPublishData: true });
   return at.toJwt();
 }
 
 // ── 连接会话 ──────────────────────────────────────────────────────────────
-function handleConnection(ws) {
+function handleConnection(ws, req) {
   // 每条连接绑定 (userId, deviceId);一个用户可多端在线
-  const session = { userId: null, deviceId: null, circleId: null };
+  // authMode/authCircleId:本连接通过了哪种鉴权、被钉死在哪个圈子
+  const session = {
+    userId: null, deviceId: null, circleId: null,
+    authed: !AUTH_REQUIRED, authMode: AUTH_REQUIRED ? null : 'none', authCircleId: null,
+  };
+  const ip = clientIp(req);
+  ws._laresSession = session; // 广播时按会话的授权范围过滤
+
+  // 暴力破解封禁:连 challenge 都不发,直接关断(省得成为噪音放大器)
+  if (AUTH_REQUIRED && isRateLimited(ip)) {
+    send(ws, { t: 'error', message: 'rate_limited' });
+    ws.close(4429, 'rate_limited');
+    return;
+  }
+
+  // 连接一建立就下发挑战:客户端据此算证明,明文密钥永不上线
+  const nonce = issueNonce();
+  session.nonce = nonce;
+  send(ws, { t: 'challenge', nonce, modes: AUTH_MODE_LIST, authRequired: AUTH_REQUIRED });
 
   ws.on('message', async (raw) => {
     // 消息体上限 64KB(防内存 DoS;正常协议消息 << 1KB)
@@ -120,20 +328,46 @@ function handleConnection(ws) {
     switch (msg.t) {
       case 'hello': {
         if (typeof msg.userId !== 'string' || !msg.userId) return send(ws, { t: 'error', message: 'userId_required' });
+        // 鉴权闸门:先验证再落任何会话状态,失败即断,用 4401 让客户端能区分
+        // 「口令错」(该弹输入框)与「网络抖动」(该静默重连)
+        if (AUTH_REQUIRED) {
+          if (isRateLimited(ip)) {
+            send(ws, { t: 'error', message: 'rate_limited' });
+            return ws.close(4429, 'rate_limited');
+          }
+          const r = verifyAuth(msg.auth, msg.userId, session.nonce);
+          if (!r.ok) {
+            recordAuthFailure(ip);
+            send(ws, { t: 'error', message: r.reason });
+            return ws.close(4401, r.reason);
+          }
+          session.authed = true;
+          session.authMode = r.mode;
+          session.authCircleId = r.circleId;
+          clearAuthFailures(ip); // 认证成功即销账,避免家人共用出口 IP 被连坐
+        }
         session.userId = msg.userId;
         session.deviceId = typeof msg.deviceId === 'string' && msg.deviceId ? msg.deviceId : crypto.randomUUID();
         session.name = typeof msg.name === 'string' && msg.name ? msg.name.slice(0, 24) : '圈友';
         session.platform = typeof msg.platform === 'string' ? msg.platform : 'unknown';
-        send(ws, { t: 'welcome', userId: session.userId, deviceId: session.deviceId, rtcConfigured: RTC_CONFIGURED });
+        send(ws, {
+          t: 'welcome', userId: session.userId, deviceId: session.deviceId,
+          rtcConfigured: RTC_CONFIGURED, authMode: session.authMode,
+        });
         // 加入大厅并立即下发所有非空圈子的在线摘要
         lobby.add(ws);
-        for (const [circleId] of circles) send(ws, circleSummaryMsg(circleId));
+        // 同样按授权范围过滤:circle 模式只推它自己那个圈子的摘要
+        for (const [circleId] of circles) {
+          if (circleAllowed(session, circleId)) send(ws, circleSummaryMsg(circleId));
+        }
         break;
       }
 
       case 'join': {
         if (!session.userId) return send(ws, { t: 'error', message: 'say_hello_first' });
-        const circleId = typeof msg.circleId === 'string' && msg.circleId ? msg.circleId : 'home';
+        const circleId = typeof msg.circleId === 'string' && msg.circleId ? msg.circleId : defaultCircleFor(session);
+        // circle 模式只证明了某一个圈子的口令,越界进别的圈子必须拒绝
+        if (!circleAllowed(session, circleId)) return send(ws, { t: 'error', message: 'auth_scope' });
         // 敲门模式:圈内有人时需里面的人放行;空房直接进(没人可问)
         if (circleSettings[circleId]?.knockRequired && getCircle(circleId).size > 0) {
           if (!pendingKnocks.has(circleId)) pendingKnocks.set(circleId, new Map());
@@ -211,7 +445,11 @@ function handleConnection(ws) {
 
       case 'knock_mode_set': {
         if (typeof msg.circleId !== 'string' || typeof msg.enabled !== 'boolean') return;
-        // 授权:圈内成员可改;空圈任何人可预设(创建者场景)
+        // 修补越权:原实现下「空圈」任何人都能改,且连 hello 都不必说 ——
+        // 公网上这等于让陌生人给任意圈子挂上/摘掉敲门锁。至少要求已握手 + 在授权范围内。
+        if (!session.userId) return send(ws, { t: 'error', message: 'say_hello_first' });
+        if (!circleAllowed(session, msg.circleId)) return send(ws, { t: 'error', message: 'auth_scope' });
+        // 授权:圈内成员可改;空圈已鉴权者可预设(创建者场景)
         const circle = getCircle(msg.circleId);
         if (circle.size > 0) {
           const setter = circle.get(session.userId);
@@ -230,8 +468,13 @@ function handleConnection(ws) {
 
       case 'token_prefetch': {
         // 预热(P0):App 启动即备好 RTC token,进房时信令与媒体连接并行
-        if (!session.userId || !RTC_CONFIGURED) return;
-        const circleId = typeof msg.circleId === 'string' && msg.circleId ? msg.circleId : 'home';
+        if (!session.userId) return;
+        const circleId = typeof msg.circleId === 'string' && msg.circleId ? msg.circleId : defaultCircleFor(session);
+        // 预取签的是「真 token」,不设防等于把 join 的鉴权整条绕过去。
+        // 越权判断必须排在 RTC_CONFIGURED 之前:否则未配 LiveKit 时这条检查是死代码,
+        // 线上一旦配好 LiveKit 就会沉默地变成可利用的绕过口。
+        if (!circleAllowed(session, circleId)) return send(ws, { t: 'error', message: 'auth_scope' });
+        if (!RTC_CONFIGURED) return;
         try {
           const token = await mintLiveKitToken(circleId, session.userId, session.name);
           send(ws, { t: 'token', circleId, url: LIVEKIT_URL, token, prefetch: true });
@@ -375,6 +618,24 @@ async function deleteNote(circleId, id) {
   } catch { /* 已不存在 */ }
 }
 
+/// HTTP 侧鉴权:REST 是无状态的,挑战应答那套用不上,退回 Bearer。
+/// token 模式收 LARES_AUTH_TOKEN;circle 模式收「该 circleId 对应的口令」——
+/// 必须按操作的那个圈子校验,否则 home 的口令就能读写 work 的便签。
+function httpAuthOk(req, circleId) {
+  if (!AUTH_REQUIRED) return true;
+  const header = req.headers['authorization'] ?? '';
+  if (!header.startsWith('Bearer ')) return false;
+  const presented = header.slice(7).trim();
+  if (!presented) return false;
+  // 逐个模式比对,命中任一即可(组合模式下 token 与口令都收)
+  if (AUTH_MODES.has('token') && AUTH_TOKEN && safeEqualStr(presented, AUTH_TOKEN)) return true;
+  if (AUTH_MODES.has('circle')) {
+    const pass = passcodeFor(circleId);
+    if (pass && safeEqualStr(presented, pass)) return true;
+  }
+  return false;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -395,29 +656,38 @@ const server = http.createServer(async (req, res) => {
   const json = (code, obj) => {
     res.writeHead(code, {
       'content-type': 'application/json',
-      'access-control-allow-origin': '*',
+      // 开了鉴权就不再无脑 *:配了 LARES_ALLOWED_ORIGIN 就只回显它
+      'access-control-allow-origin': ALLOWED_ORIGIN || '*',
       'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
-      'access-control-allow-headers': 'content-type',
+      // 补 authorization:原来缺这项,浏览器带 Bearer 的预检会直接失败
+      'access-control-allow-headers': 'content-type,authorization',
+      ...(ALLOWED_ORIGIN ? { vary: 'origin' } : {}),
     });
     res.end(JSON.stringify(obj));
   };
   if (req.method === 'OPTIONS') return json(204, {});
 
   if (url.pathname === '/health') {
+    // 开鉴权后不再吐各圈人数:那是给扫描器用的侦察面(谁在、哪个圈活跃)
+    if (AUTH_REQUIRED) return json(200, { ok: true, rtcConfigured: RTC_CONFIGURED, authRequired: true });
     const summary = {};
     for (const [circleId, members] of circles) summary[circleId] = members.size;
     return json(200, { ok: true, rtcConfigured: RTC_CONFIGURED, circles: summary });
   }
 
-  // 语音便签 API
+  // 语音便签 API(开鉴权后需 Authorization: Bearer;REST 无状态,挑战应答不适用)
   if (url.pathname === '/notes' && req.method === 'GET') {
     const circleId = url.searchParams.get('circleId') ?? 'home';
+    if (!httpAuthOk(req, circleId)) return json(401, { error: 'auth_required' });
     return json(200, { notes: await listNotes(circleId) });
   }
   if (url.pathname === '/notes' && req.method === 'POST') {
     try {
       const body = JSON.parse(await readBody(req));
       const { circleId = 'home', userId, name, audio, mime, durationSec } = body;
+      // circleId 在 body 里,只能解析后再校验;凭据必须对得上「这个」圈子,
+      // 否则拿 home 的口令就能往 work 圈塞便签并触发圈内广播
+      if (!httpAuthOk(req, circleId)) return json(401, { error: 'auth_required' });
       if (!userId || !audio || typeof audio !== 'string') return json(400, { error: 'bad_note' });
       if (audio.length > NOTE_MAX_BYTES) return json(413, { error: 'too_large' });
       if ((durationSec ?? 0) > NOTE_MAX_SECONDS + 1) return json(400, { error: 'too_long' });
@@ -442,6 +712,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname.startsWith('/notes/') && req.method === 'DELETE') {
     const id = url.pathname.slice('/notes/'.length);
     const circleId = url.searchParams.get('circleId') ?? 'home';
+    if (!httpAuthOk(req, circleId)) return json(401, { error: 'auth_required' });
     await deleteNote(circleId, id);
     return json(200, { ok: true });
   }
@@ -466,12 +737,15 @@ server.on('upgrade', (req, socket, head) => {
 wss.on('connection', handleConnection);
 
 // 心跳:30s 无 pong 判定死连接,清理 presence
+// 顺带扫过期 nonce 与失效封禁记录 —— 复用这一个 timer,不再另起定时器
 const heartbeat = setInterval(() => {
   for (const ws of wss.clients) {
     if (ws._laresAlive === false) { ws.terminate(); continue; }
     ws._laresAlive = false;
     ws.ping();
   }
+  sweepNonces();
+  sweepRateLimits();
 }, 30_000);
 wss.on('connection', (ws) => {
   ws._laresAlive = true;
@@ -483,4 +757,15 @@ server.listen(PORT, async () => {
   await loadSettings();
   console.log(`[lares] 信令服务已启动  ws://0.0.0.0:${PORT}`);
   console.log(`[lares] RTC: ${RTC_CONFIGURED ? `LiveKit 已配置 (${LIVEKIT_URL})` : '未配置(仅 presence,设置 LIVEKIT_URL/API_KEY/API_SECRET 启用)'}`);
+  if (AUTH_REQUIRED) {
+    console.log(`[auth] 鉴权已启用,模式:${AUTH_MODE_LIST.join(',')}`);
+    if (AUTH_MODES.has('circle')) {
+      const n = Object.keys(CIRCLE_PASSCODES).length;
+      console.log(`[auth] 圈子口令:${n > 0 ? `${n} 个按圈覆盖` : '仅全站口令'}${CIRCLE_PASSCODE ? '(含全站兜底)' : ''}`);
+    }
+    if (!ALLOWED_ORIGIN) console.log('[auth] 提示:未设 LARES_ALLOWED_ORIGIN,CORS 仍为 *');
+  } else {
+    console.warn('[auth] ⚠ 警告:鉴权已关闭(LARES_AUTH_MODE=none)。任何人都能连接、冒用任意 userId、进任意圈子并拿到 LiveKit token。');
+    console.warn('[auth] ⚠ 仅限本机开发使用。公网部署请设置 LARES_AUTH_MODE=token 或 circle。');
+  }
 });
