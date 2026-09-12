@@ -12,8 +12,8 @@ cmake_policy(VERSION 3.14...3.25)
 
 # 中文系统代码页(936)下 flutter_webrtc 源码触发 C4819 且被 /WX 视为错误,
 # 全局 /utf-8 让 MSVC 按 UTF-8 读取源码,修复中文 locale 构建。
-# /await:audioplayers_windows 使用 <experimental/coroutine>(协程 TS)。
-add_compile_options(/utf-8 /await)
+# 注意:不要全局加 /await —— geolocator_windows 自带 /await:strict,两者互斥(D8016)。
+add_compile_options(/utf-8)
 
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
