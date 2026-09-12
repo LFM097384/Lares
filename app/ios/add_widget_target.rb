@@ -19,7 +19,7 @@ app_target = proj.targets.find { |t| t.name == 'Runner' }
 abort '找不到 Runner target' if app_target.nil?
 
 # 1) 创建 Widget Extension target
-widget = proj.new_target(:app_extension, WIDGET_NAME, :ios, '16.0')
+widget = proj.new_target(:app_extension, WIDGET_NAME, :ios, '17.0')
 
 # 2) 源码与资源
 group = proj.main_group.new_group(WIDGET_NAME, WIDGET_NAME)
@@ -35,7 +35,7 @@ widget.build_configurations.each do |c|
   c.build_settings['INFOPLIST_FILE'] = "#{WIDGET_NAME}/Info.plist"
   c.build_settings['CODE_SIGN_ENTITLEMENTS'] = "#{WIDGET_NAME}/#{WIDGET_NAME}.entitlements"
   c.build_settings['SWIFT_VERSION'] = '5.0'
-  c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+  c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '17.0'
   c.build_settings['TARGETED_DEVICE_FAMILY'] = '1,2'
   c.build_settings['CURRENT_PROJECT_VERSION'] = '1'
   c.build_settings['MARKETING_VERSION'] = '0.1.0'
