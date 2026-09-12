@@ -60,7 +60,7 @@ embed = app_target.new_copy_files_build_phase('Embed App Extensions')
 embed.symbol_dst_subfolder_spec = :plug_ins
 embed.add_file_reference(widget.product_reference)
 app_target.build_phases.delete(embed)
-thin_idx = app_target.build_phases.index { |p| p.name == 'Thin Binary' }
+thin_idx = app_target.build_phases.index { |p| p.display_name == 'Thin Binary' }
 if thin_idx
   app_target.build_phases.insert(thin_idx, embed)
 else
