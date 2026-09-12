@@ -144,7 +144,7 @@ class LaresApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lares · 一键进圈',
+      title: 'Lares 炉灵',
       debugShowCheckedModeBanner: false,
       // 暗色优先(§8.2-2):默认暗色,跟随系统切亮色
       theme: LaresTheme.light(),

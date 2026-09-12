@@ -11,7 +11,7 @@
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleDisplayName</key>
-	<string>一键进圈</string>
+	<string>Lares 炉灵</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

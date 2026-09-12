@@ -11,7 +11,7 @@ Future<void> setupDesktopWindow() async {
     size: Size(1100, 720),
     minimumSize: Size(860, 560),
     center: true,
-    title: 'Lares · 一键进圈',
+    title: 'Lares 炉灵',
     titleBarStyle: TitleBarStyle.normal,
   );
   await windowManager.waitUntilReadyToShow(options, () async {

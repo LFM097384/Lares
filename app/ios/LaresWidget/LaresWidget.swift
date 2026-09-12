@@ -75,7 +75,7 @@ struct LaresWidget: Widget {
     StaticConfiguration(kind: "LaresWidget", provider: LaresProvider()) { entry in
       LaresWidgetView(entry: entry)
     }
-    .configurationDisplayName("一键进圈")
+    .configurationDisplayName("炉灵")
     .description("显示圈子在线状态,点一下直接进房")
     .supportedFamilies([.systemSmall, .systemMedium])
   }

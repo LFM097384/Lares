@@ -14,7 +14,7 @@
     <!-- 请求忽略电池优化(后台运行保障) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
-        android:label="一键进圈"
+        android:label="Lares 炉灵"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -53,7 +53,7 @@
         <service
             android:name=".LaresTileService"
             android:exported="true"
-            android:label="一键进圈"
+            android:label="炉灵"
             android:icon="@mipmap/ic_launcher"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>

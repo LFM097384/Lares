@@ -4,7 +4,7 @@
 
 ## 这是什么
 
-「一键进圈」语音陪伴 App:主屏幕点一下,进入 5~20 人熟人圈的常驻语音空间。
+「Lares 炉灵」语音陪伴 App(宅火的守护神，随人而动):主屏幕点一下,进入 5~20 人熟人圈的常驻语音空间。
 架构:**Flutter 单代码库(iOS/Android/Windows/macOS/Web)+ LiveKit SFU + Node 信令服务**。
 
 - 仓库:https://github.com/LFM097384/Lares (main 分支,已推送全部提交)
@@ -68,7 +68,7 @@ pwsh scripts/dev.ps1   # 起全栈,浏览器开 http://127.0.0.1:8080
 2. Windows 装 Sideloadly → iPhone 数据线连电脑信任 → 拖入 .ipa → 输 Apple ID(双重认证需 App 专用密码)→ 设置→通用→VPN与设备管理→信任
 3. 免费签名 7 天有效,到期重签;长期用 $99 开发者账号走 TestFlight(配置表在 deploy/ios-ci.md)
 4. 局域网测试:iPhone 与电脑同 WiFi;App 设置页可改服务器地址
-5. 小组件:长按主屏幕→+→搜「一键进圈」(免费签名的 App Groups 数据共享可能受限,最坏显示默认文案)
+5. 小组件:长按主屏幕→+→搜「炉灵」(免费签名的 App Groups 数据共享可能受限,最坏显示默认文案)
 
 ## 已知坑位(都踩过,别再踩)
 

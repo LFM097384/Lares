@@ -1,5 +1,7 @@
-# Lares · 一键进圈
+# Lares 炉灵
 
+> **宅火的守护神，随人而动。**
+>
 > 主屏幕点一下,即可进入一个小范围朋友圈子的公共语音空间。想来就来,想走就走。
 
 设计与决策见 [`设计.md`](设计.md)(§8 为当前多端化定案)。
@@ -100,7 +102,7 @@ flutter run -d android --dart-define=LARES_SIGNALING=ws://192.168.x.x:8787
   - 局域网联调可加 `--dart-define=LARES_HOST_ONLY_ICE=true` 跳过 STUN(本机实测无显著差异,生产勿用)
 - [x] 语音便签:没人时留 ≤15s 语音(长按便签键录音),进房见红点、点一下顺序播放、听过即删;`note_added` 实时广播;服务端磁盘持久化 + CORS 已通
 - [x] 多圈子:「加个圈子」本地建圈、各圈独立 presence 摘要、点圈即换(自动先退当前圈)、长按删除(默认圈保留);实测切圈进房 1.2~1.4s
-- [x] 品牌图标:Android 各密度 mipmap、Windows app_icon.ico、Web favicon 全部替换;Android 应用名「一键进圈」
+- [x] 品牌图标:Android 各密度 mipmap、Windows app_icon.ico、Web favicon 全部替换;Android 应用名「Lares 炉灵」
 - [x] 敲门模式(§3.3):长按圈子开启「需敲门」;非空房间加入者先敲门(「敲门中,等里面的人应门…」,30s 超时),房内成员「让他进」放行;空房直接进;**隐私红线:未获放行前客户端不得先连媒体**(预热 token 门控,有单测);设置磁盘持久化、大厅摘要带 knockRequired
 - [x] 圈子邀请:长按圈子→「邀请朋友进圈」复制 `lares://circle/<id>?name=X` 链接;朋友点链接(App 自动登记+进房,实测冷启直达)或「粘贴邀请链接」手动进圈
 - [x] Android Quick Settings Tile:下拉状态栏一键进房(`LaresTileService`)

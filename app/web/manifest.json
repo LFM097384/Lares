@@ -1,11 +1,11 @@
 {
-    "name": "lares_app",
-    "short_name": "lares_app",
+    "name": "Lares 炉灵",
+    "short_name": "炉灵",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Lares 炉灵 — 宅火的守护神，随人而动:小圈子常驻语音空间",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

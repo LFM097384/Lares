@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>一键进圈</string>
+	<string>炉灵</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
