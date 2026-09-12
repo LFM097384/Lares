@@ -26,6 +26,12 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
+      # 程序化接入 LaresWidget(WidgetKit)target(幂等)
+      - name: Add LaresWidget target
+        run: |
+          gem install xcodeproj --no-document
+          ruby ios/add_widget_target.rb
+
       # macOS 上插件链接用真 symlink,无需 Windows 的 Junction 脚本
       - name: Build iOS (unsigned)
         run: |

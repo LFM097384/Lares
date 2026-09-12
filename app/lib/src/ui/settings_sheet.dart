@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
+import '../platform/platform_info.dart'
+    if (dart.library.io) '../platform/platform_info_io.dart';
 import '../platform/widget_service.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
@@ -48,6 +51,28 @@ Future<void> showSettingsSheet(
                 onTap: () => _pickDnd(context, settings),
               ),
               const Divider(),
+              // 后台运行保障(用户反馈):Android 请求忽略电池优化;iOS 说明机制
+              ListTile(
+                leading: const Icon(Icons.battery_saver_rounded),
+                title: const Text('后台运行保障'),
+                subtitle: const Text('挂机不掉线:电池优化白名单 / 后台音频'),
+                onTap: () async {
+                  final messenger = ScaffoldMessenger.of(ctx);
+                  if (PlatformInfo.current == 'android') {
+                    final granted = await FlutterForegroundTask
+                        .requestIgnoreBatteryOptimization();
+                    messenger.showSnackBar(SnackBar(
+                      content: Text(granted
+                          ? '已允许后台运行(国产 ROM 建议再开「自启动」)'
+                          : '请在系统设置里允许忽略电池优化'),
+                    ));
+                  } else {
+                    messenger.showSnackBar(const SnackBar(
+                      content: Text('在房间里时 iOS 会自动以后台音频保活,无需设置'),
+                    ));
+                  }
+                },
+              ),
               // §2.1-1 核心入口:主屏幕点一下直达
               ListTile(
                 leading: const Icon(Icons.widgets_outlined),
