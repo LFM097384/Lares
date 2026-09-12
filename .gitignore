@@ -30,3 +30,6 @@ server/livekit/
 
 # Flutter 插件链接(Junction,指向本机 pub 缓存)
 **/.plugin_symlinks/
+
+# 本地下载的构建产物
+dist/
