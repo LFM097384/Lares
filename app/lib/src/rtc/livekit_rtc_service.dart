@@ -30,6 +30,16 @@ class LiveKitRtcService implements RtcService {
   @override
   bool get inRoom => _room != null;
 
+  /// 底层 Room,仅供聊天传输层(`chat/livekit_chat_transport.dart`)取用。
+  ///
+  /// 刻意**不**放进 `RtcService` 接口:那一层要保持与厂商无关(设计.md §8.1),
+  /// 接口里出现 `Room` 会迫使 `rtc_service.dart` import livekit_client,
+  /// 并连带弄坏两个测试 fake。
+  ///
+  /// ⚠️ 仅在 `join()` 与 `leave()` 之间非空,`leave()` 会 dispose 掉它 ——
+  /// 传输层必须**每次进房重建**,绝不可跨会话缓存。
+  Room? get room => _room;
+
   @override
   Stream<Set<String>> get speakingIdentities => _speaking.stream;
 
