@@ -19,7 +19,79 @@
 
 **性能/韧性**:闲时 5 分钟媒体降级(LiveKit 日志实证)、断线重连自动回房(服务端重启 12s 内 4 端自愈)、Android 前台服务保活(mic+WiFiLock)、`LARES_AUTO_JOIN` 常驻挂机模式、Lighthouse 4×100、CLS 0.00、Web WASM、弱网 3G 进房 3.3s。
 
-**测试**:客户端 10 项 + 服务端冒烟 22 项,全绿(`cd server && node test/smoke.mjs`)。
+**测试**:客户端 133 项 + 服务端冒烟 61 项 + 鉴权互操作 10 项 + 部署端口判定 11 项,全绿。
+`cd app && flutter test` / `cd server && node test/smoke.mjs` / `node test/auth_interop.mjs` /
+`bash deploy/test/port_match_test.sh`。`flutter analyze lib` 无告警。
+
+---
+
+## 2026-09 第二轮:8 项新需求(本轮新增,19 个提交)
+
+> 架构决策与证据链的单一事实源:**`docs/research/DECISIONS-2026-09.md`**。
+> 动录音/降噪/部署前**务必先读它** —— 里面有两条会改变做法的结论。
+
+| # | 需求 | 状态 |
+|---|---|---|
+| ① | 改名「Lares 炉灵」+ 品牌叙事 + 炉火图标(六端) | ✅ |
+| ② | 主圈子 + 小组件一键加入 | ✅ |
+| ③ | 文字 + 图片发送(LiveKit data channel) | ✅ 核心+UI |
+| ④ | 自定义服务器地址 + 验证(token / circle 双模式) | ✅ 服务端;客户端进行中 |
+| ⑤ | 部署到 RackNerd(端口安全 + 三重机场保护) | ✅ 就绪,**阻塞:等域名** |
+| ⑥ | 降噪 | ✅ 客户端等效方案(见下) |
+| ⑦ | 自动更新(Windows / Android / macOS) | ✅ |
+| ⑧ | Windows 录音 + STT + 说话人归属 | 地基已实测验证,实现中 |
+
+### ⚠️ 两条会改变做法的结论
+
+**1. 「服务器端降噪」在 LiveKit OSS 下不存在。** SFU 从不解码音频,只转发 Opus 包,
+配置里没有任何降噪钩子(官方 issue #4029 以 `not_planned` 关闭)。唯一的服务端路径是
+独立 Agent 解码→降噪→重编码,1 vCPU/1GB 上跑 5~20 路不可行。**已改为客户端等效方案。**
+好消息:Krisp 的 Cloud 限制只针对 agent 侧,**客户端降噪不受限**。
+真实增量其实不大 —— Android 最大那块(`MODE_IN_COMMUNICATION`)本来就已生效,
+本次净增是高通滤波(默认竟是 `false`)。**Windows 拿不到 Krisp/硬件 AEC**,
+设置页会如实显示「已回落到标准」,不骗用户。
+
+**2. 录音「识别出谁说了什么」不需要声纹分离。** LiveKit 房间里每人本就是独立音轨 +
+已知身份,归属是一次字典查找。**已在真实 Windows 构建上实测通过**:
+两个机器人发 440/880 Hz,各自落进独立且归属正确的文件(实测 426/852 Hz,比值精确 2:1),
+`sampleRate: 16000` 被真正遵守,RMS≈6929(真实波形非静音)。准确率 100%、成本 $0。
+调研了十家 STT 厂商,**没有一家能可靠做 20 人单麦实时声纹分离**。
+
+### 🔴 录音实现的三个静默失败点(不处理必出 bug)
+
+1. **重连后 renderer 静默失效**。实测:`RoomReconnected` 后房间显示 connected,
+   但帧数**精确为 0 长达 40 秒**,直到新的 `TrackSubscribed` + 重新注册才恢复。
+   7 次注册里 track SID 每次都变。→ **必须由 `TrackSubscribed` 驱动注册,
+   绝不跨重连缓存 `AudioTrack` 引用**;`RoomReconnected` 本身不是充分触发点。
+2. **本地轨 `restartTrack()` 清空全部 renderer**(比重连更频繁)。源码逐行核实:
+   `stopCapture()` 会 `_captureGroups.clear()`,而 `startCapture()` 只打日志、不恢复。
+   谁调用它?**`unmute()`** —— 而本 App 默认静音进房、开关麦是主交互路径。
+   **且死掉的 group 仍留在 map 里**,相同 options 再注册会 `putIfAbsent` 到同一具尸体上。
+   → 看门狗必须**先用 cancel func 拆掉再重建**,天真的「再注册一次」无效。
+3. **失败完全不抛异常**。原生侧解析不到轨道时只是 `return false` 加一条 warning,
+   `onFrame` 从此不触发。→ 注册后 ~2s 无帧就重建,**没有错误可捕获**。
+
+细节与其余四条坑见 `app/tool/README-audio-harness.md`(附可复跑的验证工具)。
+
+### 部署(需求⑤)关键约束
+
+VPS 上 `443/tcp` 是 VLESS+Reality 主入站,`8443`/`3443`/`9721`/`2096` 亦被占用。
+**旧 `deploy/docker-compose.yml` 会抢 443,照原样跑会打死用户的翻墙线路。**
+现分配:`8444/tcp`(Caddy TLS)、`7881/tcp`、`7882/udp`(单端口 mux)。
+`deploy.sh` 有三重机场保护(端口基线 / systemd unit / 443 主动握手),任一失败自动拆栈。
+另发现旧配置**媒体路径本来就是断的**(只发布 7882/udp 却声明 port_range 50000-60000)。
+TLS 必须走 **DNS-01** —— 站点写成 `domain:8444` 并不能阻止 Caddy 去试 :443 和 :80。
+
+### 本机新坑
+
+- **`scripts/dev.ps1` 曾选错网卡**:取「第一个非回环 IPv4」会命中 QuickFox 代理虚拟网卡
+  (10.8.8.1)而非真实 WLAN(10.0.0.185),导致 LiveKit 把不可达地址写进 ICE/token ——
+  **presence 一切正常、进房静默失败、零报错**。已改为优先选「有默认网关的真实物理网卡」。
+- **git 推送**:schannel TLS 后端握手失败(`SEC_E_NO_CREDENTIALS`,但 TCP 到
+  github.com:443 是通的),且 `~/.gitconfig` 被锁。→ 用 **`pwsh scripts/push.ps1`**
+  (openssl 后端 + gh token 内联,token 不落盘)。
+- `sherpa_onnx 1.13.8` 在本机构建通过(纯预编译 DLL 拷贝,不编译插件 C++,
+  故 VS2019 无碍)。模型 int8 228 MB,**不打包**,走首次下载。
 
 ## 目录结构
 
@@ -82,14 +154,30 @@ pwsh scripts/dev.ps1   # 起全栈,浏览器开 http://127.0.0.1:8080
 - 静态托管缓存:应用产物(html/js/mjs/wasm)必须 no-cache,长缓存只给 canvaskit/字体——否则换包不刷新(白屏排查半天)
 - Flutter Web Service Worker 会缓存旧 shell:白屏先开全新浏览器上下文验证
 - `flutter pub add` 会重写 pubspec.yaml 格式,编辑前重新 read
+- **`Sink` 是 interface class**:Dart 3 里只能 `implements` 不能 `extends`(编译级 error)
+- **`library;` 必须在所有指令之前**:写长文档注释时容易把它挤到 import 之后 → `library_directive_not_first`
+- **`voiceIsolation` 字段是死的**(livekit_client 2.12.0):`options.dart:439` 发出的是
+  `{'voiceIsolation': noiseSuppression}`,读错了字段。设它无效(疑似上游 bug)
+- **Web + 非空 `deviceId` 会静默丢弃全部音频 DSP 约束**(`options.dart:434` 的守卫)
+- **`setAudioSessionOptions()` 有副作用**:会切到 manual 模式,之后 LiveKit 不再按房间
+  生命周期管理会话 —— 天真调用反而**退化**现有行为。须紧接着 `setAudioSessionManagementMode(automatic)`
+- **LiveKit mux 判定顺序与官方文档相反**:源码先看端口段,只要 `port_range_*` 存在,
+  单端口 `udp_port` 就被**静默忽略**
+- **`publishData` 不做长度校验**:超 15000 字节只在 SCTP 层静默失败,须自己守住
+  (`kStreamChunkSize` 见 `lib/src/types/data_stream.dart:10`)
+- **文字长度按字素簇计**,不能用 `String.length`(UTF-16 code unit 会把 👨‍👩‍👧‍👦 拦腰截断)
 
 ## 待办(按优先级)
 
-1. **iPhone 真机验证**:踢人/位置共享/后台保活/小组件数据共享是否正常(免费签名 App Groups 待确认)
-2. **公网化**:LiveKit Cloud 免费账号(零成本)或用户 RackNerd VPS(deploy/ 一条命令;VPS 是翻墙机,动前需用户明确许可)
-3. **TestFlight 签名**:$99 开发者账号后按 deploy/ios-ci.md 配 secrets
-4. iOS Widget 深化:App Intents 可交互小组件(iOS 17+ 可不跳 App 直接进房)
-5. 浸泡测试长期挂机数据(scripts/soak.ps1 → soak.log)
+1. **域名 → 上线**(唯一阻塞项):买域名 + A 记录指向 `23.94.115.25` →
+   `cd deploy && ./preflight.sh && ./deploy.sh`。浏览器与 iOS 都要求 wss,裸 IP 签不出证书。
+2. **收尾需求⑧**:录音 + STT 接线与同意 UI(地基已实测验证,坑位见上)
+3. **iPhone 真机验证**:踢人/位置共享/后台保活/小组件数据共享(免费签名 App Groups 待确认)
+4. **真机验证降噪/主圈子**:Android 硬件 AEC 听感、小组件刷新 —— 目前只有静态与编译层保证
+5. **TestFlight 签名**:$99 开发者账号后按 deploy/ios-ci.md 配 secrets
+6. iOS Widget 深化:App Intents 可交互小组件(iOS 17+ 可不跳 App 直接进房)
+7. 浸泡测试长期挂机数据(scripts/soak.ps1 → soak.log)
+8. 桌面快捷方式 `~/Desktop/一键进圈.lnk` 需手动改名(沙箱外且无生成脚本)
 
 ## 快速恢复上下文(新会话第一句话)
 
