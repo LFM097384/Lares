@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../chat/chat_service.dart';
 import '../state/location_share_stub.dart'
     if (dart.library.io) '../state/location_share.dart';
 import '../state/models.dart';
@@ -7,11 +8,14 @@ import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
+import 'chat_panel.dart';
 import 'map_panel.dart';
 import 'widgets/avatar_orb.dart';
 
 /// 房间内界面(设计.md §3.2-2):极简 —— 头像网格 + 波纹 + 底部两个主按钮。
-/// 不做打字聊天区,陪伴而非会议。地图视图:位置共享(Snapchat 式)。
+/// 文字/图片是安静的副通道(§2.3 已由 owner 显式放开):默认折叠,
+/// 不抢成员网格与主麦克风按钮的位置,语音仍是一等公民。
+/// 地图视图:位置共享(Snapchat 式)。
 class RoomScreen extends StatefulWidget {
   const RoomScreen({
     super.key,
@@ -20,6 +24,7 @@ class RoomScreen extends StatefulWidget {
     this.voiceNotes,
     this.settings,
     this.locationShare,
+    this.chat,
   });
 
   final RoomController controller;
@@ -27,6 +32,9 @@ class RoomScreen extends StatefulWidget {
   final VoiceNotesController? voiceNotes;
   final SettingsStore? settings;
   final LocationShareService? locationShare;
+
+  /// 文字/图片副通道。为 null 时整块不渲染(与 _KnockBanner 同样的降级方式)
+  final ChatService? chat;
 
   @override
   State<RoomScreen> createState() => _RoomScreenState();
@@ -62,6 +70,11 @@ class _RoomScreenState extends State<RoomScreen> {
                         )
                       : _MemberGrid(controller: controller),
                 ),
+                // 副通道置于主按钮之上:默认折叠成一条细条,不挤压上方网格
+                if (widget.chat != null)
+                  ChatPanel(chat: widget.chat!)
+                else
+                  const SizedBox.shrink(),
                 _ControlBar(
                     controller: controller, voiceNotes: widget.voiceNotes),
               ],

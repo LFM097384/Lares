@@ -32,6 +32,9 @@ class FakeRtcService implements RtcService {
   bool _inRoom = false;
   bool muted = true;
 
+  /// 记录最近一次 join 传入的降噪档位
+  AudioTuning? lastTuning;
+
   @override
   bool get inRoom => _inRoom;
 
@@ -41,11 +44,27 @@ class FakeRtcService implements RtcService {
     required String token,
     required bool startMuted,
     bool highQuality = true,
+    AudioTuning tuning = AudioTuning.standard,
   }) async {
     _inRoom = true;
     muted = startMuted;
+    lastTuning = tuning;
     return const Duration(milliseconds: 120);
   }
+
+  @override
+  ResolvedAudioTuning? get activeTuning =>
+      _inRoom ? previewTuning(lastTuning ?? AudioTuning.standard) : null;
+
+  @override
+  ResolvedAudioTuning previewTuning(AudioTuning tuning) => resolveAudioTuning(
+    tuning,
+    const AudioPlatformCapabilities(
+      platform: 'windows',
+      supportsAudioSession: false,
+      supportsEnhanced: false,
+    ),
+  );
 
   @override
   Future<void> leave() async {
