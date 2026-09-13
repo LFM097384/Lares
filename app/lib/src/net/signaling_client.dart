@@ -236,12 +236,17 @@ class SignalingClient {
       ));
       return;
     }
+    final WebSocketChannel channel;
     try {
-      _channel = _connector(Uri.parse(url));
+      channel = _connector(Uri.parse(url));
+      _channel = channel;
     } catch (_) {
       _scheduleReconnect();
       return;
     }
+    // ready 的失败是**异步**抛出的(域名解析不了/端口被拒/TLS 谈不拢)。
+    // 不显式接住就会冒泡成未捕获异常;这里咽掉,真正的处理交给 onDone/onError。
+    channel.ready.then<void>((_) {}, onError: (Object _) {});
     _sub = _channel!.stream.listen(
       _onData,
       onError: (_) => _onDisconnected(),

@@ -66,6 +66,22 @@ class ConnectionTestResult {
       outcome == ConnectionTestOutcome.credentialMissing;
 }
 
+/// 把底层异常压成一句人话。原始文本里带 errno、地址、堆栈,对用户没有意义。
+String briefNetworkError(Object e) {
+  final text = e.toString();
+  if (text.contains('Failed host lookup') || text.contains('nodename')) {
+    return '找不到这个域名';
+  }
+  if (text.contains('refused') || text.contains('拒绝')) {
+    return '对方端口没有开放';
+  }
+  if (text.contains('timed out') || text.contains('超时')) return '连接超时';
+  if (text.contains('CERTIFICATE') || text.contains('HandshakeException')) {
+    return '证书验证失败(wss 需要有效证书)';
+  }
+  return text.split('\n').first;
+}
+
 /// 一次性拨测:用**独立的临时连接**验证地址与口令。
 ///
 /// 为什么不复用 App 的常驻连接:那条连接是 P0 预连接,进房靠它省掉一个往返。
@@ -115,15 +131,25 @@ class ConnectionTester {
       ));
     }
 
+    final WebSocketChannel opened;
     try {
-      channel = _connector(Uri.parse(validation.normalized!));
+      opened = _connector(Uri.parse(validation.normalized!));
+      channel = opened;
     } catch (e) {
       return ConnectionTestResult(
         outcome: ConnectionTestOutcome.unreachable,
-        message: '连不上:$e',
+        message: '连不上:${briefNetworkError(e)}',
         elapsed: watch.elapsed,
       );
     }
+    // ready 失败(域名解析不了/端口被拒/TLS 谈不拢)是**异步**抛出的:
+    // 不接住就会变成未捕获异常,把一次正常的「连不上」升级成崩溃。
+    unawaited(opened.ready.then<void>((_) {}, onError: (Object e) {
+      finish(ConnectionTestResult(
+        outcome: ConnectionTestOutcome.unreachable,
+        message: '连不上:${briefNetworkError(e)}',
+      ));
+    }));
 
     timer = Timer(timeout, () {
       finish(ConnectionTestResult(
@@ -211,7 +237,7 @@ class ConnectionTester {
       },
       onError: (Object e) => finish(ConnectionTestResult(
         outcome: ConnectionTestOutcome.unreachable,
-        message: '连不上:$e',
+        message: '连不上:${briefNetworkError(e)}',
       )),
       onDone: () {
         // 没等到结论就断了:用 close code 兜底判断

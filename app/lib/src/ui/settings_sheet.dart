@@ -10,6 +10,7 @@ import '../rtc/rtc_service.dart' show NoiseSuppressionMode;
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../theme/tokens.dart';
+import 'server_settings_section.dart';
 
 /// 设置(§2.2 耗电与流量透明度、防打扰)
 Future<void> showSettingsSheet(
@@ -136,43 +137,11 @@ Future<void> showSettingsSheet(
                 },
               ),
               // 真机联调:局域网 IP 常变,免重打包改地址
-              ListTile(
-                leading: const Icon(Icons.dns_outlined),
-                title: const Text('服务器地址'),
-                subtitle: Text(
-                  settings.signalingOverride ?? '默认(打包内置)\n改完重启 App 生效',
-                ),
-                onTap: () async {
-                  final field = TextEditingController(
-                      text: settings.signalingOverride ?? '');
-                  final input = await showDialog<String>(
-                    context: ctx,
-                    builder: (d) => AlertDialog(
-                      title: const Text('服务器地址'),
-                      content: TextField(
-                        controller: field,
-                        autofocus: true,
-                        decoration: const InputDecoration(
-                          hintText: 'ws://192.168.x.x:8787(留空恢复默认)',
-                        ),
-                        onSubmitted: (_) => Navigator.pop(d, field.text),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(d),
-                          child: const Text('算了'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(d, field.text),
-                          child: const Text('保存'),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (input != null) {
-                    await settings.setSignalingOverride(input);
-                  }
-                },
+              // 现在升级为「具名服务器档案 + 口令 + 测试连接」(两套部署来回切)
+              ServerSettingsSection(
+                settings: settings,
+                userId: controller.userId,
+                defaultUrl: signalingUrl,
               ),
               ListTile(
                 leading: const Icon(Icons.speed_rounded),

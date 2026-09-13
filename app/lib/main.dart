@@ -41,9 +41,16 @@ Future<void> main() async {
   String primaryCircleId() =>
       circleStore.primaryCircleId ?? LaresConfig.defaultCircleId;
 
-  // 信令地址:设置里的覆盖优先(真机联调局域网 IP 常变,免重打包)
-  final signalingUrl = settings.signalingOverride ?? LaresConfig.signalingUrl;
-  final signaling = SignalingClient(url: signalingUrl);
+  // 信令地址:当前服务器档案优先,其次老的单条覆盖,最后才是打包内置
+  // (真机联调局域网 IP 常变,免重打包)
+  final signalingUrl =
+      settings.effectiveSignalingUrl ?? LaresConfig.signalingUrl;
+  // 凭据现取现用:每条 challenge 到达时回调一次,用户改完口令下次重连自然生效
+  final signaling = SignalingClient(
+    url: signalingUrl,
+    userId: identity.userId,
+    credentials: () => settings.credentialFor(primaryCircleId()),
+  )..authCircleId = primaryCircleId();
   final controller = RoomController(
     signaling: signaling,
     rtc: LiveKitRtcService(hostOnlyIce: LaresConfig.hostOnlyIce),
@@ -74,7 +81,18 @@ Future<void> main() async {
     final now = primaryCircleId();
     if (now == lastPrimary) return;
     lastPrimary = now;
+    // circle 模式下换主圈 = 换密钥,要带新圈口令重新握手(其它模式无影响)
+    signaling.authCircleId = now;
     controller.prefetchToken(now);
+  });
+
+  // 改了服务器/口令:带新凭据干净重连,不必重启 App 才生效
+  var lastCred = settings.credentialFor(primaryCircleId());
+  settings.addListener(() {
+    final now = settings.credentialFor(primaryCircleId());
+    if (now == lastCred) return;
+    lastCred = now;
+    signaling.reconnectWithNewCredential();
   });
 
   // 常驻挂机模式:启动即自动进主圈(信令连接建立后)
