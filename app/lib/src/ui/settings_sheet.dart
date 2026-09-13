@@ -6,6 +6,8 @@ import '../platform/platform_info.dart'
 import '../platform/widget_service.dart';
 import '../state/circle_store.dart';
 import '../state/models.dart';
+import '../recording/recording_consent.dart';
+import '../recording/recording_indicator.dart';
 import '../rtc/rtc_service.dart' show NoiseSuppressionMode;
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
@@ -19,6 +21,7 @@ Future<void> showSettingsSheet(
   required RoomController controller,
   required String signalingUrl,
   CircleStore? circleStore,
+  RecordingConsentController? recordingConsent,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -28,6 +31,7 @@ Future<void> showSettingsSheet(
         settings,
         controller,
         ?circleStore,
+        ?recordingConsent,
       ]),
       builder: (context, _) => SafeArea(
         child: Padding(
@@ -83,6 +87,56 @@ Future<void> showSettingsSheet(
                 onTap: () => _pickDnd(context, settings),
               ),
               const Divider(),
+              // ── 录音与转写(需求⑧)──────────────────────────────────
+              // 默认关闭。打开前必过确认对话框 —— 录同伴的声音是有伦理与法律
+              // 分量的事,不做成一个可以手滑打开的开关。
+              if (recordingConsent != null)
+                ListTile(
+                  leading: Icon(
+                    Icons.fiber_manual_record_rounded,
+                    color: recordingConsent.captureAllowed
+                        ? Theme.of(context).colorScheme.error
+                        : null,
+                  ),
+                  title: const Text('录音与转写'),
+                  subtitle: Text(
+                    recordingConsent.captureAllowed
+                        ? '正在录音 —— 房间里所有人都看得到提示'
+                        : '默认关闭;开启时所有人都会看到提示',
+                  ),
+                  trailing: FilledButton.tonal(
+                    onPressed: controller.circleId == null
+                        ? null // 不在房间里无从录起
+                        : () async {
+                            final messenger = ScaffoldMessenger.of(ctx);
+                            if (recordingConsent.captureAllowed) {
+                              recordingConsent.stop(); // 停止永远同步、立即
+                              return;
+                            }
+                            final ok = await showRecordingConsentDialog(
+                              context,
+                              memberCount: controller.members.length,
+                            );
+                            if (!ok) return;
+                            final started = await recordingConsent
+                                .requestStart(controller.circleId!);
+                            // 没等到服务器回显就**不采集** —— 硬失败很烦人,
+                            // 静默失败是伦理事故,选烦人。
+                            if (!started) {
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    recordingConsent.message ?? '录音未能开始',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                    child: Text(
+                      recordingConsent.captureAllowed ? '停止录音' : '开始录音',
+                    ),
+                  ),
+                ),
               // 后台运行保障(用户反馈):Android 请求忽略电池优化;iOS 说明机制
               ListTile(
                 leading: const Icon(Icons.battery_saver_rounded),

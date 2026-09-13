@@ -1,4 +1,4 @@
-/// STT 的**选择层**:挑后端、优雅降级,以及两个后端共用的错误类型。
+/// STT 的**选择层**:挑后端、优雅降级。
 ///
 /// 本文件刻意**不 import `sherpa_onnx`、不 import `http`** —— 它只依赖
 /// `stt_backend.dart` 里的抽象。这不是洁癖:注册表承载的是"选哪个"这条
@@ -12,32 +12,6 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'stt_backend.dart';
-
-/// 后端不可用时从 [SttBackend.transcribe] 抛出的异常。
-///
-/// **为什么放在这个文件**:两个后端实现(本地 / 云端)都要抛它,而它们
-/// 彼此不能互相 import —— 那会把 `sherpa_onnx` 拖进云端后端、或者把 `http`
-/// 拖进本地后端,两边的可测性一起完蛋。放在这个零依赖的选择层里是唯一
-/// 不产生循环、也不污染依赖的位置。
-///
-/// 携带完整的 [SttAvailability] 而不是一句光秃秃的字符串:调用点拿到它
-/// 既能直接展示中文原因,又能读 [SttAvailability.reason] 做分支
-/// (比如「模型缺失」引导去下载页,「用户关闭」则干脆什么都不提示)。
-class SttUnavailableException implements Exception {
-  const SttUnavailableException(this.availability, {this.cause});
-
-  final SttAvailability availability;
-
-  /// 底层原因(如 FFI / HTTP 抛出的原始异常),**仅用于排查日志**,
-  /// 不要直接展示给用户 —— 它可能含有英文栈信息之类的噪声。
-  final Object? cause;
-
-  /// 给用户看的中文说明,等同于 `availability.message`。
-  String get message => availability.message;
-
-  @override
-  String toString() => 'SttUnavailableException(${availability.message})';
-}
 
 /// 设置页下拉框用的后端选项。
 ///
@@ -185,6 +159,15 @@ class SttRegistry {
     // 用户选了本地却看到「请填写 API Key」,只会一头雾水。
     SttAvailability? firstFailure;
 
+    // 区分"装配了但用不了"和"压根没装配"。
+    //
+    // 这两件事对用户的含义完全不同:前者是"模型没下载 / key 没填",他能自己
+    // 补救;后者是这个构建里根本没带识别能力,他怎么点设置都没用。如果不加区分,
+    // 一个后端都没装配的构建会显示「本地离线识别在当前版本中不可用」——
+    // 这话把用户往"去设置里改选别的"引,而那条路是死的。所以只要**一个**后端
+    // 都没装配,就直接给 [kNoSttBackendAvailable] 那句总述。
+    bool anyConfigured = false;
+
     for (final SttBackendChoice choice in order) {
       final SttBackend? backend = backendFor(choice);
       if (backend == null) {
@@ -196,6 +179,7 @@ class SttRegistry {
         );
         continue;
       }
+      anyConfigured = true;
 
       // 后端的 checkAvailability 按契约不该抛,但它要摸文件系统甚至试网络,
       // 这里仍然兜一层:一个后端的意外崩溃不该让整个降级链断掉。
@@ -226,7 +210,9 @@ class SttRegistry {
       requested: requested,
       effective: SttBackendChoice.off,
       backend: null,
-      availability: firstFailure ?? kNoSttBackendAvailable,
+      availability: anyConfigured
+          ? (firstFailure ?? kNoSttBackendAvailable)
+          : kNoSttBackendAvailable,
     );
   }
 

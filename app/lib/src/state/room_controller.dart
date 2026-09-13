@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../net/signaling_client.dart';
+import '../recording/recording_consent.dart';
 import '../rtc/rtc_service.dart';
 import 'models.dart';
 import 'settings_store.dart';
@@ -47,6 +48,10 @@ class RoomController extends ChangeNotifier {
   /// 设置(可选;§2.2 流量透明度)与 WiFi 检测(可注入,默认真=高音质)
   final SettingsStore? settings;
   final Future<bool> Function()? isOnWifi;
+
+  /// 录音同意控制器:录音态的唯一权威,UI 指示器直接读它。
+  /// 注入而非内建,是为了让 RoomController 的既有测试不必关心录音。
+  RecordingConsentController? recordingConsent;
 
   final String userId;
   final String deviceId;
@@ -179,6 +184,8 @@ class RoomController extends ChangeNotifier {
 
   /// 一键出房:无需告别仪式(设计.md §3.1)
   Future<void> leave() async {
+    // 先停录再退房,顺序不能反 —— 否则会出现「人已走、录音还在」的荒谬状态。
+    recordingConsent?.stop();
     _idleTimer?.cancel();
     _idleTimer = null;
     _knockTimer?.cancel();
@@ -214,6 +221,9 @@ class RoomController extends ChangeNotifier {
 
   Future<void> _downgradeMedia() async {
     if (phase != RoomPhase.inRoom || mediaDowngraded) return;
+    // 媒体都断了还「录」下去,录到的只有静音,而指示器还亮着 ——
+    // 那是另一种形式的说谎。
+    recordingConsent?.stop();
     await _rtc.leave();
     mediaDowngraded = true;
     muted = true;
@@ -319,6 +329,11 @@ class RoomController extends ChangeNotifier {
   }
 
   void _onSignalingMessage(Map<String, dynamic> msg) {
+    // 录音态:原样转发给同意控制器(它自己挑需要的 t 处理)。
+    // 放在 switch 之前,'room' / 'member_left' / '_disconnected' 这些已有分支
+    // 就不必各自再记得调一次 —— 漏掉一处就是「指示器说谎」。
+    recordingConsent?.handleMessage(msg);
+
     switch (msg['t']) {
       case 'welcome':
         // 断线重连成功:自动恢复到之前所在的房间(README 待办:房间态恢复)

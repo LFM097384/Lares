@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../chat/chat_service.dart';
+import '../recording/recording_consent.dart';
+import '../recording/recording_indicator.dart';
 import '../state/location_share_stub.dart'
     if (dart.library.io) '../state/location_share.dart';
 import '../state/models.dart';
@@ -25,6 +27,7 @@ class RoomScreen extends StatefulWidget {
     this.settings,
     this.locationShare,
     this.chat,
+    this.recordingConsent,
   });
 
   final RoomController controller;
@@ -35,6 +38,9 @@ class RoomScreen extends StatefulWidget {
 
   /// 文字/图片副通道。为 null 时整块不渲染(与 _KnockBanner 同样的降级方式)
   final ChatService? chat;
+
+  /// 录音同意控制器。为 null 时不渲染指示器(同上的降级方式)
+  final RecordingConsentController? recordingConsent;
 
   @override
   State<RoomScreen> createState() => _RoomScreenState();
@@ -62,6 +68,13 @@ class _RoomScreenState extends State<RoomScreen> {
                       : () => setState(() => _showMap = !_showMap),
                 ),
                 _KnockBanner(controller: controller, settings: widget.settings),
+                // 录音指示器:房间里有人在录音时对**所有人**常驻显示。
+                // 这是本 App 唯一刻意「吵」的组件 —— 安静的设计 ≠ 藏起来。
+                // 没人录音时它自己退化成 SizedBox.shrink(),不占位。
+                if (widget.recordingConsent != null)
+                  RecordingIndicatorBanner(
+                    controller: widget.recordingConsent!,
+                  ),
                 Expanded(
                   child: _showMap && widget.locationShare != null
                       ? MapPanel(

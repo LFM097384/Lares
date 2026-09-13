@@ -19,8 +19,9 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+// SttAvailability 与 SttUnavailableException 都来自这份纯契约:本后端只依赖
+// 契约,**不**依赖挑选后端的 stt_registry.dart —— 否则依赖方向就倒过来了。
 import 'stt_backend.dart';
-import 'stt_registry.dart';
 import 'transcript_store.dart';
 import 'utterance.dart';
 
@@ -204,9 +205,13 @@ class GroqSttBackend implements SttBackend {
   @override
   Future<SttAvailability> checkAvailability() async {
     if (apiKey.trim().isEmpty) {
+      // ⚠️ 归因为 [SttUnavailableReason.notConfigured] 而**不是** `offline`:
+      // 没填 key 跟网络状况毫无关系,网可能好得很。报成 `offline` 会让
+      // 按 reason 分支的 UI 去劝用户"检查网络连接",而他查到天亮也查不出
+      // 问题 —— 真正该做的只是去设置页填一行字。
       return const SttAvailability(
         ready: false,
-        reason: SttUnavailableReason.offline,
+        reason: SttUnavailableReason.notConfigured,
         message: '未配置云端识别的 API Key,转写功能暂不可用(通话与录音不受影响)',
         remedy: '请到「设置 - 语音识别」填入 Groq API Key',
       );
@@ -281,10 +286,18 @@ class GroqSttBackend implements SttBackend {
           .timeout(timeout);
       final http.Response resp = await http.Response.fromStream(streamed);
 
+      // ⚠️ 刻意**不用** `resp.body`:那个 getter 按响应头里的 charset 解码,
+      // 而 charset 缺失时 `http` 包会退回 **latin-1**,于是每个汉字都会碎成
+      // 两三个乱码字符。JSON 按 RFC 8259 规定就是 UTF-8,和服务端有没有
+      // 老老实实写 charset 无关,所以这里直接按 UTF-8 解字节。
+      // `allowMalformed: true` 是为了让半截多字节序列退化成替换字符,
+      // 而不是抛异常把整段转写废掉。
+      final String body = utf8.decode(resp.bodyBytes, allowMalformed: true);
+
       if (resp.statusCode != 200) {
-        throw SttUnavailableException(_failureFor(resp.statusCode, resp.body));
+        throw SttUnavailableException(_failureFor(resp.statusCode, body));
       }
-      text = _extractText(resp.body).trim();
+      text = _extractText(body).trim();
     } on SttUnavailableException {
       rethrow; // 已经是我们自己的、带中文说明的错误,原样上抛
     } on TimeoutException {

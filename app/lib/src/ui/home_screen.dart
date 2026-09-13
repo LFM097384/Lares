@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../chat/chat_service.dart';
+import '../recording/recording_consent.dart';
 import '../state/circle_store.dart';
 import '../state/identity.dart';
 import '../state/location_share_stub.dart'
@@ -24,6 +25,7 @@ class HomeScreen extends StatelessWidget {
     this.voiceNotes,
     this.locationShare,
     this.chat,
+    this.recordingConsent,
   });
 
   final RoomController controller;
@@ -32,6 +34,7 @@ class HomeScreen extends StatelessWidget {
   final VoiceNotesController? voiceNotes;
   final LocationShareService? locationShare;
   final ChatService? chat;
+  final RecordingConsentController? recordingConsent;
 
   String _circleName(String? circleId) {
     if (circleId == null) return '';
@@ -69,6 +72,7 @@ class HomeScreen extends StatelessWidget {
               settings: settings,
               locationShare: locationShare,
               chat: chat,
+              recordingConsent: recordingConsent,
             );
             if (!wide) {
               // 移动端:在房 -> 房间页整屏;未在房 -> 圈子列表
@@ -82,6 +86,7 @@ class HomeScreen extends StatelessWidget {
                             controller: controller,
                             settings: settings,
                             circleStore: circleStore,
+                            recordingConsent: recordingConsent,
                           ),
                           _RenameAction(controller: controller),
                         ],
@@ -113,6 +118,7 @@ class HomeScreen extends StatelessWidget {
                                   controller: controller,
                                   settings: settings,
                                   circleStore: circleStore,
+                                  recordingConsent: recordingConsent,
                                 ),
                                 _RenameAction(controller: controller),
                               ],
@@ -476,11 +482,13 @@ class _SettingsAction extends StatelessWidget {
     required this.controller,
     required this.settings,
     required this.circleStore,
+    this.recordingConsent,
   });
 
   final RoomController controller;
   final SettingsStore settings;
   final CircleStore circleStore;
+  final RecordingConsentController? recordingConsent;
 
   @override
   Widget build(BuildContext context) {
@@ -493,6 +501,7 @@ class _SettingsAction extends StatelessWidget {
         controller: controller,
         circleStore: circleStore,
         signalingUrl: controller.signalingUrl,
+        recordingConsent: recordingConsent,
       ),
     );
   }

@@ -146,6 +146,13 @@ enum SttUnavailableReason {
   /// 需要网络的后端当前离线。
   offline,
 
+  /// 后端本身没坏,只是缺少用户必须自己提供的配置(最典型:云端 API Key 没填)。
+  ///
+  /// 与 [offline] 严格区分:网络可能好得很,问题出在"没配"而不是"连不上"。
+  /// 混用会让 UI 给出南辕北辙的引导 —— 用户被告知"检查网络连接",
+  /// 而他真正该做的是去设置页填一个 key,查半天网也查不出所以然。
+  notConfigured,
+
   /// 用户在设置里主动关掉了语音识别。
   disabledByUser,
 
@@ -194,6 +201,22 @@ class SttAvailability {
       backendLabel = '',
       modelPath = expectedPath;
 
+  /// 缺少用户必须自己提供的配置(最典型:云端识别的 API Key 没填)。
+  ///
+  /// 与"离线"分开的理由见 [SttUnavailableReason.notConfigured]:这不是故障,
+  /// 而是一件用户去设置页填一行字就能解决的事,提示必须直接指向那里。
+  ///
+  /// [backend] 是给用户看的后端名(如「云端识别」),同样**不**拼进 [message] ——
+  /// const 初始化列表里不允许对参数做字符串插值(invalid_constant,且报错点会
+  /// 落在调用方那一行,极难定位)。理由与 [SttAvailability.ready] 完全一致。
+  const SttAvailability.notConfigured({String backend = ''})
+    : ready = false,
+      reason = SttUnavailableReason.notConfigured,
+      message = '尚未完成配置,转写功能暂不可用(通话与录音不受影响)',
+      remedy = '到「设置 - 语音识别」填写所需配置后即可自动启用',
+      backendLabel = backend,
+      modelPath = null;
+
   /// 用户主动关闭。
   const SttAvailability.disabledByUser()
     : ready = false,
@@ -241,6 +264,38 @@ class SttAvailability {
   String toString() =>
       'SttAvailability(ready: $ready, reason: $reason, message: $message, '
       'remedy: $remedy, modelPath: $modelPath, backendLabel: $backendLabel)';
+}
+
+/// 后端不可用时从 [SttBackend.transcribe] 抛出的异常。
+///
+/// **为什么放在这个契约文件里**:它是接口契约的一部分 —— 契约第 2、4 条明确
+/// 要求实现方"通过错误通道抛出带说明的错误",那这个错误类型本身就该和
+/// [SttAvailability] 并排放在定义契约的地方,而不是放在选择层。
+///
+/// 放进选择层(`stt_registry.dart`)是行不通的:那会让**具体后端反过来依赖
+/// 挑选它们的那一层**,依赖方向整个倒置 —— 本地 / 云端后端只该认识契约,
+/// 不该认识注册表。而放进任一后端实现里更糟:两个实现都要抛它,谁放谁那边
+/// 都会逼另一边 import 过去,于是 `sherpa_onnx` 被拖进云端后端的依赖图、
+/// `http` 被拖进本地后端的依赖图,两边的可测性一起完蛋。
+/// 契约文件零平台依赖,是唯一既不倒置方向、也不污染依赖图的位置。
+///
+/// 携带完整的 [SttAvailability] 而不是一句光秃秃的字符串:调用点拿到它
+/// 既能直接展示中文原因,又能读 [SttAvailability.reason] 做分支
+/// (比如「模型缺失」引导去下载页,「用户关闭」则干脆什么都不提示)。
+class SttUnavailableException implements Exception {
+  const SttUnavailableException(this.availability, {this.cause});
+
+  final SttAvailability availability;
+
+  /// 底层原因(如 FFI / HTTP 抛出的原始异常),**仅用于排查日志**,
+  /// 不要直接展示给用户 —— 它可能含有英文栈信息之类的噪声。
+  final Object? cause;
+
+  /// 给用户看的中文说明,等同于 `availability.message`。
+  String get message => availability.message;
+
+  @override
+  String toString() => 'SttUnavailableException(${availability.message})';
 }
 
 /// 可插拔的语音识别后端。

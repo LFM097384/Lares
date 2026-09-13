@@ -21,10 +21,9 @@ import 'dart:typed_data';
 
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
+// SttAvailability 与 SttUnavailableException 都来自这份纯契约:本后端只依赖
+// 契约,**不**依赖挑选后端的 stt_registry.dart —— 否则依赖方向就倒过来了。
 import 'stt_backend.dart';
-// SttUnavailableException 定义在选择层:两个后端实现都要抛它,而它们彼此
-// 不能互相 import(否则 http 会被拖进本地后端、sherpa 会被拖进云端后端)。
-import 'stt_registry.dart';
 import 'transcript_store.dart';
 import 'utterance.dart';
 

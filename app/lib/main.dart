@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import 'src/chat/chat_service.dart';
+import 'src/recording/recording_consent.dart';
 import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
 import 'src/net/signaling_client.dart';
@@ -163,6 +164,17 @@ Future<void> main() async {
     circleIdGetter: () => controller.circleId ?? primaryCircleId(),
   );
 
+  // 录音同意(需求⑧):录音态的唯一权威。默认关闭,开启需显式确认。
+  // livenessTimeout 敢开是因为服务端已对 rec_ping 回 rec_pong(提交 20b8ddf)——
+  // 在那之前只有单向心跳,TCP 半开时会误杀正常长录音,故当时默认关闭。
+  // 取心跳间隔(15s)的 3 倍,容忍两次丢包。
+  final recordingConsent = RecordingConsentController(
+    userId: identity.userId,
+    send: signaling.send,
+    livenessTimeout: const Duration(seconds: 45),
+  );
+  controller.recordingConsent = recordingConsent;
+
   runApp(LaresApp(
     controller: controller,
     voiceNotes: voiceNotes,
@@ -170,6 +182,7 @@ Future<void> main() async {
     settings: settings,
     locationShare: locationShare,
     chat: chat,
+    recordingConsent: recordingConsent,
   ));
 }
 
@@ -182,6 +195,7 @@ class LaresApp extends StatelessWidget {
     this.voiceNotes,
     this.locationShare,
     this.chat,
+    this.recordingConsent,
   });
 
   final RoomController controller;
@@ -190,6 +204,7 @@ class LaresApp extends StatelessWidget {
   final VoiceNotesController? voiceNotes;
   final LocationShareService? locationShare;
   final ChatService? chat;
+  final RecordingConsentController? recordingConsent;
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +222,7 @@ class LaresApp extends StatelessWidget {
         voiceNotes: voiceNotes,
         locationShare: locationShare,
         chat: chat,
+        recordingConsent: recordingConsent,
       ),
     );
   }
