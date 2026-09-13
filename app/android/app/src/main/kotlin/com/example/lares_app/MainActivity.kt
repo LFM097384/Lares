@@ -47,6 +47,10 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // 应用内更新插件必须手动注册:GeneratedPluginRegistrant 只登记 pub 插件,
+        // 不会登记 App 本地的类。漏掉这一行,installApk 会抛 MissingPluginException,
+        // 表现为「拉起安装器失败」—— 下载和校验却都正常,极易误判成下载问题。
+        flutterEngine.plugins.add(LaresUpdatePlugin())
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lares/deeplink")
             .setMethodCallHandler { call, result ->
                 when (call.method) {

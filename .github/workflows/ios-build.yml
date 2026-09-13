@@ -137,3 +137,49 @@ jobs:
           name: lares-windows
           path: app/build/dist/lares-windows.zip
           retention-days: 14
+
+  # ── 发布 Release 资产(需求⑦ 自动更新的前提)────────────────────────────
+  # ⚠️ 为什么必须有这个 job:上面四个 upload-artifact 产出的是 Actions
+  #    **artifact**,不是 Release **asset** —— 它们 14 天过期、且下载需要鉴权。
+  #    v0.1.0 的 API 实测 "assets": [],应用内更新根本无从下载。
+  #    没有这一步,自动更新功能是永久失效的。
+  #
+  # SHA256SUMS.txt 的内容会写进 release body:客户端的校验和解析器认得
+  # `sha256sum` 的标准输出格式,据此把完整性等级从「仅长度」提升到
+  # 「长度 + 已公布 SHA-256」。GitHub 的 asset JSON 本身不含任何校验和字段。
+  publish-release:
+    needs: [build-ios, build-macos, build-android, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: 汇总产物并算校验和
+        run: |
+          mkdir -p out
+          find dist -type f \( -name '*.zip' -o -name '*.apk' -o -name '*.ipa' \) \
+            -exec cp {} out/ \;
+          cd out
+          sha256sum * > SHA256SUMS.txt
+          echo "=== 将发布的资产 ==="
+          ls -lh
+          cat SHA256SUMS.txt
+      - name: 生成 release 正文(含校验和)
+        run: |
+          {
+            echo "## 校验和(SHA-256)"
+            echo
+            echo '```'
+            cat out/SHA256SUMS.txt
+            echo '```'
+            echo
+            echo "> 应用内更新会自动比对这些校验和。"
+          } > RELEASE_BODY.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          body_path: RELEASE_BODY.md
+          append_body: true

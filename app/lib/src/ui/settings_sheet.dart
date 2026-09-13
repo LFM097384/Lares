@@ -12,6 +12,7 @@ import '../rtc/rtc_service.dart' show NoiseSuppressionMode;
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../theme/tokens.dart';
+import 'update_panel.dart';
 import 'server_settings_section.dart';
 
 /// 设置(§2.2 耗电与流量透明度、防打扰)
@@ -137,6 +138,11 @@ Future<void> showSettingsSheet(
                     ),
                   ),
                 ),
+              // 应用内更新(需求⑦):自己创建并持有 UpdateService,用完自行释放
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: LaresSpacing.md),
+                child: UpdatePanel(),
+              ),
               // 后台运行保障(用户反馈):Android 请求忽略电池优化;iOS 说明机制
               ListTile(
                 leading: const Icon(Icons.battery_saver_rounded),
