@@ -26,7 +26,7 @@ Future<void> showSettingsSheet(
       listenable: Listenable.merge([
         settings,
         controller,
-        if (circleStore != null) circleStore,
+        ?circleStore,
       ]),
       builder: (context, _) => SafeArea(
         child: Padding(

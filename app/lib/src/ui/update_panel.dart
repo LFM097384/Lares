@@ -216,7 +216,7 @@ class _UpdatePanelState extends State<UpdatePanel> {
             ),
           ),
         ),
-        if (notice != null) notice,
+        ?notice,
       ],
     );
   }
