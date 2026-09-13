@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../chat/chat_service.dart';
+import '../moderation/block_store.dart';
+import '../moderation/consent_store.dart';
 import '../recording/recording_consent.dart';
 import '../state/circle_store.dart';
 import '../state/identity.dart';
@@ -26,6 +28,8 @@ class HomeScreen extends StatelessWidget {
     this.locationShare,
     this.chat,
     this.recordingConsent,
+    this.blocks,
+    this.consent,
   });
 
   final RoomController controller;
@@ -35,6 +39,12 @@ class HomeScreen extends StatelessWidget {
   final LocationShareService? locationShare;
   final ChatService? chat;
   final RecordingConsentController? recordingConsent;
+
+  /// 本机屏蔽名单(指南 1.2);往下透传给房间页与设置
+  final BlockStore? blocks;
+
+  /// 内容规范同意状态;设置里「再看一遍」要用
+  final ConsentStore? consent;
 
   String _circleName(String? circleId) {
     if (circleId == null) return '';
@@ -73,6 +83,7 @@ class HomeScreen extends StatelessWidget {
               locationShare: locationShare,
               chat: chat,
               recordingConsent: recordingConsent,
+              blocks: blocks,
             );
             if (!wide) {
               // 移动端:在房 -> 房间页整屏;未在房 -> 圈子列表
@@ -87,6 +98,8 @@ class HomeScreen extends StatelessWidget {
                             settings: settings,
                             circleStore: circleStore,
                             recordingConsent: recordingConsent,
+                            blocks: blocks,
+                            consent: consent,
                           ),
                           _RenameAction(controller: controller),
                         ],
@@ -119,6 +132,8 @@ class HomeScreen extends StatelessWidget {
                                   settings: settings,
                                   circleStore: circleStore,
                                   recordingConsent: recordingConsent,
+                                  blocks: blocks,
+                                  consent: consent,
                                 ),
                                 _RenameAction(controller: controller),
                               ],
@@ -483,12 +498,16 @@ class _SettingsAction extends StatelessWidget {
     required this.settings,
     required this.circleStore,
     this.recordingConsent,
+    this.blocks,
+    this.consent,
   });
 
   final RoomController controller;
   final SettingsStore settings;
   final CircleStore circleStore;
   final RecordingConsentController? recordingConsent;
+  final BlockStore? blocks;
+  final ConsentStore? consent;
 
   @override
   Widget build(BuildContext context) {
@@ -502,6 +521,8 @@ class _SettingsAction extends StatelessWidget {
         circleStore: circleStore,
         signalingUrl: controller.signalingUrl,
         recordingConsent: recordingConsent,
+        blocks: blocks,
+        consent: consent,
       ),
     );
   }

@@ -256,9 +256,170 @@ pwsh scripts/dev.ps1   # 起全栈,浏览器开 http://127.0.0.1:8080
 3. **iPhone 真机验证**:踢人/位置共享/后台保活/小组件数据共享(免费签名 App Groups 待确认)
 4. **真机验证降噪/主圈子**:Android 硬件 AEC 听感、小组件刷新 —— 目前只有静态与编译层保证
 5. **TestFlight 签名**:$99 开发者账号后按 deploy/ios-ci.md 配 secrets
+   ⚠️ **账号注册是全流程唯一的长周期项**(个人账号审批数天~两周,中国大陆
+   开发者可能要额外身份验证)。用户**尚未注册**,应最先启动,与开发并行。
 6. iOS Widget 深化:App Intents 可交互小组件(iOS 17+ 可不跳 App 直接进房)
 7. 浸泡测试长期挂机数据(scripts/soak.ps1 → soak.log)
 8. 桌面快捷方式 `~/Desktop/一键进圈.lnk` 需手动改名(沙箱外且无生成脚本)
+
+## 🍎 App Store 上架(2026-09-13 启动,进行中)
+
+目标:**仅 iOS,仅非中国区**(规避 ICP 备案 —— 服务器在 RackNerd 美国,拿不到备案)。
+Mac 用**按小时租的云 Mac**(MacinCloud)做一次性 Xcode 配置。功能**全量提交**,含位置共享。
+
+### ⚠️ 最高风险项:Guideline 1.2「anonymous chat」
+
+Apple 于 **2026-02-06** 专门修订 1.2,把 "random or anonymous chat" 明确纳入管辖:
+<https://developer.apple.com/news/?id=d75yllv4>
+2026-06 已据此下架真实 app(ShareChat 旗下 Vibely,语音社交),开发方抗辩无效。
+
+原文危险句(1.2):
+> Apps with user-generated content or services that end up being used primarily for
+> ... **random or anonymous chat** ... do not belong on the App Store and
+> **may be removed without notice.**
+
+另有 1.1.6 独立风险句:"Apps that enable anonymous or prank phone calls ... will be rejected."
+
+**我们的抗辩点(已核实可证明,不是嘴上说说)**:
+- `grep` 全 `app/lib`:**零陌生人发现机制** —— 无匹配、无推荐、无附近的人、无公开房间列表
+- `server/src/index.js:767`:开鉴权后 `/health` **主动不吐圈子清单**
+  (注释原文:「那是给扫描器用的侦察面」)—— 连圈子的存在都不可枚举
+- 进入**必须**持有口令/邀请码,是 closed / invite-only 拓扑,非随机匹配
+
+**已定的应对(用户决策,勿推翻)**:
+- **保持无账号体系**,用「设备身份 + 圈内稳定昵称」与「匿名」切割
+- 关键因果:**「屏蔽某用户」这条 1.2 要求倒逼出稳定身份的必要性**。
+  昵称若可随意改,屏蔽就是假功能(对方改名即绕过),审核员一测就穿。
+  所以稳定身份不是装饰,它是屏蔽能成立的前提,也顺带成了「非匿名」最强证据。
+- 屏蔽的键**必须是 identity,不是昵称**
+- 文案一律避开「匿名 / 随机 / 陌生人」,强调 closed / invite-only / 熟人小圈
+
+> 1.2 原文**没有**「服务器不落盘就豁免」的例外(已通读确认)。
+> 不要指望用「我不存储」免除四项措施。
+
+### 硬性阻断项(不改必拒)
+
+| # | 问题 | 证据 | 状态 |
+|---|---|---|---|
+| 1 | ~~Bundle ID 仍是 `com.example.*`~~ | `project.pbxproj`、`Runner.entitlements:7` App Group、`Info.plist:19` URLName | **已改** → `com.lfm097384.lares`(Apple 侧 11 处联动;Android 包名另议) |
+| 2 | **无任何 `.xcprivacy` 隐私清单** | 全仓库 glob 无结果;2024-05 起强制 | 进行中 |
+| 3 | `UIBackgroundModes` 声明 `fetch` 但**零使用** | `Info.plist:35`;grep 无 `BGTaskScheduler` | 待删(`audio` 保留,语音房真需求) |
+| 4 | CI 产物**不是可上传的 ipa** | `ios-build.yml:38` `--no-codesign` + `:46` 手工 zip Payload | 侧载可用,上传必被拒收 |
+| 5 | 零合规资产 | 无隐私政策/服务条款/支持页;三者均为 ASC **必填 URL** | 待做 |
+| 6 | UGC 三件套缺失(1.2) | 无屏蔽、无举报、无 EULA | 进行中 |
+| 7 | **iOS 选图功能实际不可用** | 见下「已确诊」 | ✅ 已修 |
+
+### 2026-09-13 已完成(本轮)
+
+| 事项 | 结果 |
+|---|---|
+| UGC 三件套(屏蔽/举报/EULA) | 9 新 + 6 改,+94 测试 |
+| iOS 选图修复 | UTI 补齐,+20 测试 |
+| Bundle ID → `com.lfm097384.lares` | 12 文件 |
+| `PrivacyInfo.xcprivacy` | 已写 + **已接进 Copy Bundle Resources** |
+| `ITSAppUsesNonExemptEncryption` = false | Info.plist |
+| 删未使用的 `UIBackgroundModes: fetch` | 2.5.4 拒绝理由 |
+| 位置补声明 CoarseLocation | 保守声明,理由见清单内注释 |
+| Widget 版本号与主 App 联动 | 从 pubspec 读,单一事实源 |
+| 录音残留清理 + 移除 sherpa_onnx | **-21.4MB**,符号归零 |
+| `url_launcher` | 举报 mailto + 隐私政策链接 |
+
+验证:**441 测试全绿**、`flutter analyze lib` 零告警、干净重建通过。
+(测试数 506→441 是移走 `recording_stt_test.dart` 的 65 项,降幅精确匹配。)
+
+### 录音隐藏:从「大部分剔除」到「完全剔除」
+
+二进制符号扫描实测,**干净重建**后 `app.so` 里:
+`RecordingConsentController` / `RemoteRecorder` / `rec_stop` / `member_rec` /
+`SherpaSttBackend` / `OfflineRecognizer` —— **全部零命中**;
+阳性对照 `VoiceNotesController` / `BlockStore` 正常命中(证明搜索方法有效)。
+
+两个关键修复:
+1. `main.dart` 的 `RecordingConsentController` 原本**无条件实例化**,
+   让 `recording_consent.dart` 成为「可达的活代码」,tree-shaking 剔不掉它
+   (另外 11 个文件都被剔除了)。改成跟 `recordingEnabled` 走即可。
+2. **tree-shaking 对原生库完全无效**。`sherpa_onnx` 已连同 `stt_sherpa.dart`
+   与其测试移到 `app/_disabled/recording_stt/`(有 README 写恢复步骤)。
+   移走时 `lib/` 下对它的引用是**零** —— 原作者刻意做了分层。
+
+> ⚠️ 验证这件事本身有坑:第一次构建后 DLL **仍在**,那是 CMake 增量残留。
+> `flutter clean` 后必须**重跑 `scripts/fix_symlinks.ps1`**(clean 会删掉 junction),
+> 再构建才看得到真实结果。只信第一次构建会得出「移除失败」的错误结论。
+
+### ⚠️ 已确诊:iOS 选图必然失败(我上一轮误报为「已打通」)
+
+`image_source_io.dart:54-57` 的 `XTypeGroup` **只给了 `extensions`**,而
+`file_selector_ios-0.5.3+6/lib/file_selector_ios.dart:65-69` 要求 `uniformTypeIdentifiers`
+非空,否则 `throw ArgumentError`。该异常被 `image_source_io.dart:73-75` 静默吞掉。
+
+**表现:按钮渲染、可点击、点了没反应,零错误提示。**
+(我当时只在 Windows 上验证过 —— Windows 实现读 `extensions`,所以过了。
+这正是本文档自己记录过的那类「静默失败」陷阱。)
+
+→ 审核员点一个没反应的按钮 = Guideline 2.1 现成拒绝理由,提审前必须修。
+
+### ✅ 更正:Widget target **不需要**手动建(我上一轮说错了)
+
+`ios-build.yml:30-33` 有 `ruby ios/add_widget_target.rb` 在**程序化注入**,幂等,已跑过 19 次。
+`deploy/ios-ci.md:36` 那句「需要先在 Xcode 建一次 target」是**过时文档**。
+→ 云 Mac 的用途仅剩:证书/描述文件配置与本地 Archive(若不走 CI 签名)。
+
+该脚本 `:21-24` 从父 target **动态读** bundle id,故改 Bundle ID 时 Widget 自动跟随;
+但 `:8` 的 `APP_GROUP` 是硬编码,必须手改。
+
+### 🔴 审核可达性 vs 端口占用:已决定另开一台 VPS
+
+调研查实:**2.1「无法审查」才是这类 app 的真实杀手**,不是自定义服务器本身
+(4.7 不适用;最强反证是 Element X 以「连接任意服务器」为主打宣传语且获批)。
+实证 —— Pi-hole 客户端被拒,原因是答复 Apple「本 app 无公共端点、无法提供凭据」。
+Apple 要求演示后端**固定 DNS + 443 + 系统信任证书**(勿用动态 DNS)。
+
+但本项目 VPS 上 **443 = 机场 VLESS+Reality 主入站**,动不得,
+故 `deploy/docker-compose.yml` 把 Caddy 钉死在 8444(见该文件头 4-16 行警告)。
+→ 冲突是**结构性**的:8444 在企业网络/部分运营商会被防火墙拦掉,
+   审核员一测连不上 = 2.1 拒绝,且这**不是写审核备注能解释掉的**。
+   注意这不止影响审核 —— 上架后真实用户同样会撞到 8444 被拦。
+
+**决定:另开一台便宜 VPS 专跑 Lares,独占 443。**
+顺带解决:现有 1 vCPU/1GB 要同时扛 xray + LiveKit + Caddy + Node,内存本就吃紧。
+→ `deploy/` 现有端口规避逻辑对新机器不再必要,但**先别删**:
+   旧机器仍是机场宿主,配置需保留以防回退。
+
+### Bundle ID(已定,不可逆,勿再改)
+
+`com.example.laresApp` → **`com.lfm097384.lares`**;App Group → `group.com.lfm097384.lares`。
+选它而非 `eu.org.laresproject.lares`:**Bundle ID 不该被一个未定的外部依赖(域名审批)卡住**,
+且 Apple 从不验证域名所有权。一旦在 Apple 后台注册即**永久绑定、不可改、不可删除重用**。
+
+**已于 2026-09-13 完成**,实际联动 12 个文件(比原估的 9 处多):除 pbxproj / entitlements /
+Info.plist / xcconfig / `add_widget_target.rb` 外,还有两处**运行时真正读 App Group 的代码**——
+`lib/src/platform/widget_service.dart:24`(Dart 侧写入)与 `ios/LaresWidget/LaresWidget.swift:16`
+(Swift 侧读取);这两处若漏改,entitlements 授权的 group 无人读写,小组件会**静默**空白。
+另含 `map_panel.dart:46` 发给 OSM 的 User-Agent(用 `com.example` 不礼貌且可能被瓦片服务器封)、
+`macos/Runner/Info.plist:23` 深链 URLName、`windows/runner/Runner.rc` 的 CompanyName/版权。
+Android 包名**暂不动**:改了等于换 app,已装用户无法升级。
+
+### 服务器会落盘的用户内容:只有语音便签
+
+`server/src/index.js:678`「MVP:磁盘 JSON 存储(audio 为 base64),听过即删」。
+用户决定**保留并如实申报**。
+→ 隐私标签须填 Audio Data;**但这反而有利**:1.2 的「移除内容」要求
+从「架构上做不到」变成「做得到」。文字/图片/实时语音仍是纯转发不落盘。
+
+### 已确认**不是**问题的(别重复排查)
+
+- **自动更新在 iOS 上合规**:`installer_io.dart:398` 是 `UpdateCapability.notifyOnly`,
+  只提示不下载不安装 —— 最易致命的 2.5.2 红线一开始就绕开了。
+  但 `:402` 的文案对用户说「侧载 .ipa」,上架版必须改口径。
+- 无分析 SDK、无崩溃上报、无广告、无内购 —— 隐私标签可以填得很干净
+- 图片走 `file_selector`(文档选择器),**不碰相册**,不需要相册权限串
+- 麦克风/位置权限串已存在且写得合规(`Info.plist:22-25`)
+
+### 审核员如何进入(邀请码门禁的必答题)
+
+方案:**专用审核圈子 + 预置演示内容**。固定口令写在审核备注里,
+圈内要有可见的文字/图片消息,**让审核员能实际点到举报和屏蔽按钮**。
+→ 审核期间 VPS 必须在线(Apple "Before You Submit" 明确要求后端活动)。
 
 ## 快速恢复上下文(新会话第一句话)
 

@@ -106,7 +106,7 @@ flutter run -d android --dart-define=LARES_SIGNALING=ws://192.168.x.x:8787
 - [x] 敲门模式(§3.3):长按圈子开启「需敲门」;非空房间加入者先敲门(「敲门中,等里面的人应门…」,30s 超时),房内成员「让他进」放行;空房直接进;**隐私红线:未获放行前客户端不得先连媒体**(预热 token 门控,有单测);设置磁盘持久化、大厅摘要带 knockRequired
 - [x] 圈子邀请:长按圈子→「邀请朋友进圈」复制 `lares://circle/<id>?name=X` 链接;朋友点链接(App 自动登记+进房,实测冷启直达)或「粘贴邀请链接」手动进圈
 - [x] Android Quick Settings Tile:下拉状态栏一键进房(`LaresTileService`)
-- [x] iOS 端源码预埋(无 Mac 先备料,Mac 到位即可构建):`Info.plist`(URL scheme `lares`、麦克风权限、后台 audio)、`SceneDelegate` 深链(与 Android 同协议)、`ios/LaresWidget/` WidgetKit 源码(SwiftUI,暗色品牌样式,含 Xcode 接入步骤注释)、`WidgetService` 跨端 presence 推送(App Group `group.com.example.lares_app`)
+- [x] iOS 端源码预埋(无 Mac 先备料,Mac 到位即可构建):`Info.plist`(URL scheme `lares`、麦克风权限、后台 audio)、`SceneDelegate` 深链(与 Android 同协议)、`ios/LaresWidget/` WidgetKit 源码(SwiftUI,暗色品牌样式,含 Xcode 接入步骤注释)、`WidgetService` 跨端 presence 推送(App Group `group.com.lfm097384.lares`)
 - [x] macOS 端源码预埋:entitlements 补齐(network.client + 麦克风)、`Info.plist`(URL scheme/麦克风说明/应用名)、`AppDelegate` 深链(三端同协议)+ **关窗不退出**(托盘挂机语义修正)、深链服务覆盖 macOS
 - [x] 闲时媒体降级获生产级实证:LiveKit 日志显示 5 分钟无说话后 RTC 房间因 departure timeout 关闭,presence 三端仍在线
 - [x] AvatarOrb 可访问性语义(「正在说话」标签,为说话指示的可测性铺路)

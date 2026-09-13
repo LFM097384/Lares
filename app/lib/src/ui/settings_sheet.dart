@@ -4,6 +4,8 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../platform/platform_info.dart'
     if (dart.library.io) '../platform/platform_info_io.dart';
 import '../config.dart';
+import '../moderation/block_store.dart';
+import '../moderation/consent_store.dart';
 import '../platform/widget_service.dart';
 import '../state/circle_store.dart';
 import '../state/models.dart';
@@ -13,6 +15,8 @@ import '../rtc/rtc_service.dart' show NoiseSuppressionMode;
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../theme/tokens.dart';
+import 'blocked_users_section.dart';
+import 'content_policy_screen.dart';
 import 'update_panel.dart';
 import 'server_settings_section.dart';
 
@@ -24,19 +28,26 @@ Future<void> showSettingsSheet(
   required String signalingUrl,
   CircleStore? circleStore,
   RecordingConsentController? recordingConsent,
+  BlockStore? blocks,
+  ConsentStore? consent,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    // 这一屏的行数会随功能增长,矮屏(横屏手机)上放不下 ——
+    // 交给 SingleChildScrollView 滚,不让它溢出。
+    isScrollControlled: true,
     builder: (ctx) => ListenableBuilder(
       listenable: Listenable.merge([
         settings,
         controller,
         ?circleStore,
         ?recordingConsent,
+        ?blocks,
+        ?consent,
       ]),
       builder: (context, _) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: LaresSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -87,6 +98,29 @@ Future<void> showSettingsSheet(
                       )
                     : null,
                 onTap: () => _pickDnd(context, settings),
+              ),
+              // ── 内容与安全(App Store 审核指南 1.2)────────────────────
+              // 和防打扰放一起:对用户来说都是「让这里待得住」的开关,
+              // 对审核员来说也一眼能找到。
+              if (blocks != null) BlockedUsersSection(blocks: blocks),
+              ListTile(
+                leading: const Icon(Icons.rule_rounded),
+                title: const Text('社区内容规范'),
+                subtitle: const Text('看看我们对内容的要求'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                // 同意过之后仍然随时可查 —— 1.2 审核员会找「同意之后还能不能看到条款」
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute<void>(
+                    builder: (pageCtx) => ContentPolicyScreen(
+                      // 已经同意过了,这里只是重读:点「同意」就是关掉这一页
+                      onAccept: () async {
+                        await consent?.accept();
+                        if (pageCtx.mounted) Navigator.of(pageCtx).pop();
+                      },
+                      showDecline: false,
+                    ),
+                  ),
+                ),
               ),
               const Divider(),
               // ── 录音与转写(需求⑧)──────────────────────────────────

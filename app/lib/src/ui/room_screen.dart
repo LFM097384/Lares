@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../chat/chat_service.dart';
 import '../config.dart';
+import '../moderation/block_store.dart';
 import '../recording/recording_consent.dart';
 import '../recording/recording_indicator.dart';
 import '../state/location_share_stub.dart'
@@ -13,7 +14,18 @@ import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
 import 'chat_panel.dart';
 import 'map_panel.dart';
+import 'moderation_menus.dart';
 import 'widgets/avatar_orb.dart';
+
+// ── 就地常量 ──
+// tokens.dart 没有「图标尺寸」这一档,被屏蔽标记的两个尺寸就地定义。
+
+/// 被屏蔽成员的头像压到多暗。压到四成是「一眼看出不一样」又「还认得出是谁」
+/// 的平衡点 —— 全糊掉反而让人不知道自己屏蔽了谁。
+const double _blockedAvatarOpacity = 0.4;
+
+/// 被屏蔽角标的图标尺寸,与 AvatarOrb 里的静音标记同量级。
+const double _blockedBadgeIconSize = 16;
 
 /// 房间内界面(设计.md §3.2-2):极简 —— 头像网格 + 波纹 + 底部两个主按钮。
 /// 文字/图片是安静的副通道(§2.3 已由 owner 显式放开):默认折叠,
@@ -29,6 +41,7 @@ class RoomScreen extends StatefulWidget {
     this.locationShare,
     this.chat,
     this.recordingConsent,
+    this.blocks,
   });
 
   final RoomController controller;
@@ -42,6 +55,10 @@ class RoomScreen extends StatefulWidget {
 
   /// 录音同意控制器。为 null 时不渲染指示器(同上的降级方式)
   final RecordingConsentController? recordingConsent;
+
+  /// 屏蔽名单(App Store 审核指南 1.2)。为 null 时长按头像退回「直接踢人」的
+  /// 老行为,既不崩也不少任何既有功能 —— 可选协作者一律优雅降级(同上)。
+  final BlockStore? blocks;
 
   @override
   State<RoomScreen> createState() => _RoomScreenState();
@@ -87,11 +104,14 @@ class _RoomScreenState extends State<RoomScreen> {
                           controller: controller,
                           locationShare: widget.locationShare!,
                         )
-                      : _MemberGrid(controller: controller),
+                      : _MemberGrid(
+                          controller: controller,
+                          blocks: widget.blocks,
+                        ),
                 ),
                 // 副通道置于主按钮之上:默认折叠成一条细条,不挤压上方网格
                 if (widget.chat != null)
-                  ChatPanel(chat: widget.chat!)
+                  ChatPanel(chat: widget.chat!, blocks: widget.blocks)
                 else
                   const SizedBox.shrink(),
                 _ControlBar(
@@ -355,14 +375,20 @@ Future<void> _confirmKick(
 }
 
 class _MemberGrid extends StatelessWidget {
-  const _MemberGrid({required this.controller});
+  const _MemberGrid({required this.controller, this.blocks});
 
   final RoomController controller;
 
+  /// 为 null 时整块退回「长按=踢人」的老行为,且不画屏蔽标记
+  final BlockStore? blocks;
+
   @override
   Widget build(BuildContext context) {
+    final BlockStore? blocks = this.blocks;
     return ListenableBuilder(
-      listenable: controller,
+      // 必须把 blocks 一起并进来:屏蔽是在 BlockStore 上发生的,
+      // controller 根本不会为此 notify,不合并就「屏蔽了但画面没变」。
+      listenable: Listenable.merge(<Listenable?>[controller, blocks]),
       builder: (context, _) {
         final members = controller.members;
         if (members.isEmpty) {
@@ -383,20 +409,87 @@ class _MemberGrid extends StatelessWidget {
           itemBuilder: (context, i) {
             final m = members[i];
             final isMe = m.userId == controller.userId;
+            final bool blocked = blocks?.isBlocked(m.userId) ?? false;
+
+            // 接了屏蔽名单就走处置菜单(踢人作为其中一行保留);
+            // 没接就还是老样子:长按直接踢。
+            VoidCallback? openMenu;
+            if (!isMe && blocks != null) {
+              openMenu = () => showMemberModerationSheet(
+                    context,
+                    controller: controller,
+                    blocks: blocks,
+                    member: m,
+                    onKick: () => _confirmKick(context, controller, m),
+                  );
+            }
+
+            final Widget orb = AvatarOrb(
+              member: m,
+              speaking: controller.speakingIds.contains(m.userId),
+              muted: isMe && controller.muted,
+            );
+
             return GestureDetector(
-              // 长按头像:踢出(自己除外)
-              onLongPress: isMe
-                  ? null
-                  : () => _confirmKick(context, controller, m),
-              child: AvatarOrb(
-                member: m,
-                speaking: controller.speakingIds.contains(m.userId),
-                muted: isMe && controller.muted,
-              ),
+              // 点一下也能打开处置菜单。只留长按太隐蔽了 ——
+              // AvatarOrb 自己 excludeSemantics: true,读屏用户更摸不到,
+              // 而「能屏蔽」这件事必须让人找得到(审核指南 1.2)。
+              onTap: openMenu,
+              onLongPress: openMenu ??
+                  (isMe ? null : () => _confirmKick(context, controller, m)),
+              child: blocked ? _BlockedOverlay(child: orb) : orb,
             );
           },
         );
       },
+    );
+  }
+}
+
+/// 被屏蔽成员的视觉标记:头像压暗 + 右上角一枚禁止图标。
+///
+/// 为什么一定要有:屏蔽的效果(听不到、看不到消息)全都发生在别处,
+/// 网格里若毫无变化,用户点完那一下根本不知道生效了没有 ——
+/// 审核员也是。名字已经在 AvatarOrb 里了,这里只加「暗」和「角标」两件事。
+class _BlockedOverlay extends StatelessWidget {
+  const _BlockedOverlay({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Semantics(
+      label: '已屏蔽',
+      // container: true 是必须的:AvatarOrb 自己已经建了一个语义节点
+      // (还带 excludeSemantics),外层若不独立成节点,这个标签就会被吞掉,
+      // 读屏用户根本听不到「已屏蔽」三个字。
+      container: true,
+      child: Stack(
+        children: <Widget>[
+          Opacity(opacity: _blockedAvatarOpacity, child: child),
+          Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.all(LaresSpacing.xs),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.surface,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(LaresSpacing.xs),
+                  child: Icon(
+                    Icons.block_rounded,
+                    size: _blockedBadgeIconSize,
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -8,7 +8,9 @@ import '../chat/chat_text.dart';
 import '../chat/image_source.dart'
     if (dart.library.io) '../chat/image_source_io.dart';
 import '../config.dart';
+import '../moderation/block_store.dart';
 import '../theme/tokens.dart';
+import 'moderation_menus.dart';
 
 // ── 就地常量 ──
 // tokens.dart 只收录颜色/圆角/间距/断点,没有时长 token,也没有字阶 token,
@@ -90,16 +92,24 @@ class ChatPanel extends StatefulWidget {
     this.onPickImage, // 可选:外部注入选图实现(依赖到位后接上)
     this.enterToSend, // null = 按平台推断
     this.initiallyExpanded = false,
+    this.blocks,
   });
 
   /// 消息源与发送入口。面板自身不持有任何消息状态。
   final ChatService chat;
 
+  /// 屏蔽名单(App Store 审核指南 1.2)。非空时:
+  /// 列表改渲染 [ChatService.visibleMessages](已过滤屏蔽者),
+  /// 且长按别人的消息能开处置菜单。为 null 时整套退回原行为,不崩不变
+  /// (既有测试就是 `ChatPanel(chat: chat)` 这么构造的)。
+  final BlockStore? blocks;
+
   /// 外部注入的选图实现。非空时优先于 [pickImage]。
   ///
-  /// 存在的理由很实际:[isImagePickSupported] 当前在所有平台都是 false
-  /// (仓库不新增选图依赖),这个口子让宿主/测试能在今天就把真实字节喂进来,
-  /// 从而让「选图 → 发送 → 渲染」整条链路现在就可端到端跑通。
+  /// 存在的理由很实际:[isImagePickSupported] 现在各平台都是 true,走的是
+  /// file_selector 的系统对话框——而系统对话框在 widget 测试里没法弹,
+  /// 宿主也可能想换自己的选图入口(相册、拖拽、粘贴)。这个口子让二者
+  /// 都能把真实字节直接喂进来,从而让「选图 → 发送 → 渲染」整条链路可端到端跑通。
   final Future<PickedImage?> Function()? onPickImage;
 
   /// 回车是否直接发送。null 表示按平台推断([LaresConfig.isDesktop])。
@@ -286,10 +296,13 @@ class ChatPanelState extends State<ChatPanel> {
     try {
       picked = await picker();
     } catch (_) {
+      // pickImage() 只对「用户取消」返回 null,真失败(筛选器配错、权限被拒、
+      // 文件读不出来)一律上抛,由这里兜住。这行小字就是用户唯一能看见的痕迹——
+      // 曾经它被下层吞掉,结果 iOS 上按钮点了毫无反应,谁也不知道出了事。
       _setNotice('没能打开图片');
       return;
     }
-    // null = 用户取消,或当前构建根本不支持选图。两种都不是错误,什么都不做。
+    // null = 用户取消(或选了个空文件)。不是错误,什么都不做。
     if (picked == null) return;
     await _sendImage(picked.bytes, width: picked.width, height: picked.height);
   }
@@ -309,13 +322,29 @@ class ChatPanelState extends State<ChatPanel> {
 
   /// 直接把图片字节喂进发送链路,绕开系统选图器。
   ///
-  /// 存在的理由:[isImagePickSupported] 当前在所有平台都是 false,
-  /// 没有这个口子,「图片消息」这条链路今天就一行都测不到。
+  /// 存在的理由:[isImagePickSupported] 虽然各平台都是 true,但它背后是
+  /// file_selector 的**系统文件对话框**——widget 测试里弹不出来、也点不了。
+  /// 没有这个口子,「图片消息」这条链路就一行都测不到。
   /// 有了它,测试可以喂一张真 PNG 进来,把发送 → 回显 → 缩略图 → 点开大图
   /// 整条路径跑穿。生产代码请走 [ChatPanel.onPickImage]。
   @visibleForTesting
   Future<void> debugIngestImage(Uint8List bytes, {int? width, int? height}) =>
       _sendImage(bytes, width: width, height: height);
+
+  /// 长按一条别人的消息:开处置菜单(屏蔽 / 举报)。
+  ///
+  /// 菜单是个 modal,不违反本面板「不弹横幅、不弹 SnackBar」的纪律 ——
+  /// 那三条禁令针对的是**面板自己主动**冒出来的提示,
+  /// 用户按住一条消息后主动召来的菜单是另一回事。
+  Future<void> _moderate(BlockStore blocks, ChatMessage message) {
+    return showMessageModerationSheet(
+      context,
+      blocks: blocks,
+      message: message,
+      reporterUserId: widget.chat.userId,
+      circleId: message.circleId,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +402,13 @@ class ChatPanelState extends State<ChatPanel> {
         widget.onPickImage != null || isImagePickSupported;
     final bool enterToSend = widget.enterToSend ?? LaresConfig.isDesktop;
 
+    // 提到局部变量,好让下面的空判定能提升类型(widget.blocks 是字段,提升不了)
+    final BlockStore? blocks = widget.blocks;
+    // 没接屏蔽名单就传 null,_MessageRow 那边收到 null 便完全不挂手势 ——
+    // 与本面板一贯的降级方式一致。
+    final ValueChanged<ChatMessage>? onModerate =
+        blocks == null ? null : (ChatMessage m) => _moderate(blocks, m);
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -386,7 +422,9 @@ class ChatPanelState extends State<ChatPanel> {
           // 只有消息区订阅 chat:输入框的可用态只取决于本地文字,
           // 让它跟着每条新消息一起重建纯属浪费(与 room_screen.dart 的叶子重建同构)。
           ListenableBuilder(
-            listenable: widget.chat,
+            // blocks 必须并进来:屏蔽发生在 BlockStore 上,chat 不会为此 notify,
+            // 不合并就会「屏蔽了但那条消息还挂在列表里」。
+            listenable: Listenable.merge(<Listenable?>[widget.chat, blocks]),
             builder: (BuildContext context, Widget? child) {
               return AnimatedSize(
                 duration: _expandDuration,
@@ -394,9 +432,14 @@ class ChatPanelState extends State<ChatPanel> {
                 alignment: Alignment.bottomCenter,
                 child: _expanded
                     ? _MessageList(
-                        messages: widget.chat.messages,
+                        // 接了屏蔽名单就渲染已过滤的那份;没接则保持原样。
+                        // visibleMessages 是读取时过滤,解除屏蔽后历史原样回来。
+                        messages: blocks == null
+                            ? widget.chat.messages
+                            : widget.chat.visibleMessages,
                         scrollController: _scroll,
                         maxHeight: listMaxHeight,
+                        onModerate: onModerate,
                       )
                     // 收起时高度归零,宽度撑满,避免动画过程中横向也跟着抖
                     : const SizedBox(width: double.infinity),
@@ -430,11 +473,17 @@ class _MessageList extends StatelessWidget {
     required this.messages,
     required this.scrollController,
     required this.maxHeight,
+    this.onModerate,
   });
 
   final List<ChatMessage> messages;
   final ScrollController scrollController;
   final double maxHeight;
+
+  /// 长按一条消息时的处置回调。null = 没接屏蔽名单,不挂任何手势。
+  /// 仓库风格是「要什么就从构造函数传进来」(参见 _Composer 的 `final ChatService chat;`),
+  /// 不搞 Provider / InheritedWidget。
+  final ValueChanged<ChatMessage>? onModerate;
 
   @override
   Widget build(BuildContext context) {
@@ -472,7 +521,11 @@ class _MessageList extends StatelessWidget {
           // 同一个人连着说话时不再重复顶名字,读起来安静得多
           final bool showHeader =
               previous == null || previous.senderId != message.senderId;
-          return _MessageRow(message: message, showHeader: showHeader);
+          return _MessageRow(
+            message: message,
+            showHeader: showHeader,
+            onModerate: onModerate,
+          );
         },
       ),
     );
@@ -482,10 +535,17 @@ class _MessageList extends StatelessWidget {
 /// 单条消息。自己发的只用一层极淡的余烬底色 + 右对齐来区分,
 /// 刻意不做高对比气泡 —— 那是聊天软件的语言,不是炉灵的(设计.md §2.3)。
 class _MessageRow extends StatelessWidget {
-  const _MessageRow({required this.message, required this.showHeader});
+  const _MessageRow({
+    required this.message,
+    required this.showHeader,
+    this.onModerate,
+  });
 
   final ChatMessage message;
   final bool showHeader;
+
+  /// 长按处置回调。null 或自己发的消息一律不挂手势(屏蔽/举报自己没有意义)。
+  final ValueChanged<ChatMessage>? onModerate;
 
   @override
   Widget build(BuildContext context) {
@@ -495,6 +555,8 @@ class _MessageRow extends StatelessWidget {
     final Widget body = message.kind == ChatMessageKind.image
         ? _ImageThumb(message: message)
         : Text(message.text ?? '', style: theme.textTheme.bodyLarge);
+
+    final ValueChanged<ChatMessage>? moderate = onModerate;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: LaresSpacing.sm),
@@ -511,22 +573,30 @@ class _MessageRow extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
-          Opacity(
-            // 发送中压暗,表示「还没落定」。不转圈、不进度条。
-            opacity: message.state == ChatDeliveryState.sending
-                ? _sendingOpacity
-                : 1,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: mine ? LaresColors.emberSoft : null,
-                borderRadius: BorderRadius.circular(LaresRadii.sm),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: LaresSpacing.sm,
-                  vertical: LaresSpacing.xs,
+          GestureDetector(
+            // 长按别人的消息 = 处置菜单(屏蔽/举报)。自己的消息不挂,
+            // 没接屏蔽名单也不挂 —— onLongPress 为 null 时 GestureDetector
+            // 根本不参与命中测试,原来点缩略图看大图的手势一点不受影响。
+            onLongPress: (moderate == null || mine)
+                ? null
+                : () => moderate(message),
+            child: Opacity(
+              // 发送中压暗,表示「还没落定」。不转圈、不进度条。
+              opacity: message.state == ChatDeliveryState.sending
+                  ? _sendingOpacity
+                  : 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: mine ? LaresColors.emberSoft : null,
+                  borderRadius: BorderRadius.circular(LaresRadii.sm),
                 ),
-                child: body,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: LaresSpacing.sm,
+                    vertical: LaresSpacing.xs,
+                  ),
+                  child: body,
+                ),
               ),
             ),
           ),

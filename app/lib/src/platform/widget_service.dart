@@ -21,7 +21,7 @@ import 'platform_info.dart'
 class WidgetService {
   static const _androidProvider = 'com.example.lares_app.LaresWidgetProvider';
   static const _iosWidgetName = 'LaresWidget';
-  static const _iosAppGroup = 'group.com.example.lares_app';
+  static const _iosAppGroup = 'group.com.lfm097384.lares';
   static const _deepLink = MethodChannel('lares/deeplink');
   static const _deepLinkEvents = EventChannel('lares/deeplink/events');
 

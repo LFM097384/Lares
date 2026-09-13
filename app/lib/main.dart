@@ -7,6 +7,9 @@ import 'src/chat/chat_service.dart';
 import 'src/recording/recording_consent.dart';
 import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
+import 'src/moderation/block_audio_enforcer.dart';
+import 'src/moderation/block_store.dart';
+import 'src/moderation/consent_store.dart';
 import 'src/net/signaling_client.dart';
 import 'src/platform/foreground_service.dart';
 import 'src/platform/widget_service.dart';
@@ -24,6 +27,7 @@ import 'src/state/room_controller.dart';
 import 'src/state/settings_store.dart';
 import 'src/state/voice_notes.dart';
 import 'src/theme/theme.dart';
+import 'src/ui/content_policy_screen.dart';
 import 'src/ui/home_screen.dart';
 
 Future<void> main() async {
@@ -38,6 +42,10 @@ Future<void> main() async {
     preferredPrimaryId: LaresConfig.defaultCircleId,
   );
   final settings = await SettingsStore.load();
+  // 内容治理(App Store 审核指南 1.2):屏蔽名单与内容规范同意状态。
+  // 放在这里加载是因为下面的自动进圈/托盘入口要先问一句「同意了没有」。
+  final blocks = await BlockStore.load();
+  final consent = await ConsentStore.load();
 
   // 所有「一键进圈」入口(托盘/自动挂机/主屏 Widget)的统一目标:主圈子。
   // 圈子列表为空时回落到打包期默认圈。
@@ -103,6 +111,10 @@ Future<void> main() async {
   // 常驻挂机模式:启动即自动进主圈(信令连接建立后)
   if (LaresConfig.autoJoin) {
     Timer(const Duration(milliseconds: 1500), () {
+      // 同意内容规范之前不许进圈。这条路径绕过了 UI —— 只做一个视觉上的
+      // 拦截门是拦不住它的,而「没同意就已经能听到别人说话」正是
+      // App Store 审核指南 1.2 明确禁止的情形,所以在这里硬挡一次。
+      if (!consent.accepted) return;
       if (controller.phase == RoomPhase.idle) {
         controller.join(primaryCircleId());
       }
@@ -112,7 +124,13 @@ Future<void> main() async {
   // 桌面托盘:常驻入口,点图标即一键进主圈(Web 为空操作)
   final tray = TrayService(
     onEnterRoom: () {
+      // 同上:托盘点一下也能在 HomeScreen 从未渲染的情况下进圈,
+      // 同意内容规范之前一律不放行(退出房间不受限制 —— 随时能走)。
       if (controller.phase == RoomPhase.idle) {
+        if (!consent.accepted) {
+          unawaited(showAndFocusWindow()); // 把窗口叫到前面,让人看到那道同意门
+          return;
+        }
         controller.join(primaryCircleId());
       } else {
         controller.leave();
@@ -123,7 +141,23 @@ Future<void> main() async {
   await tray.init();
 
   // 主屏幕 Widget + 深链(主圈 presence 推送、一键进主圈、邀请链接;Android/iOS)
-  await WidgetService().init(controller, circleStore: circleStore);
+  //
+  // 第三条绕过路径:深链(主屏小组件、邀请链接、快捷方式)同样能在 HomeScreen
+  // 从未渲染的情况下直接进圈。`init()` 里会**消费掉冷启动深链**,所以不能先 init
+  // 再补拦截 —— 那时人已经在房间里了。同意内容规范之前整个推迟初始化:
+  // 深链留在原生侧不被消费,同意之后再 init 时照样能拿到,一条都不丢。
+  // (未同意就能进圈,正是审核指南 1.2 明确禁止的情形。)
+  final widgetService = WidgetService();
+  if (consent.accepted) {
+    await widgetService.init(controller, circleStore: circleStore);
+  } else {
+    var widgetsInited = false;
+    consent.addListener(() {
+      if (widgetsInited || !consent.accepted) return;
+      widgetsInited = true;
+      unawaited(widgetService.init(controller, circleStore: circleStore));
+    });
+  }
 
   // 房间状态同步到托盘菜单
   var lastPhase = controller.phase;
@@ -162,17 +196,42 @@ Future<void> main() async {
     userId: identity.userId,
     userName: identity.name,
     circleIdGetter: () => controller.circleId ?? primaryCircleId(),
+    // 屏蔽名单的**文字侧**执行:被屏蔽的人发的消息不进这条流(指南 1.2)
+    isBlocked: blocks.isBlocked,
+  );
+
+  // 屏蔽名单的**声音侧**执行:把名单同步到 LiveKit 的远端音轨上。
+  // 光过滤文字不够 —— 屏蔽之后还能听见对方说话,这一条就过不了审核。
+  // 持有引用是为了它别被回收,也为了将来需要时能 dispose。
+  //
+  // 它在整个 App 生命周期里都活着,没有对应的 dispose 时机(main 里的其它
+  // 长生命周期对象同理),故只留一个具名引用便于将来接手。
+  // ignore: unused_local_variable
+  final blockAudioEnforcer = BlockAudioEnforcer(
+    rtc: rtc,
+    controller: controller,
+    blocks: blocks,
   );
 
   // 录音同意(需求⑧):录音态的唯一权威。默认关闭,开启需显式确认。
   // livenessTimeout 敢开是因为服务端已对 rec_ping 回 rec_pong(提交 20b8ddf)——
   // 在那之前只有单向心跳,TCP 半开时会误杀正常长录音,故当时默认关闭。
   // 取心跳间隔(15s)的 3 倍,容忍两次丢包。
-  final recordingConsent = RecordingConsentController(
-    userId: identity.userId,
-    send: signaling.send,
-    livenessTimeout: const Duration(seconds: 45),
-  );
+  //
+  // ⚠️ 这里必须跟着 recordingEnabled 走,不能无条件构造。
+  // 实测(二进制符号扫描)证据:recording/ 下 12 个文件里 11 个都被 tree-shaking
+  // 剔除干净了,唯独 recording_consent.dart 整个留在默认产物里 —— 根因就是
+  // 这一行无条件实例化,它让整个文件变成「可达的活代码」。
+  // 残留会在包里留下 RecordingConsentController、rec_stop、member_rec
+  // 以及 5 条写着「录音」的中文文案,对 2.3.1(hidden/dormant features)
+  // 是不利叙事。字段两端本来就是可空的,所以这里给 null 是安全的。
+  final recordingConsent = LaresConfig.recordingEnabled
+      ? RecordingConsentController(
+          userId: identity.userId,
+          send: signaling.send,
+          livenessTimeout: const Duration(seconds: 45),
+        )
+      : null;
   controller.recordingConsent = recordingConsent;
 
   runApp(LaresApp(
@@ -183,6 +242,8 @@ Future<void> main() async {
     locationShare: locationShare,
     chat: chat,
     recordingConsent: recordingConsent,
+    blocks: blocks,
+    consent: consent,
   ));
 }
 
@@ -196,6 +257,8 @@ class LaresApp extends StatelessWidget {
     this.locationShare,
     this.chat,
     this.recordingConsent,
+    this.blocks,
+    this.consent,
   });
 
   final RoomController controller;
@@ -206,8 +269,26 @@ class LaresApp extends StatelessWidget {
   final ChatService? chat;
   final RecordingConsentController? recordingConsent;
 
+  /// 本机屏蔽名单(指南 1.2)
+  final BlockStore? blocks;
+
+  /// 内容规范同意状态;非空时 [ContentPolicyGate] 会拦在主界面之前
+  final ConsentStore? consent;
+
   @override
   Widget build(BuildContext context) {
+    final home = HomeScreen(
+      controller: controller,
+      circleStore: circleStore,
+      settings: settings,
+      voiceNotes: voiceNotes,
+      locationShare: locationShare,
+      chat: chat,
+      recordingConsent: recordingConsent,
+      blocks: blocks,
+      consent: consent,
+    );
+    final consentStore = consent;
     return MaterialApp(
       title: 'Lares 炉灵',
       debugShowCheckedModeBanner: false,
@@ -215,15 +296,10 @@ class LaresApp extends StatelessWidget {
       theme: LaresTheme.light(),
       darkTheme: LaresTheme.dark(),
       themeMode: ThemeMode.dark,
-      home: HomeScreen(
-        controller: controller,
-        circleStore: circleStore,
-        settings: settings,
-        voiceNotes: voiceNotes,
-        locationShare: locationShare,
-        chat: chat,
-        recordingConsent: recordingConsent,
-      ),
+      // 同意内容规范之前不放行到主界面(指南 1.2)
+      home: consentStore == null
+          ? home
+          : ContentPolicyGate(consent: consentStore, child: home),
     );
   }
 }

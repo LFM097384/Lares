@@ -5,6 +5,10 @@ import 'package:lares_app/src/chat/chat_limits.dart';
 import 'package:lares_app/src/chat/chat_message.dart';
 import 'package:lares_app/src/chat/chat_service.dart';
 import 'package:lares_app/src/chat/chat_text.dart';
+// 选图接缝的返回类型。测试 VM 上 dart.library.io 为真,
+// 与 chat_panel.dart 的条件导入落到同一个实现文件,类型才对得上。
+import 'package:lares_app/src/chat/image_source.dart'
+    if (dart.library.io) 'package:lares_app/src/chat/image_source_io.dart';
 import 'package:lares_app/src/theme/theme.dart';
 import 'package:lares_app/src/ui/chat_panel.dart';
 
@@ -542,5 +546,87 @@ void main() {
     // 平静的一行小字,不是横幅、不是 SnackBar
     expect(find.text('这张图没发出去'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
+  });
+
+  // ——— 选图器自身失败(不是发送失败)的处理 ————————————————
+  //
+  // 背景:pickImage() 从前把一切异常压成 null,而 null 的语义是「用户取消」。
+  // iOS 上筛选器配错导致的必现 ArgumentError 就这样被伪装成了「用户改主意」,
+  // 藏了很久。现在真失败一律上抛,由面板接住并留下痕迹。
+
+  testWidgets('选图器抛异常:显示安静提示,不外泄未捕获异常', (tester) async {
+    final chat = FakeChatService();
+    addTearDown(chat.dispose);
+
+    await tester.pumpWidget(
+      _host(
+        ChatPanel(
+          chat: chat,
+          initiallyExpanded: true,
+          // 模拟 file_selector 在筛选器字段缺失时抛的那个 ArgumentError
+          onPickImage: () async => throw ArgumentError(
+            'The provided type group should either allow all files, '
+            'or have a non-empty "uniformTypeIdentifiers"',
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.image_outlined));
+    await tester.pumpAndSettle();
+
+    // 异常必须被面板接住,不能冒泡成未捕获异常
+    expect(tester.takeException(), isNull);
+    expect(chat.sentImages, isEmpty);
+    // 关键:失败必须留下痕迹。这正是从前缺失的那一环。
+    expect(find.text('没能打开图片'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('选图器返回 null(用户取消):什么都不发生,不报错', (tester) async {
+    final chat = FakeChatService();
+    addTearDown(chat.dispose);
+
+    await tester.pumpWidget(
+      _host(
+        ChatPanel(
+          chat: chat,
+          initiallyExpanded: true,
+          onPickImage: () async => null, // 用户取消
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.image_outlined));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(chat.sentImages, isEmpty);
+    // 取消是正常路径:既不发图,也**不该**出现任何失败提示
+    expect(find.text('没能打开图片'), findsNothing);
+  });
+
+  testWidgets('选图器成功返回:字节走完发送链路', (tester) async {
+    final chat = FakeChatService();
+    addTearDown(chat.dispose);
+    final Uint8List png = Uint8List.fromList(_tinyPng);
+
+    await tester.pumpWidget(
+      _host(
+        ChatPanel(
+          chat: chat,
+          initiallyExpanded: true,
+          onPickImage: () async =>
+              PickedImage(bytes: png, width: 1, height: 1),
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.image_outlined));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(chat.sentImages, hasLength(1));
+    expect(find.text('没能打开图片'), findsNothing);
   });
 }

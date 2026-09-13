@@ -43,7 +43,7 @@ class MapPanel extends StatelessWidget {
                 TileLayer(
                   urlTemplate:
                       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.lares_app',
+                  userAgentPackageName: 'com.lfm097384.lares',
                 ),
                 MarkerLayer(
                   markers: [

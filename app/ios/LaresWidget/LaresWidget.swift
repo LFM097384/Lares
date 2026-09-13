@@ -11,9 +11,9 @@ import WidgetKit
 ///
 /// Xcode 接入步骤(需 Mac):
 /// 1. File > New > Target > Widget Extension,命名 LaresWidget,去掉 Live Activity
-/// 2. Runner 与 LaresWidget 都打开 App Groups:group.com.example.lares_app
+/// 2. Runner 与 LaresWidget 都打开 App Groups:group.com.lfm097384.lares
 /// 3. 将本文件加入 LaresWidget target
-private let appGroup = "group.com.example.lares_app"
+private let appGroup = "group.com.lfm097384.lares"
 
 struct LaresEntry: TimelineEntry {
   let date: Date

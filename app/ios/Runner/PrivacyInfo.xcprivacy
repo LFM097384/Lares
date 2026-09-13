@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  炉灵(Lares)iOS 隐私清单
+  ========================================================================
+  完整依据、证据 URL 与推理链见 docs/app-store/privacy-manifest-notes.md。
+  本文件只写「app 自身(Runner target)」的声明 —— 第三方插件各自带清单,
+  Apple 明确规定二者互不替代、也不互相覆盖(见 notes.md §1)。
+
+  ⚠️ 改动本文件前必读 notes.md 的「后续维护检查点」一节:
+     录音落盘功能一旦启用、或 LaresWidget target 一旦接入工程,
+     本文件都必须相应增补,否则会被 App Store Connect 自动检查退回。
+-->
+<plist version="1.0">
+<dict>
+	<!--
+	  ── 追踪 ────────────────────────────────────────────────────────────
+	  false:本 app 无任何广告、分析、归因、崩溃上报 SDK,不使用 IDFA,
+	  未集成 AppTrackingTransparency,不与任何第三方数据做跨 app 关联。
+	  已全仓库扫描确认无 firebase / sentry / crashlytics / appsflyer /
+	  adjust / amplitude / mixpanel / google_mobile_ads 等依赖。
+	  用户标识 userId/deviceId 是本机时间戳自生成的随机串,
+	  非 IDFA、非 identifierForVendor,不构成跨 app 追踪标识。
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+
+	<!--
+	  NSPrivacyTracking 为 false 时,本键必须为空数组。
+	  (Apple TN3181:false 却含条目 = 清单无效)
+	-->
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!--
+	  ── 收集的数据类型 ──────────────────────────────────────────────────
+	  判定标准是 Apple 对 "collect" 的官方定义:
+	    "transmitting data off the device in a way that allows you and/or
+	     your third-party partners to access it for a period longer than
+	     what is necessary to service the transmitted request in real time"
+	  即「离开设备」+「留存超过实时服务该请求所需的时间」两个条件同时成立。
+
+	  据此,本 app 逐项判定结果(完整推理见 notes.md §3):
+
+	  【算 collected —— 已在下方声明】
+	    · 语音便签音频:客户端 base64 后 POST 到服务器,服务端
+	      saveNote() 写成 JSON 文件落盘,等到别人听完才删 ——
+	      明确超出「实时服务该请求」,属收集。
+	    · 随便签一同落盘的昵称与 userId。
+
+	  【不算 collected —— 未声明,逐条理由】
+	    · 位置:服务端只放在内存 Map 里随即广播给同圈成员,
+	      不写磁盘、无数据库,断连/关闭即删。属「实时转发」,
+	      落在上述定义的豁免内。详见 notes.md §3.1(含反方意见)。
+	    · LiveKit 实时通话音频:经 SFU 实时转发,不落盘。
+	    · 文字与图片消息:走 LiveKit data channel 直接送达同圈成员,
+	      完全不经过本项目的信令服务器,服务端无任何消息存储代码。
+	    · 图片经 file_selector 文档选择器选取,不访问相册,
+	      故不涉及 NSPrivacyCollectedDataTypePhotosorVideos。
+	-->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<!--
+		  语音便签的录音内容。
+		  Apple 官方指引:"'Audio Data' for voice recordings"。
+		  Linked = true:便签落盘时与 userId、昵称存在同一条 JSON 记录里,
+		           与用户身份直接关联,未做去标识化。
+		  Tracking = false:不用于任何跨 app 追踪。
+		  Purpose = AppFunctionality:这是产品核心功能本身
+		           (圈里没人时留言给下一个进来的人),非分析、非个性化。
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeAudioData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!--
+		  用户昵称(本地设置,默认「我」)。
+		  它随语音便签一起落盘在服务器上(note.name),
+		  因此与音频同样满足 collect 的两个条件。
+		  归入 Contact Info 类的 Name:官方定义为
+		  "Name, such as first or last name" —— 用户自填的显示名属此类。
+		  Linked = true:它本身就是身份标签,且与 userId 同记录存储。
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeName</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!--
+		  位置共享(用户在圈内主动开启,关闭即停)。
+
+		  ⚠️ 这一条是**保守声明**,请连同理由一起读,不要当成既定事实删掉:
+
+		  技术事实:服务端 `index.js:444-462` 只把 lat/lng 放进内存 Map 后
+		  立即广播给同房成员,关闭或断连即删,全文件无任何位置持久化代码。
+		  按 Apple 对 collect 的定义(离开设备 ✓ + 留存超过实时服务所需 ✗),
+		  严格讲**不构成** collect。
+
+		  仍然声明的理由是成本不对称:Apple 对 app 内私信类数据要求声明且
+		  未给「不留存」豁免,与通用定义之间存在张力,官方对「实时转发不留存」
+		  没有专门条目。而多声明一行的代价只是隐私标签上多一项
+		  (本 app 本来就要申报 AudioData,已不是 Data Not Collected 状态);
+		  少声明而判断错了,代价是 ITMS 打回 + 一轮审核。
+
+		  用 Coarse 而非 Precise:`location_share.dart` 取的是
+		  LocationAccuracy.medium(约 100m 量级)。
+		  注:iOS 实际可能返回更高精度,若日后改用 high,这里要同步改成
+		  NSPrivacyCollectedDataTypePreciseLocation。
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!--
+		  本机生成的用户标识 userId(形如 u_lqx8k2)。
+		  官方 User ID 定义涵盖 "assigned user ID ... or other user- or
+		  account-level ID that can be used to identify a particular user"。
+		  本 app 无账号体系,但该 ID 确实随便签落盘并用于区分说话人,
+		  符合上述定义,故如实声明。
+		  注意:它由 DateTime.microsecondsSinceEpoch 本地生成,
+		       不是 IDFA / identifierForVendor,因此不声明 DeviceID。
+		  Linked = true:它就是那条关联本身。
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+
+	<!--
+	  ── Required Reason API ─────────────────────────────────────────────
+	  Apple 规定责任按「谁的代码调用」划分:插件用的由插件自己的清单申报,
+	  app 自己代码用的必须写在这里,二者不能互相替代
+	  (describing-use-of-required-reason-api 原文见 notes.md §1)。
+
+	  已逐项核查 app 自身代码(app/lib 全部 Dart + app/ios/Runner
+	  的 AppDelegate.swift / SceneDelegate.swift):
+
+	    · System boot time  —— 不声明。全仓库无 systemUptime /
+	      mach_absolute_time / bootTime 调用(零命中)。
+	    · Disk space        —— 不声明。全仓库无 statfs / statvfs /
+	      volumeAvailableCapacity / systemFreeSize(零命中)。
+	      注:disk_guard.dart 的「磁盘封顶」是自行累加文件 size 得出的
+	      自设配额,从不查询文件系统真实剩余空间,不属本类别。
+	    · Active keyboards  —— 不声明。无 UITextInputMode.activeInputModes。
+	    · File timestamp    —— 当前不声明。唯一触及处是
+	      lib/src/recording/disk_guard.dart 的 statSync()/st.modified,
+	      但整条录音落盘管线是**未接线的死代码**:LaresConfig.recordingEnabled
+	      默认 false,且 lib/ 下无任何文件 import disk_guard.dart,
+	      release 构建经 tree-shaking 不会进入二进制。
+	      ⚠️ 一旦启用录音落盘,必须在此增补 C617.1。详见 notes.md §4.2。
+	    · User defaults     —— 见下方声明。
+
+	  ⚠️ 唯一一项「有意从严」的声明,理由写在下面。
+	-->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!--
+		  User defaults(NSUserDefaults)。声明两个 reason,各有确切来源。
+
+		  ── CA92.1:读写「仅该 app 自身可访问」的信息 ──
+		  app 通过 shared_preferences 持久化昵称、圈子列表、服务器档案等
+		  设置(identity.dart / settings_store.dart / circle_store.dart /
+		  update_service.dart),存在自身沙盒内。
+		  注:实际的 NSUserDefaults 调用发生在 shared_preferences_foundation
+		  插件内部,该插件自带清单且声明的是 1C8F.1。严格按 Apple 的
+		  「谁的代码调用谁声明」规则 app 可以不写,但 Runner 主 target 与
+		  插件同处一个可执行文件(本项目走 SPM 静态链接),边界不清晰,
+		  且多声明无罚、漏声明会被退回,故如实写上。
+
+		  ── 1C8F.1:读写「同一 App Group 内成员可访问」的信息 ──
+		  ⚠️ 这一条是必须的,不是从严:
+		  main.dart:126 无条件调用 WidgetService().init(),在 iOS 上执行
+		  HomeWidget.setAppGroupId('group.com.lfm097384.lares') 并经
+		  HomeWidget.saveWidgetData() 写 circle_name / presence_text /
+		  primary_circle_id / has_primary(widget_service.dart:60,159-163)。
+		  该写入落到 App Group 的 NSUserDefaults,
+		  Runner.entitlements 也确已配置该 App Group。
+		  而 home_widget 0.7.0+1 **不自带隐私清单**(已核实其全部 37 个
+		  已发布版本均无),其插件内部有 5 处 UserDefaults(suiteName:)
+		  调用 —— 这个缺口只能由 app 侧清单覆盖。
+		  详见 notes.md §4.3。
+
+		  另注:ios/LaresWidget/LaresWidget.swift:29-33 同样直接调用
+		  UserDefaults(suiteName:),但该 target 尚未加入 Xcode 工程。
+		  它一旦接入,作为独立 bundle 需要**自己的一份**清单。
+		-->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

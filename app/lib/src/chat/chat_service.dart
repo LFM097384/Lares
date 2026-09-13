@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../moderation/blocked_message_filter.dart';
 import 'chat_envelope.dart';
 import 'chat_limits.dart';
 import 'chat_message.dart';
@@ -39,6 +40,7 @@ class ChatImageTooLargeError implements Exception {
 class ChatService extends ChangeNotifier {
   /// [circleIdGetter] 每次发送时现取当前圈子 id,避免缓存过期的圈子。
   /// [idGenerator] 仅供单测注入确定性 id。
+  /// [isBlocked] 屏蔽判定(通常传 `BlockStore.isBlocked`);不传即不过滤任何人。
   ChatService({
     required ChatTransport transport,
     required this.userId,
@@ -46,10 +48,12 @@ class ChatService extends ChangeNotifier {
     required String Function() circleIdGetter,
     String Function()? idGenerator,
     DateTime Function()? now,
+    bool Function(String senderId)? isBlocked,
   })  : _transport = transport,
         _circleIdGetter = circleIdGetter,
         _now = now ?? DateTime.now,
-        _idGenerator = idGenerator {
+        _idGenerator = idGenerator,
+        _isBlocked = isBlocked {
     _assembler = ImageAssembler(
       onImage: _onImageAssembled,
       onFailure: _onImageFailed,
@@ -69,6 +73,9 @@ class ChatService extends ChangeNotifier {
   final String Function() _circleIdGetter;
   final DateTime Function() _now;
   final String Function()? _idGenerator;
+
+  /// 屏蔽谓词。null 表示没接屏蔽功能(老调用方、单测),一律不过滤。
+  final bool Function(String senderId)? _isBlocked;
 
   /// 随帧发出的昵称长度上限(字素簇)。
   ///
@@ -93,6 +100,17 @@ class ChatService extends ChangeNotifier {
 
   /// 历史消息,新的在后。不可变视图,UI 直接倒序渲染即可。
   List<ChatMessage> get messages => List<ChatMessage>.unmodifiable(_messages);
+
+  /// 过滤掉屏蔽者之后的消息,UI 应该渲染这个而不是 [messages]。
+  ///
+  /// 刻意在**读取时**过滤,而不是在 [_append] 时丢弃:
+  /// 收进来的一条不落,解除屏蔽后历史会原样回来,不会出现「解封了却还是一片空白」。
+  /// 未构造时没传屏蔽谓词的话,它和 [messages] 完全等价。
+  List<ChatMessage> get visibleMessages {
+    final bool Function(String senderId)? blocked = _isBlocked;
+    if (blocked == null) return messages;
+    return List<ChatMessage>.unmodifiable(filterBlocked(_messages, blocked));
+  }
 
   /// 未读条数。只统计**入站**消息;本人发的不算未读。
   int get unreadCount => _unread;

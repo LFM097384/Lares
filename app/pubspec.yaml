@@ -42,8 +42,15 @@ dependencies:
   device_info_plus: ^13.2.0
   # 下载完整性:SHA-256 摘要
   crypto: ^3.0.7
-  # 本地离线语音识别(sherpa-onnx / next-gen Kaldi,预编译 DLL,VS2019 可构建)
-  sherpa_onnx: ^1.13.8
+  # ⚠️ sherpa_onnx(本地离线语音识别)已**暂时移除**,连同 stt_sherpa.dart 与
+  # 它的测试一起挪到 app/_disabled/recording_stt/(见该目录 README 的恢复步骤)。
+  # 原因:录音功能当前不开放(LaresConfig.recordingEnabled 默认 false),而
+  # Dart 的 tree-shaking **对原生库完全无效** —— 实测默认构建仍会分发
+  # onnxruntime.dll(17MB)+ sherpa-onnx-c-api.dll(4.4MB)。iOS 上这会是
+  # 一个 .xcframework 被无条件打进 app bundle:白白增加 22MB 下载量,
+  # 且让一个「语音房」App 里带着完整离线语音识别引擎,对 App Store 审核
+  # 的 2.3.1(hidden/dormant features)是不利叙事。
+  # 恢复录音功能时,把依赖加回这里,并把 _disabled/ 里的两个文件挪回原位。
   # 选图(lib/src/chat/image_source*.dart):系统文件对话框,桌面 + Web 均支持。
   # 选它而非 image_picker:桌面是当前主力端,且它不需要运行时权限申请。
   # 移动端将来若要相册/相机双入口,再叠加 image_picker(接缝已留好)。
@@ -52,6 +59,10 @@ dependencies:
   geolocator: ^14.0.0
   flutter_map: ^8.2.0
   latlong2: ^0.9.1
+  # 把 URL 交给系统打开。两处用途,都是 App Store 上架的硬需求:
+  #  1. 举报走 `mailto:` 直接拉起邮件 App(Guideline 1.2 要求举报通道可用);
+  #  2. App 内打开隐私政策 / 服务条款的网页链接(ASC 必填项,且必须在 App 内可达)。
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

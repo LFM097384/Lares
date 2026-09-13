@@ -20,7 +20,7 @@
 				<string>lares</string>
 			</array>
 			<key>CFBundleURLName</key>
-			<string>com.example.lares_app.deeplink</string>
+			<string>com.lfm097384.lares.deeplink</string>
 		</dict>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>

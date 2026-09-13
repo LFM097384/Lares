@@ -16,7 +16,7 @@
 				<string>lares</string>
 			</array>
 			<key>CFBundleURLName</key>
-			<string>com.example.lares_app.deeplink</string>
+			<string>com.lfm097384.lares.deeplink</string>
 		</dict>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
@@ -29,10 +29,20 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- 出口加密合规声明(App Store Connect 每次上传都会问,写死在这里免得手答)。
+	     填 false 的依据:本 App 只用 TLS、WebRTC 的 DTLS-SRTP,以及 HMAC-SHA256
+	     做挑战应答,全是标准算法。
+	     一个易错点:引入 libwebrtc 确实让我们失去了「仅使用 Apple 提供的加密」
+	     这条最省事的豁免,但那**不等于**变成 non-exempt —— 仍落在
+	     Mass Market 豁免(5D992.c)内,不需要 CCATS。 -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- 只保留 audio:常驻语音房在后台必须继续收发音频。
+	     曾经还声明过 fetch,但全项目没有任何 BGTaskScheduler 实现 ——
+	     声明了却不使用的后台模式是明确的拒绝理由(2.5.4)。 -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
-		<string>fetch</string>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>

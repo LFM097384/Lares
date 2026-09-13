@@ -16,10 +16,13 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
+	<!-- ⚠️ 版本号必须与主 App 完全一致,否则 App Store 拒收整个包。
+	     故这里不写字面量,而是引用构建设置;两者的值由 add_widget_target.rb
+	     从 pubspec.yaml 读出后注入(单一事实源:改版本只改 pubspec)。 -->
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>
