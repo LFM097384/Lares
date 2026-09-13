@@ -73,6 +73,19 @@
 
 细节与其余四条坑见 `app/tool/README-audio-harness.md`(附可复跑的验证工具)。
 
+### 主圈子(需求②)的一个值得保留的设计
+
+**小组件点按发的是不带圈子 id 的裸 `lares://join`**,目标由 App 在进房时从
+`CircleStore.primaryCircleId` 现读(`widget_service.dart:104`)。
+因此小组件里的数据即使陈旧/缺失/读不出来,**最坏只会让显示文案不准,
+永远不会把人带进错误的房间**。iOS 免费签名下 App Groups 可能读不到共享数据,
+回落显示的是中性的「炉灵 / 点一下,进你的主圈子」而非可能过期的圈子名 —— 同理。
+Android Widget、QS Tile、桌面托盘三个入口共用这同一条 `lares://join` 路径,
+一致性是结构性保证的,不靠各处分别维护。
+
+注:旧的深链处理器进的是 `LaresConfig.defaultCircleId`(编译期常量),
+**完全无视用户选择** —— 本轮已改为真正 join 主圈,不是只做导航。
+
 ### 部署(需求⑤)关键约束
 
 VPS 上 `443/tcp` 是 VLESS+Reality 主入站,`8443`/`3443`/`9721`/`2096` 亦被占用。
