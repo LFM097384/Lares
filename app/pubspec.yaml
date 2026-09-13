@@ -32,6 +32,16 @@ dependencies:
   http: ^1.2.0
   # 网络类型检测(仅 WiFi 下高音质)
   connectivity_plus: ^7.0.0
+  # ── 自动更新(lib/src/update/)──
+  # 读取运行中 App 的版本号做版本比对。此前仅由 livekit_client 间接引入,
+  # 直接依赖它才稳妥(传递依赖随时可能被上游移除)。版本对齐 pubspec.lock。
+  package_info_plus: ^10.2.1
+  # 更新包下载落盘目录(临时目录 / 应用支持目录)
+  path_provider: ^2.1.6
+  # Android 取设备真实 ABI(Build.SUPPORTED_ABIS),用于挑选 split-per-abi APK
+  device_info_plus: ^13.2.0
+  # 下载完整性:SHA-256 摘要
+  crypto: ^3.0.7
   # 位置共享(Snapchat 式):GPS + 开源地图(免 API key)
   geolocator: ^14.0.0
   flutter_map: ^8.2.0

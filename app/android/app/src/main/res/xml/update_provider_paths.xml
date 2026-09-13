@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自动更新 FileProvider 的可共享路径白名单。
+
+  仅暴露 **缓存目录**:Dart 侧用 path_provider 的 getTemporaryDirectory() 落盘,
+  在 Android 上就是 context.getCacheDir()。这里只开这一处,不开 external / root,
+  把可被外部读取的范围压到最小(系统安装器只需要读到那个 APK)。
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="lares_update_cache" path="." />
+</paths>
