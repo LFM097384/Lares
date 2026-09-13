@@ -75,7 +75,10 @@ class HomeScreen extends StatelessWidget {
                         title: const Text('Lares'),
                         actions: [
                           _SettingsAction(
-                              controller: controller, settings: settings),
+                            controller: controller,
+                            settings: settings,
+                            circleStore: circleStore,
+                          ),
                           _RenameAction(controller: controller),
                         ],
                       ),
@@ -103,8 +106,10 @@ class HomeScreen extends StatelessWidget {
                                         .titleLarge),
                                 const Spacer(),
                                 _SettingsAction(
-                                    controller: controller,
-                                    settings: settings),
+                                  controller: controller,
+                                  settings: settings,
+                                  circleStore: circleStore,
+                                ),
                                 _RenameAction(controller: controller),
                               ],
                             ),
@@ -286,13 +291,31 @@ class _CircleTile extends StatelessWidget {
         ? '$online 个人在${names.isNotEmpty ? ' · ${names.join('、')}' : ''}'
         : '暂无人在,进去等等看?';
 
+    final isPrimary = circleStore.isPrimary(circle.id);
+
     return Card(
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: LaresSpacing.lg,
           vertical: LaresSpacing.sm,
         ),
-        title: Text(circle.name),
+        title: Row(
+          children: [
+            Flexible(child: Text(circle.name, overflow: TextOverflow.ellipsis)),
+            // 主圈子标记:一枚小余烬,不做响亮徽章(§8.2 安静的陪伴感)
+            if (isPrimary) ...[
+              const SizedBox(width: LaresSpacing.sm),
+              Tooltip(
+                message: '主圈子 · 小组件一键加入',
+                child: Icon(
+                  Icons.local_fire_department_rounded,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ],
+        ),
         subtitle: Text(
           subtitle,
           style: Theme.of(context).textTheme.bodyMedium,
@@ -376,15 +399,37 @@ class _CircleTile extends StatelessWidget {
     );
   }
 
-  /// 长按圈子:邀请 / 敲门模式开关 / 删除(默认圈仅不可删)
+  /// 长按圈子:设为主圈 / 邀请 / 敲门模式开关 / 删除(默认圈仅不可删)
   void _showCircleMenu(BuildContext context) {
     final knockOn = controller.circlePresence[circle.id]?.knockRequired == true;
+    final isPrimary = circleStore.isPrimary(circle.id);
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 主圈子:主屏小组件 / 快捷设置 / 桌面托盘 一键进的就是它
+            ListTile(
+              leading: Icon(
+                isPrimary
+                    ? Icons.local_fire_department_rounded
+                    : Icons.local_fire_department_outlined,
+                color:
+                    isPrimary ? Theme.of(context).colorScheme.primary : null,
+              ),
+              title: Text(isPrimary ? '已是主圈子' : '设为主圈子'),
+              subtitle: Text(isPrimary
+                  ? '小组件、快捷设置、托盘点一下进的就是这个圈'
+                  : '主屏小组件点一下,直接进这个圈'),
+              enabled: !isPrimary,
+              onTap: isPrimary
+                  ? null
+                  : () async {
+                      Navigator.pop(ctx);
+                      await circleStore.setPrimaryCircle(circle.id);
+                    },
+            ),
             ListTile(
               leading: const Icon(Icons.ios_share_rounded),
               title: const Text('邀请朋友进圈'),
@@ -423,10 +468,15 @@ class _CircleTile extends StatelessWidget {
 
 /// 设置入口
 class _SettingsAction extends StatelessWidget {
-  const _SettingsAction({required this.controller, required this.settings});
+  const _SettingsAction({
+    required this.controller,
+    required this.settings,
+    required this.circleStore,
+  });
 
   final RoomController controller;
   final SettingsStore settings;
+  final CircleStore circleStore;
 
   @override
   Widget build(BuildContext context) {
@@ -437,6 +487,7 @@ class _SettingsAction extends StatelessWidget {
         context,
         settings: settings,
         controller: controller,
+        circleStore: circleStore,
         signalingUrl: controller.signalingUrl,
       ),
     );

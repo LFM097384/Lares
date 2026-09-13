@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget 视觉与设计系统一致:深暖底 + 余烬橙点缀 -->
+<!-- Widget 视觉与设计系统一致:深暖底 + 余烬橙点缀。
+     整块可点 = 一键加入主圈子(lares://join)。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -9,30 +10,52 @@
     android:padding="16dp"
     android:background="@drawable/widget_bg">
 
-    <TextView
-        android:id="@+id/widget_title"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="我们的圈"
-        android:textColor="#F2EEE9"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- 主圈子标记:一枚小余烬,与 App 内圈子列表的标记一致 -->
+        <TextView
+            android:id="@+id/widget_primary_mark"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:text="@string/widget_primary_mark"
+            android:textColor="#FF8A5C"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="@string/widget_title_default"
+            android:textColor="#F2EEE9"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/widget_presence"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="暂无人在,进去等等看?"
+        android:text="@string/widget_presence_default"
         android:textColor="#FF8A5C"
         android:textSize="13sp" />
 
+    <!-- 主操作:文案即按钮,点整块都生效 -->
     <TextView
-        android:id="@+id/widget_hint"
+        android:id="@+id/widget_action"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="点一下,进圈 →"
-        android:textColor="#9A93A3"
-        android:textSize="12sp" />
+        android:text="@string/widget_action_join"
+        android:textColor="#F2EEE9"
+        android:textSize="13sp"
+        android:textStyle="bold" />
 </LinearLayout>

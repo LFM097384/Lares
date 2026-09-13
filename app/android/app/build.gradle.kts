@@ -44,6 +44,12 @@ kotlin {
     }
 }
 
+dependencies {
+    // 应用内更新:LaresUpdatePlugin 用 androidx.core.content.FileProvider
+    // 把缓存目录里的 APK 以 content:// URI 交给系统安装器。
+    implementation("androidx.core:core-ktx:1.13.1")
+}
+
 flutter {
     source = "../.."
 }

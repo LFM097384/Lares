@@ -30,8 +30,16 @@ Future<void> main() async {
   await setupDesktopWindow();
 
   final identity = await Identity.load();
-  final circleStore = await CircleStore.load();
+  // 主圈子未显式指定时,优先用打包期配置的圈(常驻挂机机器靠它钉住一键入口)
+  final circleStore = await CircleStore.load(
+    preferredPrimaryId: LaresConfig.defaultCircleId,
+  );
   final settings = await SettingsStore.load();
+
+  // 所有「一键进圈」入口(托盘/自动挂机/主屏 Widget)的统一目标:主圈子。
+  // 圈子列表为空时回落到打包期默认圈。
+  String primaryCircleId() =>
+      circleStore.primaryCircleId ?? LaresConfig.defaultCircleId;
 
   // 信令地址:设置里的覆盖优先(真机联调局域网 IP 常变,免重打包)
   final signalingUrl = settings.signalingOverride ?? LaresConfig.signalingUrl;
@@ -58,23 +66,31 @@ Future<void> main() async {
     name: identity.name,
     platform: LaresConfig.platformName,
   );
-  // P0 预热:提前为默认圈子备 RTC token,进房时信令与媒体并行
-  controller.prefetchToken(LaresConfig.defaultCircleId);
+  // P0 预热:提前为主圈子备 RTC token,进房时信令与媒体并行
+  controller.prefetchToken(primaryCircleId());
+  // 主圈子被改掉:为新的主圈子重新预热,保住一键进圈的 ≤1.5s 目标
+  var lastPrimary = primaryCircleId();
+  circleStore.addListener(() {
+    final now = primaryCircleId();
+    if (now == lastPrimary) return;
+    lastPrimary = now;
+    controller.prefetchToken(now);
+  });
 
-  // 常驻挂机模式:启动即自动进默认圈(信令连接建立后)
+  // 常驻挂机模式:启动即自动进主圈(信令连接建立后)
   if (LaresConfig.autoJoin) {
     Timer(const Duration(milliseconds: 1500), () {
       if (controller.phase == RoomPhase.idle) {
-        controller.join(LaresConfig.defaultCircleId);
+        controller.join(primaryCircleId());
       }
     });
   }
 
-  // 桌面托盘:常驻入口,点图标即一键进房(Web 为空操作)
+  // 桌面托盘:常驻入口,点图标即一键进主圈(Web 为空操作)
   final tray = TrayService(
     onEnterRoom: () {
       if (controller.phase == RoomPhase.idle) {
-        controller.join(LaresConfig.defaultCircleId);
+        controller.join(primaryCircleId());
       } else {
         controller.leave();
       }
@@ -83,7 +99,7 @@ Future<void> main() async {
   );
   await tray.init();
 
-  // 主屏幕 Widget + 深链(presence 推送、一键进房、邀请链接;Android/iOS)
+  // 主屏幕 Widget + 深链(主圈 presence 推送、一键进主圈、邀请链接;Android/iOS)
   await WidgetService().init(controller, circleStore: circleStore);
 
   // 房间状态同步到托盘菜单
