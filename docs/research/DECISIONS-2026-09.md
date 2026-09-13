@@ -14,7 +14,7 @@
 | 5 | 部署到 RackNerd | **双栈并行**（自托管 + LiveKit Cloud，设置页可切） | 阻塞：等域名 |
 | 6 | 服务器端降噪 | ⚠️ **需求不可直接满足**，改为客户端等效方案 | 待实施 |
 | 7 | 自动更新 | Windows + Android APK 内更新 + macOS | 待实施 |
-| 8 | Windows 录音 + STT + 说话人归属 | 逐轨 PCM 捕获，**不用 ML 声纹分离** | спайк验证中 |
+| 8 | Windows 录音 + STT + 说话人归属 | 逐轨 PCM 捕获，**不用 ML 声纹分离** | ✅ 运行时已验证，待实现 |
 
 ---
 
@@ -193,14 +193,49 @@ AssemblyAI 流式上限 10 人；OpenAI 注册上限 4 人；Azure 单声道且�
 - `livekit_server_sdk`（pub.dev 1.0.1）虽存在但已废弃且**无 EgressService**。
   **token 签发继续留在 Node 服务端 —— API secret 是项目级主密钥，绝不能进桌面二进制。**
 
-### 实现前的门槛（½ 天 спайк）
+### ✅ 运行时验证已通过（2026-09-12 спайк 实测，非推断）
 
-1. 真实 Windows 构建上挂 renderer，dump 10 秒 WAV，确认可听 + `sampleRate: 16000` 被遵守
-2. 确认 renderer 在强制重连后重新注册可恢复
-3. **同意 UI 是阻塞项，不是锦上添花** —— 常驻房间录音涉及伦理与法律
+**在真实 Windows 构建上跑通了，逐轨 PCM 捕获确认可用。** 证据：
 
-⚠️ 未验证：20 路并发 renderer 的 CPU/GC（每帧跨 EventChannel 进 Dart isolate）。
-缓解：只为当前活跃说话者挂 renderer。
+| 验证项 | 结果 | 证据 |
+|---|---|---|
+| `onFrame` 在 Windows 触发 | **PROVEN** | `[FIRSTFRAME] identity=u_bot ... dataLen=320` |
+| 请求的 16000 Hz 是否被遵守 | **PROVEN，未被静默改成 48k** | ACTUAL `sampleRate=16000 channels=1 format=Int16` |
+| 音频是真实波形而非静音 | **PROVEN** | RMS≈6929，98.9% 样本非零，peak=14514 |
+| 逐轨说话人归属 | **PROVEN** | 见下方双音验证 |
+| 帧节奏 | 10.000 ms/帧（160 样本 @16k） | `impliedFrameMs=10.000` |
+
+**双音交叉验证（本轮最强的一条证据）**：两个机器人发不同频率的正弦波，
+各自落进**独立且归属正确**的文件 ——
+
+```
+u_bot.wav   主频 426 Hz   (speak_bot  发 440 Hz)
+u_bot2.wav  主频 852 Hz   (spike_bot2 发 880 Hz)
+```
+偏差 ~3% 来自 Goertzel 的频率 bin 分辨率，**两者比值精确为 2:1**，
+说明波形被完整保真地传过来且没有串轨。
+WAV 头独立复核：`RIFF/WAVE ch=1 sampleRate=16000 bits=16`，30.48s / 30.30s。
+
+**结论：需求⑧「识别出谁说了什么」不需要任何 ML 声纹分离。**
+逐轨捕获 + `participant.identity` 即可，归属准确率 100%、成本 $0。
+
+⚠️ 仍未验证：20 路并发 renderer 的 CPU/GC（每帧跨 EventChannel 进 Dart isolate）。
+спайк 只验了 2 路。缓解：只为当前活跃说话者挂 renderer。
+
+⚠️ 重连后重新注册：日志可见 `[renderer] registration #2 for u_bot`（发生了重注册），
+但未做「强制断服重连」的破坏性验证。实现时必须按前述坑 #1 由
+`TrackSubscribedEvent` 驱动注册 + `RoomReconnectedEvent` 后重注册。
+
+⚠️ **同意 UI 是阻塞项，不是锦上添花** —— 常驻房间录音涉及伦理与法律。
+
+### спайк 过程中暴露的一个真实 bug（已修）
+
+спайк 一度卡死数小时，表现为 `connectionState` 永远 `disconnected` 而信令一切正常。
+根因不在录音代码，而在 `scripts/dev.ps1`：它取「第一个非回环 IPv4」，
+本机 QuickFox 代理虚拟网卡 `10.8.8.1` 排在真实 WLAN `10.0.0.185` 前面被选中，
+LiveKit 遂把不可达地址写进 ICE candidate 与 token。
+**presence 正常、进房静默失败、零报错** —— 极难排查。已改为优先选
+「有默认网关 + 网卡 Up + 非虚拟网卡」，并加了虚拟网卡黑名单。（提交 468cb55）
 
 ---
 
