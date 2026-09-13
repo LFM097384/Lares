@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../rtc/rtc_service.dart' show NoiseSuppressionMode, AudioTuning;
+
 /// 设置(§2.2 耗电与流量透明度、防打扰),本地持久化。
 class SettingsStore extends ChangeNotifier {
   SettingsStore._();
@@ -9,6 +11,7 @@ class SettingsStore extends ChangeNotifier {
   static const _kDndStart = 'lares.dndStart'; // -1 = 未设置
   static const _kDndEnd = 'lares.dndEnd';
   static const _kSignalingOverride = 'lares.signalingOverride';
+  static const _kNoiseMode = 'lares.noiseMode';
 
   /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
   bool wifiOnlyHq = true;
@@ -20,6 +23,9 @@ class SettingsStore extends ChangeNotifier {
   /// 信令地址覆盖(真机联调:局域网 IP 常变,不用重打包;改动后重启 App 生效)
   String? signalingOverride;
 
+  /// 降噪档位:off / standard(WebRTC APM)/ enhanced(Krisp,平台不支持时自动回落)
+  NoiseSuppressionMode noiseMode = NoiseSuppressionMode.standard;
+
   static Future<SettingsStore> load() async {
     final prefs = await SharedPreferences.getInstance();
     final s = SettingsStore._();
@@ -27,8 +33,22 @@ class SettingsStore extends ChangeNotifier {
     s.dndStartHour = prefs.getInt(_kDndStart) ?? -1;
     s.dndEndHour = prefs.getInt(_kDndEnd) ?? -1;
     s.signalingOverride = prefs.getString(_kSignalingOverride);
+    // clamp:防止旧版本存了越界的枚举序号导致崩溃
+    final modeIndex = prefs.getInt(_kNoiseMode) ?? NoiseSuppressionMode.standard.index;
+    s.noiseMode = NoiseSuppressionMode
+        .values[modeIndex.clamp(0, NoiseSuppressionMode.values.length - 1)];
     return s;
   }
+
+  Future<void> setNoiseMode(NoiseSuppressionMode value) async {
+    noiseMode = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kNoiseMode, value.index);
+  }
+
+  /// 供 RoomController 传给 rtc.join()
+  AudioTuning get audioTuning => AudioTuning(mode: noiseMode);
 
   Future<void> setSignalingOverride(String? url) async {
     signalingOverride = (url == null || url.trim().isEmpty) ? null : url.trim();

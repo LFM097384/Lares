@@ -4,7 +4,9 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../platform/platform_info.dart'
     if (dart.library.io) '../platform/platform_info_io.dart';
 import '../platform/widget_service.dart';
+import '../state/circle_store.dart';
 import '../state/models.dart';
+import '../rtc/rtc_service.dart' show NoiseSuppressionMode;
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../theme/tokens.dart';
@@ -15,12 +17,17 @@ Future<void> showSettingsSheet(
   required SettingsStore settings,
   required RoomController controller,
   required String signalingUrl,
+  CircleStore? circleStore,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => ListenableBuilder(
-      listenable: Listenable.merge([settings, controller]),
+      listenable: Listenable.merge([
+        settings,
+        controller,
+        if (circleStore != null) circleStore,
+      ]),
       builder: (context, _) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(bottom: LaresSpacing.lg),
@@ -33,6 +40,30 @@ Future<void> showSettingsSheet(
                 subtitle: const Text('移动网络自动降码率,省流量'),
                 value: settings.wifiOnlyHq,
                 onChanged: settings.setWifiOnlyHq,
+              ),
+              ListTile(
+                leading: const Icon(Icons.noise_control_off_rounded),
+                title: const Text('降噪'),
+                // 如实显示本平台真正能做到的,不承诺做不到的事
+                // (例如 Windows 不支持增强降噪,会诚实显示已回落)
+                subtitle: Text(
+                  controller.rtcPreview(settings.audioTuning).reason,
+                ),
+                trailing: DropdownButton<NoiseSuppressionMode>(
+                  value: settings.noiseMode,
+                  underline: const SizedBox.shrink(),
+                  items: const [
+                    DropdownMenuItem(
+                        value: NoiseSuppressionMode.off, child: Text('关闭')),
+                    DropdownMenuItem(
+                        value: NoiseSuppressionMode.standard, child: Text('标准')),
+                    DropdownMenuItem(
+                        value: NoiseSuppressionMode.enhanced, child: Text('增强')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) settings.setNoiseMode(v);
+                  },
+                ),
               ),
               ListTile(
                 leading: const Icon(Icons.do_not_disturb_on_outlined),
@@ -73,11 +104,28 @@ Future<void> showSettingsSheet(
                   }
                 },
               ),
-              // §2.1-1 核心入口:主屏幕点一下直达
+              // §2.1-1 核心入口:主圈子 + 主屏幕点一下直达
+              if (circleStore != null)
+                ListTile(
+                  leading: const Icon(Icons.local_fire_department_rounded),
+                  title: const Text('主圈子'),
+                  subtitle: Text(
+                    circleStore.primaryCircle == null
+                        ? '还没有圈子'
+                        : '${circleStore.primaryCircle!.name}\n'
+                            '小组件、快捷设置、托盘一键进的就是它',
+                  ),
+                  trailing: circleStore.circles.length > 1
+                      ? const Icon(Icons.chevron_right_rounded)
+                      : null,
+                  onTap: circleStore.circles.length > 1
+                      ? () => _pickPrimaryCircle(ctx, circleStore)
+                      : null,
+                ),
               ListTile(
                 leading: const Icon(Icons.widgets_outlined),
                 title: const Text('把圈子放到主屏幕'),
-                subtitle: const Text('主屏幕点一下,直接进圈'),
+                subtitle: const Text('主屏幕点一下,直接进主圈子'),
                 onTap: () async {
                   final ok = await WidgetService.requestPin();
                   if (ctx.mounted && !ok) {
@@ -141,6 +189,35 @@ Future<void> showSettingsSheet(
       ),
     ),
   );
+}
+
+/// 选主圈子:圈子多于一个时才有意义(只有一个圈时它天然就是主圈)
+Future<void> _pickPrimaryCircle(
+  BuildContext context,
+  CircleStore circleStore,
+) async {
+  final chosen = await showDialog<String>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: const Text('哪个是主圈子?'),
+      children: [
+        for (final c in circleStore.circles)
+          ListTile(
+            leading: Icon(
+              circleStore.isPrimary(c.id)
+                  ? Icons.local_fire_department_rounded
+                  : Icons.local_fire_department_outlined,
+              color: circleStore.isPrimary(c.id)
+                  ? Theme.of(ctx).colorScheme.primary
+                  : null,
+            ),
+            title: Text(c.name),
+            onTap: () => Navigator.pop(ctx, c.id),
+          ),
+      ],
+    ),
+  );
+  if (chosen != null) await circleStore.setPrimaryCircle(chosen);
 }
 
 Future<void> _pickDnd(BuildContext context, SettingsStore settings) async {

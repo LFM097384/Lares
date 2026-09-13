@@ -240,7 +240,12 @@ class RoomController extends ChangeNotifier {
     notifyListeners();
     () async {
       final hq = await _currentHighQuality();
-      return _rtc.join(url: url, token: token, startMuted: true, highQuality: hq);
+      return _rtc.join(
+          url: url,
+          token: token,
+          startMuted: true,
+          highQuality: hq,
+          tuning: settings?.audioTuning ?? AudioTuning.standard);
     }()
         .then((_) {
       _resetIdleTimer();
@@ -478,7 +483,11 @@ class RoomController extends ChangeNotifier {
     try {
       final highQuality = await _currentHighQuality();
       final elapsed = await _rtc.join(
-          url: url, token: token, startMuted: true, highQuality: highQuality);
+          url: url,
+          token: token,
+          startMuted: true,
+          highQuality: highQuality,
+          tuning: settings?.audioTuning ?? AudioTuning.standard);
       lastJoinLatency = _joinStopwatch?.elapsed ?? elapsed;
       debugPrint('[lares] 进房分段: 总=${lastJoinLatency!.inMilliseconds}ms '
           'RTC=${elapsed.inMilliseconds}ms');
@@ -518,6 +527,11 @@ class RoomController extends ChangeNotifier {
       _members.add(member);
     }
   }
+
+  /// 设置页用:如实显示本平台实际生效的降噪状态。
+  /// 不承诺平台做不到的事 —— 例如 Windows 上「增强」会诚实回落到「标准」。
+  ResolvedAudioTuning rtcPreview(AudioTuning tuning) =>
+      _rtc.previewTuning(tuning);
 
   @override
   void dispose() {
