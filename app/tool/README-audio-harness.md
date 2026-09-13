@@ -68,6 +68,34 @@ node tool/wav_check.mjs spike_out/u_bot.wav
 杀服务端总会导致完整重新入房。**该子情形未测,但不构成反证** ——
 按 `TrackSubscribed` 注册两种情形都覆盖。
 
+## 🔴 第二条静默死亡路径:本地轨的 restartTrack()
+
+比重连更频繁,且发生在**主交互路径**上。已逐行核实(livekit_client 2.12.0):
+
+```
+local.dart:107  Future<void> stopCapture() async {
+local.dart:109    for (final group in _captureGroups.values) { await group.stop(); }
+local.dart:112    _captureGroups.clear();          <-- 全部 renderer 被清空
+```
+而恢复端什么都不做:
+```
+local.dart:101  Future<void> startCapture() async {
+local.dart:102    logger.fine('AudioTrack.startCapture()');   <-- 只打日志,不恢复
+```
+
+调用链:`restartTrack()` → `stop()` → `Track.stopCapture()` → `_captureGroups.clear()`,
+随后 `start()` → `startCapture()` **什么也不恢复**。无事件、无报错。
+你手里的 `CancelListenFunc` 仍然"有效",但指向的是一个已死的 group。
+
+**谁会调用 `restartTrack()`**:`setDeviceId()`,以及 **`unmute()`(当 `stopOnMute` 生效时)**。
+Lares 默认静音进房、开关麦是主交互 —— 所以对**本地轨**而言这不是边缘情况,
+而是常规路径。缓解:除 `TrackSubscribed` 外,还要在
+`TrackStreamUpdatedEvent` / `LocalTrackOptionsUpdatedEvent` 上重新注册。
+
+**并且死掉的 group 仍留在 map 里** —— 后续用相同 options 注册会
+`putIfAbsent` 到同一具尸体上,照样收不到帧。
+**所以看门狗必须先用 cancel func 拆掉,再重新注册;天真的「再注册一次」是无效的。**
+
 ## ⚠️ 其他必须知道的坑
 
 1. **`AudioRendererOptions` 默认 sampleRate 是 24000**,不是 48000。
