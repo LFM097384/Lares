@@ -6,7 +6,10 @@
   "description": "Lares 炉灵 — presence 信令服务 + LiveKit token 签发",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node test/smoke.mjs",
+    "//tool": "说话机器人等验证工具在 tool/,有独立的 package.json(依赖 @livekit/rtc-node);先 cd tool && npm install",
+    "tool:install": "npm --prefix tool install"
   },
   "dependencies": {
     "livekit-server-sdk": "^2.13.0",

@@ -39,3 +39,7 @@ dist/
 
 # 部署运行时状态(VPS 上的端口基线/回滚快照,机器相关,不入库)
 deploy/.state/
+
+# 音频捕获验证工具的产物(WAV/日志,体积大且机器相关)
+app/spike_out/
+app/tool/capture_out/
