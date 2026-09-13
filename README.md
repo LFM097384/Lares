@@ -117,7 +117,7 @@ flutter run -d android --dart-define=LARES_SIGNALING=ws://192.168.x.x:8787
 - [x] 常驻挂机端:`LARES_AUTO_JOIN=true` 启动即自动进房(实测 Release 进房 556ms),已加入开机自启(`shell:startup` 快捷方式);桌面快捷方式同步指向 Release
 - [x] Web WASM 构建:`flutter build web --wasm` 通过,进房 1325ms 实测(RTC/信令/presence 在 wasm 下全正常)
 - [x] **Android 前台服务保活**(浸泡抓到的真问题:后台被系统杀→presence 掉线):仅进房且媒体在线时持有服务(mic 类型 + WiFiLock),出房/闲时降级立即释放;后台 65s presence 存活实证,浸泡自动恢复 streak=0
-- [x] 桌面快捷方式:`~/Desktop/一键进圈.lnk`(指向 Release 版)
+- [x] 桌面快捷方式:`~/Desktop/Lares 炉灵.lnk`(指向 Release 版)
 - [x] 服务端数据目录可配置(`LARES_DATA_DIR`),测试与本机数据隔离
 - [x] 公网部署包:`server/Dockerfile` + `deploy/docker-compose.yml`(Caddy 自动 TLS + LiveKit SFU + 信令)+ `deploy/README.md`(Cloud/自托管双路线);信令 WS 支持 `/ws` 路径分流
 - [x] 设置页(§2.2):仅 WiFi 下高音质(接 RTC 发布码率 48k/24k,connectivity_plus 判网)、免打扰时段(抑制敲门横幅,支持跨零点)、状态信息(信令地址/上次进房耗时);持久化实测
