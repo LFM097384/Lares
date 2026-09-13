@@ -34,12 +34,12 @@
 |---|---|---|
 | ① | 改名「Lares 炉灵」+ 品牌叙事 + 炉火图标(六端) | ✅ |
 | ② | 主圈子 + 小组件一键加入 | ✅ |
-| ③ | 文字 + 图片发送(LiveKit data channel) | ✅ 核心+UI |
-| ④ | 自定义服务器地址 + 验证(token / circle 双模式) | ✅ 服务端;客户端进行中 |
+| ③ | 文字 + 图片发送(LiveKit data channel) | ✅ 含选图(file_selector) |
+| ④ | 自定义服务器地址 + 验证(token / circle 双模式) | ✅ 含设置页与「测试连接」 |
 | ⑤ | 部署到 RackNerd(端口安全 + 三重机场保护) | ✅ 就绪,**阻塞:等域名** |
 | ⑥ | 降噪 | ✅ 客户端等效方案(见下) |
 | ⑦ | 自动更新(Windows / Android / macOS) | ✅ |
-| ⑧ | Windows 录音 + STT + 说话人归属 | 地基已实测验证,实现中 |
+| ⑧ | Windows 录音 + STT + 说话人归属 | ✅ 完成但**整体隐藏**(LARES_RECORDING 默认 false)|
 
 ### ⚠️ 两条会改变做法的结论
 
@@ -236,8 +236,22 @@ pwsh scripts/dev.ps1   # 起全栈,浏览器开 http://127.0.0.1:8080
 
 ## 待办(按优先级)
 
-1. **域名 → 上线**(唯一阻塞项):买域名 + A 记录指向 `23.94.115.25` →
-   `cd deploy && ./preflight.sh && ./deploy.sh`。浏览器与 iOS 都要求 wss,裸 IP 签不出证书。
+1. **域名 → 上线**(唯一阻塞项)。
+   **进行中**:用户已申请 `laresproject.eu.org`,待批复。
+   NS 已指向 Cloudflare:`kate.ns.cloudflare.com` / `pete.ns.cloudflare.com`。
+
+   > Cloudflare 托管 DNS 正是我们需要的:部署默认走 **DNS-01**,零入站端口。
+   > 这不是图省事 —— 站点即使写成 `domain:8444`,Caddy 仍会去试 :443 和 :80,
+   > 而 **443 是用户 Reality 主入站**。只有 DNS-01 能真正禁用其他挑战方式。
+
+   批复后需要的东西:
+   - Cloudflare API Token,权限 `Zone.Zone:Read` + `Zone.DNS:Edit`
+   - A 记录指向 `23.94.115.25`
+   - 建议先用 Let's Encrypt **staging** 跑一次,避免撞速率限制
+   - 带 DNS 插件的 Caddy 镜像**在本地构建后 `docker save`/`scp`/`docker load`**,
+     不要在 VPS 上编译(会跟 xray 抢内存)
+
+   然后:`cd deploy && ./preflight.sh && ./deploy.sh`
 2. **收尾需求⑧**:录音 + STT 接线与同意 UI(地基已实测验证,坑位见上)
 3. **iPhone 真机验证**:踢人/位置共享/后台保活/小组件数据共享(免费签名 App Groups 待确认)
 4. **真机验证降噪/主圈子**:Android 硬件 AEC 听感、小组件刷新 —— 目前只有静态与编译层保证
