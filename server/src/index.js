@@ -154,6 +154,31 @@ function sweepRateLimits() {
   }
 }
 
+// ── 录音过期清理(需求⑧)──────────────────────────────────────────────
+// 录音端被杀/断网时不会发 rec_stop。若不清理,房间会**永远显示有人在录** ——
+// 指示器一旦说过谎就再没人信。阈值取心跳间隔(15s)的 3 倍,容忍两次丢包。
+// 复用已有的 30s heartbeat 扫描,不另起 timer。
+const REC_STALE_MS = 45_000;
+
+function sweepStaleRecordings() {
+  const now = Date.now();
+  for (const [circleId, circle] of circles) {
+    for (const member of circle.values()) {
+      if (!member.rec) continue;
+      if (now - member.rec.seen <= REC_STALE_MS) continue;
+      delete member.rec;
+      broadcast(circleId, {
+        t: 'member_rec',
+        circleId,
+        userId: member.userId,
+        name: member.name,
+        active: false,
+        since: 0,
+      });
+    }
+  }
+}
+
 /// 校验 hello.auth 的挑战应答证明。原文里始终不出现明文密钥。
 /// token 模式:proof = HMAC_SHA256(LARES_AUTH_TOKEN, `${nonce}:${userId}`)
 /// circle 模式:proof = HMAC_SHA256(passcodeFor(circleId), `${nonce}:${userId}:${circleId}`)
@@ -242,6 +267,8 @@ function memberSnapshot(member) {
     deviceCount: member.devices.size,
     // 位置共享:有则带上(后进房的人也能看到)
     ...(member.loc ? { loc: member.loc } : {}),
+    // 录音态:有则带上 —— 后进房的人必须立刻知道房间正在被录(伦理红线)
+    ...(member.rec ? { rec: { since: member.rec.since } } : {}),
   };
 }
 
@@ -443,6 +470,60 @@ function handleConnection(ws, req) {
         break;
       }
 
+      // ── 录音同意广播(需求⑧)──────────────────────────────────────────
+      // 设计见 docs/recording-consent-protocol.md。核心不变量:
+      // **服务器是录音态的唯一权威**,且客户端必须等到自己的回显才允许采集 ——
+      // 「指示器说谎」是本功能最不能出的事故。
+      case 'rec_start': {
+        if (!session.circleId || !session.userId) return;
+        if (msg.circleId !== session.circleId) return; // 防跨圈误报
+        const member = getCircle(session.circleId).get(session.userId);
+        if (!member) return;
+        // 已在录则只续期,不重置 since —— 重连补发 rec_start 会走到这里,
+        // 重置会让「已录 N 分钟」倒退。
+        if (!member.rec) member.rec = { since: Date.now(), seen: Date.now() };
+        else member.rec.seen = Date.now();
+        // 回显给发起者自己是**放行采集的前提**,故不能用 exceptWs 把他排除。
+        broadcast(session.circleId, {
+          t: 'member_rec',
+          circleId: session.circleId,
+          userId: session.userId,
+          name: member.name,
+          active: true,
+          since: member.rec.since,
+        });
+        break;
+      }
+
+      case 'rec_stop': {
+        if (!session.circleId || !session.userId) return;
+        const member = getCircle(session.circleId).get(session.userId);
+        if (!member || !member.rec) return; // 幂等:没在录就当无事发生
+        delete member.rec;
+        broadcast(session.circleId, {
+          t: 'member_rec',
+          circleId: session.circleId,
+          userId: session.userId,
+          name: member.name,
+          active: false,
+          since: 0,
+        });
+        break;
+      }
+
+      case 'rec_ping': {
+        // 活性心跳:录音端每 15s 一发。只更新 seen,不广播(否则平白放大流量)。
+        if (!session.circleId || !session.userId) return;
+        const member = getCircle(session.circleId).get(session.userId);
+        if (member?.rec) {
+          member.rec.seen = Date.now();
+          // ack:让录音端能察觉 TCP 半开(连接已死但本机未察觉)。
+          // 没有它,客户端会一边采集、房间那边却早已不知情。
+          send(ws, { t: 'rec_pong', now: Date.now() });
+        }
+        break;
+      }
+
       case 'knock_mode_set': {
         if (typeof msg.circleId !== 'string' || typeof msg.enabled !== 'boolean') return;
         // 修补越权:原实现下「空圈」任何人都能改,且连 hello 都不必说 ——
@@ -566,6 +647,20 @@ function leaveCircle(ws, session) {
     member.devices.delete(session.deviceId);
     // 同一用户所有端都离开才算「出房」
     if (member.devices.size === 0) {
+      // 录音者直接掉线:先撤录音指示再报离开。
+      // 成员对象整个被删时 rec 随之消失,但广播必须补发 ——
+      // 否则其他端的指示器会停在旧状态(即「说谎」)。
+      if (member.rec) {
+        delete member.rec;
+        broadcast(session.circleId, {
+          t: 'member_rec',
+          circleId: session.circleId,
+          userId: session.userId,
+          name: member.name,
+          active: false,
+          since: 0,
+        });
+      }
       circle.delete(session.userId);
       broadcast(session.circleId, { t: 'member_left', circleId: session.circleId, userId: session.userId });
       if (circle.size === 0) circles.delete(session.circleId);
@@ -746,6 +841,7 @@ const heartbeat = setInterval(() => {
   }
   sweepNonces();
   sweepRateLimits();
+  sweepStaleRecordings();
 }, 30_000);
 wss.on('connection', (ws) => {
   ws._laresAlive = true;
