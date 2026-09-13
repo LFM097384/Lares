@@ -228,6 +228,60 @@ AssemblyAI 流式上限 10 人；OpenAI 注册上限 4 人；Azure 单声道且�
 - **不得改动 xray / 3x-ui 配置**；需带回滚
 - 用户在国内，Seattle 190ms；移动 CMI 对该 IP 段有时段性 TCP QoS（已知问题，用户改用联通）
 
+### 旧 deploy 配置中发现的 8 个问题（不止 443 冲突）
+
+1. **`443:443` 会打死 Reality 主入站** —— 已知，本轮的起因。
+2. **媒体路径本来就是断的**（独立于 443 冲突）：compose 只发布了 `7882/udp`，
+   而 livekit.yaml 却声明 `port_range_start: 50000 / port_range_end: 60000`。
+   LiveKit 会在 50000-60000 里分配端口，而那个段**从未被发布** → 公网上媒体根本连不通。
+   已用 `git show 05a1873:deploy/docker-compose.yml` 核实属实。
+3. **`80:80`** —— 80 端口的「空闲」状态从未被核实过。
+4. **鉴权默认全开**：服务端默认 `LARES_AUTH_MODE=none`，而旧 compose 一个鉴权变量都没传
+   → 公网上完全开放。现改为 `${LARES_AUTH_MODE:?}`（缺则拒绝启动）。
+5. **无内存上限** —— 任何泄漏都可能 OOM-kill 掉 xray。现每容器设 `mem_limit`，合计硬顶 480MB。
+6. **无日志轮转** —— json-file 默认无上限，写满 20GB 会把机场一起拖死。现 `max-size:10m, max-file:3`。
+7. **TURN 配置根本起不来**：`tls_port>0` 要求 `turn.domain` 有效（否则进程直接退出），
+   且 `external_tls:false` 要求提供证书文件 —— 两者都没满足。现默认关闭。
+8. **`LIVEKIT_PUBLIC_URL` 不带端口** → 客户端会默认走 443，即机场的端口。preflight 已专门检查。
+
+### 两个反直觉但已核实的坑
+
+- **LiveKit 的 mux 判定顺序与官方文档相反**：源码 `webrtc_config.go` **先检查端口段**，
+  `udp_port` 在一个不可达的 `else if` 里。**只要 `port_range_*` 存在，单端口 mux 就被静默忽略。**
+  → 新配置完全不写这两个键，并由 `tools/verify_compose.py` 断言。
+- **站点写成 `domain:8444` 并不能把 ACME 限制在 8444**：Caddy 仍会尝试 **:443** 的 TLS-ALPN-01
+  和 **:80** 的 HTTP-01；`auto_https disable_redirects` **不会**释放 :80（只有 `auto_https off` 会）。
+  **只有 DNS-01 才会禁用其他挑战方式** —— 这是本场景必须用 DNS-01 的原因，而非「顺便用」。
+
+### UDP 端口数测算
+
+旧配置 10001 个端口。端口段模式下 LiveKit **每参与者 2 个 UDP 端口**（publisher + subscriber
+PeerConnection；轨道是 bundle 的）。20 人 × 2 = 40，含重连 churn ×2 = 80，保守取整 **200**
+—— 即便用端口段也只需 200（减少 98%）。**最终选单端口 mux**：官方建议 mux 端口数 ≥ vCPU 数，
+本机 1 vCPU → 1 即推荐值。收益：每客户端 1 条 conntrack 而非 2 条、一条防火墙规则、1 个端口攻击面。
+
+### 内存预算（1 GB，约 960MB 可用）
+
+稳态合计 **505MB**（系统 90 / xray 35 / 3x-ui 40 / fail2ban 25 / dockerd+containerd 110 /
+shim 30 / LiveKit 90 / Node 55 / Caddy 30），余 ~455MB 舒适。
+**但全部峰值叠加 796MB，只剩 ~164MB，偏紧。** 缓解：`mem_limit` 合计硬顶 480MB
+（确保泄漏时死的是 Lares 而非机场）+ **建议加 1GB swap**。
+
+**Docker vs systemd**：Docker 固定开销 ~140MB = 总内存 14% = xray 稳态 RSS 的 4 倍，
+在这台机器上**不可忽略**。若只跑 Lares 应直接用 systemd。compose 保持为主是因为：
+(a) 既有资产；(b) `mem_limit` 本身就是护住机场的机制；(c) 加 swap 后不再是生存问题。
+systemd unit 已一并提供且完整。**真正的解法是拓扑 A（媒体走 LiveKit Cloud）** —— 本机降到 ~85MB。
+
+### 端口判定的回归测试
+
+整个安全设计压在「端口是否仍在监听」的 awk 判定上 —— 误判会导致 deploy.sh 拆掉健康的栈，
+或漏报真实故障。`deploy/test/port_match_test.sh` 用真实 `ss` 输出形态驱动，11 项全过：
+`0.0.0.0:443` / `[::]:443` / `*:443` / `[::1]:443` / `[::ffff:127.0.0.1]:443`、
+后缀陷阱（18443 不被误判成 443/8443）、多行命中、空输入、baseline 归一化（IPv6+UDP 正确且不误收 sshd）。
+
+已复核 `set -euo pipefail` 相关风险，均安全：三脚本的 `set -euo pipefail` 都在；
+唯一的裸 `grep` 在 `if` 条件里（`set -e` 不作用）；无管道喂 `while read`；无 `local x=$(cmd)` 掩盖退出码。
+
 **用户决定：双栈并行**（自托管 + LiveKit Cloud 免费档），设置页可切 —— 正好契合需求 ④「自定义服务器地址」。
 Cloud 走全球边缘节点，对国内用户延迟更优且不让语音流量经过代理机；自托管满足隐私偏好。
 
