@@ -6,20 +6,24 @@
 ///     if (dart.library.io) '../chat/image_source_io.dart';
 /// ```
 ///
-/// ## 现状:同样是**空实现**
+/// ## 实现:file_selector(系统文件对话框)
 ///
-/// 原生 Flutter 自身不提供文件打开对话框;剪贴板也不是出路——
+/// 背景:原生 Flutter 自身不提供文件打开对话框;剪贴板也不是出路——
 /// `flutter/lib/src/services/clipboard.dart` 只定义了唯一一个常量
 /// `kTextPlain = 'text/plain'`,`ClipboardData` 也只有 `text` 字段,
-/// 即原生 Flutter 里确实不存在任何图片剪贴板通路。
-/// 而项目当前不引入选图依赖,所以这里也只能返回 false / null。
-/// 留住接缝,好让 UI 平静地禁用入口,而不是抛异常(设计.md §8.2 图片侧信道)。
+/// 即原生 Flutter 里确实不存在任何图片剪贴板通路。所以必须有依赖。
 ///
-/// 注意:本文件逻辑上并不需要 dart:io(只用到 Uint8List),
-/// 因此故意不 import 它——白引会触发 unused_import。
+/// 选 `file_selector` 而非 `image_picker`:桌面是当前主力端,且它不需要
+/// 运行时权限申请。移动端将来若要相册/相机双入口,再叠加 image_picker
+/// 即可——本文件的接缝不变(设计.md §8.2 图片侧信道)。
+///
+/// 尺寸此处一律不返回:`XFile` 不提供像素尺寸,交由
+/// `image_downscale.dart` 的 `measureEncodedImage` 现场测量,
+/// 避免在这里白解一次码。
 library;
 
-import 'dart:typed_data';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 
 /// 已选中的图片:原始编码字节 + 可选的像素尺寸。
 ///
@@ -41,18 +45,33 @@ class PickedImage {
 
 /// 当前构建是否支持「从系统选图」。
 ///
-/// 原生端目前恒为 false:没有任何可用的选图依赖。
-// TODO(依赖): 需要 file_selector: ^1.0.3(桌面/Web 均支持系统文件对话框)
-// 分平台的正确选择:
-//  * 移动端(Android/iOS)用 image_picker: ^1.1.2 更合适——
-//    自带相册 + 相机两个入口,并且把运行时权限申请一并处理了。
-//  * 桌面端(Windows/macOS/Linux)用 file_selector,原生文件对话框、无需权限。
-//
-// 警告:**不要**为了绕开依赖去碰 package:web 之类的传递依赖,
-// 直接 import 会触发 depend_on_referenced_packages lint 并弄脏 flutter analyze。
-bool get isImagePickSupported => false;
+/// file_selector 在 Windows/macOS/Linux 上都有实现;Android/iOS 上它
+/// 走的是系统文件选择器(能用,但不如相册入口顺手——见文件头的说明)。
+bool get isImagePickSupported => true;
 
-/// 打开系统选图器。不支持时返回 null。
+/// 常见图片扩展名。不写 `*` 是为了让对话框默认只列图片,
+/// 用户少一次「选错文件类型然后被拒」的来回。
+const XTypeGroup _imageGroup = XTypeGroup(
+  label: '图片',
+  extensions: <String>['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'],
+);
+
+/// 打开系统选图器。用户取消、或读取失败时返回 null(不抛)。
 ///
-/// 原生端永远返回 null,见 [isImagePickSupported] 的说明。
-Future<PickedImage?> pickImage() async => null;
+/// 不抛的理由:取消是最常见的正常路径,把它做成异常会逼着每个调用点
+/// 写 try/catch;而读文件失败(权限/文件被删/网络盘掉线)对聊天这个
+/// **副通道**来说也不值得打断用户——上层据 null 静默收场即可。
+Future<PickedImage?> pickImage() async {
+  try {
+    final XFile? file = await openFile(acceptedTypeGroups: <XTypeGroup>[
+      _imageGroup,
+    ]);
+    if (file == null) return null; // 用户取消
+    final Uint8List bytes = await file.readAsBytes();
+    if (bytes.isEmpty) return null; // 空文件:当作没选
+    return PickedImage(bytes: bytes);
+  } catch (e) {
+    debugPrint('[lares] 选图失败(已忽略): $e');
+    return null;
+  }
+}

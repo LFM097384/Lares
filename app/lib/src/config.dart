@@ -30,6 +30,17 @@ class LaresConfig {
   /// 启动即自动进默认圈(常驻挂机端/浸泡测试:开机自启 → 自动在圈)
   static const bool autoJoin = bool.fromEnvironment('LARES_AUTO_JOIN');
 
+  /// 录音与转写(需求⑧)。**默认关闭,入口完全不出现。**
+  ///
+  /// 为什么用开关而不是删代码:功能本身已完成并有 218 项测试,
+  /// 删掉等于丢弃;但它有两处尚未解决的问题,不宜对外开放 ——
+  ///  1. VAD 门限是在合成信号上调出来的,**从未见过真实麦克风**;
+  ///  2. 录音的伦理面还没定稿(断连宽限期内被录方可能已看不到指示器;
+  ///     「只保存在本地设备」这句对 App 为真、对世界为假)。
+  /// 想开启:`--dart-define=LARES_RECORDING=true`。
+  static const bool recordingEnabled =
+      bool.fromEnvironment('LARES_RECORDING');
+
   static bool get isDesktop => PlatformInfo.isDesktop;
 
   static String get platformName => PlatformInfo.current;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../chat/chat_service.dart';
+import '../config.dart';
 import '../recording/recording_consent.dart';
 import '../recording/recording_indicator.dart';
 import '../state/location_share_stub.dart'
@@ -71,7 +72,12 @@ class _RoomScreenState extends State<RoomScreen> {
                 // 录音指示器:房间里有人在录音时对**所有人**常驻显示。
                 // 这是本 App 唯一刻意「吵」的组件 —— 安静的设计 ≠ 藏起来。
                 // 没人录音时它自己退化成 SizedBox.shrink(),不占位。
-                if (widget.recordingConsent != null)
+                //
+                // 注:录音功能当前整体未开放(LaresConfig.recordingEnabled),
+                // 故指示器一并隐藏。二者必须同开同关 —— 只要功能可用,
+                // 指示器就必须在,否则就成了「偷录」。
+                if (LaresConfig.recordingEnabled &&
+                    widget.recordingConsent != null)
                   RecordingIndicatorBanner(
                     controller: widget.recordingConsent!,
                   ),

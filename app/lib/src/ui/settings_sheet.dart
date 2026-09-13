@@ -3,6 +3,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import '../platform/platform_info.dart'
     if (dart.library.io) '../platform/platform_info_io.dart';
+import '../config.dart';
 import '../platform/widget_service.dart';
 import '../state/circle_store.dart';
 import '../state/models.dart';
@@ -89,9 +90,13 @@ Future<void> showSettingsSheet(
               ),
               const Divider(),
               // ── 录音与转写(需求⑧)──────────────────────────────────
-              // 默认关闭。打开前必过确认对话框 —— 录同伴的声音是有伦理与法律
-              // 分量的事,不做成一个可以手滑打开的开关。
-              if (recordingConsent != null)
+              // **默认不开放**(LaresConfig.recordingEnabled 默认 false):
+              // 功能已完成且有 218 项测试,但 VAD 门限从未见过真实麦克风,
+              // 且录音的伦理面尚未定稿 —— 故入口整体隐藏,而非留一个半成品开关。
+              //
+              // 开启后:默认关闭状态,打开前必过确认对话框 —— 录同伴的声音是
+              // 有伦理与法律分量的事,不做成一个可以手滑打开的开关。
+              if (LaresConfig.recordingEnabled && recordingConsent != null)
                 ListTile(
                   leading: Icon(
                     Icons.fiber_manual_record_rounded,

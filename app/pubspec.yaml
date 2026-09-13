@@ -44,6 +44,10 @@ dependencies:
   crypto: ^3.0.7
   # 本地离线语音识别(sherpa-onnx / next-gen Kaldi,预编译 DLL,VS2019 可构建)
   sherpa_onnx: ^1.13.8
+  # 选图(lib/src/chat/image_source*.dart):系统文件对话框,桌面 + Web 均支持。
+  # 选它而非 image_picker:桌面是当前主力端,且它不需要运行时权限申请。
+  # 移动端将来若要相册/相机双入口,再叠加 image_picker(接缝已留好)。
+  file_selector: ^1.0.3
   # 位置共享(Snapchat 式):GPS + 开源地图(免 API key)
   geolocator: ^14.0.0
   flutter_map: ^8.2.0

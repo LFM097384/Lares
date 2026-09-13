@@ -8,20 +8,19 @@
 /// ```
 /// 即可在 Web 上拿到这里的实现、在原生端拿到 image_source_io.dart 的实现。
 ///
-/// ## 现状:这是一个**空实现**,但接缝是真的
+/// ## 实现:file_selector(Web 端是隐藏的 `<input type=file>`)
 ///
-/// 原生 Flutter 在任何平台都没有「打开文件对话框」的能力,
+/// 背景:原生 Flutter 在任何平台都没有「打开文件对话框」的能力,
 /// 剪贴板也走不通:`flutter/lib/src/services/clipboard.dart` 全文只定义了
 /// **一个**常量 `kTextPlain = 'text/plain'`,`ClipboardData` 也只有 `text`
-/// 一个字段——原生 Flutter 里根本不存在图片剪贴板通路。
-/// 项目当前又不引入任何选图依赖,所以两端都诚实地返回 false / null。
+/// 一个字段——原生 Flutter 里根本不存在图片剪贴板通路。所以必须有依赖。
 ///
-/// 保留这层接缝的意义:UI 可以据 [isImagePickSupported] 把按钮置灰、
-/// 配一句平静的 tooltip;将来只要加一行依赖,补上 [pickImage] 的实现,
-/// 上层代码一个字都不用改(设计.md §8.2 图片侧信道)。
+/// file_selector 的 Web 实现内部就是一个隐藏的 `<input type=file>`,
+/// 行为与桌面一致,故两端可以共用同一份调用代码(设计.md §8.2 图片侧信道)。
 library;
 
-import 'dart:typed_data';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 
 /// 已选中的图片:原始编码字节 + 可选的像素尺寸。
 ///
@@ -40,18 +39,29 @@ class PickedImage {
   final int? height;
 }
 
-/// 当前构建是否支持「从系统选图」。
-///
-/// Web 上恒为 false:没有依赖能打开文件选择器。
-// TODO(依赖): 需要 file_selector: ^1.0.3(桌面/Web 均支持系统文件对话框)
-// Web 端 file_selector 内部用一个隐藏的 <input type=file> 实现,行为与桌面一致。
-//
-// 警告:**不要**改用 package:web 自己撸 HTMLInputElement。
-// package:web 只是传递依赖,直接 import 会触发 depend_on_referenced_packages
-// lint,把 `flutter analyze` 弄脏;要么正经加 file_selector,要么保持空实现。
-bool get isImagePickSupported => false;
+/// 当前构建是否支持「从系统选图」。Web 上由 file_selector 提供。
+bool get isImagePickSupported => true;
 
-/// 打开系统选图器。不支持时返回 null。
+/// 常见图片扩展名。不写 `*` 是为了让对话框默认只列图片。
+const XTypeGroup _imageGroup = XTypeGroup(
+  label: '图片',
+  extensions: <String>['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'],
+);
+
+/// 打开系统选图器。用户取消、或读取失败时返回 null(不抛)。
 ///
-/// Web 上永远返回 null,见 [isImagePickSupported] 的说明。
-Future<PickedImage?> pickImage() async => null;
+/// 与原生端实现保持一致的契约:取消是正常路径,不做成异常。
+Future<PickedImage?> pickImage() async {
+  try {
+    final XFile? file = await openFile(acceptedTypeGroups: <XTypeGroup>[
+      _imageGroup,
+    ]);
+    if (file == null) return null; // 用户取消
+    final Uint8List bytes = await file.readAsBytes();
+    if (bytes.isEmpty) return null;
+    return PickedImage(bytes: bytes);
+  } catch (e) {
+    debugPrint('[lares] 选图失败(已忽略): $e');
+    return null;
+  }
+}

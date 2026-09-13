@@ -499,8 +499,8 @@ void main() {
       _host(ChatPanel(chat: chat, initiallyExpanded: true)),
     );
 
-    // 依赖未落地时按钮禁用但**不隐藏**,tooltip 平静说明原因
-    expect(find.byTooltip('当前版本暂不支持选图'), findsOneWidget);
+    // file_selector 已接入,选图按钮应当**可用**。
+    // (此前依赖未落地时的行为是:按钮禁用但不隐藏,tooltip 平静说明原因。)
     // 取 IconButton 本体按图标定位:byTooltip 命中的是 RawTooltip 包装层
     expect(
       tester
@@ -508,7 +508,8 @@ void main() {
             find.widgetWithIcon(IconButton, Icons.image_outlined),
           )
           .onPressed,
-      isNull,
+      isNotNull,
+      reason: '选图依赖已落地,按钮不应再是禁用态',
     );
 
     await tester
