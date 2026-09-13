@@ -230,6 +230,10 @@ class UpdateService extends ChangeNotifier {
         'X-GitHub-Api-Version': '2022-11-28',
       }).timeout(const Duration(seconds: 15));
 
+      // 只要**收到了**服务端响应就记一次时间戳:即便这次是 403/500,
+      // 也不该在下次启动时立刻再打一遍(真正该重试的只有断网,那条路不记)。
+      await _touchLastCheck();
+
       // 未认证配额 60 次/小时;超了 GitHub 回 403(偶尔 429)
       if (resp.statusCode == 403 || resp.statusCode == 429) {
         final remaining = resp.headers['x-ratelimit-remaining'];
@@ -256,7 +260,6 @@ class UpdateService extends ChangeNotifier {
         return _fail('发布信息格式异常,无法解析。', silent: silent);
       }
 
-      await _touchLastCheck();
       final checkedAt = _now();
 
       if (release.version <= current) {

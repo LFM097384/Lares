@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
+import 'src/chat/chat_service.dart';
+import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
 import 'src/net/signaling_client.dart';
 import 'src/platform/foreground_service.dart';
@@ -51,9 +53,11 @@ Future<void> main() async {
     userId: identity.userId,
     credentials: () => settings.credentialFor(primaryCircleId()),
   )..authCircleId = primaryCircleId();
+  // 单独持有引用:聊天传输层要从它拿底层 Room(见 rtc.room 的注释)
+  final rtc = LiveKitRtcService(hostOnlyIce: LaresConfig.hostOnlyIce);
   final controller = RoomController(
     signaling: signaling,
-    rtc: LiveKitRtcService(hostOnlyIce: LaresConfig.hostOnlyIce),
+    rtc: rtc,
     userId: identity.userId,
     deviceId: identity.deviceId,
     userName: identity.name,
@@ -150,12 +154,22 @@ Future<void> main() async {
   // 位置共享(Snapchat 式,产品反馈):显式开启,出房即停
   final locationShare = LocationShareService(room: controller);
 
+  // 文字/图片副通道(§2.3 原本不做,本轮由 owner 显式放开):语音仍是一等公民。
+  // 传输层跟随房间生命周期自动重建 —— Room 只在 join/leave 之间存活。
+  final chat = ChatService(
+    transport: SessionChatTransport(rtc: rtc, controller: controller),
+    userId: identity.userId,
+    userName: identity.name,
+    circleIdGetter: () => controller.circleId ?? primaryCircleId(),
+  );
+
   runApp(LaresApp(
     controller: controller,
     voiceNotes: voiceNotes,
     circleStore: circleStore,
     settings: settings,
     locationShare: locationShare,
+    chat: chat,
   ));
 }
 
@@ -167,6 +181,7 @@ class LaresApp extends StatelessWidget {
     required this.settings,
     this.voiceNotes,
     this.locationShare,
+    this.chat,
   });
 
   final RoomController controller;
@@ -174,6 +189,7 @@ class LaresApp extends StatelessWidget {
   final SettingsStore settings;
   final VoiceNotesController? voiceNotes;
   final LocationShareService? locationShare;
+  final ChatService? chat;
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +206,7 @@ class LaresApp extends StatelessWidget {
         settings: settings,
         voiceNotes: voiceNotes,
         locationShare: locationShare,
+        chat: chat,
       ),
     );
   }

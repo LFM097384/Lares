@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../chat/chat_service.dart';
 import '../state/circle_store.dart';
 import '../state/identity.dart';
 import '../state/location_share_stub.dart'
@@ -22,6 +23,7 @@ class HomeScreen extends StatelessWidget {
     required this.settings,
     this.voiceNotes,
     this.locationShare,
+    this.chat,
   });
 
   final RoomController controller;
@@ -29,6 +31,7 @@ class HomeScreen extends StatelessWidget {
   final SettingsStore settings;
   final VoiceNotesController? voiceNotes;
   final LocationShareService? locationShare;
+  final ChatService? chat;
 
   String _circleName(String? circleId) {
     if (circleId == null) return '';
@@ -65,6 +68,7 @@ class HomeScreen extends StatelessWidget {
               voiceNotes: voiceNotes,
               settings: settings,
               locationShare: locationShare,
+              chat: chat,
             );
             if (!wide) {
               // 移动端:在房 -> 房间页整屏;未在房 -> 圈子列表
