@@ -58,7 +58,7 @@ abstract final class HearthSparkTuning {
   static const double haloScale = 2.6;
 
   /// 光晕的 alpha 相对核的比例。低到只是「核周围有点热」。
-  static const double haloAlphaScale = 0.26;
+  static const double haloAlphaScale = 0.30;
 
   // ── alpha 包络 ──
   /// 生命前 10% 从 0 升到 1 —— 快速点燃。
@@ -103,8 +103,8 @@ final class _Flavor {
 
   /// 进房:多、亮、向上扩散。
   static const _Flavor join = _Flavor(
-    vyScale: 1.05,
-    vxScale: 1.60,
+    vyScale: 2.45,
+    vxScale: 3.60,
     lifeScale: 1.00,
     radiusScale: 1.00,
     alphaScale: 1.00,
@@ -114,8 +114,8 @@ final class _Flavor {
 
   /// 发消息:小而快,斜着朝火飘 —— 「把话投进火里」。
   static const _Flavor message = _Flavor(
-    vyScale: 1.15,
-    vxScale: 0.85,
+    vyScale: 2.05,
+    vxScale: 1.90,
     lifeScale: 0.62,
     radiusScale: 0.62,
     alphaScale: 0.92,
@@ -125,8 +125,8 @@ final class _Flavor {
 
   /// 离开:偏暗,飘散后很快熄灭。
   static const _Flavor leave = _Flavor(
-    vyScale: 0.80,
-    vxScale: 1.25,
+    vyScale: 1.55,
+    vxScale: 3.10,
     lifeScale: 0.58,
     radiusScale: 0.90,
     alphaScale: 0.62,
@@ -164,6 +164,10 @@ final class _Spark {
 
   double alphaScale = 1;
   double colorGamma = 1;
+
+  /// 每颗粒子自己的亮度权重。让同一簇里有明有暗 ——
+  /// 所有粒子一样亮会读成「一把碎屑」,不是火星(SPEC §8.3 要求明暗层次)。
+  double bright = 1;
 }
 
 /// 余烬色查表:emberDeep → ember → emberAsh,再乘 64 级 alpha。
@@ -255,7 +259,7 @@ class SparkField {
       if (s == null) return; // 池满:安静地丢弃剩下的
 
       // 起点做一点抖动,否则 28 颗粒子会从同一个像素喷出来,像喷泉不像火。
-      final jitter = kind == SparkKind.join ? 16.0 : 9.0;
+      final jitter = kind == SparkKind.join ? 34.0 : 18.0;
       s.x = origin.dx + (_rng.nextDouble() - 0.5) * 2 * jitter;
       s.y = origin.dy + (_rng.nextDouble() - 0.5) * 2 * jitter;
 
@@ -292,6 +296,9 @@ class SparkField {
       s.wobW = wMin + _rng.nextDouble() * wSpan;
       s.wobPhase = _rng.nextDouble() * math.pi * 2;
 
+      // 少数粒子明显更亮(大火星),多数偏暗 —— 用平方分布拉开层次。
+      final b = _rng.nextDouble();
+      s.bright = 0.42 + 0.58 * b * b;
       s.alphaScale = f.alphaScale;
       s.colorGamma = f.colorGamma;
 
@@ -403,7 +410,7 @@ class SparkPainter extends CustomPainter {
       } else {
         env = math.pow(1 - u, HearthSparkTuning.decayPower).toDouble();
       }
-      final a = env * s.alphaScale;
+      final a = env * s.alphaScale * s.bright;
       if (a <= 0.004) continue;
 
       // 颜色进度:gamma 让「离开」的火星更快转灰。

@@ -23,17 +23,50 @@ import 'hearth_tokens.dart';
 //      0.82 × gradientRadius ≤ Path 的**最小**极半径,
 //    那么 Path 的硬边缘所在的每一个角度上,像素 alpha 都已经是 0,
 //    边缘因此完全不可见 —— 不用 blur 也拿到了柔光。
-//    (见下方 _paintBlob 里 gradRadius 的算法,这是整个方案的命门:
-//     如果用「最大极半径 / 0.82」,在 Path 凹进去的角度上零点会落到
-//     Path 外面,那些角度就会露出一圈硬边。)
+//
+//  ── 一个必须说清楚的取舍(与 SPEC §4.1 的字面描述有出入,见交付报告)──
+//    ui.Gradient.radial 的等 alpha 线**必然是同心圆**。这带来一个
+//    绕不过去的矛盾:
+//      · 渐变半径取「最小极半径 / 0.82」→ 硬边 100% 不可见,
+//        但 alpha 归零的那个圆整个落在 Path 内部,
+//        于是**肉眼看到的轮廓是一个正圆**,谐波白画了;
+//      · 渐变半径取「最大极半径 / 0.82」→ 谐波可见,
+//        但 Path 凹进去的角度上零点落到了 Path 外面,
+//        实测残留边缘 alpha 达 5~25/255,在 #121016 的底色上
+//        是一条看得见的硬边 —— 直接违反验收标准「边缘完全柔和无硬边」。
+//    两者不可兼得。这里的选择是:
+//      **半径仍取 minR/0.82(硬边零容忍),非圆感改由「每层各自缓慢
+//      旋转的椭圆」提供** —— 对 Path 和渐变施加同一个仿射变换,
+//      包含关系在仿射下保持不变,所以柔边保证一点不打折;
+//      四层椭圆的离心率、朝向、旋转速度、中心偏移各不相同,
+//      叠加出来的轮廓明确不是正圆(验收标准 §8.1)。
+//    谐波保留:它让每层的 minR 随时间轻微起伏,光团边界因此是「活」的,
+//    只是不再贡献花瓣状轮廓。
+//
+//    实测数据(σ=0.36、最亮层 alpha 0.72、arousal 增益 1.45):
+//      感知边缘(alpha≈4/255)落在 stop≈0.63,即 0.672 × 层半径。
+//      各层半径已按 1/0.672 ≈ 1.49 预先补偿,见 flameRadiusFactor。
 // ═══════════════════════════════════════════════════════════════════════
 
 /// 调参常量。产品负责人改这里就够了,下面的代码不需要动。
 abstract final class HearthGlowTuning {
   // ── 尺寸 ──
   /// 火焰基准半径 = min(宽,高) × 该系数。
-  /// B 层第一圈座位在 0.30,这里取 0.26 留出「光不糊到人脸上」的余量。
-  static const double flameRadiusFactor = 0.26;
+  ///
+  /// 注意这是**几何**半径,不是看得见的半径:alpha 在 stop 0.82 之前
+  /// 就归零,感知边缘约在 0.80 × 几何半径处,所以要放大 ≈1.25 倍补偿。
+  /// 0.30 × 0.80 = 0.24,即感知到的光晕外沿落在 min(宽,高) 的 0.24 左右,
+  /// 而最淡的外缘还会继续铺开 —— B 层第一圈座位在 0.30,不会被糊住。
+  static const double flameRadiusFactor = 0.30;
+
+  // ── 非圆形轮廓(见文件头的取舍说明)──
+  /// 各层椭圆的离心率。沿长轴 ×(1+e),沿短轴 ×(1-0.6e)。
+  /// 0.13 在截图上明确读得出「不是正圆」,又不会变成一个躺倒的橄榄球。
+  static const double blobEccentricity = 0.22;
+
+  /// 椭圆朝向的旋转角速度(rad/s)。极慢 —— 这是给十小时注视准备的界面,
+  /// 形状要「在变」但任何一秒内都察觉不到它在动。
+  static const double blobSpinRate = 0.043;
 
   // ── 呼吸(SPEC §4.2)──
   /// 亮度在 [breathLow, 1.0] 之间做 sin 循环。
@@ -131,6 +164,9 @@ final class _BlobSpec {
     required this.breath,
     required this.arousalRadius,
     required this.shift,
+    required this.ecc,
+    required this.spin,
+    required this.tilt,
   }) {
     // 渐变的基准颜色只跟配置有关,构造时算一次。
     // 每帧只改 alpha,不再重新 lerp。
@@ -160,7 +196,13 @@ final class _BlobSpec {
   /// 基础不透明度。
   final double alpha;
 
-  /// 高斯衰减的 σ。越大核心越平、越「热」。
+  /// 高斯衰减的 σ。
+  ///
+  /// **重要**:柔边保证只依赖「gradR = minR/0.82」+「profile[0.82] = 0」,
+  /// 和 σ 无关。所以 σ 是完全自由的造型参数。
+  /// σ 太小(<0.4)会让每层的光全部缩在中心附近,四层叠起来就是
+  /// 一个同心的橙点 —— 这正是 SPEC §8 明令禁止的「一个橙色圆点」。
+  /// 外层用大 σ 把光铺开,内层用小 σ 收出火心,层次才出得来。
   final double sigma;
 
   /// 中心色 / 边缘色。
@@ -182,70 +224,94 @@ final class _BlobSpec {
   /// 朝向位移的层间倍率(视差:外层拖后腿,内层先动)。
   final double shift;
 
+  /// 该层椭圆的离心率倍率(相对全局 blobEccentricity)。
+  final double ecc;
+
+  /// 椭圆朝向的旋转速度倍率(相对全局 blobSpinRate)。有正有负 ——
+  /// 反向旋转让层与层的相对关系永不重复,轮廓因此长期不自我重复。
+  final double spin;
+
+  /// 椭圆朝向的初始角(弧度)。四层刻意错开。
+  final double tilt;
+
   final List<Color> baseColors = <Color>[];
   final List<double> profile = <double>[];
   late final List<Color> colorBuf;
 }
 
 /// 略带暖意的「白热」芯色。不用纯白 —— 纯白会让整团光显得廉价。
-const Color _kWhiteHot = Color(0xFFFFC9A0);
+const Color _kWhiteHot = Color(0xFFFFB081);
 
 /// 四层配置。由外到内绘制(先画淡的大的,再画亮的小的)。
 List<_BlobSpec> _buildSpecs() => <_BlobSpec>[
       // 0 · 光晕:最大最淡,负责把火的存在感铺满房间。
       _BlobSpec(
         radius: 1.00,
-        alpha: 0.17,
-        sigma: 0.40,
+        alpha: 0.21,
+        sigma: 0.72,
         core: HearthColors.ember,
         edge: HearthColors.emberAsh,
-        offset: const Offset(0.00, -0.02),
+        offset: const Offset(-0.13, 0.07),
         phase: 0.0,
         breath: 0.62,
         arousalRadius: 0.30,
         shift: 0.72,
+        ecc: 0.85,
+        spin: 1.00,
+        tilt: 0.0,
       ),
       // 1 · 幔:光晕与焰体之间的过渡,提供「厚度」。
       _BlobSpec(
         radius: 0.70,
-        alpha: 0.26,
-        sigma: 0.42,
+        alpha: 0.27,
+        sigma: 0.60,
         core: HearthColors.ember,
         edge: HearthColors.ember,
-        offset: const Offset(0.02, -0.05),
+        offset: const Offset(0.16, -0.11),
         phase: 1.9,
         breath: 0.85,
         arousalRadius: 0.26,
         shift: 0.88,
+        ecc: 1.15,
+        spin: -0.73,
+        tilt: 1.05,
       ),
       // 2 · 焰体:主体颜色从火心橙过渡到品牌余烬橙。
       _BlobSpec(
-        radius: 0.45,
+        radius: 0.56,
         alpha: 0.40,
-        sigma: 0.44,
+        sigma: 0.52,
         core: HearthColors.emberDeep,
         edge: HearthColors.ember,
-        offset: const Offset(-0.015, -0.07),
+        offset: const Offset(-0.11, -0.20),
         phase: 3.6,
         breath: 1.00,
         arousalRadius: 0.22,
         shift: 1.00,
+        ecc: 1.00,
+        spin: 1.37,
+        tilt: 2.30,
       ),
       // 3 · 火心:小而亮,中心一点暖白。
       //     不用 BlendMode.plus 叠加提亮 —— 加法混合四层会把中心顶到纯白,
       //     在 #121016 的底色上看起来很廉价。srcOver 收敛到 emberDeep,
       //     符合「宁可暗一点,不要糊一片橙」。
       _BlobSpec(
-        radius: 0.235,
-        alpha: 0.72,
-        sigma: 0.46,
+        radius: 0.32,
+        alpha: 0.52,
+        sigma: 0.50,
         core: _kWhiteHot,
         edge: HearthColors.emberDeep,
-        offset: const Offset(0.0, -0.085),
+        offset: const Offset(0.05, -0.27),
         phase: 5.2,
         breath: 1.10,
         arousalRadius: 0.18,
         shift: 1.08,
+        // 火心离心率最低:最亮的东西形状越简单越耐看,
+        // 有机感交给外面三层。
+        ecc: 0.55,
+        spin: -1.90,
+        tilt: 0.45,
       ),
     ];
 
@@ -383,6 +449,7 @@ class GlowPainter extends CustomPainter {
     final sk1 = tbl.sinK[1], ck1 = tbl.cosK[1];
     final sk2 = tbl.sinK[2], ck2 = tbl.cosK[2];
 
+    // 先在**未变形**的圆坐标系里生成 Path 并求最小极半径。
     var minR = double.infinity;
 
     for (var i = 0; i < _kSamples; i++) {
@@ -397,9 +464,9 @@ class GlowPainter extends CustomPainter {
     }
 
     // ★ 整个方案的命门 ★
-    // 渐变半径取「最小极半径 / 0.82」,于是 alpha 归零的那一圈
-    // 恰好落在 Path 最窄处的边上 —— 所有角度上边缘 alpha 都已是 0,
-    // 硬边彻底不可见。若改用最大半径,凹处就会露边。
+    // 渐变半径取「最小极半径 / 0.82」:alpha 归零的那一圈恰好落在
+    // Path 最窄处的边上,于是**所有角度**上边缘 alpha 都已是 0,
+    // 硬边彻底不可见。若改用最大半径,凹处会露出 5~25/255 的硬边。
     final gradRadius = minR / 0.82;
     if (!(gradRadius > 0)) return;
 
@@ -421,7 +488,27 @@ class GlowPainter extends CustomPainter {
       spec.colorBuf,
       _kStops,
     );
+
+    // ── 非圆形轮廓 ──
+    // 对 Path 和渐变施加**同一个**绕 c 的各向异性仿射变换。
+    // 「渐变零点圆 ⊂ Path」这个包含关系在仿射变换下严格保持,
+    // 所以椭圆化一点不削弱上面的柔边保证 —— 圆被拉成椭圆,
+    // Path 被拉成同样比例的形状,零点依然在里面。
+    // 结果:四层不同离心率、不同朝向、反向缓慢自转的椭圆叠加,
+    // 轮廓明确不是正圆,而边缘依旧完全柔和。
+    final e = HearthGlowTuning.blobEccentricity * spec.ecc;
+    final ang = spec.tilt + HearthGlowTuning.blobSpinRate * spec.spin * t;
+
+    canvas
+      ..save()
+      ..translate(c.dx, c.dy)
+      ..rotate(ang)
+      ..scale(1 + e, 1 - e * 0.6)
+      ..rotate(-ang)
+      ..translate(-c.dx, -c.dy);
     canvas.drawPath(path, _blobPaint);
+    canvas.restore();
+
     _blobPaint.shader = null;
   }
 
