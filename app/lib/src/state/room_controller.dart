@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../net/signaling_client.dart';
 import '../recording/recording_consent.dart';
 import '../rtc/rtc_service.dart';
+import 'join_error.dart';
 import 'models.dart';
 import 'settings_store.dart';
 
@@ -52,6 +53,17 @@ class RoomController extends ChangeNotifier {
   /// 录音同意控制器:录音态的唯一权威,UI 指示器直接读它。
   /// 注入而非内建,是为了让 RoomController 的既有测试不必关心录音。
   RecordingConsentController? recordingConsent;
+
+  /// 进房前的端到端加密准备钩子(由 `e2ee/e2ee_controller.dart` 注入)。
+  ///
+  /// 用回调而不是持有 `E2EEController`,是为了让本文件继续与厂商无关 ——
+  /// `E2EEController` 要 import livekit_client,而 `RtcService` 这条抽象线
+  /// (设计.md §8.1)上不该出现任何 LiveKit 类型。
+  ///
+  /// ⚠️ 每一条会走到 `_rtc.join()` 的路径都必须先 await 它,包括媒体唤醒。
+  /// 漏掉一条,用户就会在「以为加密了」的圈子里明文通话 —— 静默降级是
+  /// 这个功能唯一不可接受的失败方式。
+  Future<void> Function(String? circleId)? prepareEncryption;
 
   final String userId;
   final String deviceId;
@@ -250,6 +262,9 @@ class RoomController extends ChangeNotifier {
     notifyListeners();
     () async {
       final hq = await _currentHighQuality();
+      // 媒体唤醒也是一次真正的 join:加密准备必须重做一遍。
+      // 少了这一行,闲时降级后自动唤醒的那次通话就会悄悄变成明文。
+      await prepareEncryption?.call(circleId);
       return _rtc.join(
           url: url,
           token: token,
@@ -497,6 +512,9 @@ class RoomController extends ChangeNotifier {
     _rtcConnecting = true;
     try {
       final highQuality = await _currentHighQuality();
+      // 密钥必须在 Room 构造之前装好:RoomOptions.encryption 是构造期参数,
+      // 进房之后再改一个字都不会生效。
+      await prepareEncryption?.call(circleId);
       final elapsed = await _rtc.join(
           url: url,
           token: token,
@@ -515,7 +533,12 @@ class RoomController extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       phase = RoomPhase.error;
-      errorMessage = '进房失败:$e';
+      // 给用户看人话,原始异常进日志。
+      // 曾经这里是 `'进房失败:$e'`,于是屏幕上出现过
+      // 「ClientException with SocketException: Connection...」:
+      // 用户看不懂,且长度不可控把标题行撑爆(2014px 溢出)。
+      debugPrint('[lares] 进房失败(原始异常): $e');
+      errorMessage = humanizeJoinError(e);
       _joinCompleter?.completeError(e);
       _joinCompleter = null;
       notifyListeners();

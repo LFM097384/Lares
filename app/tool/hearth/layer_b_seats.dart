@@ -43,13 +43,43 @@
 /// 直接违反 §8.4「20 人截图:双环排列合理」。按座位区读,`cap(R1) = 15`,
 /// 20 人自然分成 8 + 12 双环,正是验收标准要的样子。
 ///
-/// ### 澄清 2:最外环兜底缩放
+/// ### 澄清 2:最外环等比归一到座位区
 ///
 /// `R3 = base * 0.575 > base / 2`,即三环布局的最外环**恒定**超出座位区。
-/// 这里加一道兜底:选定环数后,若最外环半径超过 `base / 2`,
-/// 把**所有**环半径乘同一个系数缩回去。乘同一个系数意味着
-/// 0.30 / 0.44 / 0.575 的比例关系原样保留,只是整体收紧。
-/// 单环、双环时 `0.44 < 0.5`,这道兜底不会触发;它只在三环时起作用。
+/// 这里的处理是:选定环数后,把**所有**环半径乘同一个系数,
+/// 让**最外环正好落在** `base / 2` 上。三环时这是缩回来(否则出界),
+/// 单双环时是推出去(否则白白浪费外圈的空间)。
+///
+/// 乘同一个系数意味着 0.30 / 0.44 / 0.575 的比例关系原样保留 ——
+/// 环与环的相对疏密完全不变,只是整体的尺度贴合了实际可用空间。
+///
+/// 推出去这一半不只是"用满空间":它同时把**环间距**按同样的系数放大了,
+/// 而环间距正是名字能不能塞下的唯一预算(见「澄清 4」)。
+///
+/// ### 澄清 4:名字的排布预算(SPEC 的系数没有给名字留位置)
+///
+/// SPEC §6.1 的 `cap(R) = floor(2πR / (d * 1.22))` 只按**圆**的直径算间距,
+/// 而 §6 的头像设计又要求圆下面挂名字 + 状态两行字。于是两处必然打架:
+///
+/// * **角向**:名字牌比圆宽(`d + 32` vs `d * 1.22`),n 大时相邻名字会糊在一起。
+/// * **径向**:名字挂在圆**正下方**(屏幕意义的下),于是**上半圈**的座位
+///   等于把名字朝火的方向甩 —— 正好戳进里面那一环的头像。
+///   20 人的截图里「清和」「沈鹤」被内环的圆盖掉,就是这个。
+///
+/// **`cap` 公式一个字没改** —— 它决定的是"一环坐得下几个人",这是容量决策,
+/// 属于 SPEC 已定的部分。打架的是**名字画在哪**,那是表现层的事,修在表现层:
+///
+/// 1. **名字挂在背对人群的那一侧**。上半圈的座位名字朝上,下半圈朝下,
+///    于是名字永远往"没人的方向"伸,不会盖住邻环。这也是现实里围坐一圈
+///    贴名牌的方式 —— 名牌朝外,不朝桌心。
+/// 2. 朝外放不下时(外面还有一环挤着)就**改朝里**:内环朝火的那一侧
+///    其实空着一大片(半径 `R1 - d/2`),名字放进去反而稳当。
+/// 3. 两边都不宽裕时按余量降级:两行(名字 + 状态)→ 一行(只有名字)→ 不画。
+///    先砍状态行,因为状态色已经画在圆环上了,文字是冗余;名字没有别处可读。
+/// 4. 名字牌宽度再按该环的实际弧距 `2πR / m` 夹一下,超出 ellipsis,
+///    这样角向也不会糊成一片。
+///
+/// 结果:人少时每个人都有完整的名字和状态,人多时自动让位给"不糊"。
 ///
 /// ### 澄清 3:溢出芯片在桌面尺寸下够不到,靠「紧凑模式」演示
 ///
@@ -104,6 +134,23 @@ abstract final class SeatTuning {
 
   /// 名字 + 状态两行文字的高度。
   static const double labelHeight = 40.0;
+
+  /// 单行(只有名字)的文字高度。
+  static const double labelHeightSingle = 20.0;
+
+  /// 径向空间至少剩这么多,才给这一环排两行字。
+  /// = 两行字高 + 一点呼吸余量。
+  static const double labelRoomForTwoLines = 52.0;
+
+  /// 径向空间连这个都不到,就彻底不画名字(只剩圆)。
+  /// 实际上桌面尺寸下走不到,留作兜底。
+  static const double labelRoomForOneLine = 26.0;
+
+  /// 名字牌相对头像圆的最大富余宽度。
+  static const double labelExtraWidth = 32.0;
+
+  /// 最内环的名字若朝里放,至少给火心留出这么多,免得名字压在火上。
+  static const double flameClearance = 96.0;
 
   /// 座位区上下额外留白。
   static const double marginVertical = 28.0;
@@ -170,10 +217,26 @@ class SeatPlacement {
     required this.baseCenter,
     required this.direction,
     required this.baseRadius,
+    required this.labelLines,
+    required this.labelWidth,
+    required this.labelAbove,
   });
 
   /// 成员 id。溢出芯片的座位用 [SeatLayout.overflowSeatId]。
   final String memberId;
+
+  /// 这个座位的名字排几行:2 = 名字 + 状态,1 = 只有名字,0 = 不画。
+  /// 由所在环的径向余量决定,见文件头「澄清 4」。
+  final int labelLines;
+
+  /// 名字牌的可用宽度(已按环上弧距夹过),超出部分 ellipsis。
+  final double labelWidth;
+
+  /// 名字挂在圆的上方还是下方。
+  ///
+  /// 规则是"背对人群":上半圈(座位在火的上方)名字朝上,下半圈朝下,
+  /// 这样名字永远往没人的方向伸。见文件头「澄清 4」。
+  final bool labelAbove;
 
   /// 所在环(0 = 最内)。
   final int ring;
@@ -258,10 +321,28 @@ class SeatLayout {
   }
 
   /// 头像方块的宽(比直径宽一点,给名字留位置)。
-  double get orbBoxWidth => diameter + 32;
+  /// 具体每个座位用 [SeatPlacement.labelWidth],这里是上限。
+  double get orbBoxWidth => diameter + SeatTuning.labelExtraWidth;
 
-  /// 头像方块的高 = 圆 + 两行文字。
+  /// 头像方块的高 = 圆 + 两行文字。用于越界自检。
   double get orbBoxHeight => diameter + SeatTuning.labelHeight;
+
+  /// 某个座位实际占的**文字**高度(不含圆),用于碰撞判定。
+  static double labelBandFor(int labelLines) => switch (labelLines) {
+        2 => SeatTuning.labelHeight,
+        1 => SeatTuning.labelHeightSingle,
+        _ => 0.0,
+      };
+
+  /// 某个座位占的方块高。
+  ///
+  /// **恒定**取"圆 + 满额文字带",与实际排几行无关。
+  /// 理由:碰撞降级会在布局算完之后改行数,如果方块高度跟着变,
+  /// 一个 1px 的估算误差就会变成 `RenderFlex overflowed` ——
+  /// 而这个方块是透明的,多留的空白肉眼不可见,白拿的稳。
+  /// 文字真正占多高由 [labelBandFor] 负责,那才是碰撞用的数。
+  static double boxHeightFor(double diameter, int labelLines) =>
+      diameter + SeatTuning.labelHeight;
 
   // ── 几何缓存 ──
   //
@@ -315,6 +396,9 @@ class SeatLayout {
           baseCenter: flameCenter + slot.direction * slot.radius,
           direction: slot.direction,
           baseRadius: slot.radius,
+          labelLines: slot.labelLines,
+          labelWidth: slot.labelWidth,
+          labelAbove: slot.labelAbove,
         ),
       );
     }
@@ -364,11 +448,22 @@ class _GeometryKey {
 
 @immutable
 class _Slot {
-  const _Slot(this.ring, this.angle, this.radius, this.direction);
+  const _Slot(
+    this.ring,
+    this.angle,
+    this.radius,
+    this.direction,
+    this.labelLines,
+    this.labelWidth,
+    this.labelAbove,
+  );
   final int ring;
   final double angle;
   final double radius;
   final Offset direction;
+  final int labelLines;
+  final double labelWidth;
+  final bool labelAbove;
 }
 
 /// 纯几何:不认识成员,只认识「n 个位置」。
@@ -439,10 +534,12 @@ class _RingGeometry {
 
     final int capacity = caps.take(usableRings).fold(0, (int a, int b) => a + b);
 
-    // ── 「澄清 2」:最外环兜底缩放,整体等比缩回座位区 ──
+    // ── 「澄清 2」:最外环等比归一到座位区边缘 ──
+    // 缩(三环出界)和放(单双环没用满)用的是同一个系数,
+    // 比例关系不变。放大同时把环间距放大 —— 那是名字的预算。
     List<double> radii = allRadii.sublist(0, ringCount);
     final double limit = base / 2;
-    if (radii.isNotEmpty && radii.last > limit && radii.last > 0) {
+    if (radii.isNotEmpty && radii.last > 0) {
       final double f = limit / radii.last;
       radii = radii.map((double r) => r * f).toList(growable: false);
     }
@@ -451,18 +548,177 @@ class _RingGeometry {
     final int slotCount = n > capacity ? capacity : n;
     final List<int> perRing = _distribute(slotCount, ringCount, caps);
 
+    // ── 名字预算(见文件头「澄清 4」)──
+    //
+    // 每环先算两个数:
+    //   roomOut —— 朝外那一侧的径向余量(到外邻环的圆边)
+    //   roomIn  —— 朝里那一侧的径向余量(到内邻环的圆边;最内环是到火心)
+    // 再按座位所在的半圈决定名字挂上还是挂下。
+    final List<double> roomOut = <double>[];
+    final List<double> labelWidths = <double>[];
+    for (int ring = 0; ring < ringCount; ring++) {
+      roomOut.add(
+        ring == ringCount - 1
+            // 最外环外面没人,只受座位区边界约束,给足。
+            ? SeatTuning.labelRoomForTwoLines
+            : (radii[ring + 1] - radii[ring]) - d,
+      );
+
+      // 角向:环上相邻两座的弧距就是名字牌的宽度上限。
+      final int m = perRing[ring];
+      final double arc =
+          m > 0 ? 2 * math.pi * radii[ring] / m : double.infinity;
+      labelWidths.add(
+        math.min(d + SeatTuning.labelExtraWidth, math.max(d, arc - 4)),
+      );
+    }
+
+    /// 余量 → 行数。
+    int linesFor(double room) => room >= SeatTuning.labelRoomForTwoLines
+        ? 2
+        : room >= SeatTuning.labelRoomForOneLine
+            ? 1
+            : 0;
+
+    // ── 各环起始角 ──
+    //
+    // SPEC §6.1 给的是 `-π/2 + i·π/ringCount`,意图写得很清楚:
+    // 「避免内外环径向对齐显得死板」。但这个式子只在两环人数相同时
+    // 才真的错开。n=12 是内 5 / 外 7:内环第 2 位落在 54.0°,
+    // 外环第 1 位落在 51.4°,相差 2.6° —— 两个圆直接叠在一起,
+    // 而环间距(82px)比一个头像(70px)只宽 12px,挡不住。
+    //
+    // 所以这里**实现 SPEC 的意图,而不是照抄那个式子**:
+    // 以 SPEC 的角度为基准,在一个本环步距的范围内扫若干候选相位,
+    // 取"与已排好的环之间最小间距最大"的那个。人数相同时它会自然
+    // 收敛到 SPEC 原式附近;人数互质时它才真的把座位插进对方的空隙。
+    //
+    // 成本:候选数 × 座位数²,n=28 约 3 万次浮点比较,而且**整个结果
+    // 被 (n, size) 缓存**(SPEC §6.4 要求),只在人数或窗口变化时跑一次。
+    final List<double> startAngles = <double>[];
+    final List<Offset> placed = <Offset>[];
+    for (int ring = 0; ring < ringCount; ring++) {
+      final int m = perRing[ring];
+      if (m <= 0) {
+        startAngles.add(0);
+        continue;
+      }
+      final double step = 2 * math.pi / m;
+      final double specStart = -math.pi / 2 + ring * math.pi / ringCount;
+      double bestStart = specStart;
+      if (placed.isEmpty) {
+        // 第一个环没有参照物,直接用 SPEC 的角度。
+        bestStart = specStart;
+      } else {
+        double bestScore = -1;
+        const int candidates = 24;
+        for (int c = 0; c < candidates; c++) {
+          final double cand = specStart + step * c / candidates;
+          double worst = double.infinity;
+          for (int k = 0; k < m; k++) {
+            final double a = cand + k * step;
+            final Offset p = Offset(
+              math.cos(a) * radii[ring],
+              math.sin(a) * radii[ring],
+            );
+            for (final Offset q in placed) {
+              final double dist = (p - q).distance;
+              if (dist < worst) worst = dist;
+            }
+          }
+          if (worst > bestScore) {
+            bestScore = worst;
+            bestStart = cand;
+          }
+        }
+      }
+      startAngles.add(bestStart);
+      for (int k = 0; k < m; k++) {
+        final double a = bestStart + k * step;
+        placed.add(
+          Offset(math.cos(a) * radii[ring], math.sin(a) * radii[ring]),
+        );
+      }
+    }
+
     // ── 生成座位 ──
-    // 环 i 的起始角错开 `i * π / ringCount`,避免内外环径向对齐显得死板。
     final List<_Slot> slots = <_Slot>[];
     for (int ring = 0; ring < ringCount; ring++) {
       final int m = perRing[ring];
       if (m <= 0) continue;
-      final double start = -math.pi / 2 + ring * math.pi / ringCount;
       final double step = 2 * math.pi / m;
+      final double start = startAngles[ring];
       for (int k = 0; k < m; k++) {
         final double a = start + k * step;
+        final Offset dir = Offset(math.cos(a), math.sin(a));
+
+        // 名字一律挂在**背离火**的那一侧:上半圈朝上,下半圈朝下。
+        // 于是名字永远往外伸,不会戳进里面那一环。
+        //
+        // 注意这里**不做**"朝外挤就改朝里"的回退。试过,是错的:
+        // 环的左右两端(dy≈0)两个相邻座位的朝向会在上/下之间翻转,
+        // 两块名字牌于是挤到同一条水平线上迎面相撞 —— 28 人时必现。
+        // 空间不够就降级行数,不改朝向。朝向必须是角度的单调函数。
+        final bool above = dir.dy < 0;
+        final int lines = linesFor(roomOut[ring]);
+
         slots.add(
-          _Slot(ring, a, radii[ring], Offset(math.cos(a), math.sin(a))),
+          _Slot(ring, a, radii[ring], dir, lines, labelWidths[ring], above),
+        );
+      }
+    }
+
+    // ── 名字压字体检(见文件头「澄清 4」)──
+    //
+    // 上面那套"朝外 + 按环给行数"是**预算**,不是保证:两环交错之后,
+    // 一个朝外的名字完全可能正好落在外环某个头像的圆上 ——
+    // 20 人那版截图里「清和」被「阿」盖掉、「砚舟」被「小」盖掉,就是这个。
+    //
+    // 与其继续猜启发式,不如**直接量**:逐个座位拿它的文字矩形去撞
+    // 所有别人的圆,撞上就降级(两行 → 一行 → 不画),直到干净为止。
+    // 这是唯一能保证"截图里没有叠字"的做法,也正好是验收标准本身。
+    //
+    // O(n²),n ≤ 28,而且整个结果被 (n, size) 缓存,只在人数/窗口变化时跑。
+    for (int i = 0; i < slots.length; i++) {
+      while (slots[i].labelLines > 0) {
+        final _Slot s = slots[i];
+        final double textH = SeatLayout.labelBandFor(s.labelLines);
+        final Offset c = Offset(
+          s.direction.dx * s.radius,
+          s.direction.dy * s.radius,
+        );
+        final Rect text = Rect.fromLTWH(
+          c.dx - s.labelWidth * 0.45,
+          s.labelAbove ? c.dy - d / 2 - textH : c.dy + d / 2,
+          s.labelWidth * 0.9,
+          textH,
+        );
+        bool hit = false;
+        for (int j = 0; j < slots.length && !hit; j++) {
+          if (i == j) continue;
+          final _Slot o = slots[j];
+          final Rect circle = Rect.fromCircle(
+            center: Offset(
+              o.direction.dx * o.radius,
+              o.direction.dy * o.radius,
+            ),
+            radius: d / 2,
+          );
+          final Rect ov = text.intersect(circle);
+          // 允许几个平方像素的擦边(圆是外切矩形判定,偏保守)。
+          if (ov.width > 0 && ov.height > 0 && ov.width * ov.height > 24) {
+            hit = true;
+          }
+        }
+        if (!hit) break;
+        slots[i] = _Slot(
+          s.ring,
+          s.angle,
+          s.radius,
+          s.direction,
+          s.labelLines - 1, // 先砍状态行,再砍名字
+          s.labelWidth,
+          s.labelAbove,
         );
       }
     }
@@ -758,11 +1014,14 @@ class _SeatRingState extends State<SeatRing> {
           _positioned(
             key: const ValueKey<String>(SeatLayout.overflowSeatId),
             layout: layout,
+            seat: seat,
             center: seat.baseCenter,
             reduceMotion: reduceMotion,
             child: _OverflowChip(
               count: layout.overflowCount,
               diameter: layout.diameter,
+              labelLines: seat.labelLines,
+              labelAbove: seat.labelAbove,
               // 溢出的是名册尾部那几位。
               hidden: members.length > layout.capacity - 1
                   ? members.sublist(layout.capacity - 1)
@@ -786,11 +1045,14 @@ class _SeatRingState extends State<SeatRing> {
         _positioned(
           key: ValueKey<String>(m.id),
           layout: layout,
+          seat: seat,
           center: center,
           reduceMotion: reduceMotion,
           child: MemberOrb(
             member: m,
             diameter: layout.diameter,
+            labelLines: seat.labelLines,
+            labelAbove: seat.labelAbove,
             opacity: sig.opacity,
             scale: sig.scale,
             labelOpacity: sig.labelOpacity,
@@ -817,6 +1079,7 @@ class _SeatRingState extends State<SeatRing> {
   Widget _positioned({
     required Key key,
     required SeatLayout layout,
+    required SeatPlacement seat,
     required Offset center,
     required bool reduceMotion,
     required Widget child,
@@ -830,10 +1093,14 @@ class _SeatRingState extends State<SeatRing> {
       key: key,
       duration: duration,
       curve: Curves.easeOutCubic,
-      left: center.dx - layout.orbBoxWidth / 2,
-      top: center.dy - layout.diameter / 2,
-      width: layout.orbBoxWidth,
-      height: layout.orbBoxHeight,
+      left: center.dx - seat.labelWidth / 2,
+      // 方块高恒定 = 圆 + 满额文字带(见 boxHeightFor 的说明)。
+      // 名字朝上时方块整体上移一个文字带,圆的位置因此始终钉在 center 上。
+      top: center.dy -
+          layout.diameter / 2 -
+          (seat.labelAbove ? SeatTuning.labelHeight : 0.0),
+      width: seat.labelWidth,
+      height: SeatLayout.boxHeightFor(layout.diameter, seat.labelLines),
       // 每个头像独立 RepaintBoundary:一个人说话不该让另外 19 个人重绘。
       child: RepaintBoundary(child: child),
     );
@@ -898,11 +1165,20 @@ class MemberOrb extends StatelessWidget {
     required this.speaking,
     required this.onTap,
     required this.onLongPress,
+    this.labelLines = 2,
+    this.labelAbove = false,
     this.reduceMotion = false,
   });
 
   final HearthMember member;
   final double diameter;
+
+  /// 名字排几行:2 = 名字 + 状态,1 = 只有名字,0 = 不画。
+  /// 由所在环的径向余量决定,见文件头「澄清 4」。
+  final int labelLines;
+
+  /// 名字挂在圆上方(true)还是下方(false)。见文件头「澄清 4」。
+  final bool labelAbove;
   final double opacity;
   final double scale;
   final double labelOpacity;
@@ -939,6 +1215,10 @@ class MemberOrb extends StatelessWidget {
           opacity: opacity,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            // 名字挂上面时,整列从底部开始堆 —— 圆必须始终贴在
+            // _positioned 算好的那条基线上,否则名字行数一变圆就会跳。
+            verticalDirection:
+                labelAbove ? VerticalDirection.up : VerticalDirection.down,
             children: <Widget>[
               AnimatedScale(
                 duration: fade,
@@ -978,35 +1258,41 @@ class MemberOrb extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: HearthSpacing.xs),
-              Opacity(
-                opacity: labelOpacity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      member.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.15,
-                        color: HearthColors.textPrimary,
+              // 名字按该环分到的预算排:两行 / 一行 / 不画。
+              // 挤的时候先砍状态行 —— 状态色已经画在圆环上了,
+              // 文字是冗余;名字没有别的地方可以读。
+              if (labelLines > 0) ...<Widget>[
+                const SizedBox(height: HearthSpacing.xs),
+                Opacity(
+                  opacity: labelOpacity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        member.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: labelLines >= 2 ? 13 : 12,
+                          height: 1.15,
+                          color: HearthColors.textPrimary,
+                        ),
                       ),
-                    ),
-                    Text(
-                      member.status.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.15,
-                        color: member.status.color,
-                      ),
-                    ),
-                  ],
+                      if (labelLines >= 2)
+                        Text(
+                          member.status.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.15,
+                            color: member.status.color,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -1031,10 +1317,14 @@ class _OverflowChip extends StatelessWidget {
     required this.diameter,
     required this.hidden,
     required this.state,
+    this.labelLines = 2,
+    this.labelAbove = false,
   });
 
   final int count;
   final double diameter;
+  final int labelLines;
+  final bool labelAbove;
   final List<HearthMember> hidden;
   final HearthState state;
 
@@ -1049,6 +1339,8 @@ class _OverflowChip extends StatelessWidget {
         onTap: () => _showSheet(context),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          verticalDirection:
+              labelAbove ? VerticalDirection.up : VerticalDirection.down,
           children: <Widget>[
             Container(
               width: diameter,
@@ -1072,17 +1364,19 @@ class _OverflowChip extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: HearthSpacing.xs),
-            const Text(
-              '还有这些人',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.15,
-                color: HearthColors.textSecondary,
+            if (labelLines > 0) ...<Widget>[
+              const SizedBox(height: HearthSpacing.xs),
+              const Text(
+                '还有这些人',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.15,
+                  color: HearthColors.textSecondary,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

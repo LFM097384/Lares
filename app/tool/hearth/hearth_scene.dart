@@ -225,14 +225,20 @@ class HearthSceneState extends State<HearthScene>
       await capture('05-crowd-12p');
       _state.silenceAll();
 
-      // 06 28 人 + 溢出芯片。
-      // 桌面尺寸下三环容量远大于 28,溢出分支走不到(见 layer_b_seats 「澄清 3」),
-      // 所以这一张显式切到紧凑模式,让芯片真的出现、能被验收。
+      // 06 28 人,全员在场(**不开紧凑**)。
+      // 这是"人多时还能不能看"的验收图,主角是排布本身,不是芯片。
       _state.setMemberCount(28);
-      setState(() => _compact = true);
       await _settle(1600);
       await capture('06-crowd-28p');
+
+      // 06b 同样 28 人,但开紧凑模式逼出 +N 芯片。
+      // 桌面尺寸下正常容量 = 68,28 人根本溢不出去(见 layer_b_seats 「澄清 3」),
+      // 芯片只能这样演示。单独一张,免得和上面那张的用途混在一起。
+      setState(() => _compact = true);
+      await _settle(1600);
+      await capture('06b-overflow-chip');
       setState(() => _compact = restoreCompact);
+      await _settle(700);
 
       // 07 两个人,一个在说
       _state.setMemberCount(2);

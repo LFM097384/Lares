@@ -36,9 +36,18 @@ const Size _canvas = Size(390, 844);
 /// 像素密度。2.0 让文字边缘足够干净,又不会让文件大到没法看。
 const double _dpr = 2.0;
 
+/// 进度写进文件 —— 管道会缓冲 stdout,真卡住时终端上什么都看不到。
+final File _progress = File('$_outDir/_render_progress.txt');
+void _mark(String s) {
+  _progress.writeAsStringSync('$s\n', mode: FileMode.append, flush: true);
+}
+
 void main() {
   setUpAll(() async {
+    if (_progress.existsSync()) _progress.deleteSync();
+    _mark('加载字体...');
     await loadRenderFonts();
+    _mark('字体就绪 cjk=$loadedCjkPath icons=$iconsLoaded');
   });
 
   testWidgets('渲染全部配色方案的界面对比图', (WidgetTester tester) async {
@@ -78,8 +87,16 @@ void main() {
         await tester.pump(const Duration(milliseconds: 700));
 
         final String path = '$_outDir/${p.id}_${scene.key}.png';
-        await _capture(boundaryKey, path);
+        await _capture(tester, boundaryKey, path);
         written.add(path);
+        _mark('已出图 $path');
+
+        // 关键:拆掉整棵树,让 SpeakingRipple 的 AnimationController 被 dispose。
+        // 它内部是 repeat() 的无限动画 —— 不拆就换下一棵树的话,
+        // 那个永不结束的定时器会把 pumpWidget / teardown 一直挂住
+        // (实测:第一张图出来后整个进程静默卡死,不报错也不超时)。
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
       }
     }
 
@@ -100,23 +117,37 @@ void main() {
       stdout.writeln('警告:未能加载中文字体,图上中文可能是方框!');
     }
     stdout.writeln('图标字体: ${iconsLoaded ? "已加载" : "未加载(图标会是方框)"}');
-  });
+    // 11 张图 × 光栅化,默认 10 分钟不够用
+  }, timeout: const Timeout(Duration(minutes: 30)));
 }
 
 /// 把一个 RepaintBoundary 的像素写成 PNG。
-Future<void> _capture(GlobalKey key, String path) async {
+///
+/// 必须包在 [WidgetTester.runAsync] 里 —— 这是本文件最关键的一行。
+/// testWidgets 默认跑在 fake async 时钟下,而 toImage()/toByteData() 要等
+/// 引擎线程真正完成光栅化与 PNG 编码;假时钟永远不会推进到那一刻,
+/// 于是整个进程**静默卡死**:不报错、不超时、CPU 也不高,只是永远不返回。
+/// (实测第一张图能出来纯属侥幸,第二张必挂。)
+Future<void> _capture(
+  WidgetTester tester,
+  GlobalKey key,
+  String path, {
+  double ratio = _dpr,
+}) async {
   final RenderRepaintBoundary boundary =
       key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final ui.Image image = await boundary.toImage(pixelRatio: _dpr);
-  final ByteData? bytes =
-      await image.toByteData(format: ui.ImageByteFormat.png);
-  image.dispose();
-  if (bytes == null) {
-    throw StateError('toByteData 返回 null:$path');
-  }
-  final File file = File(path);
-  file.parent.createSync(recursive: true);
-  file.writeAsBytesSync(bytes.buffer.asUint8List());
+  await tester.runAsync(() async {
+    final ui.Image image = await boundary.toImage(pixelRatio: ratio);
+    final ByteData? bytes =
+        await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    if (bytes == null) {
+      throw StateError('toByteData 返回 null:$path');
+    }
+    final File file = File(path);
+    file.parent.createSync(recursive: true);
+    file.writeAsBytesSync(bytes.buffer.asUint8List());
+  });
 }
 
 /// 总览拼版:每套方案一列(房间 + 聊天),带方案名与关键 token 色块。
@@ -125,8 +156,13 @@ Future<void> _renderContactSheet(WidgetTester tester) async {
   const double tileW = 300;
   const double tileH = 650;
   const double headerH = 96;
-  final double sheetW = tileW * allPalettes.length + 16 * (allPalettes.length + 1);
-  const double sheetH = headerH + tileH * 2 + 16 * 3;
+  // 每格自身宽 tileW 且右侧带 16 的 margin,外层还有左右各 16 的 padding。
+  // 少算这 16 就会「overflowed by 16 pixels」—— 图照样出,但会印上黄黑警告条。
+  final double sheetW =
+      allPalettes.length * (tileW + 16) + 32;
+  // 拼版每列只放房间场景一张(聊天场景看单图),所以高度只算一行 tile。
+  // 按两行算会在图底留下一大片空白。
+  const double sheetH = headerH + tileH + 16 * 2;
 
   tester.view.physicalSize = Size(sheetW * 1.5, sheetH * 1.5);
   tester.view.devicePixelRatio = 1.5;
@@ -229,20 +265,11 @@ Future<void> _renderContactSheet(WidgetTester tester) async {
     ),
   );
   await tester.pump(const Duration(milliseconds: 700));
-  await _captureAt(key, '$_outDir/_overview.png', 1.5);
-}
+  await _capture(tester, key, '$_outDir/_overview.png', ratio: 1.5);
 
-Future<void> _captureAt(GlobalKey key, String path, double ratio) async {
-  final RenderRepaintBoundary boundary =
-      key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final ui.Image image = await boundary.toImage(pixelRatio: ratio);
-  final ByteData? bytes =
-      await image.toByteData(format: ui.ImageByteFormat.png);
-  image.dispose();
-  if (bytes == null) throw StateError('toByteData 返回 null:$path');
-  final File file = File(path);
-  file.parent.createSync(recursive: true);
-  file.writeAsBytesSync(bytes.buffer.asUint8List());
+  // 同上:拼版里有 5 个 SpeakingRipple 在无限循环,必须拆掉才能收尾
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump();
 }
 
 /// 拼版里的一格:把手机尺寸的场景缩放塞进格子。

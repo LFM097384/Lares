@@ -240,76 +240,106 @@ final class _BlobSpec {
 }
 
 /// 略带暖意的「白热」芯色。不用纯白 —— 纯白会让整团光显得廉价。
-const Color _kWhiteHot = Color(0xFFFFB081);
+const Color _kEmberTail = Color(0xFFB03A12);
+
+const Color _kWhiteHot = Color(0xFFFFC48A);
 
 /// 四层配置。由外到内绘制(先画淡的大的,再画亮的小的)。
+/// 中景用的高饱和深橙。**不是** HearthColors.ember。
+///
+/// 原因见下方 §「棕」的成因:`ember(#FF8A5C)` 的蓝分量 92 偏高,
+/// 在低 alpha 下与底色 `#121016` 的蓝(22)混合后,蓝会把整体拉灰,
+/// 实测 a=0.16 时饱和度只有 0.41,读作**棕灰**。
+/// 同样 alpha 下 `#FF6A2E`(蓝 46)饱和度 0.54,才读得出「橙」。
+/// 品牌色 `ember` 只留给 alpha 高的近核区,那里它才真的是橙。
+const Color _kEmberMid = Color(0xFFFF5A1E);
+
+// ── 为什么之前是「一摊棕灰」(三个独立成因,已全部修掉)──
+//
+//  ① **四层峰值被我打散了**。上一版为了破正圆,把各层中心拉开到
+//     ±0.27R;在 683px 高的真实画布上 R≈205px,四个峰彼此相距达 92px,
+//     等于 R 本身的量级。于是每一层的**峰**都压在别层的**尾**上,
+//     永远合不出一个热点 —— 正是「低对比宽泛的 wash」。
+//     修法:峰值收到 ±0.085R 以内(近似同心),非圆感**全部**交给
+//     仿射椭圆去做(那才是不牺牲对比度的正确工具)。
+//
+//  ② **中景用错了颜色**(见 _kEmberMid 的说明)。
+//
+//  ③ **火心不够小也不够热**:sigma 0.50 让火心的能量摊得和焰体一样开,
+//     两层叠出来是一片均匀亮区,没有「芯」。修法:火心 sigma 收到 0.34,
+//     radius 收到 0.24,alpha 提到 0.66 —— 小、紧、亮,和自己的光晕拉开对比。
 List<_BlobSpec> _buildSpecs() => <_BlobSpec>[
-      // 0 · 光晕:最大最淡,负责把火的存在感铺满房间。
+      // 0 · 光晕:最大最淡。收窄一些(1.00 → 0.86),少铺开、多存在感。
       _BlobSpec(
         radius: 1.00,
-        alpha: 0.21,
-        sigma: 0.72,
-        core: HearthColors.ember,
-        edge: HearthColors.emberAsh,
-        offset: const Offset(-0.13, 0.07),
+        alpha: 0.22,
+        sigma: 0.70,
+        core: _kEmberMid,
+        // 不用 emberAsh:它暗且低彩,在低 alpha 下把尾巴拉成棕灰。
+        // 用一个更饱和的深橙,亮度几乎不变但彩度明显回来。
+        edge: _kEmberTail,
+        offset: const Offset(-0.05, 0.03),
         phase: 0.0,
         breath: 0.62,
         arousalRadius: 0.30,
         shift: 0.72,
-        ecc: 0.85,
+        // 离心率加大:非圆感现在**只**由椭圆提供,不再靠中心散开。
+        ecc: 1.25,
         spin: 1.00,
         tilt: 0.0,
       ),
       // 1 · 幔:光晕与焰体之间的过渡,提供「厚度」。
       _BlobSpec(
-        radius: 0.70,
-        alpha: 0.27,
-        sigma: 0.60,
-        core: HearthColors.ember,
-        edge: HearthColors.ember,
-        offset: const Offset(0.16, -0.11),
+        radius: 0.76,
+        alpha: 0.30,
+        sigma: 0.64,
+        core: _kEmberMid,
+        edge: _kEmberMid,
+        offset: const Offset(0.06, -0.04),
         phase: 1.9,
         breath: 0.85,
         arousalRadius: 0.26,
         shift: 0.88,
-        ecc: 1.15,
+        ecc: 1.45,
         spin: -0.73,
         tilt: 1.05,
       ),
-      // 2 · 焰体:主体颜色从火心橙过渡到品牌余烬橙。
+      // 2 · 焰体:中景主体。这一层负责「橙」——
+      //     用 emberDeep → ember,alpha 够高,品牌色在这里才立得住。
       _BlobSpec(
-        radius: 0.56,
-        alpha: 0.40,
-        sigma: 0.52,
+        radius: 0.54,
+        alpha: 0.50,
+        sigma: 0.56,
         core: HearthColors.emberDeep,
         edge: HearthColors.ember,
-        offset: const Offset(-0.11, -0.20),
+        offset: const Offset(-0.04, -0.07),
         phase: 3.6,
         breath: 1.00,
         arousalRadius: 0.22,
         shift: 1.00,
-        ecc: 1.00,
+        ecc: 1.10,
         spin: 1.37,
         tilt: 2.30,
       ),
-      // 3 · 火心:小而亮,中心一点暖白。
+      // 3 · 火心:**小、紧、亮**。这是眼睛的锚点。
       //     不用 BlendMode.plus 叠加提亮 —— 加法混合四层会把中心顶到纯白,
       //     在 #121016 的底色上看起来很廉价。srcOver 收敛到 emberDeep,
       //     符合「宁可暗一点,不要糊一片橙」。
       _BlobSpec(
-        radius: 0.32,
-        alpha: 0.52,
-        sigma: 0.50,
+        radius: 0.24,
+        alpha: 0.66,
+        // sigma 明显小于外层:能量收紧,才有「芯」而不是「亮区」。
+        sigma: 0.34,
         core: _kWhiteHot,
         edge: HearthColors.emberDeep,
-        offset: const Offset(0.05, -0.27),
+        offset: const Offset(0.015, -0.085),
         phase: 5.2,
         breath: 1.10,
         arousalRadius: 0.18,
         shift: 1.08,
         // 火心离心率最低:最亮的东西形状越简单越耐看,
         // 有机感交给外面三层。
-        ecc: 0.55,
+        ecc: 0.50,
         spin: -1.90,
         tilt: 0.45,
       ),

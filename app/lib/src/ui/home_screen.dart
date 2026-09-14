@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../chat/chat_service.dart';
+import '../e2ee/e2ee_controller.dart';
+import '../e2ee/e2ee_status.dart';
 import '../moderation/block_store.dart';
 import '../moderation/consent_store.dart';
 import '../recording/recording_consent.dart';
 import '../state/circle_store.dart';
+import '../state/dev_mode_store.dart';
 import '../state/identity.dart';
 import '../state/location_share_stub.dart'
     if (dart.library.io) '../state/location_share.dart';
@@ -16,6 +19,7 @@ import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
 import 'room_screen.dart';
 import 'settings_sheet.dart';
+import 'widgets/e2ee_badge.dart';
 
 /// 首页:圈子列表(移动端整页 / 桌面端侧栏,§8.2-5 布局断点)。
 class HomeScreen extends StatelessWidget {
@@ -30,6 +34,8 @@ class HomeScreen extends StatelessWidget {
     this.recordingConsent,
     this.blocks,
     this.consent,
+    this.e2ee,
+    this.devMode,
   });
 
   final RoomController controller;
@@ -46,6 +52,12 @@ class HomeScreen extends StatelessWidget {
   /// 内容规范同意状态;设置里「再看一遍」要用
   final ConsentStore? consent;
 
+  /// 按圈端到端加密。为 null 时圈子菜单里不出现加密开关(可选协作者优雅降级)
+  final E2EEController? e2ee;
+
+  /// 开发者模式(连点版本号 7 次解锁)。为 null 时设置页里完全没有开发者区。
+  final DevModeStore? devMode;
+
   String _circleName(String? circleId) {
     if (circleId == null) return '';
     for (final c in circleStore.circles) {
@@ -59,7 +71,11 @@ class HomeScreen extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= LaresBreakpoints.desktop;
-        final list = _CircleList(controller: controller, circleStore: circleStore);
+        final list = _CircleList(
+          controller: controller,
+          circleStore: circleStore,
+          e2ee: e2ee,
+        );
         return ListenableBuilder(
           listenable: controller,
           builder: (context, _) {
@@ -84,6 +100,7 @@ class HomeScreen extends StatelessWidget {
               chat: chat,
               recordingConsent: recordingConsent,
               blocks: blocks,
+              e2ee: e2ee,
             );
             if (!wide) {
               // 移动端:在房 -> 房间页整屏;未在房 -> 圈子列表
@@ -100,6 +117,7 @@ class HomeScreen extends StatelessWidget {
                             recordingConsent: recordingConsent,
                             blocks: blocks,
                             consent: consent,
+                            devMode: devMode,
                           ),
                           _RenameAction(controller: controller),
                         ],
@@ -134,6 +152,7 @@ class HomeScreen extends StatelessWidget {
                                   recordingConsent: recordingConsent,
                                   blocks: blocks,
                                   consent: consent,
+                                  devMode: devMode,
                                 ),
                                 _RenameAction(controller: controller),
                               ],
@@ -157,15 +176,20 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _CircleList extends StatelessWidget {
-  const _CircleList({required this.controller, required this.circleStore});
+  const _CircleList({
+    required this.controller,
+    required this.circleStore,
+    this.e2ee,
+  });
 
   final RoomController controller;
   final CircleStore circleStore;
+  final E2EEController? e2ee;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([controller, circleStore]),
+      listenable: Listenable.merge([controller, circleStore, e2ee]),
       builder: (context, _) {
         final joining = controller.phase == RoomPhase.joining;
         return ListView(
@@ -178,6 +202,7 @@ class _CircleList extends StatelessWidget {
                 controller: controller,
                 circleStore: circleStore,
                 joining: joining,
+                e2ee: e2ee,
               ),
             const SizedBox(height: LaresSpacing.sm),
             // 加圈子(§2.2 多圈子)/ 粘贴邀请链接
@@ -295,12 +320,14 @@ class _CircleTile extends StatelessWidget {
     required this.controller,
     required this.circleStore,
     required this.joining,
+    this.e2ee,
   });
 
   final Circle circle;
   final RoomController controller;
   final CircleStore circleStore;
   final bool joining;
+  final E2EEController? e2ee;
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +354,16 @@ class _CircleTile extends StatelessWidget {
         title: Row(
           children: [
             Flexible(child: Text(circle.name, overflow: TextOverflow.ellipsis)),
+            // 加密状态:未开启时 E2EEBadge 自己渲染成空,不占位也不制造噪音。
+            // 这里用 previewStatusFor(本设备的预测),因为圈子列表上大多数圈
+            // 并不在通话中 —— 但它同样会如实报出「开了但平台不支持」。
+            if (e2ee != null) ...[
+              const SizedBox(width: LaresSpacing.sm),
+              E2EEBadge(
+                status: e2ee!.previewStatusFor(circle.id),
+                compact: true,
+              ),
+            ],
             // 主圈子标记:一枚小余烬,不做响亮徽章(§8.2 安静的陪伴感)
             if (isPrimary) ...[
               const SizedBox(width: LaresSpacing.sm),
@@ -464,6 +501,9 @@ class _CircleTile extends StatelessWidget {
                 await _showInviteDialog(context);
               },
             ),
+            // 端到端加密:按圈可选,默认关。
+            // 代价必须写在开关旁边(kE2EECostNotice),不能让人开完才困惑。
+            if (e2ee != null) _E2EETile(circle: circle, e2ee: e2ee!),
             ListTile(
               leading: Icon(knockOn
                   ? Icons.door_front_door_rounded
@@ -481,12 +521,73 @@ class _CircleTile extends StatelessWidget {
                 title: const Text('删除这个圈子'),
                 onTap: () {
                   circleStore.remove(circle.id);
+                  // 顺手清掉加密开关,不留悬空登记 ——
+                  // 否则将来重建同名圈子会「莫名其妙已经开着加密」。
+                  e2ee?.forget(circle.id);
                   Navigator.pop(ctx);
                 },
               ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 圈子菜单里的端到端加密开关。
+///
+/// 三条纪律,缺一条这个功能就是安全负资产:
+/// 1. **代价前置** —— 开关的副标题里直接写明「服务器无法转录、炉灵不可用」,
+///    而不是藏进某个说明页;
+/// 2. **诚实** —— 开了之后如果本平台/口令不支持,立刻在下面挂出红色说明,
+///    绝不让开关的「已打开」状态独自代表「已加密」;
+/// 3. **不可静默** —— 平台不支持时**开关照常可开**(用户换台设备就生效),
+///    但当下这台设备的真实状态一个字都不隐瞒。
+class _E2EETile extends StatefulWidget {
+  const _E2EETile({required this.circle, required this.e2ee});
+
+  final Circle circle;
+  final E2EEController e2ee;
+
+  @override
+  State<_E2EETile> createState() => _E2EETileState();
+}
+
+class _E2EETileState extends State<_E2EETile> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final id = widget.circle.id;
+    final bool on = widget.e2ee.isEnabled(id);
+    final E2EEStatus status = widget.e2ee.previewStatusFor(id);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SwitchListTile(
+          secondary: Icon(
+            on ? Icons.lock_rounded : Icons.lock_open_rounded,
+            color: on && status.isEncrypted ? LaresColors.ember : null,
+          ),
+          title: const Text('端到端加密'),
+          subtitle: Text(
+            // 代价说明始终展示,开与不开都一样 —— 让人在按下去之前就知道。
+            '$kE2EECostNotice\n密钥从你的圈口令派生,只在设备本地,绝不上传服务器。',
+            style: theme.textTheme.bodyMedium,
+          ),
+          isThreeLine: true,
+          value: on,
+          onChanged: (v) async {
+            await widget.e2ee.setEnabled(id, v);
+            if (mounted) setState(() {});
+          },
+        ),
+        // 开了但这台设备做不到:必须说出来,而且要显眼。
+        // E2EEWarningBanner 自带左右留白,与房间页的横幅视觉一致。
+        if (status.isBrokenPromise) E2EEWarningBanner(status: status),
+        if (status.isBrokenPromise)
+          const SizedBox(height: LaresSpacing.md),
+      ],
     );
   }
 }
@@ -500,6 +601,7 @@ class _SettingsAction extends StatelessWidget {
     this.recordingConsent,
     this.blocks,
     this.consent,
+    this.devMode,
   });
 
   final RoomController controller;
@@ -508,6 +610,9 @@ class _SettingsAction extends StatelessWidget {
   final RecordingConsentController? recordingConsent;
   final BlockStore? blocks;
   final ConsentStore? consent;
+
+  /// 开发者模式;为 null 时设置页既没有开发者区,版本号也点不出任何东西
+  final DevModeStore? devMode;
 
   @override
   Widget build(BuildContext context) {
@@ -523,6 +628,7 @@ class _SettingsAction extends StatelessWidget {
         recordingConsent: recordingConsent,
         blocks: blocks,
         consent: consent,
+        devMode: devMode,
       ),
     );
   }

@@ -80,14 +80,19 @@ class RoomScene extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                       horizontal: LaresSpacing.md,
                     ),
-                    child: GridView.count(
-                      crossAxisCount: 3,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 0.78,
-                      children: members
-                          .map((DemoMember m) =>
-                              _Orb(member: m, palette: palette))
-                          .toList(),
+                    // shrinkWrap + Center:六个头像自然占两行,
+                    // 让它们在可用高度里居中,而不是顶在上面留一大片空
+                    child: Center(
+                      child: GridView.count(
+                        crossAxisCount: 3,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        childAspectRatio: 0.82,
+                        children: members
+                            .map((DemoMember m) =>
+                                _Orb(member: m, palette: palette))
+                            .toList(),
+                      ),
                     ),
                   ),
                 ),
@@ -547,11 +552,16 @@ class _Msg {
 }
 
 const List<_Msg> _demoMessages = <_Msg>[
+  _Msg('阿澈', '22:09', '今晚谁还在?我这边刚忙完'),
+  _Msg('小满', '22:11', '在的,不过我戴着耳机写东西', showHeader: true),
   _Msg('阿澈', '22:14', '我把汤热上了,你们慢慢聊'),
   _Msg('小满', '22:16', '今天那首歌叫什么来着'),
   _Msg('小满', '22:16', '就是你上周放的那个', showHeader: false),
   _Msg('我', '22:18', '《夜航西飞》,我待会儿丢个链接', mine: true),
-  _Msg('林一', '22:21', '别聊了,我这边还在改 bug 😵'),
+  // 刻意不放 emoji:headless 渲染环境下 Windows 字体没有彩色 emoji 字形,
+  // Skia 回退查找会卡死整个测试进程(实测 b_emoji 探针必挂)。
+  // 真机上不存在这个问题,但对比图里也不需要 emoji 来说明配色。
+  _Msg('林一', '22:21', '别聊了,我这边还在改 bug'),
   _Msg('我', '22:22', '那你把耳朵开着就行', mine: true, sending: true),
 ];
 

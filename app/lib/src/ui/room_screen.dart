@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../chat/chat_service.dart';
 import '../config.dart';
+import '../e2ee/e2ee_controller.dart';
+import '../e2ee/e2ee_status.dart';
 import '../moderation/block_store.dart';
 import '../recording/recording_consent.dart';
 import '../recording/recording_indicator.dart';
@@ -16,6 +18,7 @@ import 'chat_panel.dart';
 import 'map_panel.dart';
 import 'moderation_menus.dart';
 import 'widgets/avatar_orb.dart';
+import 'widgets/e2ee_badge.dart';
 
 // ── 就地常量 ──
 // tokens.dart 没有「图标尺寸」这一档,被屏蔽标记的两个尺寸就地定义。
@@ -42,6 +45,7 @@ class RoomScreen extends StatefulWidget {
     this.chat,
     this.recordingConsent,
     this.blocks,
+    this.e2ee,
   });
 
   final RoomController controller;
@@ -59,6 +63,10 @@ class RoomScreen extends StatefulWidget {
   /// 屏蔽名单(App Store 审核指南 1.2)。为 null 时长按头像退回「直接踢人」的
   /// 老行为,既不崩也不少任何既有功能 —— 可选协作者一律优雅降级(同上)。
   final BlockStore? blocks;
+
+  /// 按圈端到端加密。为 null 时不显示任何加密字样 ——
+  /// 宁可什么都不说,也不能显示一个可能说错的状态。
+  final E2EEController? e2ee;
 
   @override
   State<RoomScreen> createState() => _RoomScreenState();
@@ -84,7 +92,14 @@ class _RoomScreenState extends State<RoomScreen> {
                   onToggleMap: widget.locationShare == null
                       ? null
                       : () => setState(() => _showMap = !_showMap),
+                  e2ee: widget.e2ee,
                 ),
+                // 「你以为加密了但其实没有」值得一整条横幅,不是一个小角标。
+                if (widget.e2ee != null)
+                  _E2EERoomBanner(
+                    controller: controller,
+                    e2ee: widget.e2ee!,
+                  ),
                 _KnockBanner(controller: controller, settings: widget.settings),
                 // 录音指示器:房间里有人在录音时对**所有人**常驻显示。
                 // 这是本 App 唯一刻意「吵」的组件 —— 安静的设计 ≠ 藏起来。
@@ -237,20 +252,26 @@ class _RoomHeader extends StatelessWidget {
     required this.circleName,
     this.showMap = false,
     this.onToggleMap,
+    this.e2ee,
   });
 
   final RoomController controller;
   final String circleName;
   final bool showMap;
   final VoidCallback? onToggleMap;
+  final E2EEController? e2ee;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ListenableBuilder(
-      listenable: controller,
+      listenable: Listenable.merge([controller, e2ee]),
       builder: (context, _) {
         final count = controller.members.length;
+        // 只认「本次通话」的权威结论,且必须与当前圈子匹配 ——
+        // 圈子对不上一律返回 null,绝不把上一个圈的状态显示给这一个圈。
+        final E2EEStatus? status =
+            e2ee?.statusForActiveCircle(controller.circleId);
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             LaresSpacing.lg,
@@ -260,21 +281,49 @@ class _RoomHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(circleName, style: theme.textTheme.titleLarge),
-                  Text(
-                    switch (controller.phase) {
-                      RoomPhase.joining =>
-                        controller.knocking ? '敲门中,等里面的人应门…' : '正在进去…',
-                      RoomPhase.inRoom => count <= 1 ? '就你一个在,等等看?' : '$count 个人在',
-                      RoomPhase.error => controller.errorMessage ?? '出错了',
-                      RoomPhase.idle => '',
-                    },
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
+              // ⚠️ 必须 Flexible。Row 对非 flex 子节点给的是**无界**横向约束,
+              // 而下面那行副标题在 error 态是异常文本 —— 长度不可控。
+              // 漏掉它的后果实测过:单行铺开到 2000+ px,
+              // 屏幕右上角出现黄黑警示条「RIGHT OVERFLOWED BY 2014 PIXELS」。
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            circleName,
+                            style: theme.textTheme.titleLarge,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (status != null &&
+                            status != E2EEStatus.disabled) ...[
+                          const SizedBox(width: LaresSpacing.sm),
+                          E2EEBadge(status: status, compact: true),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      switch (controller.phase) {
+                        RoomPhase.joining =>
+                          controller.knocking ? '敲门中,等里面的人应门…' : '正在进去…',
+                        RoomPhase.inRoom =>
+                          count <= 1 ? '就你一个在,等等看?' : '$count 个人在',
+                        // 只显示人话。原始异常留给日志,不甩给用户。
+                        RoomPhase.error =>
+                          controller.errorMessage ?? '出错了',
+                        RoomPhase.idle => '',
+                      },
+                      style: theme.textTheme.bodyMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
               if (onToggleMap != null)
@@ -297,6 +346,32 @@ class _RoomHeader extends StatelessWidget {
             ],
           ),
         );
+      },
+    );
+  }
+}
+
+/// 「开了加密但这次通话其实没加密」的房内横幅。
+///
+/// 只在 [E2EEStatus.isBrokenPromise] 时出现 —— 真加密了不喊(头部那把锁足够),
+/// 没开加密也不喊(那是用户的选择,天天提醒只会变成背景噪音)。
+/// 唯一要打断用户的,是「你以为加密了」这一种情况。
+class _E2EERoomBanner extends StatelessWidget {
+  const _E2EERoomBanner({required this.controller, required this.e2ee});
+
+  final RoomController controller;
+  final E2EEController e2ee;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([controller, e2ee]),
+      builder: (context, _) {
+        final status = e2ee.statusForActiveCircle(controller.circleId);
+        if (status == null || !status.isBrokenPromise) {
+          return const SizedBox.shrink();
+        }
+        return E2EEWarningBanner(status: status);
       },
     );
   }

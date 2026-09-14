@@ -1,6 +1,0 @@
-fonts loading
-fonts ok cjk=C:\Windows\Fonts\msyh.ttc icons=true
-START a_plain
-  pumped a_plain
-  pumped300 a_plain
-OK a_plain

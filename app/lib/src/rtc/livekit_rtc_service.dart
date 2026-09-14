@@ -40,6 +40,17 @@ class LiveKitRtcService implements RtcService {
   /// 传输层必须**每次进房重建**,绝不可跨会话缓存。
   Room? get room => _room;
 
+  /// 下一次 `join()` 要用的端到端加密配置;null = 本次不加密。
+  ///
+  /// 由 `e2ee/e2ee_controller.dart` 在每次进房**之前**赋值(包括赋 null)。
+  /// 刻意**不**放进 `RtcService` 接口:理由与上面的 [room] 完全相同 ——
+  /// 接口里出现 `E2EEOptions` 会迫使抽象层 import livekit_client,
+  /// 并连带弄坏四个 `implements RtcService` 的测试 fake。
+  ///
+  /// ⚠️ 这是个「一次性意图」字段而非状态:每次 join 前都会被重写一遍,
+  /// 绝不可当作「当前是否加密」来读 —— 权威结论在 `E2EEController.activeStatus`。
+  E2EEOptions? pendingEncryption;
+
   @override
   Stream<Set<String>> get speakingIdentities => _speaking.stream;
 
@@ -199,6 +210,14 @@ class LiveKitRtcService implements RtcService {
 
     final room = Room(
       roomOptions: RoomOptions(
+        // 端到端加密(按圈可选,默认关)。用新的 `encryption:` 而非废弃的
+        // `e2eeOptions:` —— 只有前者会让 SDK 把 dcEncryptionEnabled 打开,
+        // 也就是连文字/图片走的那条数据通道一起加密(room.dart:289-300)。
+        //
+        // 平台不支持时这里必须是 null:否则 room.connect() 会抛
+        // LiveKitE2EEException,用户直接进不了房。把关拦在
+        // E2EEController.prepareFor 里,这一层只忠实照做。
+        encryption: pendingEncryption,
         // 语音房:只需要音频;自适应流与 dynacast 降低挂机带宽
         adaptiveStream: true,
         dynacast: true,

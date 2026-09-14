@@ -7,6 +7,8 @@ import 'src/chat/chat_service.dart';
 import 'src/recording/recording_consent.dart';
 import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
+import 'src/e2ee/e2ee_controller.dart';
+import 'src/e2ee/e2ee_store.dart';
 import 'src/moderation/block_audio_enforcer.dart';
 import 'src/moderation/block_store.dart';
 import 'src/moderation/consent_store.dart';
@@ -19,6 +21,7 @@ import 'src/platform/window_setup.dart'
     if (dart.library.io) 'src/platform/window_setup_io.dart';
 import 'src/rtc/livekit_rtc_service.dart';
 import 'src/state/circle_store.dart';
+import 'src/state/dev_mode_store.dart';
 import 'src/state/identity.dart';
 import 'src/state/location_share_stub.dart'
     if (dart.library.io) 'src/state/location_share.dart';
@@ -42,10 +45,14 @@ Future<void> main() async {
     preferredPrimaryId: LaresConfig.defaultCircleId,
   );
   final settings = await SettingsStore.load();
+  // 按圈 E2EE 的开关登记表(默认全关)。只存开关,不存任何密钥材料。
+  final e2eeStore = await E2EEStore.load();
   // 内容治理(App Store 审核指南 1.2):屏蔽名单与内容规范同意状态。
   // 放在这里加载是因为下面的自动进圈/托盘入口要先问一句「同意了没有」。
   final blocks = await BlockStore.load();
   final consent = await ConsentStore.load();
+  // 开发者模式:连点设置页底部版本号 7 次解锁,技术项收在它后面。
+  final devMode = await DevModeStore.load();
 
   // 所有「一键进圈」入口(托盘/自动挂机/主屏 Widget)的统一目标:主圈子。
   // 圈子列表为空时回落到打包期默认圈。
@@ -77,6 +84,16 @@ Future<void> main() async {
           results.contains(ConnectivityResult.ethernet);
     },
   );
+
+  // 按圈端到端加密:开关 + 圈口令 -> 派生密钥 -> 进房前装进 RoomOptions。
+  // 密钥从不落盘、从不上传服务器 —— 这正是整个功能的意义。
+  final e2ee = E2EEController(
+    store: e2eeStore,
+    settings: settings,
+    rtc: rtc,
+  );
+  // 每一条走到 rtc.join() 的路径都会先过这个钩子(含闲时降级后的媒体唤醒)
+  controller.prepareEncryption = e2ee.prepareFor;
 
   // P0 预连接:App 启动即建立信令长连接并上报身份
   controller.preconnect();
@@ -244,6 +261,8 @@ Future<void> main() async {
     recordingConsent: recordingConsent,
     blocks: blocks,
     consent: consent,
+    e2ee: e2ee,
+    devMode: devMode,
   ));
 }
 
@@ -259,6 +278,8 @@ class LaresApp extends StatelessWidget {
     this.recordingConsent,
     this.blocks,
     this.consent,
+    this.e2ee,
+    this.devMode,
   });
 
   final RoomController controller;
@@ -275,6 +296,14 @@ class LaresApp extends StatelessWidget {
   /// 内容规范同意状态;非空时 [ContentPolicyGate] 会拦在主界面之前
   final ConsentStore? consent;
 
+  /// 按圈端到端加密。为 null 时圈子菜单里不出现加密开关,房间页不显示锁标 ——
+  /// 与其它可选协作者一样优雅降级(而不是显示一个假的「未加密」)。
+  final E2EEController? e2ee;
+
+  /// 开发者模式(连点版本号 7 次解锁)。为 null 时设置页里完全没有开发者区,
+  /// 底部版本号也只是一行普通文字 —— 给测试留一个「天然干净」的默认。
+  final DevModeStore? devMode;
+
   @override
   Widget build(BuildContext context) {
     final home = HomeScreen(
@@ -287,6 +316,8 @@ class LaresApp extends StatelessWidget {
       recordingConsent: recordingConsent,
       blocks: blocks,
       consent: consent,
+      e2ee: e2ee,
+      devMode: devMode,
     );
     final consentStore = consent;
     return MaterialApp(
