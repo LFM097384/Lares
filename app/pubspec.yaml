@@ -64,6 +64,8 @@ dependencies:
   #  2. App 内打开隐私政策 / 服务条款的网页链接(ASC 必填项,且必须在 App 内可达)。
   url_launcher: ^6.3.2
   hashlib: ^2.4.2
+  flutter_secure_storage: ^11.1.1
+  local_auth: ^3.0.2
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/auth_credential.dart';
+import '../net/biometric_gate.dart';
 import '../net/connection_test.dart';
 import '../net/server_profile.dart';
 import '../state/settings_store.dart';
@@ -150,9 +151,33 @@ Future<void> _editProfile(
   BuildContext context,
   SettingsStore settings,
   String userId,
-  ServerProfile? existing,
-) async {
+  ServerProfile? existing, {
+  BiometricGate? gate,
+}) async {
   final isNew = existing == null;
+
+  // 打开一个**已有**且**存了敏感值**的档案前,先验一次本机身份。
+  //
+  // 为什么只在这种情况下验:
+  // - 新建档案里没有任何东西可偷,验了纯属添堵;
+  // - 没填令牌也没填口令的旧档案同理。
+  // 日常进房、聊天一律不验 —— 这道闸门防的是「别人拿起你解锁着的手机
+  // 翻出圈子口令」,不是防有备而来的攻击者(那是安全存储那层的事)。
+  final bool hasSecrets = existing != null &&
+      (existing.token.isNotEmpty || existing.circlePasscodes.isNotEmpty);
+  if (hasSecrets) {
+    final BiometricGate g = gate ?? LocalAuthGate();
+    final ok = await g.authenticate('查看或修改服务器口令');
+    if (!ok) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('没验证通过,没打开')),
+        );
+      }
+      return;
+    }
+  }
+  if (!context.mounted) return;
   final id = existing?.id ?? settings.serverProfiles.newId();
   final labelField =
       TextEditingController(text: existing?.label ?? '我的服务器');

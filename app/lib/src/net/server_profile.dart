@@ -172,11 +172,18 @@ class ServerProfile {
 /// 档案集合 + 当前选中项。整体以一个 JSON 字符串存进 shared_preferences,
 /// 比散着存十几个 key 更好迁移、也更容易整体替换。
 ///
-/// ⚠️ 安全边界(诚实声明):shared_preferences 在绝大多数平台上是**明文**的
+/// ⚠️ 安全边界:shared_preferences 在绝大多数平台上是**明文**的
 /// (Android SharedPreferences XML、iOS NSUserDefaults plist、Windows 本地文件、
-/// Web 直接 localStorage)。这里存的令牌与圈口令**不具备加密保护**,
-/// 拿到设备文件系统即可读出。本轮按约定不引入 secure storage 依赖,
-/// 仅在此如实标注,并在设置页向用户明说。
+/// Web 直接 localStorage)。
+///
+/// **令牌与圈口令已迁往 `SecretVault`**(系统级安全存储:iOS/macOS Keychain、
+/// Android Keystore、Windows DPAPI),迁移器见 `secret_migration.dart`,
+/// 每次启动幂等执行。这里的字段保留是为了迁移期的读取与向后兼容,
+/// 新写入一律走 vault。
+///
+/// 这件事之所以要紧:E2EE 的密钥由圈口令派生。口令泄露 = 密钥泄露。
+/// 所以口令的存储强度是 E2EE 安全性的**上界** —— Argon2id 把派生做得再硬,
+/// 也架不住口令本身躺在明文文件里。
 class ServerProfiles {
   const ServerProfiles({required this.profiles, required this.activeId});
 

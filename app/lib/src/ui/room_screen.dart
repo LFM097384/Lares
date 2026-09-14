@@ -81,7 +81,10 @@ class _RoomScreenState extends State<RoomScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          const _BreathingBackground(),
+          // 地图铺满时这层完全被盖住 —— 停掉,别白烧 60fps。
+          _BreathingBackground(
+            visible: !(_showMap && widget.locationShare != null),
+          ),
           SafeArea(
             child: Column(
               children: [
@@ -141,8 +144,25 @@ class _RoomScreenState extends State<RoomScreen> {
 }
 
 /// 房间「呼吸感」氛围背景:极慢明灭的暖色光晕,让「有人在」可感知。
+///
+/// ## 省电:App 退到后台就**停表**,不是降频
+///
+/// 这是常驻挂机类应用的准入条件,不是优化项 —— 核心场景是一天挂十几小时。
+///
+/// 原型实测(见 `app/tool/hearth/REPORT.md`)给出过一条反直觉的数据:
+/// **节流重绘救不了耗电**。把重绘从 60fps 降到 12fps 之后,
+/// 提交帧率仍是 60fps、CPU 仍占 27% —— 因为只要 Ticker 还在跑,
+/// 引擎每个 vsync 都要走完整的帧调度,节流只省掉 paint 里画渐变那一点。
+///
+/// 只有彻底 `stop()` 才是真的零:**27.2% → 0.31%,降到 1/88**。
 class _BreathingBackground extends StatefulWidget {
-  const _BreathingBackground();
+  const _BreathingBackground({this.visible = true});
+
+  /// 这层背景此刻是否真的看得见。
+  ///
+  /// 地图页打开时,背景仍在 `Stack` 底层、只是被盖住 —— 那种情况下
+  /// 继续烧 60fps 是纯浪费,用户一帧都看不到。
+  final bool visible;
 
   @override
   State<_BreathingBackground> createState() => _BreathingBackgroundState();
@@ -151,6 +171,11 @@ class _BreathingBackground extends StatefulWidget {
 class _BreathingBackgroundState extends State<_BreathingBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _breath;
+  AppLifecycleListener? _lifecycle;
+
+  /// App 是否在前台。与 [_BreathingBackground.visible] 是**两个独立条件**,
+  /// 必须都成立才转表。
+  bool _foreground = true;
 
   @override
   void initState() {
@@ -158,11 +183,40 @@ class _BreathingBackgroundState extends State<_BreathingBackground>
     _breath = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 7),
-    )..repeat(reverse: true);
+    );
+    // 用 onStateChange 而不是 onHide/onShow:后者在部分平台上不触发,
+    // 而 paused/inactive 是所有平台都会报的。
+    _lifecycle = AppLifecycleListener(onStateChange: _onLifecycle);
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_BreathingBackground old) {
+    super.didUpdateWidget(old);
+    if (old.visible != widget.visible) _sync();
+  }
+
+  void _onLifecycle(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _sync();
+  }
+
+  /// 把「该不该转」这件事收在一个地方算,避免两个条件各改各的而打架。
+  void _sync() {
+    final shouldRun = _foreground && widget.visible;
+    if (shouldRun) {
+      // 只在真的停了的时候才重启 —— 重复调 repeat() 会把动画拽回起点,
+      // 表现为光晕突然一跳。
+      if (!_breath.isAnimating) _breath.repeat(reverse: true);
+    } else {
+      // stop() 保留当前值,下次恢复从原处继续,视觉上不跳。
+      _breath.stop();
+    }
   }
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     _breath.dispose();
     super.dispose();
   }

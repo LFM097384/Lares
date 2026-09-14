@@ -211,6 +211,23 @@ pwsh scripts/dev.ps1   # 起全栈,浏览器开 http://127.0.0.1:8080
 
 ## 已知坑位(都踩过,别再踩)
 
+### `flutter_secure_storage` 的 Windows 端需要 VS 的 ATL 组件
+
+`flutter_secure_storage_windows_plugin.cpp` 要 `atlstr.h`。
+本机 VS2019 默认**不装** ATL/MFC,表现是:
+
+- `flutter analyze` 零告警 ✅
+- `flutter test` 全绿 ✅
+- `flutter build windows` **fatal error C1083: 无法打开 atlstr.h** ❌
+
+解决:Visual Studio Installer → 修改 → 勾「C++ ATL」(约 200MB)。
+
+> **CI 不受影响**:`windows-latest` runner 自带完整 VS 含 ATL。
+> 这纯粹是本机环境问题,别误以为是依赖选错了。
+
+同类教训:analyze 和 test 都不碰原生编译,**加了带原生代码的插件之后
+必须真的跑一次 `flutter build`**。此前 sherpa_onnx 也是这一类。
+
 - **不要全局加 `/await`**(windows/CMakeLists.txt):与 geolocator_windows 的 `/await:strict` 互斥(D8016)。`/utf-8` 保留(中文代码页必需)
 - `kotlin.incremental=false`(android/gradle.properties):本机 Kotlin 增量缓存 mmap 冲突
 - `home_widget` 锁 0.7.x:0.8 依赖 glance-alpha 需要未发布的 compileSdk 37
