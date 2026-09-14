@@ -152,9 +152,14 @@ void main() {
       expect(await c.prepareFor('home'), E2EEStatus.encrypted);
       // 装进去的必须是派生密钥,**不是口令本身** ——
       // 直接拿口令当密钥等于把认证凭据和加密密钥绑死。
-      expect(installer.keys.single,
-          deriveCircleE2EEKey(passcode: 'pass', circleId: 'home'));
       expect(installer.keys.single, isNot('pass'));
+      // 且必须是 **v2(Argon2id)** 而不是 v1 的单次 HMAC。
+      // 这条断言的意义:v1 对人手输的低熵口令几乎没有暴力破解成本。
+      // 若哪天默认派生器被改回 v1,这里会当场变红。
+      expect(installer.keys.single,
+          deriveCircleE2EEKeyV2(passcode: 'pass', circleId: 'home'));
+      expect(installer.keys.single,
+          isNot(deriveCircleE2EEKey(passcode: 'pass', circleId: 'home')));
     });
 
     test('密钥装载失败 -> failed,绝不谎报 encrypted', () async {

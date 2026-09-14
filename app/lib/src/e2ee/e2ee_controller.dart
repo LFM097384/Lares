@@ -42,6 +42,12 @@ Future<void> defaultE2EEKeyInstaller(
   rtc?.pendingEncryption = options;
 }
 
+/// 密钥派生函数。默认是 Argon2id(在 isolate 里跑),测试可注入快实现。
+typedef E2EEKeyDeriver = Future<String> Function({
+  required String passcode,
+  required String circleId,
+});
+
 /// 圈子 E2EE 的应用级控制器。UI 只读它,`RoomController` 只在进房前调
 /// [prepareFor] 一次。
 class E2EEController extends ChangeNotifier {
@@ -51,11 +57,13 @@ class E2EEController extends ChangeNotifier {
     LiveKitRtcService? rtc,
     E2EEPlatformProbe? platformProbe,
     E2EEKeyInstaller? keyInstaller,
+    E2EEKeyDeriver? keyDeriver,
   })  : _store = store,
         _settings = settings,
         _rtc = rtc,
         _probe = platformProbe ?? defaultE2EEPlatformProbe,
-        _install = keyInstaller ?? defaultE2EEKeyInstaller {
+        _install = keyInstaller ?? defaultE2EEKeyInstaller,
+        _deriveKey = keyDeriver ?? deriveCircleE2EEKeyAsync {
     _store.addListener(notifyListeners);
     _settings.addListener(notifyListeners);
   }
@@ -65,6 +73,12 @@ class E2EEController extends ChangeNotifier {
   final LiveKitRtcService? _rtc;
   final E2EEPlatformProbe _probe;
   final E2EEKeyInstaller _install;
+
+  /// 派生器做成可注入的,不只是为了测试跑得快 ——
+  /// Argon2id 真算一次要 250ms,几十个用例串起来就是十几秒;
+  /// 更重要的是 `compute()` 在 `flutter test` 的单 isolate 环境里
+  /// 行为与真机不同,不注入就等于在测一个跟线上不一样的东西。
+  final E2EEKeyDeriver _deriveKey;
 
   /// 本平台是否支持 E2EE(运行期探测,Web 上取决于浏览器能力)
   bool get platformSupported => _probe();
@@ -132,11 +146,15 @@ class E2EEController extends ChangeNotifier {
       return status;
     }
 
-    final String key = deriveCircleE2EEKey(
-      passcode: _settings.credentialFor(id).passcode,
-      circleId: id,
-    );
     try {
+      // Argon2id 是**刻意慢**的(实测桌面约 250ms),必须在 isolate 里算,
+      // 否则进房那一刻 UI 线程会卡掉十几帧。
+      // 派生也放进这个 try:低内存设备上 Argon2 要 64 MiB,可能抛 OOM,
+      // 那种情况必须落到 failed 而不是让异常冒出去把进房整个打断。
+      final String key = await _deriveKey(
+        passcode: _settings.credentialFor(id).passcode,
+        circleId: id,
+      );
       await _install(rtc, key);
     } catch (e) {
       // 底层 frame cryptor 没起来。绝不静默当作加密成功。

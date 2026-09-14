@@ -63,6 +63,7 @@ dependencies:
   #  1. 举报走 `mailto:` 直接拉起邮件 App(Guideline 1.2 要求举报通道可用);
   #  2. App 内打开隐私政策 / 服务条款的网页链接(ASC 必填项,且必须在 App 内可达)。
   url_launcher: ^6.3.2
+  hashlib: ^2.4.2
 
 dev_dependencies:
   flutter_test:
