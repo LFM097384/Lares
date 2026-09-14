@@ -220,10 +220,34 @@ pwsh scripts/dev.ps1   # 起全栈,浏览器开 http://127.0.0.1:8080
 - `flutter test` 全绿 ✅
 - `flutter build windows` **fatal error C1083: 无法打开 atlstr.h** ❌
 
-解决:Visual Studio Installer → 修改 → 勾「C++ ATL」(约 200MB)。
+解决:Visual Studio Installer → 修改 → 勾 ATL(约 200MB)。
+
+⚠️ **版本必须与实际构建用的 MSVC 工具集匹配**,这里踩过一次:
+第一次装了列表里的「C++ v14.20 ATL for v142」,ATL 落在
+`VC\Tools\MSVC\14.20.27508\atlmfc\`,而构建用的是 **14.29** ——
+`atlstr.h` 明明躺在磁盘上,编译器依旧报 C1083。
+
+先查本机装了哪些工具集、各自有没有 ATL:
+
+```powershell
+Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC" -Directory |
+  ForEach-Object { "$($_.Name): $(if (Test-Path "$($_.FullName)\atlmfc\include\atlstr.h") { 'ATL 有' } else { 'ATL 无' })" }
+```
+
+构建取**版本号最高**的那个,它必须有 ATL。在 Installer 的「单个组件」页
+搜 `ATL`,勾**不带版本号后缀**(标「最新」)的那一项最稳妥。
+
+### `LNK1104: 无法打开文件 lares_app.exe`
+
+会伪装成上面那个问题,但它**不是缺组件** —— 是**上一个构建还在运行**
+占着文件,桌面快捷方式启动的实例最常见。
+
+```powershell
+Stop-Process -Name lares_app -Force
+```
 
 > **CI 不受影响**:`windows-latest` runner 自带完整 VS 含 ATL。
-> 这纯粹是本机环境问题,别误以为是依赖选错了。
+> 以上两条纯粹是本机环境问题,别误以为是依赖选错了。
 
 同类教训:analyze 和 test 都不碰原生编译,**加了带原生代码的插件之后
 必须真的跑一次 `flutter build`**。此前 sherpa_onnx 也是这一类。
