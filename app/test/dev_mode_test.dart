@@ -70,6 +70,9 @@ Future<void> _tapVersion(WidgetTester tester, int times) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // 测试里不碰真实 Keychain —— 没有平台通道时它会**挂起**而不是报错,
+  // 症状是整个测试套件超时且没有任何失败信息。
+  debugUseInMemoryVault = true;
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});

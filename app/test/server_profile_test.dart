@@ -119,14 +119,43 @@ void main() {
         ],
         activeId: 'p2',
       );
-      final back = ServerProfiles.decode(profiles.encode());
+      // 默认编码**不含**敏感值 —— 这个默认值是刻意的:
+      // 主要调用方是「写进 shared_preferences」,而那是明文。
+      final raw = profiles.encode();
+      expect(raw, isNot(contains('开门')), reason: '口令不得落进明文');
+      expect(raw, isNot(contains('tk')), reason: '令牌不得落进明文');
 
+      final back = ServerProfiles.decode(raw);
       expect(back.profiles, hasLength(2));
       expect(back.activeId, 'p2');
       expect(back.active!.label, 'LiveKit Cloud');
-      expect(back.profiles.first.circlePasscodes['home'], '开门');
       expect(back.profiles.first.authMode, AuthMode.circle);
       expect(back.profiles.first.url, 'wss://rtc.example.com:8444/ws');
+      // 但「这个圈子配过口令」这件事要留下,否则 UI 会显示成没配过,
+      // 而且启动时不知道该去 vault 里取哪几把。
+      expect(back.profiles.first.circlePasscodes.keys, contains('home'));
+      expect(back.profiles.first.circlePasscodes['home'], '',
+          reason: '占位成空串,由 SettingsStore 从 vault 填回');
+    });
+
+    test('显式要求时才带上敏感值(导出/调试用)', () {
+      const profiles = ServerProfiles(
+        profiles: [
+          ServerProfile(
+            id: 'p1',
+            label: '家里的 VPS',
+            url: 'wss://rtc.example.com:8444/ws',
+            authMode: AuthMode.circle,
+            token: 'tk',
+            circlePasscodes: {'home': '开门'},
+          ),
+        ],
+        activeId: 'p1',
+      );
+      final back =
+          ServerProfiles.decode(profiles.encode(includeSecrets: true));
+      expect(back.profiles.first.circlePasscodes['home'], '开门');
+      expect(back.profiles.first.token, 'tk');
     });
 
     test('存坏了当作空,不崩', () {

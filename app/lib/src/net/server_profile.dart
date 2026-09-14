@@ -88,13 +88,25 @@ class ServerProfile {
     }
   }
 
-  Map<String, dynamic> toJson() => {
+  /// [includeSecrets] 为 false 时**不输出**令牌与圈口令。
+  ///
+  /// 落盘到 `shared_preferences`(明文)时必须传 false —— 那两样归
+  /// [SecretVault] 管。但仍然记下**哪些圈子有口令**(`circleIds`),
+  /// 这样启动时能知道该去 vault 里取哪几把,不用把整个 vault 翻一遍。
+  ///
+  /// 只在导出/调试等明确需要完整副本的场合才传 true。
+  Map<String, dynamic> toJson({bool includeSecrets = true}) => {
         'id': id,
         'label': label,
         'url': url,
         'authMode': authMode.wire,
-        if (token.isNotEmpty) 'token': token,
-        if (circlePasscodes.isNotEmpty) 'circlePasscodes': circlePasscodes,
+        if (includeSecrets && token.isNotEmpty) 'token': token,
+        if (includeSecrets && circlePasscodes.isNotEmpty)
+          'circlePasscodes': circlePasscodes,
+        // 不含口令本身,只记「这个圈子有口令」这件事。
+        if (!includeSecrets && circlePasscodes.isNotEmpty)
+          'circleIds': circlePasscodes.keys.toList(),
+        if (!includeSecrets && token.isNotEmpty) 'hasToken': true,
       };
 
   static ServerProfile? fromJson(Object? raw) {
@@ -107,9 +119,23 @@ class ServerProfile {
     final passes = <String, String>{};
     final rawPasses = raw['circlePasscodes'];
     if (rawPasses is Map) {
+      // 老格式(或显式带密的导出):口令就在 JSON 里。
       for (final e in rawPasses.entries) {
         if (e.key is String && e.value is String) {
           passes[e.key as String] = e.value as String;
+        }
+      }
+    } else {
+      // 新格式:JSON 里只有圈子 id,真正的口令在 SecretVault。
+      // 这里先占位成空串,由 SettingsStore.load() 从 vault 填回来。
+      //
+      // 为什么要占位而不是留空 Map:UI 要据此知道「这个档案配过口令」,
+      // 而且 vault 读取是异步的 —— 没有占位的话,decode 之后到填回来
+      // 之间那一小段时间里,界面会显示成「没配过口令」。
+      final ids = raw['circleIds'];
+      if (ids is List) {
+        for (final id in ids) {
+          if (id is String && id.isNotEmpty) passes[id] = '';
         }
       }
     }
@@ -211,9 +237,16 @@ class ServerProfiles {
         activeId: clearActive ? null : (activeId ?? this.activeId),
       );
 
-  String encode() => jsonEncode({
+  /// [includeSecrets] 默认 **false** —— 这是刻意的默认值。
+  ///
+  /// 这个方法的主要调用方是「写进 shared_preferences」,而那是明文。
+  /// 把安全的选择做成默认,忘了传参数时也不会泄露口令;
+  /// 需要完整副本的场合(导出/调试)必须**显式**要求。
+  String encode({bool includeSecrets = false}) => jsonEncode({
         'activeId': activeId,
-        'profiles': [for (final p in profiles) p.toJson()],
+        'profiles': [
+          for (final p in profiles) p.toJson(includeSecrets: includeSecrets),
+        ],
       });
 
   static ServerProfiles decode(String? raw) {

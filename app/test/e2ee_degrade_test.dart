@@ -57,6 +57,8 @@ Future<SettingsStore> _settingsWithPasscodes(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // 测试里不碰真实 Keychain —— 没有平台通道时它会挂起而不是报错。
+  debugUseInMemoryVault = true;
 
   group('纯决策:resolveE2EEStatus', () {
     test('没开 -> disabled(其它条件一概不看)', () {
