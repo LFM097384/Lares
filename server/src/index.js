@@ -289,6 +289,83 @@ function broadcast(circleId, msg, exceptWs = null) {
 // ── 大厅 presence 摘要(未进房也要能看到「X 人在」,设计.md §3.2-1)──
 const lobby = new Set(); // 所有已 hello 的连接
 
+// ── 「挂着」(可约)状态 ──────────────────────────────────────────────────
+//
+// 语义:用户**不进任何房间**,只在大厅里标记「我有空,谁来找我都行」,
+// 并对他自己选定的若干圈子可见。第一个来找他的人把两边都拉进
+// **那个发起人所在的圈子**;此刻挂着状态立即取消,对其他圈子的人
+// 不再显示为可约。
+//
+// 为什么不做成「同时在多个房间里」:那要拆掉 circleAllowed 的单圈钉死,
+// 而那正是修过 5 个越权漏洞的地方。这里改用「一个全局状态 + 广播时按
+// 授权范围过滤」,鉴权模型一行不动。
+//
+// ⚠️ 纯内存、断线即消、不落盘 —— 与 presence 同级别。
+// userId -> { circleIds:Set<string>, name, since, ws }
+const available = new Map();
+
+/// 挂着状态对某个连接是否可见。
+///
+/// 两个条件都要满足:
+/// 1. 发布者把这个圈子选进了可见范围;
+/// 2. 观察者**有权看到**那个圈子(circle 模式下只认自己证明过的那个)。
+///
+/// 第 2 条是关键 —— 少了它就等于把「某人有空」广播给所有连接,
+/// 那是一条新的越权泄露通道。
+function availableVisibleTo(session, entry) {
+  for (const cid of entry.circleIds) {
+    if (circleAllowed(session, cid)) return true;
+  }
+  return false;
+}
+
+/// 这个用户此刻挂着、且对该连接可见的圈子清单。
+/// 只回观察者有权看到的那几个,不泄露他挂在别的圈子这件事。
+function visibleCirclesOf(session, entry) {
+  const out = [];
+  for (const cid of entry.circleIds) {
+    if (circleAllowed(session, cid)) out.push(cid);
+  }
+  return out;
+}
+
+function availableMsg(userId, entry, session) {
+  return {
+    t: 'member_available',
+    userId,
+    name: entry.name,
+    since: entry.since,
+    circleIds: visibleCirclesOf(session, entry),
+  };
+}
+
+/// 广播某人的挂着状态变化。[gone] 为真表示取消。
+function broadcastAvailable(userId, gone = false) {
+  const entry = available.get(userId);
+  for (const ws of lobby) {
+    const s = ws._laresSession;
+    if (!s || ws.readyState !== ws.OPEN) continue;
+    // 取消时用**取消前**的可见范围判断,否则对方永远收不到「他不可约了」
+    if (gone) {
+      const prev = ws._laresSawAvailable?.has(userId);
+      if (!prev) continue;
+      ws._laresSawAvailable.delete(userId);
+      ws.send(JSON.stringify({ t: 'member_unavailable', userId }));
+      continue;
+    }
+    if (!entry || !availableVisibleTo(s, entry)) continue;
+    (ws._laresSawAvailable ??= new Set()).add(userId);
+    ws.send(JSON.stringify(availableMsg(userId, entry, s)));
+  }
+}
+
+/// 清掉某人的挂着状态(进房、断线、显式取消都走这里)。
+function clearAvailable(userId) {
+  if (!available.has(userId)) return;
+  available.delete(userId);
+  broadcastAvailable(userId, true);
+}
+
 function circleSummaryMsg(circleId) {
   const members = [...(circles.get(circleId)?.values() ?? [])];
   return {
@@ -387,6 +464,14 @@ function handleConnection(ws, req) {
         for (const [circleId] of circles) {
           if (circleAllowed(session, circleId)) send(ws, circleSummaryMsg(circleId));
         }
+        // 补发当前挂着的人 —— 后连上来的也要知道谁有空,
+        // 否则只有「挂起那一刻正好在线」的人看得到。
+        for (const [uid, entry] of available) {
+          if (uid === session.userId) continue; // 自己不用看自己
+          if (!availableVisibleTo(session, entry)) continue;
+          (ws._laresSawAvailable ??= new Set()).add(uid);
+          send(ws, availableMsg(uid, entry, session));
+        }
         break;
       }
 
@@ -402,6 +487,72 @@ function handleConnection(ws, req) {
           send(ws, { t: 'knock_waiting', circleId });
           broadcast(circleId, { t: 'knock', circleId, userId: session.userId, name: session.name });
           break;
+        }
+        await joinCircle(ws, session, circleId);
+        break;
+      }
+
+      case 'available': {
+        // 挂起「我有空」。msg.circleIds = 想对哪几个圈子可见。
+        if (!session.userId) return send(ws, { t: 'error', message: 'say_hello_first' });
+        const raw = Array.isArray(msg.circleIds) ? msg.circleIds : [];
+        // 只接受自己有权进的圈子 —— 否则等于借这条消息把自己
+        // 广播进一个没有口令的圈子,是越权。
+        const ids = new Set(
+          raw.filter((c) => typeof c === 'string' && c && circleAllowed(session, c)),
+        );
+        if (ids.size === 0) return send(ws, { t: 'error', message: 'auth_scope' });
+        // 已经在房间里就不该再挂着 —— 两者语义互斥
+        if (session.circleId) return send(ws, { t: 'error', message: 'already_in_room' });
+        available.set(session.userId, {
+          circleIds: ids,
+          name: session.name,
+          since: Date.now(),
+          ws,
+        });
+        send(ws, { t: 'available_ok', circleIds: [...ids] });
+        broadcastAvailable(session.userId);
+        break;
+      }
+
+      case 'unavailable': {
+        if (!session.userId) return;
+        // 只能取消自己的
+        clearAvailable(session.userId);
+        break;
+      }
+
+      case 'reach': {
+        // 「去找 ta」。把双方都拉进**发起人(被找的那个人)所在的圈子**。
+        //
+        // 为什么是发起人的圈子而不是新建临时房:临时房不属于任何圈子,
+        // 与既有的圈子鉴权、E2EE 密钥派生(由圈口令来)全都对不上。
+        if (!session.userId) return;
+        const targetId = typeof msg.userId === 'string' ? msg.userId : '';
+        const entry = targetId ? available.get(targetId) : null;
+        if (!entry) return send(ws, { t: 'reach_failed', reason: 'gone' });
+        // 只能找到自己看得见的人
+        if (!availableVisibleTo(session, entry)) {
+          return send(ws, { t: 'reach_failed', reason: 'gone' });
+        }
+        // 进哪个圈子:取「双方都有权、且对方挂着」的第一个。
+        // 通常就是找的人自己所在的那个圈。
+        const circleId = typeof msg.circleId === 'string' && msg.circleId
+          ? msg.circleId
+          : visibleCirclesOf(session, entry)[0];
+        if (!circleId || !entry.circleIds.has(circleId) || !circleAllowed(session, circleId)) {
+          return send(ws, { t: 'reach_failed', reason: 'auth_scope' });
+        }
+        // 先清挂着态再进房:清理会广播 member_unavailable,
+        // 让其他圈子的人立刻看到「他不可约了」。
+        const targetWs = entry.ws;
+        const targetSession = targetWs?._laresSession;
+        clearAvailable(targetId);
+        // 被找的人先进房,再让发起者进 —— 这样发起者进去时房里已经有人,
+        // 拿到的 room 快照是完整的。
+        if (targetWs && targetWs.readyState === targetWs.OPEN && targetSession) {
+          send(targetWs, { t: 'reached', circleId, by: session.name, byUserId: session.userId });
+          await joinCircle(targetWs, targetSession, circleId);
         }
         await joinCircle(ws, session, circleId);
         break;
@@ -601,14 +752,29 @@ function handleConnection(ws, req) {
   ws.on('close', () => {
     lobby.delete(ws);
     leaveCircle(ws, session);
+    // 断线即取消挂着 —— 否则会留下一个点了没反应的「可约」幽灵。
+    // 只清**这条连接**挂起的那个:同一个人在别的设备上挂着的不该被误清。
+    if (session.userId && available.get(session.userId)?.ws === ws) {
+      clearAvailable(session.userId);
+    }
     // 清理未应门的敲门请求
     for (const pending of pendingKnocks.values()) pending.delete(session.userId);
   });
-  ws.on('error', () => { lobby.delete(ws); leaveCircle(ws, session); });
+  ws.on('error', () => {
+    lobby.delete(ws);
+    leaveCircle(ws, session);
+    if (session.userId && available.get(session.userId)?.ws === ws) {
+      clearAvailable(session.userId);
+    }
+  });
 }
 
 /// 执行进房(直接进 / 敲门放行后):换圈、登记成员、发房间快照与 RTC token
 async function joinCircle(ws, session, circleId) {
+  // 进房与「挂着」互斥:人已经在房间里了,对其他圈子就不该再显示可约。
+  // 放在这里而不是只放在 reach 分支里 —— 用户自己点进某个圈子时
+  // 同样要取消挂着态,否则别人还会看到一个进不去的「可约」标记。
+  if (session.userId) clearAvailable(session.userId);
   // 先退出旧圈子(MVP:同时只在一个圈子的房间里)
   if (session.circleId) leaveCircle(ws, session);
   session.circleId = circleId;
