@@ -11,6 +11,14 @@ dependencies:
     sdk: flutter
   # RTC:LiveKit 官方 Flutter SDK(iOS/Android/Windows/macOS 全平台)
   livekit_client: ^2.5.0
+  # 裸 WebRTC:点对点直连(lib/src/p2p/)用它,不走 SFU
+  # —— Room.connect(url, token) 必须连一台 SFU,LiveKit 没有 P2P 模式。
+  #
+  # ⚠️ **精确** 1.6.0,与 livekit_client 锁定的版本一致。
+  # 版本不一致会引入两份原生 WebRTC,移动端直接链接失败。
+  # 它本是 livekit_client 的传递依赖,提为直接依赖是因为 p2p 模块
+  # 直接 import 了它(传递依赖随时可能被上游移除)。
+  flutter_webrtc: 1.6.0
   # presence 信令
   web_socket_channel: ^3.0.3
   # 桌面托盘入口(macOS 菜单栏 / Windows 托盘)
@@ -66,6 +74,7 @@ dependencies:
   hashlib: ^2.4.2
   flutter_secure_storage: ^11.1.1
   local_auth: ^3.0.2
+  archive: ^4.3.0
 
 dev_dependencies:
   flutter_test:
