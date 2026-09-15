@@ -346,9 +346,35 @@ Apple 于 **2026-02-06** 专门修订 1.2,把 "random or anonymous chat" 明确�
 | 2 | **无任何 `.xcprivacy` 隐私清单** | 全仓库 glob 无结果;2024-05 起强制 | 进行中 |
 | 3 | `UIBackgroundModes` 声明 `fetch` 但**零使用** | `Info.plist:35`;grep 无 `BGTaskScheduler` | 待删(`audio` 保留,语音房真需求) |
 | 4 | CI 产物**不是可上传的 ipa** | `ios-build.yml:38` `--no-codesign` + `:46` 手工 zip Payload | 侧载可用,上传必被拒收 |
-| 5 | 零合规资产 | 无隐私政策/服务条款/支持页;三者均为 ASC **必填 URL** | 待做 |
-| 6 | UGC 三件套缺失(1.2) | 无屏蔽、无举报、无 EULA | 进行中 |
+| 5 | ~~零合规资产~~ | 三者均为 ASC **必填 URL** | **已做** → GitHub Pages,见下 |
+| 6 | UGC 三件套缺失(1.2) | 无屏蔽、无举报、无 EULA | ✅ 已做 |
 | 7 | **iOS 选图功能实际不可用** | 见下「已确诊」 | ✅ 已修 |
+| 8 | ⚠️ **举报邮箱指向未批下来的域名** | `report.dart:4` `support@laresproject.eu.org` | **提审前必须改** |
+
+### 🔴 提审前必改:举报邮箱会退信
+
+`kSupportEmail` 现在是 `support@laresproject.eu.org`,而**那个域名还没批**。
+审核员会**实测举报通道**(1.2 必查项),发出去退信 = 现成的拒绝理由。
+
+域名批下来后改 `app/lib/src/moderation/report.dart:4` 一处即可;
+若域名迟迟不批,换成任意真实可达的邮箱。
+
+### 合规页面(已上线)
+
+`https://lfm097384.github.io/Lares/` —— 源文件在 `docs/`,main 分支 /docs 目录。
+
+| 页面 | URL |
+|---|---|
+| 隐私政策 | `https://lfm097384.github.io/Lares/privacy` |
+| 服务条款 | `https://lfm097384.github.io/Lares/terms` |
+| 支持 | `https://lfm097384.github.io/Lares/support` |
+
+内容按**代码实际行为**写,不是模板。两处值得注意:
+
+- 如实写了「**语音便签是唯一会落盘的用户内容**」(`server/src/index.js:871`),
+  且「设计上听过即删,但没人听就一直留着」—— 不含糊
+- 单列一节「服务器可能不是我们的」:自托管项目的实情,
+  用户连自己搭的机器时那些数据我们根本碰不到
 
 ### 2026-09-13 已完成(本轮)
 
