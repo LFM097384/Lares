@@ -110,14 +110,33 @@ typedef CredentialSource = AuthCredential Function();
 /// 绝不能缓存证明去重放 —— 那是这套东西最容易写错的地方。
 class SignalingClient {
   SignalingClient({
-    required this.url,
+    required String url,
     CredentialSource? credentials,
     ChannelConnector? connector,
     this.userId,
-  })  : _credentials = credentials,
+  })  : _url = url,
+        _credentials = credentials,
         _connector = connector ?? WebSocketChannel.connect;
 
-  final String url;
+  String _url;
+
+  /// 当前信令地址。
+  String get url => _url;
+
+  /// 换一台服务器。
+  ///
+  /// 存在的理由是跨服务器的「我有空」:有人在**别的**服务器上来找我,
+  /// 主连接必须切过去才能进那个房间。在此之前换服务器要重启 App。
+  ///
+  /// 复用 [reconnectWithNewCredential] 的干净重连 —— 它已经处理了
+  /// 退避归零、4401 抑制清除、nonce 作废这些事。换地址与换口令在
+  /// 「必须从头握手」这一点上是同一回事,不该各写一套。
+  set url(String value) {
+    if (_url == value) return;
+    _url = value;
+    if (_disposed) return;
+    reconnectWithNewCredential();
+  }
 
   /// 凭据来源;为空视作 none 模式
   CredentialSource? _credentials;
@@ -179,6 +198,25 @@ class SignalingClient {
 
   /// 握手完成(可以正常收发业务消息)
   bool get isReady => _connected && _handshakeDone;
+
+  /// 等到握手完成(或超时)。返回是否成功。
+  ///
+  /// 用途:换服务器之后要等新连接握完手才能进房 ——
+  /// 握手未完成时业务消息会被排队,而排队期间若再次重连,那条消息就丢了。
+  ///
+  /// 实现上轮询 [isReady] 而不是加一个 Completer:重连可能发生任意多次,
+  /// 每次都要把 Completer 重建/作废,状态机会多出一堆边界;
+  /// 而这里等的是「最终就绪」,轮询足够且不会漏掉中间的反复。
+  Future<bool> waitHandshake(Duration timeout) async {
+    if (isReady) return true;
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_disposed) return false;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (isReady) return true;
+    }
+    return false;
+  }
 
   AuthStatus get auth => authStatus.value;
 

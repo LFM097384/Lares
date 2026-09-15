@@ -64,6 +64,19 @@ class SettingsStore extends ChangeNotifier {
   AuthCredential credentialFor(String? circleId) =>
       serverProfiles.active?.credentialFor(circleId) ?? AuthCredential.none;
 
+  /// 按**指定服务器**取凭据(跨服务器 presence 用)。
+  ///
+  /// 与 [credentialFor] 的区别:那个只看当前选中的档案。
+  /// 同时连多台服务器时,每条链路必须用**它自己那台**的口令认证 ——
+  /// 拿甲服务器的口令去乙服务器,轻则 4401,重则(若两边恰好同口令)
+  /// 让人误以为跨服务器是「一个身份」,而它根本不是。
+  AuthCredential credentialForServer(String serverId, String? circleId) {
+    for (final p in serverProfiles.profiles) {
+      if (p.id == serverId) return p.credentialFor(circleId);
+    }
+    return AuthCredential.none;
+  }
+
   /// 敏感值(令牌 / 圈口令)的权威存储。
   ///
   /// 这些东西**不再**写进 `shared_preferences` —— 那在所有平台上都是明文,

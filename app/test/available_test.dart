@@ -170,4 +170,54 @@ void main() {
       expect(c.reachedBy, isNull);
     });
   });
+
+  group('跨服务器聚合', () {
+    test('主连接与池子的人合并显示', () async {
+      await inject({
+        't': 'member_available',
+        'userId': 'u_local',
+        'name': '本机服务器的人',
+        'circleIds': ['jia'],
+        'since': 1,
+      });
+      c.remoteAvailableIn = (cid) => cid == 'jia'
+          ? [(userId: 'u_far', name: '别的服务器的人')]
+          : const [];
+      final all = c.availableIn('jia');
+      expect(all, hasLength(2));
+      expect(all.map((e) => e.name),
+          containsAll(['本机服务器的人', '别的服务器的人']));
+    });
+
+    test('同一个人不会因为两个来源都有而出现两次', () async {
+      await inject({
+        't': 'member_available',
+        'userId': 'u_dup',
+        'name': '同一个人',
+        'circleIds': ['jia'],
+        'since': 1,
+      });
+      // 档案切换的瞬间,同一台服务器可能同时出现在主连接和池子里
+      c.remoteAvailableIn = (_) => [(userId: 'u_dup', name: '同一个人')];
+      expect(c.availableIn('jia'), hasLength(1),
+          reason: '去重按 userId,不能让同一个人在列表里出现两次');
+    });
+
+    test('池子里的自己也要排除', () {
+      c.remoteAvailableIn = (_) => [(userId: 'u_me', name: '我')];
+      expect(c.availableIn('jia'), isEmpty);
+    });
+
+    test('没接池子时行为不变', () async {
+      await inject({
+        't': 'member_available',
+        'userId': 'u_x',
+        'name': '阿澈',
+        'circleIds': ['jia'],
+        'since': 1,
+      });
+      expect(c.remoteAvailableIn, isNull);
+      expect(c.availableIn('jia'), hasLength(1));
+    });
+  });
 }

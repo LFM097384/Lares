@@ -110,12 +110,36 @@ class RoomController extends ChangeNotifier {
 
   bool get iAmAvailable => myAvailableCircles.isNotEmpty;
 
-  /// 某个圈子里有几个人挂着可约(不含自己)。
-  List<({String userId, String name})> availableIn(String circleId) => [
-        for (final e in availableMembers.entries)
-          if (e.key != userId && e.value.circleIds.contains(circleId))
-            (userId: e.key, name: e.value.name),
-      ];
+  /// 外部数据源变化时用它触发一次刷新(`notifyListeners` 是 protected 的)。
+  void refresh() => notifyListeners();
+
+  /// 别的服务器上有谁挂着(由 PresencePool 注入)。
+  ///
+  /// 做成回调而不是直接依赖 `PresencePool`:controller 不该认识
+  /// 跨服务器聚合这件事,它只需要知道「这个圈子里还有谁有空」。
+  List<({String userId, String name})> Function(String circleId)?
+      remoteAvailableIn;
+
+  /// 某个圈子里有谁挂着可约(不含自己,已跨服务器聚合)。
+  ///
+  /// 去重按 userId:同一台服务器的人可能同时出现在主连接与池子里
+  /// (主连接那台被 exclude 掉了,正常不会;但档案切换的瞬间可能重叠)。
+  /// 宁可多一次去重,也不要让同一个人在列表里出现两次。
+  List<({String userId, String name})> availableIn(String circleId) {
+    final seen = <String>{};
+    final out = <({String userId, String name})>[];
+    for (final e in availableMembers.entries) {
+      if (e.key == userId || !e.value.circleIds.contains(circleId)) continue;
+      if (seen.add(e.key)) out.add((userId: e.key, name: e.value.name));
+    }
+    final remote = remoteAvailableIn?.call(circleId) ??
+        const <({String userId, String name})>[];
+    for (final r in remote) {
+      if (r.userId == userId) continue;
+      if (seen.add(r.userId)) out.add(r);
+    }
+    return out;
+  }
 
   /// 敲门中(等待房内成员放行)
   bool knocking = false;
@@ -346,6 +370,34 @@ class RoomController extends ChangeNotifier {
   void reach(String targetUserId, {String? circleId}) {
     reachFailed = null;
     _signaling.reach(targetUserId, circleId: circleId);
+  }
+
+  /// 有人在**另一台服务器**上来找我:把主连接切过去,再进那个圈子。
+  ///
+  /// 三步的顺序都不能换:
+  ///  1. 先退出当前房间 —— 否则旧服务器上会留下一个「人还在」的幽灵;
+  ///  2. 再换地址(setter 内部会干净重连、重新握手);
+  ///  3. **等握手完成**才 join —— 握手未完成时 join 会被排队,
+  ///     而排队期间若又一次重连,那条 join 就丢了,表现为「切过去了但没进房」。
+  ///
+  /// [url] 由调用方给:controller 不认识 ServerProfile,
+  /// 不该为了查一个地址把整个设置层拖进来。
+  Future<void> switchServerAndJoin({
+    required String circleId,
+    String? url,
+  }) async {
+    if (phase != RoomPhase.idle) await leave();
+    if (url != null) _signaling.url = url;
+    // 跨服务器通常意味着跨网络,超时给宽一点。
+    final ok =
+        await _signaling.waitHandshake(const Duration(seconds: 10));
+    if (!ok) {
+      phase = RoomPhase.error;
+      errorMessage = '连不上那台服务器,没能过去';
+      notifyListeners();
+      return;
+    }
+    join(circleId);
   }
 
   /// UI 提示过之后调用,免得重复弹。

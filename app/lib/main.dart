@@ -12,6 +12,7 @@ import 'src/e2ee/e2ee_store.dart';
 import 'src/moderation/block_audio_enforcer.dart';
 import 'src/moderation/block_store.dart';
 import 'src/moderation/consent_store.dart';
+import 'src/net/presence_pool.dart';
 import 'src/net/signaling_client.dart';
 import 'src/platform/foreground_service.dart';
 import 'src/platform/widget_service.dart';
@@ -94,6 +95,50 @@ Future<void> main() async {
   );
   // 每一条走到 rtc.join() 的路径都会先过这个钩子(含闲时降级后的媒体唤醒)
   controller.prepareEncryption = e2ee.prepareFor;
+
+  // 跨服务器「我有空」:主连接之外,对其余每台服务器各开一条只做 presence
+  // 的轻连接。服务器之间不通信 —— 聚合发生在这里。
+  final presence = PresencePool(
+    userId: identity.userId,
+    credentialFor: settings.credentialForServer,
+  );
+  void syncPresenceLinks() {
+    presence.syncProfiles(
+      settings.serverProfiles.profiles,
+      // 主连接已经在用的那台不重复连:它的可约者由主连接自己的消息流提供
+      exclude: settings.serverProfiles.activeId,
+    );
+  }
+
+  syncPresenceLinks();
+  // 用户增删服务器档案后要跟着变
+  settings.addListener(syncPresenceLinks);
+  // 让圈子列表把「别的服务器上谁有空」一并显示出来。
+  // UI 只问 controller.availableIn(),不必知道数据来自几条连接。
+  controller.remoteAvailableIn = (circleId) => [
+        for (final r in presence.availableIn(circleId))
+          (userId: r.userId, name: r.name),
+      ];
+  // 池子有变化时刷新圈子列表(它不在 controller 的通知链上)
+  presence.addListener(controller.refresh);
+  // 有人在别的服务器上来找我 —— 把主连接切过去。
+  // 池子只报告事实,进房始终是主连接的事,不让两条路径都能进房。
+  presence.addListener(() {
+    final r = presence.reached;
+    if (r == null) return;
+    presence.consumeReached();
+    // 查出那台服务器的地址。查不到就不动 —— 宁可什么都不做,
+    // 也不能把主连接切到一个不存在的地址,那会连当前的圈子都回不去。
+    String? url;
+    for (final p in settings.serverProfiles.profiles) {
+      if (p.id == r.serverId) url = p.url;
+    }
+    if (url == null || url.isEmpty) return;
+    unawaited(controller.switchServerAndJoin(
+      circleId: r.circleId,
+      url: url,
+    ));
+  });
 
   // P0 预连接:App 启动即建立信令长连接并上报身份
   controller.preconnect();
