@@ -517,6 +517,21 @@ class SignalingClient {
 
   void setStatus(String status) => send({'t': 'status', 'status': status});
 
+  /// 挂起「我有空」,对这几个圈子可见。服务端只会接受你有权进的那些。
+  void setAvailable(List<String> circleIds) =>
+      send({'t': 'available', 'circleIds': circleIds});
+
+  /// 收回「我有空」
+  void clearAvailable() => send({'t': 'unavailable'});
+
+  /// 去找某个挂着的人。不给 circleId 时服务端取双方都可见的第一个。
+  /// 不给 circleId 时,服务端取双方都可见的第一个圈子。
+  void reach(String userId, {String? circleId}) {
+    final msg = <String, dynamic>{'t': 'reach', 'userId': userId};
+    if (circleId != null) msg['circleId'] = circleId;
+    send(msg);
+  }
+
   /// 测试注入:模拟收到一条服务器消息
   // ignore: use_setters_to_change_properties
   void testInject(Map<String, dynamic> msg) => _messages.add(msg);

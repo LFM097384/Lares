@@ -195,6 +195,15 @@ class _CircleList extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(LaresSpacing.md),
           children: [
+            // 「我有空」:跨圈的,所以放在圈子列表之上而不是某个圈里。
+            // 只在有两个以上圈子时才出现 —— 一个圈子的话直接进去就行,
+            // 挂着等人反而多此一举。
+            if (circleStore.circles.length > 1 &&
+                controller.phase == RoomPhase.idle)
+              _AvailableToggle(
+                controller: controller,
+                circleStore: circleStore,
+              ),
             for (final circle in circleStore.circles)
               _CircleTile(
                 key: ValueKey(circle.id),
@@ -339,9 +348,16 @@ class _CircleTile extends StatelessWidget {
         ? controller.members.length
         : (summary?.count ?? 0);
     final names = summary?.names ?? const <String>[];
-    final subtitle = online > 0
-        ? '$online 个人在${names.isNotEmpty ? ' · ${names.join('、')}' : ''}'
-        : '暂无人在,进去等等看?';
+    // 挂着「有空」的人:还没进任何房间,但等着谁来找。
+    // 和「几个人在」放同一行 —— 对用户来说这是同一类信息:
+    // 「这个圈子现在有没有人可以说话」。
+    final waiting = controller.availableIn(circle.id);
+    final subtitle = switch ((online, waiting.length)) {
+      (0, 0) => '暂无人在,进去等等看?',
+      (0, _) => '${waiting.map((w) => w.name).join('、')} 有空,等人来找',
+      (_, 0) => '$online 个人在${names.isNotEmpty ? ' · ${names.join('、')}' : ''}',
+      _ => '$online 个人在 · ${waiting.map((w) => w.name).join('、')} 有空',
+    };
 
     final isPrimary = circleStore.isPrimary(circle.id);
 
@@ -417,6 +433,13 @@ class _CircleTile extends StatelessWidget {
                 if (controller.phase != RoomPhase.idle &&
                     controller.circleId != circle.id) {
                   await controller.leave();
+                }
+                // 房里没人、但有人挂着「我有空」—— 那就去找 ta,
+                // 而不是自己进一个空房间干等。
+                // 服务端会把双方一起拉进这个圈子。
+                if (online == 0 && waiting.isNotEmpty) {
+                  controller.reach(waiting.first.userId, circleId: circle.id);
+                  return;
                 }
                 controller.join(circle.id);
               },
@@ -629,6 +652,59 @@ class _SettingsAction extends StatelessWidget {
         blocks: blocks,
         consent: consent,
         devMode: devMode,
+      ),
+    );
+  }
+}
+
+/// 「我有空」开关:把自己挂出去,对选定的几个圈子可见。
+///
+/// 为什么放在圈子列表**之上**:它是跨圈的 —— 挂一次对多个圈子同时可见,
+/// 塞进某个圈子的卡片里会让人以为只对那个圈生效。
+///
+/// 第一个来找的人把双方拉进**那个人所在的圈子**,此刻挂着态立即取消,
+/// 其他圈子的人不再看到你可约。这条规则在副标题里说明白,
+/// 不让用户按下去之后才发现。
+class _AvailableToggle extends StatelessWidget {
+  const _AvailableToggle({
+    required this.controller,
+    required this.circleStore,
+  });
+
+  final RoomController controller;
+  final CircleStore circleStore;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final on = controller.iAmAvailable;
+    final n = controller.myAvailableCircles.length;
+
+    return Card(
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: LaresSpacing.lg,
+          vertical: LaresSpacing.xs,
+        ),
+        secondary: Icon(
+          on ? Icons.waving_hand_rounded : Icons.waving_hand_outlined,
+          color: on ? theme.colorScheme.primary : null,
+        ),
+        title: const Text('我有空'),
+        subtitle: Text(
+          on
+              ? '$n 个圈子看得到 · 谁先来就跟谁聊,进去之后其他圈子就看不到了'
+              : '挂出去,让圈友知道你现在能聊',
+          style: theme.textTheme.bodyMedium,
+        ),
+        value: on,
+        onChanged: (v) {
+          if (!v) return controller.clearAvailable();
+          // 默认对所有圈子可见。想挑的话长按改 —— 先给最省事的默认值,
+          // 而不是一上来就让人做选择题。
+          controller
+              .setAvailable([for (final c in circleStore.circles) c.id]);
+        },
       ),
     );
   }

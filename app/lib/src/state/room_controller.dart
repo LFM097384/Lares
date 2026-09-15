@@ -95,6 +95,28 @@ class RoomController extends ChangeNotifier {
   final Map<String, ({int count, List<String> names, bool knockRequired})>
       circlePresence = {};
 
+  /// 挂着「我有空」的人(userId -> 信息)。
+  ///
+  /// 与 [circlePresence] 的区别:那是「圈子里有几个人在语音」,
+  /// 这是「有人挂在外面等人来找」—— 两者都算在线,但后者还没进任何房间。
+  ///
+  /// 一个人可以同时对多个圈子可约,所以 `circleIds` 是个列表;
+  /// 服务端只会下发**本连接有权看到**的那几个圈子。
+  final Map<String, ({String name, List<String> circleIds, int since})>
+      availableMembers = {};
+
+  /// 我自己此刻挂在哪几个圈子(空 = 没挂)。
+  List<String> myAvailableCircles = const [];
+
+  bool get iAmAvailable => myAvailableCircles.isNotEmpty;
+
+  /// 某个圈子里有几个人挂着可约(不含自己)。
+  List<({String userId, String name})> availableIn(String circleId) => [
+        for (final e in availableMembers.entries)
+          if (e.key != userId && e.value.circleIds.contains(circleId))
+            (userId: e.key, name: e.value.name),
+      ];
+
   /// 敲门中(等待房内成员放行)
   bool knocking = false;
 
@@ -103,6 +125,12 @@ class RoomController extends ChangeNotifier {
 
   /// 被踢通知(UI 弹出后即清)
   String? kickedBy;
+
+  /// 「有人来找我了」的通知(UI 提示后即清)
+  String? reachedBy;
+
+  /// 去找人失败的原因(UI 提示后即清)
+  String? reachFailed;
 
   /// 位置共享(Snapchat 式):同房成员的最新位置
   final Map<String, ({String name, double lat, double lng, int ts})> locations =
@@ -295,6 +323,39 @@ class RoomController extends ChangeNotifier {
         .send({'t': 'kick', 'circleId': circleId, 'userId': targetUserId});
   }
 
+  /// 挂起「我有空」,对这几个圈子可见。
+  ///
+  /// 与进房互斥:人已经在房里了就没必要再挂着,服务端也会拒绝。
+  void setAvailable(List<String> circleIds) {
+    if (circleIds.isEmpty) return clearAvailable();
+    // 乐观更新:服务端 available_ok 回来后会以它为准覆盖。
+    // 先本地生效是为了按下开关立刻有反馈,而不是等一个网络往返。
+    myAvailableCircles = List.unmodifiable(circleIds);
+    _signaling.setAvailable(circleIds);
+    notifyListeners();
+  }
+
+  void clearAvailable() {
+    if (myAvailableCircles.isEmpty) return;
+    myAvailableCircles = const [];
+    _signaling.clearAvailable();
+    notifyListeners();
+  }
+
+  /// 去找某个挂着的人。成功的话服务端会把双方都拉进 [circleId]。
+  void reach(String targetUserId, {String? circleId}) {
+    reachFailed = null;
+    _signaling.reach(targetUserId, circleId: circleId);
+  }
+
+  /// UI 提示过之后调用,免得重复弹。
+  void consumeReachNotices() {
+    if (reachedBy == null && reachFailed == null) return;
+    reachedBy = null;
+    reachFailed = null;
+    notifyListeners();
+  }
+
   /// 位置共享:开启/关闭(LocationShareService 驱动)
   void setSharingMyLocation(bool sharing) {
     sharingMyLocation = sharing;
@@ -443,6 +504,37 @@ class RoomController extends ChangeNotifier {
           names: (msg['names'] as List? ?? []).whereType<String>().toList(),
           knockRequired: msg['knockRequired'] == true,
         );
+        notifyListeners();
+      case 'member_available':
+        final uid = msg['userId'] as String?;
+        if (uid == null) return;
+        availableMembers[uid] = (
+          name: msg['name'] as String? ?? '',
+          circleIds:
+              (msg['circleIds'] as List? ?? []).whereType<String>().toList(),
+          since: (msg['since'] as num?)?.toInt() ?? 0,
+        );
+        notifyListeners();
+      case 'member_unavailable':
+        final uid = msg['userId'] as String?;
+        if (uid == null) return;
+        if (availableMembers.remove(uid) != null) notifyListeners();
+      case 'available_ok':
+        myAvailableCircles =
+            (msg['circleIds'] as List? ?? []).whereType<String>().toList();
+        notifyListeners();
+      case 'reached':
+        // 有人来找我了。进房由服务端直接执行(它会给我们发 room + token),
+        // 这里只负责把「我挂着」这个本地状态收掉,并记下是谁来的。
+        myAvailableCircles = const [];
+        reachedBy = msg['by'] as String?;
+        notifyListeners();
+      case 'reach_failed':
+        // 对方刚好走了或没权限 —— 说清楚,别让按钮看起来没反应
+        reachFailed = switch (msg['reason']) {
+          'auth_scope' => '这个圈子你没有口令',
+          _ => '对方刚好不在了',
+        };
         notifyListeners();
       case 'knock_waiting':
         if (msg['circleId'] != circleId) return;
