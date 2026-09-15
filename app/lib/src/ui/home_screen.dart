@@ -86,8 +86,7 @@ class HomeScreen extends StatelessWidget {
               controller.kickedBy = null;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text('你被${by.isEmpty ? '管理员' : by}请出了房间')),
+                  SnackBar(content: Text('你被${by.isEmpty ? '管理员' : by}请出了房间')),
                 );
               });
             }
@@ -140,10 +139,10 @@ class HomeScreen extends StatelessWidget {
                             padding: const EdgeInsets.all(LaresSpacing.lg),
                             child: Row(
                               children: [
-                                Text('Lares',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge),
+                                Text(
+                                  'Lares',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
                                 const Spacer(),
                                 _SettingsAction(
                                   controller: controller,
@@ -200,7 +199,7 @@ class _CircleList extends StatelessWidget {
             // 挂着等人反而多此一举。
             if (circleStore.circles.length > 1 &&
                 controller.phase == RoomPhase.idle)
-              _AvailableToggle(
+              AvailableToggle(
                 controller: controller,
                 circleStore: circleStore,
               ),
@@ -312,10 +311,7 @@ class _CircleList extends StatelessWidget {
       final uri = Uri.parse(input);
       final id = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : '';
       if (id.isEmpty) return null;
-      return Circle(
-        id: id,
-        name: uri.queryParameters['name'] ?? '朋友的圈',
-      );
+      return Circle(id: id, name: uri.queryParameters['name'] ?? '朋友的圈');
     }
     // 纯 id
     return Circle(id: input, name: '朋友的圈');
@@ -394,10 +390,7 @@ class _CircleTile extends StatelessWidget {
             ],
           ],
         ),
-        subtitle: Text(
-          subtitle,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+        subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -464,9 +457,9 @@ class _CircleTile extends StatelessWidget {
             const SizedBox(height: LaresSpacing.md),
             SelectableText(
               link,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
             ),
           ],
         ),
@@ -500,13 +493,12 @@ class _CircleTile extends StatelessWidget {
                 isPrimary
                     ? Icons.local_fire_department_rounded
                     : Icons.local_fire_department_outlined,
-                color:
-                    isPrimary ? Theme.of(context).colorScheme.primary : null,
+                color: isPrimary ? Theme.of(context).colorScheme.primary : null,
               ),
               title: Text(isPrimary ? '已是主圈子' : '设为主圈子'),
-              subtitle: Text(isPrimary
-                  ? '小组件、快捷设置、托盘点一下进的就是这个圈'
-                  : '主屏小组件点一下,直接进这个圈'),
+              subtitle: Text(
+                isPrimary ? '小组件、快捷设置、托盘点一下进的就是这个圈' : '主屏小组件点一下,直接进这个圈',
+              ),
               enabled: !isPrimary,
               onTap: isPrimary
                   ? null
@@ -528,9 +520,11 @@ class _CircleTile extends StatelessWidget {
             // 代价必须写在开关旁边(kE2EECostNotice),不能让人开完才困惑。
             if (e2ee != null) _E2EETile(circle: circle, e2ee: e2ee!),
             ListTile(
-              leading: Icon(knockOn
-                  ? Icons.door_front_door_rounded
-                  : Icons.door_front_door_outlined),
+              leading: Icon(
+                knockOn
+                    ? Icons.door_front_door_rounded
+                    : Icons.door_front_door_outlined,
+              ),
               title: Text(knockOn ? '敲门模式:开(点一下关闭)' : '敲门模式:关(点一下开启)'),
               subtitle: const Text('开启后,圈外人进来需要里面的人放行'),
               onTap: () {
@@ -608,8 +602,7 @@ class _E2EETileState extends State<_E2EETile> {
         // 开了但这台设备做不到:必须说出来,而且要显眼。
         // E2EEWarningBanner 自带左右留白,与房间页的横幅视觉一致。
         if (status.isBrokenPromise) E2EEWarningBanner(status: status),
-        if (status.isBrokenPromise)
-          const SizedBox(height: LaresSpacing.md),
+        if (status.isBrokenPromise) const SizedBox(height: LaresSpacing.md),
       ],
     );
   }
@@ -665,8 +658,12 @@ class _SettingsAction extends StatelessWidget {
 /// 第一个来找的人把双方拉进**那个人所在的圈子**,此刻挂着态立即取消,
 /// 其他圈子的人不再看到你可约。这条规则在副标题里说明白,
 /// 不让用户按下去之后才发现。
-class _AvailableToggle extends StatelessWidget {
-  const _AvailableToggle({
+/// 公开(而非 `_` 私有)是为了能被 widget 测试直接挂载 ——
+/// 「选了哪几个圈子就挂哪几个」这条契约值得单独验,
+/// 把整个首页拉起来测它既慢又脆。
+class AvailableToggle extends StatelessWidget {
+  const AvailableToggle({
+    super.key,
     required this.controller,
     required this.circleStore,
   });
@@ -680,33 +677,134 @@ class _AvailableToggle extends StatelessWidget {
     final on = controller.iAmAvailable;
     final n = controller.myAvailableCircles.length;
 
+    final total = circleStore.circles.length;
+    // 挂着且只选了一部分圈子时,把「哪几个」说清楚 ——
+    // 「2 个圈子看得到」比「已开启」有用得多。
+    final picked = on && n < total;
+
+    final tile = SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: LaresSpacing.lg,
+        vertical: LaresSpacing.xs,
+      ),
+      secondary: Icon(
+        on ? Icons.waving_hand_rounded : Icons.waving_hand_outlined,
+        color: on ? theme.colorScheme.primary : null,
+      ),
+      title: Row(
+        children: [
+          const Text('我有空'),
+          if (picked) ...[
+            const SizedBox(width: LaresSpacing.sm),
+            Icon(
+              Icons.filter_alt_rounded,
+              size: 14,
+              color: theme.colorScheme.primary,
+            ),
+          ],
+        ],
+      ),
+      subtitle: Text(
+        on
+            ? '$n 个圈子看得到 · 谁先来就跟谁聊,进去之后其他圈子就看不到了'
+            // 没挂着时就把「可以挑」这件事说出来 ——
+            // 长按是个藏起来的手势,不说没人会去试。
+            : '挂出去,让圈友知道你现在能聊 · 长按可挑圈子',
+        style: theme.textTheme.bodyMedium,
+      ),
+      value: on,
+      onChanged: (v) {
+        if (!v) return controller.clearAvailable();
+        // 默认对所有圈子可见。想挑就长按 —— 先给最省事的默认值,
+        // 而不是一上来就让人做选择题。
+        controller.setAvailable([for (final c in circleStore.circles) c.id]);
+      },
+    );
+
+    // SwitchListTile 自己没有 onLongPress,所以外面包一层。
+    // behavior: opaque —— 让长按在整张卡片上都能触发,而不只是文字那一小块。
     return Card(
-      child: SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: LaresSpacing.lg,
-          vertical: LaresSpacing.xs,
-        ),
-        secondary: Icon(
-          on ? Icons.waving_hand_rounded : Icons.waving_hand_outlined,
-          color: on ? theme.colorScheme.primary : null,
-        ),
-        title: const Text('我有空'),
-        subtitle: Text(
-          on
-              ? '$n 个圈子看得到 · 谁先来就跟谁聊,进去之后其他圈子就看不到了'
-              : '挂出去,让圈友知道你现在能聊',
-          style: theme.textTheme.bodyMedium,
-        ),
-        value: on,
-        onChanged: (v) {
-          if (!v) return controller.clearAvailable();
-          // 默认对所有圈子可见。想挑的话长按改 —— 先给最省事的默认值,
-          // 而不是一上来就让人做选择题。
-          controller
-              .setAvailable([for (final c in circleStore.circles) c.id]);
-        },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: () => _pickCircles(context),
+        child: tile,
       ),
     );
+  }
+
+  /// 挑选对哪几个圈子可见。
+  ///
+  /// 入口是长按而不是常驻按钮:多数时候「对所有人可见」就是对的,
+  /// 挑选是少数情况(比如今晚只想跟家里人聊)。
+  Future<void> _pickCircles(BuildContext context) async {
+    // 起始值:已经挂着就沿用当前选择,没挂着则默认全选
+    final selected = <String>{
+      ...(controller.iAmAvailable
+          ? controller.myAvailableCircles
+          : circleStore.circles.map((c) => c.id)),
+    };
+
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setInner) => AlertDialog(
+          title: const Text('对哪几个圈子可见'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '挂出去之后,这几个圈子的人会看到你有空。\n'
+                '谁先来找你,就跟谁聊 —— 那一刻其他圈子就看不到你了。',
+                style: Theme.of(ctx).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: LaresSpacing.md),
+              // 圈子可能很多,给个上限高度,别把对话框撑破屏幕
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final c in circleStore.circles)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(c.name, overflow: TextOverflow.ellipsis),
+                          value: selected.contains(c.id),
+                          onChanged: (v) => setInner(() {
+                            if (v == true) {
+                              selected.add(c.id);
+                            } else {
+                              selected.remove(c.id);
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('算了'),
+            ),
+            // 一个都没选就等于不挂着 —— 与其让用户提交一个空选择再困惑
+            // 为什么没人看得到,不如直接把按钮禁掉。
+            FilledButton(
+              onPressed: selected.isEmpty
+                  ? null
+                  : () => Navigator.pop(ctx, selected),
+              child: const Text('就这几个'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null || result.isEmpty) return;
+    controller.setAvailable(result.toList());
   }
 }
 
@@ -770,10 +868,10 @@ class _EmptyRoomHint extends StatelessWidget {
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
           ),
           const SizedBox(height: LaresSpacing.md),
-          Text('点左边圈子,一键进圈',
-              style: Theme.of(context).textTheme.bodyMedium),
+          Text('点左边圈子,一键进圈', style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
   }
 }
+

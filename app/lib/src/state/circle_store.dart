@@ -3,17 +3,54 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 一个圈子(本地登记;服务端按 circleId 动态建房间,无需注册)
 class Circle {
-  const Circle({required this.id, required this.name});
+  const Circle({required this.id, required this.name, this.serverId});
 
   final String id;
   final String name;
 
-  String encode() => '$id\n$name';
+  /// 这个圈子住在哪台服务器上([ServerProfile.id])。
+  ///
+  /// `null` = 跟着「当前选中的服务器」走,也就是所有老数据的行为。
+  /// 显式指定后,这个圈子就永远在那台服务器上找 —— 这是跨服务器
+  /// 「我有空」的前提:同时挂在甲、乙两台机器上的圈子,
+  /// 必须知道各自该往哪儿发消息。
+  final String? serverId;
+
+  Circle copyWith({String? name, String? serverId}) => Circle(
+        id: id,
+        name: name ?? this.name,
+        serverId: serverId ?? this.serverId,
+      );
+
+  /// 存储格式:`id\n名字`,可选地在**最前面**加一行 `@srv=xxx`。
+  ///
+  /// 为什么把新字段放前面而不是追加到末尾:圈子名是用户自由输入的,
+  /// **可能含换行**(老实现用 `indexOf` 只切第一个 `\n`,所以一直是安全的)。
+  /// 往末尾追加字段会让「名字里带换行的老数据」被误判 ——
+  /// 最后一行会被当成 serverId。放在最前面则完全没有歧义:
+  /// 要么第一行以 `@srv=` 开头,要么就是老格式。
+  static const _srvPrefix = '@srv=';
+
+  String encode() => serverId == null
+      ? '$id\n$name'
+      : '$_srvPrefix$serverId\n$id\n$name';
 
   static Circle? decode(String s) {
-    final i = s.indexOf('\n');
+    var body = s;
+    String? srv;
+    if (s.startsWith(_srvPrefix)) {
+      final nl = s.indexOf('\n');
+      if (nl < 0) return null; // 只有头没有正文,坏数据
+      srv = s.substring(_srvPrefix.length, nl);
+      body = s.substring(nl + 1);
+    }
+    final i = body.indexOf('\n');
     if (i <= 0) return null;
-    return Circle(id: s.substring(0, i), name: s.substring(i + 1));
+    return Circle(
+      id: body.substring(0, i),
+      name: body.substring(i + 1),
+      serverId: srv != null && srv.isNotEmpty ? srv : null,
+    );
   }
 }
 
