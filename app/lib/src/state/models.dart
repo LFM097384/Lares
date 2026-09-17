@@ -30,6 +30,8 @@ class Member {
     required this.name,
     required this.status,
     this.deviceCount = 1,
+    this.platform = '',
+    this.latencyMs = -1,
   });
 
   final String userId;
@@ -37,11 +39,31 @@ class Member {
   final MemberStatus status;
   final int deviceCount;
 
-  Member copyWith({MemberStatus? status, int? deviceCount}) => Member(
+  /// 这个人用的什么平台(windows/macos/linux/android/ios/web)。
+  /// 多人直连时选主机要用:桌面端优先扛转发。
+  final String platform;
+
+  /// 这个人到信令服务器的往返延迟(毫秒)。-1 = 未知。
+  /// 同样是选主机的输入 —— 所有人看到同一份数据,才能算出同一个主机。
+  final int latencyMs;
+
+  /// 桌面端。插着电、连着 WiFi、上行更稳,适合当主机。
+  bool get isDesktop =>
+      platform == 'windows' || platform == 'macos' || platform == 'linux';
+
+  Member copyWith({
+    MemberStatus? status,
+    int? deviceCount,
+    String? platform,
+    int? latencyMs,
+  }) =>
+      Member(
         userId: userId,
         name: name,
         status: status ?? this.status,
         deviceCount: deviceCount ?? this.deviceCount,
+        platform: platform ?? this.platform,
+        latencyMs: latencyMs ?? this.latencyMs,
       );
 
   factory Member.fromWire(Map<String, dynamic> json) => Member(
@@ -49,6 +71,9 @@ class Member {
         name: json['name'] as String? ?? '圈友',
         status: MemberStatus.fromWire(json['status'] as String?),
         deviceCount: (json['deviceCount'] as num?)?.toInt() ?? 1,
+        platform: json['platform'] as String? ?? '',
+        // 老服务器不发这个字段 -> -1(未知),选主机时按最差处理
+        latencyMs: (json['latencyMs'] as num?)?.toInt() ?? -1,
       );
 }
 

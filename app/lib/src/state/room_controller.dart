@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../net/signaling_client.dart';
 import '../recording/recording_consent.dart';
+import '../p2p/host_election.dart';
 import '../rtc/rtc_service.dart';
 import 'join_error.dart';
 import 'models.dart';
@@ -112,6 +113,36 @@ class RoomController extends ChangeNotifier {
 
   /// 外部数据源变化时用它触发一次刷新(`notifyListeners` 是 protected 的)。
   void refresh() => notifyListeners();
+
+  /// 上一次报给服务器的延迟。用来节流 —— 每次心跳都报太吵,
+  /// 而选主机对几十毫秒的变化并不敏感(切换阈值是 300ms)。
+  int _lastReportedLatency = -1;
+
+  /// 把本机测到的延迟报给服务器,转给同房的人用于选主机。
+  ///
+  /// 变化不大就不报:选举本身有 300ms 的切换阈值,
+  /// 频繁上报只会制造广播噪音。
+  void reportLatency(int ms) {
+    if (ms < 0 || circleId == null) return;
+    if (_lastReportedLatency >= 0 && (ms - _lastReportedLatency).abs() < 50) {
+      return;
+    }
+    _lastReportedLatency = ms;
+    _signaling.send({'t': 'latency', 'ms': ms});
+  }
+
+  /// 多人直连选主机用的候选名单。
+  ///
+  /// 直接从成员列表映射 —— 所有人看到的是**同一份服务器快照**,
+  /// 因此各自算出的主机必然一致。这是选举能成立的前提。
+  List<HostCandidate> get hostCandidates => [
+        for (final m in _members)
+          HostCandidate(
+            userId: m.userId,
+            isDesktop: m.isDesktop,
+            latencyMs: m.latencyMs,
+          ),
+      ];
 
   /// 别的服务器上有谁挂着(由 PresencePool 注入)。
   ///
@@ -704,6 +735,15 @@ class RoomController extends ChangeNotifier {
         status: status ?? member?.status ?? existing.status,
         // 设备数:仅服务器快照(member)可更新,否则保留原值
         deviceCount: member?.deviceCount ?? existing.deviceCount,
+        // ⚠️ 这里每加一个字段都必须跟着加一行,否则本地状态更新
+        // (比如只改 status)会把服务器发来的值**抹成默认值**。
+        // platform/latencyMs 是选主机的输入,抹掉会让选举结果飘。
+        platform: member?.platform.isNotEmpty == true
+            ? member!.platform
+            : existing.platform,
+        latencyMs: (member?.latencyMs ?? -1) >= 0
+            ? member!.latencyMs
+            : existing.latencyMs,
       );
     } else if (member != null) {
       _members.add(member);
@@ -725,3 +765,4 @@ class RoomController extends ChangeNotifier {
     super.dispose();
   }
 }
+

@@ -152,6 +152,13 @@ Future<void> main() async {
     name: identity.name,
     platform: LaresConfig.platformName,
   );
+  // 把心跳测到的延迟报给同房的人,供多人直连时选主机。
+  // 复用既有的 20 秒心跳,零额外网络开销;controller 内部会节流,
+  // 变化小于 50ms 就不报(选举本身有 300ms 的切换阈值)。
+  Timer.periodic(const Duration(seconds: 20), (_) {
+    controller.reportLatency(signaling.latencyMs);
+  });
+
   // P0 预热:提前为主圈子备 RTC token,进房时信令与媒体并行
   controller.prefetchToken(primaryCircleId());
   // 主圈子被改掉:为新的主圈子重新预热,保住一键进圈的 ≤1.5s 目标

@@ -269,6 +269,13 @@ function memberSnapshot(member) {
     ...(member.loc ? { loc: member.loc } : {}),
     // 录音态:有则带上 —— 后进房的人必须立刻知道房间正在被录(伦理红线)
     ...(member.rec ? { rec: { since: member.rec.since } } : {}),
+    // 平台与延迟:多人直连时用来选主机(桌面端优先、延迟低者优先)。
+    // 延迟由客户端自己测好报上来 —— 服务器不主动测,
+    // 它只是把这个数转给同房的其他人。
+    ...(member.platform ? { platform: member.platform } : {}),
+    ...(typeof member.latencyMs === 'number'
+      ? { latencyMs: member.latencyMs }
+      : {}),
   };
 }
 
@@ -519,6 +526,27 @@ function handleConnection(ws, req) {
         if (!session.userId) return;
         // 只能取消自己的
         clearAvailable(session.userId);
+        break;
+      }
+
+      case 'latency': {
+        // 客户端自己测好到服务器的往返,报上来给同房的人。
+        // 服务器不主动测 —— 它只是把这个数转出去,供大家各自选主机。
+        //
+        // 为什么要广播:选主机必须**所有人算出同一个答案**,
+        // 那就要求所有人看到同一份输入。
+        if (!session.circleId || !session.userId) return;
+        const ms = Number(msg.ms);
+        // 负数或离谱的大数一律丢弃 —— 别让一个坏数据把选举结果带歪
+        if (!Number.isFinite(ms) || ms < 0 || ms > 10000) return;
+        const member = getCircle(session.circleId).get(session.userId);
+        if (!member) return;
+        member.latencyMs = Math.round(ms);
+        broadcast(session.circleId, {
+          t: 'member_updated',
+          circleId: session.circleId,
+          member: memberSnapshot(member),
+        });
         break;
       }
 
@@ -819,9 +847,18 @@ async function joinCircle(ws, session, circleId) {
   if (existing) {
     existing.devices.set(session.deviceId, ws);
     existing.name = session.name;
+    // 平台可能变了(同一个人换设备进来),跟着刷新
+    existing.platform = session.platform;
     send(ws, roomSnapshot(circleId));
   } else {
-    const member = { userId: session.userId, name: session.name, status: 'free', devices: new Map([[session.deviceId, ws]]) };
+    const member = {
+      userId: session.userId,
+      name: session.name,
+      status: 'free',
+      // 选主机要用:桌面端优先扛转发(见客户端 host_election.dart)
+      platform: session.platform,
+      devices: new Map([[session.deviceId, ws]]),
+    };
     circle.set(session.userId, member);
     broadcast(circleId, { t: 'member_joined', circleId, member: memberSnapshot(member) }, ws);
     send(ws, roomSnapshot(circleId));

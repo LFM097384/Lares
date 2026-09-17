@@ -317,6 +317,7 @@ class SignalingClient {
     // 既不报错也不依赖到达顺序(服务端加 challenge 时老测试没挂,就是靠这条)。
     switch (json['t']) {
       case 'pong':
+        _onPong();
         return; // 心跳回包不外抛
       case 'challenge':
         _onChallenge(json);
@@ -397,8 +398,36 @@ class SignalingClient {
     _flushOutbox();
     _pingTimer?.cancel();
     _pingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _pingSentAt = DateTime.now();
       _rawSend({'t': 'ping'});
     });
+    // 立刻先测一次,别等 20 秒 —— 选主机时要用这个值,
+    // 刚连上就得有个数,哪怕不准也好过「未知」。
+    _pingSentAt = DateTime.now();
+    _rawSend({'t': 'ping'});
+  }
+
+  DateTime? _pingSentAt;
+
+  /// 到信令服务器的往返延迟(毫秒)。-1 = 还没测到。
+  ///
+  /// 用途:多人直连时选主机(`host_election.dart`)。
+  /// 这不是真实的点对点延迟 —— 那要先建 N×(N-1)/2 条连接才测得到,
+  /// 而建连接正是想避免的。到服务器的往返是个强相关近似:
+  /// 网络差的人到哪儿都慢。
+  ///
+  /// 复用既有的 20 秒心跳,**零额外开销**。
+  int latencyMs = -1;
+
+  void _onPong() {
+    final sent = _pingSentAt;
+    if (sent == null) return;
+    _pingSentAt = null;
+    final ms = DateTime.now().difference(sent).inMilliseconds;
+    // 断线重连期间可能收到迟到的 pong,那个往返包含了重连耗时,
+    // 不代表网络质量。给一个上限,超过就当没测到。
+    if (ms < 0 || ms > 10000) return;
+    latencyMs = ms;
   }
 
   /// 服务端 error 报文。注意 auth_scope / say_hello_first **不关连接**,
