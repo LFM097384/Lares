@@ -15,6 +15,7 @@ import '../rtc/rtc_service.dart' show NoiseSuppressionMode;
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../theme/tokens.dart';
+import '../p2p/ice_store.dart';
 import 'blocked_users_section.dart';
 import 'content_policy_screen.dart';
 import 'developer_section.dart';
@@ -36,6 +37,7 @@ Future<void> showSettingsSheet(
   BlockStore? blocks,
   ConsentStore? consent,
   DevModeStore? devMode,
+  IceStore? ice,
   VersionReader? versionReader,
 }) {
   return showModalBottomSheet<void>(
@@ -53,6 +55,7 @@ Future<void> showSettingsSheet(
         ?blocks,
         ?consent,
         ?devMode,
+        ?ice,
       ]),
       builder: (context, _) => SafeArea(
         child: SingleChildScrollView(
@@ -286,6 +289,7 @@ Future<void> showSettingsSheet(
                   settings: settings,
                   controller: controller,
                   signalingUrl: signalingUrl,
+                  ice: ice,
                 ),
               // 底部版本号 —— 连点 7 次解锁开发者模式
               VersionFooter(devMode: devMode, versionReader: versionReader),

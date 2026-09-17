@@ -14,6 +14,7 @@ import 'src/moderation/block_store.dart';
 import 'src/moderation/consent_store.dart';
 import 'src/net/presence_pool.dart';
 import 'src/net/signaling_client.dart';
+import 'src/p2p/ice_store.dart';
 import 'src/platform/foreground_service.dart';
 import 'src/platform/widget_service.dart';
 import 'src/platform/tray_service_stub.dart'
@@ -54,6 +55,9 @@ Future<void> main() async {
   final consent = await ConsentStore.load();
   // 开发者模式:连点设置页底部版本号 7 次解锁,技术项收在它后面。
   final devMode = await DevModeStore.load();
+  // 点对点直连的 ICE 配置(STUN/TURN)。默认全空 ——
+  // 刻意不内置任何公共服务器,内置一个就等于给「不依赖任何人」开了后门。
+  final ice = await IceStore.load();
 
   // 所有「一键进圈」入口(托盘/自动挂机/主屏 Widget)的统一目标:主圈子。
   // 圈子列表为空时回落到打包期默认圈。
@@ -308,6 +312,7 @@ Future<void> main() async {
     consent: consent,
     e2ee: e2ee,
     devMode: devMode,
+    ice: ice,
   ));
 }
 
@@ -325,6 +330,7 @@ class LaresApp extends StatelessWidget {
     this.consent,
     this.e2ee,
     this.devMode,
+    this.ice,
   });
 
   final RoomController controller;
@@ -348,6 +354,7 @@ class LaresApp extends StatelessWidget {
   /// 开发者模式(连点版本号 7 次解锁)。为 null 时设置页里完全没有开发者区,
   /// 底部版本号也只是一行普通文字 —— 给测试留一个「天然干净」的默认。
   final DevModeStore? devMode;
+  final IceStore? ice;
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +370,7 @@ class LaresApp extends StatelessWidget {
       consent: consent,
       e2ee: e2ee,
       devMode: devMode,
+      ice: ice,
     );
     final consentStore = consent;
     return MaterialApp(
@@ -379,3 +387,5 @@ class LaresApp extends StatelessWidget {
     );
   }
 }
+
+

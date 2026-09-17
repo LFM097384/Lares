@@ -522,6 +522,42 @@ function handleConnection(ws, req) {
         break;
       }
 
+      case 'p2p_signal': {
+        // 点对点直连的信令转发:把连接码原样交给同圈的另一个人。
+        //
+        // 服务器在这里**只当邮差** —— 它不解析、不存储 SDP,
+        // 只检查「你俩确实在同一个圈子里」然后转发。
+        // 媒体流随后在两台设备之间直接走,完全不经过这里。
+        //
+        // 这是「用服务器交换信令」那条路径。另一条是用户自己传连接码
+        // (零服务器),两者产出的连接码格式完全一样。
+        if (!session.userId || !session.circleId) return;
+        const toId = typeof msg.to === 'string' ? msg.to : '';
+        const payload = typeof msg.payload === 'string' ? msg.payload : '';
+        if (!toId || !payload) return;
+        // 体积上限:一份压缩后的连接码实测约 700 字节,给 8KB 余量。
+        // 不设上限的话这条消息就成了免费的任意大小中继通道。
+        if (payload.length > 8192) {
+          return send(ws, { t: 'error', message: 'payload_too_large' });
+        }
+        // 授权:双方必须在同一个圈子里。少了这条检查,
+        // 任何人都能借服务器给任意 userId 发任意内容。
+        const circle = getCircle(session.circleId);
+        const me = circle.get(session.userId);
+        const target = circle.get(toId);
+        if (!me || !me.devices.has(session.deviceId) || !target) return;
+        for (const tws of target.devices.values()) {
+          send(tws, {
+            t: 'p2p_signal',
+            from: session.userId,
+            fromName: session.name,
+            circleId: session.circleId,
+            payload,
+          });
+        }
+        break;
+      }
+
       case 'reach': {
         // 「去找 ta」。把双方都拉进**发起人(被找的那个人)所在的圈子**。
         //

@@ -7,6 +7,7 @@ import '../e2ee/e2ee_status.dart';
 import '../moderation/block_store.dart';
 import '../moderation/consent_store.dart';
 import '../recording/recording_consent.dart';
+import '../p2p/ice_store.dart';
 import '../state/circle_store.dart';
 import '../state/dev_mode_store.dart';
 import '../state/identity.dart';
@@ -36,6 +37,7 @@ class HomeScreen extends StatelessWidget {
     this.consent,
     this.e2ee,
     this.devMode,
+    this.ice,
   });
 
   final RoomController controller;
@@ -57,6 +59,7 @@ class HomeScreen extends StatelessWidget {
 
   /// 开发者模式(连点版本号 7 次解锁)。为 null 时设置页里完全没有开发者区。
   final DevModeStore? devMode;
+  final IceStore? ice;
 
   String _circleName(String? circleId) {
     if (circleId == null) return '';
@@ -117,6 +120,7 @@ class HomeScreen extends StatelessWidget {
                             blocks: blocks,
                             consent: consent,
                             devMode: devMode,
+                            ice: ice,
                           ),
                           _RenameAction(controller: controller),
                         ],
@@ -152,6 +156,7 @@ class HomeScreen extends StatelessWidget {
                                   blocks: blocks,
                                   consent: consent,
                                   devMode: devMode,
+                                  ice: ice,
                                 ),
                                 _RenameAction(controller: controller),
                               ],
@@ -618,6 +623,7 @@ class _SettingsAction extends StatelessWidget {
     this.blocks,
     this.consent,
     this.devMode,
+    this.ice,
   });
 
   final RoomController controller;
@@ -629,6 +635,7 @@ class _SettingsAction extends StatelessWidget {
 
   /// 开发者模式;为 null 时设置页既没有开发者区,版本号也点不出任何东西
   final DevModeStore? devMode;
+  final IceStore? ice;
 
   @override
   Widget build(BuildContext context) {
@@ -645,6 +652,7 @@ class _SettingsAction extends StatelessWidget {
         blocks: blocks,
         consent: consent,
         devMode: devMode,
+        ice: ice,
       ),
     );
   }
@@ -874,4 +882,5 @@ class _EmptyRoomHint extends StatelessWidget {
     );
   }
 }
+
 

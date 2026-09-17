@@ -11,10 +11,13 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../p2p/ice_store.dart';
 import '../state/dev_mode_store.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
+import '../theme/tokens.dart';
+import 'p2p_screen.dart';
 import 'server_settings_section.dart';
 import 'settings_group.dart';
 
@@ -27,11 +30,16 @@ class DeveloperSection extends StatelessWidget {
     required this.settings,
     required this.controller,
     this.signalingUrl,
+    this.ice,
   });
 
   final DevModeStore devMode;
   final SettingsStore settings;
   final RoomController controller;
+
+  /// 直连用的 ICE 配置。为空时不显示直连入口 ——
+  /// 宁可没有入口,也不要一个点进去就崩的入口。
+  final IceStore? ice;
 
   /// 编译期内置的信令地址(「状态」里如实显示的就是它或它的覆盖值)
   final String? signalingUrl;
@@ -65,6 +73,36 @@ class DeveloperSection extends StatelessWidget {
             '${controller.phase == RoomPhase.inRoom ? ' · 当前在房间里' : ''}',
           ),
         ),
+        // ── 直连(不经服务器)──────────────────────────────────────
+        // 放这里而不是主流程:它是**兜底路径**,不该跟正常进圈竞争。
+        // 而且它做不到的事很多(一对一、无文字图片、无 E2EE),
+        // 摆在首页只会让人以为那是常规用法。
+        if (ice != null) ...[
+          ListTile(
+            leading: const Icon(Icons.cable_rounded),
+            title: const Text('直连对话'),
+            subtitle: const Text('一台服务器都没有时,互传连接码也能说上话'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => P2PScreen(ice: ice!),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.alt_route_rounded),
+            title: const Text('中继服务器(STUN / TURN)'),
+            subtitle: Text(
+              ice!.config.isEmpty
+                  // 说明白空着的后果,而不是只显示「未配置」
+                  ? '空着 —— 只能连同一个网络里的人'
+                  : '${ice!.config.stunUrls.length} 个 STUN'
+                      '${ice!.config.turn != null ? ' · 有中继' : ' · 无中继'}',
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _editIce(context, ice!),
+          ),
+        ],
         const Divider(),
         // ── 关掉开发者模式 ──────────────────────────────────────────
         // 必须留一条出路:开发者模式是连点解锁的,如果关不掉,
@@ -87,6 +125,100 @@ class DeveloperSection extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+
+  /// 编辑 STUN / TURN。
+  ///
+  /// 刻意**不给默认值**(比如 Google 的公共 STUN):那是一个隐形的外部依赖,
+  /// 与直连「不依赖任何人」的初衷相悖。填了才知道自己在依赖谁。
+  Future<void> _editIce(BuildContext context, IceStore store) async {
+    final cfg = store.config;
+    final stun = TextEditingController(text: cfg.stunUrls.join('\n'));
+    final turnUrl = TextEditingController(text: cfg.turn?.url ?? '');
+    final turnUser = TextEditingController(text: cfg.turn?.username ?? '');
+    final turnPass = TextEditingController(text: cfg.turn?.credential ?? '');
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('中继服务器'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '直连需要先知道自己的公网地址(STUN)。\n'
+                '双方网络都很严格时,还需要一台中继(TURN)帮忙转发。\n'
+                '两者都留空也能用 —— 但只能连同一个网络里的人。',
+                style: Theme.of(ctx).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: LaresSpacing.md),
+              TextField(
+                controller: stun,
+                maxLines: 3,
+                minLines: 1,
+                decoration: const InputDecoration(
+                  labelText: 'STUN 地址(一行一个)',
+                  hintText: 'stun:stun.example.com:3478',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: LaresSpacing.md),
+              TextField(
+                controller: turnUrl,
+                decoration: const InputDecoration(
+                  labelText: 'TURN 地址',
+                  hintText: 'turn:turn.example.com:3478',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: LaresSpacing.sm),
+              TextField(
+                controller: turnUser,
+                decoration: const InputDecoration(
+                  labelText: 'TURN 用户名',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: LaresSpacing.sm),
+              TextField(
+                controller: turnPass,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'TURN 口令',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: LaresSpacing.sm),
+              Text(
+                'TURN 三项要么都填,要么都空 —— 只填一半会让连接挂在那儿等超时,'
+                '比没填更糟。',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('算了'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+    await store.setStun(stun.text.split('\n'));
+    await store.setTurn(
+      url: turnUrl.text,
+      username: turnUser.text,
+      credential: turnPass.text,
     );
   }
 }

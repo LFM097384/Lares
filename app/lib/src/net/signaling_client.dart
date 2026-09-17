@@ -570,6 +570,16 @@ class SignalingClient {
     send(msg);
   }
 
+  /// 把点对点连接码转交给同圈的某个人。
+  ///
+  /// 服务器在这条路径上**只当邮差**:不解析、不存储,只检查「同圈」再转发。
+  /// 媒体流随后在两台设备之间直接走,完全不经过服务器。
+  ///
+  /// 这是「用服务器交换信令」那条路。另一条是用户自己复制连接码
+  /// (零服务器),两条路产出的连接码格式完全一样。
+  void sendP2PSignal(String toUserId, String payload) =>
+      send({'t': 'p2p_signal', 'to': toUserId, 'payload': payload});
+
   /// 测试注入:模拟收到一条服务器消息
   // ignore: use_setters_to_change_properties
   void testInject(Map<String, dynamic> msg) => _messages.add(msg);
