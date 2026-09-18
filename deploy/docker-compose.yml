@@ -123,7 +123,12 @@ services:
       - no-new-privileges:true
     logging: *default-logging
     volumes:
-      # 单一开关:LARES_TLS_MODE ∈ {dns, file, selfsigned} 决定挂哪份 Caddyfile。
+      # 单一开关:LARES_TLS_MODE ∈ {http, dns, file, selfsigned} 决定挂哪份 Caddyfile。
+      #
+      #   http       独占 80/443 的机器(Lares 专用 VPS)用这个,最省事:
+      #              官方镜像直接能用,不要 DNS token。⚠️ 机器上跑着机场时不可用。
+      #   dns        不碰任何入站端口,但要 Cloudflare token + 自建带插件的镜像。
+      #              与机场共存的机器只能用这个。
       # 用「换文件」而不是「在 Caddyfile 里写条件」——Caddyfile 没有条件语法。
       # 改完 Caddyfile 请用 `docker compose up -d --force-recreate caddy` 生效
       #(单文件挂载 + caddy reload 有 inode 陷阱,重建容器最稳)。
@@ -148,9 +153,18 @@ services:
       LARES_CERT_FILE: ${LARES_CERT_FILE:-/certs/fullchain.pem}
       LARES_KEY_FILE: ${LARES_KEY_FILE:-/certs/privkey.pem}
     ports:
-      # ⚠️ 只发布这一个 TLS 端口。绝不出现 "443:443" 或 "80:80"。
-      #    宿主端口与容器端口保持一致,否则 Caddy 签发/重定向的端口对不上。
+      # ⚠️ 宿主端口与容器端口必须一致,否则 Caddy 签发/重定向的端口对不上。
+      #
+      # 与机场共存的机器(LARES_TLS_MODE=dns):保持默认 8444,
+      #   **绝不能**出现 "443:443" 或 "80:80" —— 那会抢走 Reality 入站。
+      #
+      # Lares 专用机器(LARES_TLS_MODE=http):在 .env 里设
+      #   LARES_HTTPS_PORT=443
+      #   LARES_HTTP_PORT=80
+      # HTTP-01 验证走 80,所以那个端口也得发布出来。
       - "${LARES_HTTPS_PORT:-8444}:${LARES_HTTPS_PORT:-8444}/tcp"
+      # 默认值刻意设成 8080 而不是 80:忘了配也不会误抢机场的 80。
+      - "${LARES_HTTP_PORT:-8080}:${LARES_HTTP_PORT:-8080}/tcp"
     mem_limit: ${LARES_MEM_CADDY:-96m}
     mem_reservation: 24m
     depends_on:

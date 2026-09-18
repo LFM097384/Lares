@@ -66,16 +66,49 @@ $EDITOR .env                 # 填域名、LiveKit 凭据、鉴权密钥
 
 ---
 
-## TLS 方案(四选一,`.env` 里切)
+## TLS 方案(四选一,`.env` 里切 `LARES_TLS_MODE`)
 
-| 方案 | 需要的入站端口 | 适用 |
-|---|---|---|
-| **DNS-01**(默认,最安全) | **零** | 有 Cloudflare 等 DNS API |
-| HTTP-01 | `80/tcp` | 80 确认空闲且愿意开 |
-| 外部证书挂载 | 零 | 证书从别处签好 |
-| 自签 | 零 | **仅本机冒烟测试** |
+**先分清这台机器是哪一种**,再看表:
 
-自签路径:浏览器和 iOS **会拒绝**,只能原生端跳过校验用于冒烟,不要用于日常。
+| `LARES_TLS_MODE` | 入站端口 | 镜像 | 适用 |
+|---|---|---|---|
+| `http` | `80` + `443` | 官方 `caddy:2-alpine` | **Lares 专用机器**,最省事 |
+| `dns` | **零** | 自建(带 DNS 插件) | **与机场共存的机器** |
+| `file` | 零 | 官方 | 证书从别处签好 |
+| `selfsigned` | 零 | 官方 | **仅冒烟测试** |
+
+### Lares 专用机器 → `http`
+
+```bash
+LARES_TLS_MODE=http
+LARES_HTTPS_PORT=443
+LARES_HTTP_PORT=80
+```
+
+不需要 DNS token,不需要自建镜像,证书全自动。
+客户端地址也干净:`wss://rtc.example.com/ws`(不带端口号)。
+
+`preflight.sh` 会**实测** 80/443 是否空闲 —— 有别的服务占着会直接拦下。
+
+### 与机场(xray Reality)共存 → `dns`
+
+```bash
+LARES_TLS_MODE=dns
+LARES_HTTPS_PORT=8444    # 绝对不能填 443
+LARES_HTTP_PORT=8080     # 同理不能填 80
+```
+
+必须走 DNS-01。已核对 Caddy 源码:站点即使写成「域名:8444」,
+Caddy 依然会尝试 TLS-ALPN-01(去用 `:443`)和 HTTP-01(去用 `:80`)——
+**只有 DNS-01 会关闭其它 challenge**。
+
+> 需要带 DNS 插件的 Caddy —— `caddy/Dockerfile` 用 `xcaddy` 现编,
+> 跑 `caddy/build-caddy.sh` 即可。官方 `caddy:2-alpine` 不含任何 DNS 插件。
+
+### 自签
+
+浏览器和 iOS **会拒绝**,只能原生端跳过校验用于冒烟,不要用于日常。
+Caddy 内置 CA 的叶子证书默认只有 12 小时有效期。
 
 > DNS-01 需要带 DNS 插件的 Caddy —— `caddy/Dockerfile` 用 `xcaddy` 现编,
 > 跑 `caddy/build-caddy.sh` 即可。stock `caddy:2-alpine` 不含任何 DNS 插件。

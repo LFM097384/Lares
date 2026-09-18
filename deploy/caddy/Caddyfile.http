@@ -1,0 +1,31 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# LARES_TLS_MODE=http —— 独占 80/443 的机器用这个,最省事
+#
+# 适用前提:**这台机器上没有别的东西在用 80 和 443**。
+#   Lares 专用 VPS 就属于这种。
+#   如果机器上还跑着机场(xray Reality 占 443),**绝对不能用这个模式** ——
+#   Caddy 会去抢 443,机场当场失联。那种情况用 LARES_TLS_MODE=dns。
+#
+# 与 dns 模式的取舍:
+#   · http 模式:不需要 DNS API token,不需要自建带插件的镜像,
+#               官方 caddy:2-alpine 直接能用。代价是必须独占 80/443。
+#   · dns  模式:不碰任何入站端口,但要 Cloudflare token + 自建镜像。
+#
+# 证书自动签发、自动续期,Caddy 全包。什么都不用管。
+# ──────────────────────────────────────────────────────────────────────────────
+{
+	# 证书到期提醒邮箱(留空则不注册邮箱)
+	email {$LARES_ACME_EMAIL}
+
+	# 首次上线建议先切到 LE staging 验证链路,确认无误再改回来,
+	# 免得反复失败撞上 Let's Encrypt 的速率限制(每域名每周 5 次失败上限):
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# 先引入共用路由片段,再定义站点(片段必须先于使用处出现)
+import routes.caddyfile
+
+# 标准 443。写成裸域名(不带端口)时 Caddy 自动开启 HTTPS 与 HTTP→HTTPS 跳转。
+{$LARES_DOMAIN} {
+	import lares_routes
+}

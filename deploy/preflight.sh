@@ -74,6 +74,39 @@ else
 
   # TLS 模式
   case "$tls_mode" in
+    http)
+      ok "LARES_TLS_MODE = http(HTTP-01 自动签发,要求独占 80/443)"
+      # 这个模式唯一的风险:80/443 上已经有别的东西。
+      # Caddy 抢不到端口会启动失败;更糟的情况是这台机器上跑着机场,
+      # 那会把 Reality 入站直接打掉。所以这里必须实测,不能只看配置。
+      _hp="$(env_get LARES_HTTPS_PORT 8444)"
+      _pp="$(env_get LARES_HTTP_PORT 8080)"
+      if [ "$_hp" != "443" ] || [ "$_pp" != "80" ]; then
+        fail "http 模式要求 LARES_HTTPS_PORT=443 且 LARES_HTTP_PORT=80"
+        fail "  当前:HTTPS=$_hp HTTP=$_pp —— Caddyfile.http 用的是标准端口,对不上。"
+      fi
+      if command -v ss >/dev/null 2>&1; then
+        for _p in 80 443; do
+          # 排除 docker-proxy 自己:重新部署时旧容器可能还占着
+          if ss -ltnp 2>/dev/null | grep -E ":${_p}\b" |
+               grep -qv 'docker-proxy'; then
+            fail "端口 ${_p} 已被占用(非 docker-proxy):"
+            ss -ltnp 2>/dev/null | grep -E ":${_p}\b" | sed 's/^/        /'
+            fail "  这台机器上有别的服务在用它。若是机场,**改用 LARES_TLS_MODE=dns**。"
+          else
+            ok "端口 ${_p} 可用"
+          fi
+        done
+      else
+        warn "没有 ss 命令,无法核实 80/443 是否空闲 —— 请自行确认。"
+      fi
+      _img="$(env_get LARES_CADDY_IMAGE 'caddy:2-alpine')"
+      if [ "$_img" = "caddy:2-alpine" ]; then
+        ok "用官方镜像即可(http 模式不需要 DNS 插件)"
+      else
+        warn "LARES_CADDY_IMAGE=$_img —— http 模式用官方 caddy:2-alpine 就够了。"
+      fi
+      ;;
     dns)
       ok "LARES_TLS_MODE = dns(推荐:DNS-01,零入站端口,不碰 80/443)"
       if [ -z "$(env_get CLOUDFLARE_API_TOKEN '')" ]; then
@@ -114,7 +147,7 @@ else
       warn "      仅可用于买到域名前的冒烟测试,且叶子证书默认只有 12 小时有效期。"
       ;;
     *)
-      fail "LARES_TLS_MODE 取值非法:'$tls_mode'(可选 dns / file / selfsigned)"
+      fail "LARES_TLS_MODE 取值非法:'$tls_mode'(可选 http / dns / file / selfsigned)"
       ;;
   esac
 
