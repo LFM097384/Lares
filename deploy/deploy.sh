@@ -49,8 +49,20 @@ assert_proxy_untouched_by_design() {
   # 显式声明:本脚本从不执行任何形如 systemctl <verb> x-ui/xray 的写操作。
   # 我们只用 `systemctl is-active`(只读查询)。若日后有人加了写操作,
   # 下面这条 grep 自检会在部署时报警。
-  if grep -nE 'systemctl[[:space:]]+(start|stop|restart|reload|disable|enable|mask)[[:space:]]+.*(x-ui|xray)' \
-       "$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/lib/*.sh 2>/dev/null | grep -v '^[^:]*:[0-9]*:[[:space:]]*#'; then
+  # 排除两类假阳性,它们都是「文字」而非「执行」:
+  #   1. 注释行(# 开头)
+  #   2. printf / echo 打印给用户看的提示 —— 收尾时我们会建议用户
+  #      「需要时自己跑 systemctl restart x-ui」,那是一句话不是一个动作
+  #
+  # 判断依据是**行首**是不是输出语句。保守但够用:真要执行写操作,
+  # 没人会把它写在 printf 后面(那样根本不会执行)。
+  local hits
+  hits="$(grep -nE 'systemctl[[:space:]]+(start|stop|restart|reload|disable|enable|mask)[[:space:]]+.*(x-ui|xray)' \
+       "$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/lib/*.sh 2>/dev/null \
+       | grep -v '^[^:]*:[0-9]*:[[:space:]]*#' \
+       | grep -vE '^[^:]*:[0-9]*:[[:space:]]*(printf|echo)[[:space:]]')"
+  if [ -n "$hits" ]; then
+    printf '%s\n' "$hits"
     die "内部断言失败:脚本中出现了对 xray/x-ui 的 systemctl 写操作。已中止。"
   fi
   ok "断言通过:本次部署不会读写任何 xray / 3x-ui 配置或 unit。"
