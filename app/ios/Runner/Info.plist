@@ -30,13 +30,32 @@
 		<true/>
 	</dict>
 	<!-- 出口加密合规声明(App Store Connect 每次上传都会问,写死在这里免得手答)。
-	     填 false 的依据:本 App 只用 TLS、WebRTC 的 DTLS-SRTP,以及 HMAC-SHA256
-	     做挑战应答,全是标准算法。
-	     一个易错点:引入 libwebrtc 确实让我们失去了「仅使用 Apple 提供的加密」
-	     这条最省事的豁免,但那**不等于**变成 non-exempt —— 仍落在
-	     Mass Market 豁免(5D992.c)内,不需要 CCATS。 -->
+	     ⚠️ 2026-09 修正:此前填 false,是错的。
+
+	     本 App 用到的加密已超出「仅 TLS」的豁免范围:
+	       · LiveKit E2EE(E2EEOptions.sharedKey(),底层 AES)
+	       · Argon2id 由圈子口令派生 E2EE 共享密钥(hashlib)
+	       · HMAC-SHA256 信令挑战应答
+	       · TLS / DTLS-SRTP
+	     其中 E2EE 与 Argon2id 是**我们自己实现的加密功能**,
+	     不是系统或传输层顺带提供的。
+
+	     旧注释「落在 Mass Market 5D992.c 内,所以填 false」自相矛盾:
+	     5D992.c 走 License Exception ENC 740.17(b)(1),确实**不需要 CCATS**,
+	     但**需要向 BIS 提交年度自分类报告**,而这条路要求本键填 true。
+	     填 false 的语义是「豁免、无需任何申报」—— 那是给「仅 HTTPS」或
+	     「仅用 Apple 系统加密」的 App 准备的。
+
+	     另一个易错点(BIS 明确堵死):不能因为 LiveKit / hashlib 是开源库
+	     就主张「公开可得、不受 EAR 管辖」。并入开源加密代码会构成一个
+	     **具有加密功能的新物项**,须作为整体重新评估。
+	     https://www.bis.gov/learn-support/encryption-controls/encryption-items-not-subject-to-ear (Note 2)
+
+	     ⏰ 随之而来的义务:某自然年内有出口(上架即是),须在**次年 2 月 1 日前**
+	     把年度自分类报告(CSV)发到 crypt-supp8@bis.doc.gov 与 enc@nsa.gov。
+	     细节见 docs/compliance/encryption-export.md -->
 	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<true/>
 	<!-- 只保留 audio:常驻语音房在后台必须继续收发音频。
 	     曾经还声明过 fetch,但全项目没有任何 BGTaskScheduler 实现 ——
 	     声明了却不使用的后台模式是明确的拒绝理由(2.5.4)。 -->

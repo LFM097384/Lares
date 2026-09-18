@@ -350,6 +350,16 @@ Apple 于 **2026-02-06** 专门修订 1.2,把 "random or anonymous chat" 明确�
 | 6 | UGC 三件套缺失(1.2) | 无屏蔽、无举报、无 EULA | ✅ 已做 |
 | 7 | **iOS 选图功能实际不可用** | 见下「已确诊」 | ✅ 已修 |
 | 8 | ~~举报邮箱指向未批下来的域名~~ | 已购 `laresapp.org`,改为 `support@laresapp.org` | ✅ 已改 |
+| 9 | ~~`ITSAppUsesNonExemptEncryption` 填 false 是错的~~ | 有 E2EE + Argon2id,超出「仅 TLS」豁免 | ✅ 改为 `true`,见 `docs/compliance/encryption-export.md` |
+
+### ⏰ 上架后会产生一个带 deadline 的义务
+
+自分类为 **5D992.c / ENC 740.17(b)(1)** 之后,**上架即构成出口**,
+须在**次年 2 月 1 日前**把年度自分类报告(CSV)发到
+`crypt-supp8@bis.doc.gov` 与 `enc@nsa.gov`。
+
+不需要 CCATS、不需要 ERN、不花钱,但**不能漏**。
+字段格式与取值见 `docs/compliance/encryption-export.md`。
 
 ### 举报邮箱(已落定)
 
@@ -386,7 +396,7 @@ Apple 于 **2026-02-06** 专门修订 1.2,把 "random or anonymous chat" 明确�
 | iOS 选图修复 | UTI 补齐,+20 测试 |
 | Bundle ID → `com.lfm097384.lares` | 12 文件 |
 | `PrivacyInfo.xcprivacy` | 已写 + **已接进 Copy Bundle Resources** |
-| `ITSAppUsesNonExemptEncryption` = false | Info.plist |
+| `ITSAppUsesNonExemptEncryption` = **true** | Info.plist（2026-09 修正,旧值 false 是错的） |
 | 删未使用的 `UIBackgroundModes: fetch` | 2.5.4 拒绝理由 |
 | 位置补声明 CoarseLocation | 保守声明,理由见清单内注释 |
 | Widget 版本号与主 App 联动 | 从 pubspec 读,单一事实源 |

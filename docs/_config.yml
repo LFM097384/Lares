@@ -1,0 +1,26 @@
+# GitHub Pages(Jekyll)配置
+#
+# docs/ 下同时放着两类东西:
+#   1. 给用户/审核员看的合规页面 —— index / privacy / terms / support
+#   2. 给维护者看的内部文档 —— app-store/ research/ design/ plans/ compliance/
+#
+# 默认 Jekyll 会把两类都发布出去。第 2 类里有 App Store 审核策略分析、
+# 未定的产品计划、合规推理过程,不该出现在公网。这里显式排除。
+#
+# 注意:排除只影响「是否生成页面」,文件仍在 git 仓库里(仓库本来就是公开的)。
+# 目的是不让它们出现在站点导航和搜索引擎里,不是保密。
+
+title: Lares 炉灵
+description: 小圈子常驻语音空间
+
+exclude:
+  - app-store/
+  - research/
+  - design/
+  - plans/
+  - compliance/
+  - available-protocol.md
+  - recording-consent-protocol.md
+
+# 相对链接在自定义域(docs.laresapp.org)下按根路径解析
+baseurl: ""
