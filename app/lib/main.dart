@@ -15,6 +15,7 @@ import 'src/moderation/consent_store.dart';
 import 'src/net/presence_pool.dart';
 import 'src/net/signaling_client.dart';
 import 'src/p2p/ice_store.dart';
+import 'src/p2p/p2p_mesh.dart';
 import 'src/platform/foreground_service.dart';
 import 'src/platform/widget_service.dart';
 import 'src/platform/tray_service_stub.dart'
@@ -99,6 +100,47 @@ Future<void> main() async {
   );
   // 每一条走到 rtc.join() 的路径都会先过这个钩子(含闲时降级后的媒体唤醒)
   controller.prepareEncryption = e2ee.prepareFor;
+
+  // 多人点对点(星形):选一个人当主机转发,其他人只上行 1 路。
+  //
+  // ⚠️ 它**不自动启动** —— 只有用户显式进入直连模式时才同步名单。
+  // 主链路(LiveKit)和这条路同时活着会把音频发两遍,
+  // 所以谁激活谁负责,默认谁都不激活。
+  final mesh = P2PMesh(
+    myUserId: identity.userId,
+    ice: () => ice.config,
+  );
+  // 连接码经服务器转交给同圈的人(服务器只当邮差,不解析不存储)
+  mesh.onOutgoing = signaling.sendP2PSignal;
+  // 收到别人的连接码
+  signaling.messages.listen((msg) {
+    if (msg['t'] != 'p2p_signal') return;
+    final from = msg['from'] as String?;
+    final payload = msg['payload'] as String?;
+    if (from == null || payload == null) return;
+    unawaited(mesh.handleIncoming(
+      from,
+      msg['fromName'] as String? ?? '',
+      payload,
+    ));
+  });
+  // 成员变动时重算主机并同步连接。
+  // 只在 mesh 已经有连接(= 用户在用直连)时才动,
+  // 否则会在普通 LiveKit 通话里凭空建起 P2P 连接。
+  controller.addListener(() {
+    if (mesh.peers.isEmpty && mesh.hostId == null) return;
+    unawaited(mesh.syncRoster(controller.hostCandidates));
+  });
+
+  /// 启动多人直连。
+  ///
+  /// 多人必须有服务器信令:星形下 3 人也要建 2 条连接、交换 4 段码,
+  /// 手动传不现实。而「在房间里」正好等价于「信令连着且知道有谁」——
+  /// 所以不在房间里就不给这个入口。
+  void startMesh() {
+    if (controller.phase != RoomPhase.inRoom) return;
+    unawaited(mesh.syncRoster(controller.hostCandidates));
+  }
 
   // 跨服务器「我有空」:主连接之外,对其余每台服务器各开一条只做 presence
   // 的轻连接。服务器之间不通信 —— 聚合发生在这里。
@@ -320,6 +362,7 @@ Future<void> main() async {
     e2ee: e2ee,
     devMode: devMode,
     ice: ice,
+    onStartMesh: startMesh,
   ));
 }
 
@@ -338,6 +381,7 @@ class LaresApp extends StatelessWidget {
     this.e2ee,
     this.devMode,
     this.ice,
+    this.onStartMesh,
   });
 
   final RoomController controller;
@@ -362,6 +406,7 @@ class LaresApp extends StatelessWidget {
   /// 底部版本号也只是一行普通文字 —— 给测试留一个「天然干净」的默认。
   final DevModeStore? devMode;
   final IceStore? ice;
+  final VoidCallback? onStartMesh;
 
   @override
   Widget build(BuildContext context) {
@@ -378,6 +423,7 @@ class LaresApp extends StatelessWidget {
       e2ee: e2ee,
       devMode: devMode,
       ice: ice,
+      onStartMesh: onStartMesh,
     );
     final consentStore = consent;
     return MaterialApp(
@@ -394,5 +440,7 @@ class LaresApp extends StatelessWidget {
     );
   }
 }
+
+
 
 

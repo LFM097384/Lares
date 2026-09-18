@@ -15,9 +15,13 @@ import '../p2p/p2p_session.dart';
 import '../theme/tokens.dart';
 
 class P2PScreen extends StatefulWidget {
-  const P2PScreen({super.key, required this.ice});
+  const P2PScreen({super.key, required this.ice, this.onStartMesh});
 
   final IceStore ice;
+
+  /// 启动多人直连(星形)。为空表示当前没有服务器信令,
+  /// 只能做 1 对 1 的手动连接码交换。
+  final VoidCallback? onStartMesh;
 
   @override
   State<P2PScreen> createState() => _P2PScreenState();
@@ -79,6 +83,22 @@ class _P2PScreenState extends State<P2PScreen> {
               body: '把对方发来的连接码贴进来,生成一段回给他。',
               onTap: () => setState(() => _role = _Role.answerer),
             ),
+            // 多人只在有服务器信令时给 —— 星形拓扑下 3 人也要建 2 条连接、
+            // 交换 4 段码,手动传不现实。
+            if (widget.onStartMesh != null) ...[
+              const SizedBox(height: LaresSpacing.md),
+              _RoleCard(
+                icon: Icons.group_rounded,
+                title: '圈里的人一起(最多 4 人)',
+                body: '连接码由服务器转交,不用手动传。'
+                    '会自动挑一个人转发声音 —— 优先挑电脑,'
+                    '因为它插着电、网更稳。',
+                onTap: () {
+                  widget.onStartMesh!();
+                  Navigator.pop(context);
+                },
+              ),
+            ],
           ] else ...[
             if (s != null && s.phase == P2PPhase.gathering)
               const _Waiting(text: '正在准备连接信息…'),

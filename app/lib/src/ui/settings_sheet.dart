@@ -38,6 +38,7 @@ Future<void> showSettingsSheet(
   ConsentStore? consent,
   DevModeStore? devMode,
   IceStore? ice,
+  VoidCallback? onStartMesh,
   VersionReader? versionReader,
 }) {
   return showModalBottomSheet<void>(
@@ -290,6 +291,7 @@ Future<void> showSettingsSheet(
                   controller: controller,
                   signalingUrl: signalingUrl,
                   ice: ice,
+                  onStartMesh: onStartMesh,
                 ),
               // 底部版本号 —— 连点 7 次解锁开发者模式
               VersionFooter(devMode: devMode, versionReader: versionReader),
@@ -398,3 +400,4 @@ class _HourPicker extends StatelessWidget {
     );
   }
 }
+

@@ -38,6 +38,7 @@ class HomeScreen extends StatelessWidget {
     this.e2ee,
     this.devMode,
     this.ice,
+    this.onStartMesh,
   });
 
   final RoomController controller;
@@ -60,6 +61,7 @@ class HomeScreen extends StatelessWidget {
   /// 开发者模式(连点版本号 7 次解锁)。为 null 时设置页里完全没有开发者区。
   final DevModeStore? devMode;
   final IceStore? ice;
+  final VoidCallback? onStartMesh;
 
   String _circleName(String? circleId) {
     if (circleId == null) return '';
@@ -121,6 +123,7 @@ class HomeScreen extends StatelessWidget {
                             consent: consent,
                             devMode: devMode,
                             ice: ice,
+                            onStartMesh: onStartMesh,
                           ),
                           _RenameAction(controller: controller),
                         ],
@@ -157,6 +160,7 @@ class HomeScreen extends StatelessWidget {
                                   consent: consent,
                                   devMode: devMode,
                                   ice: ice,
+                                  onStartMesh: onStartMesh,
                                 ),
                                 _RenameAction(controller: controller),
                               ],
@@ -624,6 +628,7 @@ class _SettingsAction extends StatelessWidget {
     this.consent,
     this.devMode,
     this.ice,
+    this.onStartMesh,
   });
 
   final RoomController controller;
@@ -636,6 +641,7 @@ class _SettingsAction extends StatelessWidget {
   /// 开发者模式;为 null 时设置页既没有开发者区,版本号也点不出任何东西
   final DevModeStore? devMode;
   final IceStore? ice;
+  final VoidCallback? onStartMesh;
 
   @override
   Widget build(BuildContext context) {
@@ -653,6 +659,7 @@ class _SettingsAction extends StatelessWidget {
         consent: consent,
         devMode: devMode,
         ice: ice,
+        onStartMesh: onStartMesh,
       ),
     );
   }
@@ -882,5 +889,6 @@ class _EmptyRoomHint extends StatelessWidget {
     );
   }
 }
+
 
 

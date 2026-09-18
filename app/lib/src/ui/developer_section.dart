@@ -31,6 +31,7 @@ class DeveloperSection extends StatelessWidget {
     required this.controller,
     this.signalingUrl,
     this.ice,
+    this.onStartMesh,
   });
 
   final DevModeStore devMode;
@@ -40,6 +41,9 @@ class DeveloperSection extends StatelessWidget {
   /// 直连用的 ICE 配置。为空时不显示直连入口 ——
   /// 宁可没有入口,也不要一个点进去就崩的入口。
   final IceStore? ice;
+
+  /// 启动多人直连。为空则直连界面只给 1 对 1。
+  final VoidCallback? onStartMesh;
 
   /// 编译期内置的信令地址(「状态」里如实显示的就是它或它的覆盖值)
   final String? signalingUrl;
@@ -85,7 +89,10 @@ class DeveloperSection extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => P2PScreen(ice: ice!),
+                builder: (_) => P2PScreen(
+                  ice: ice!,
+                  onStartMesh: onStartMesh,
+                ),
               ),
             ),
           ),
@@ -222,3 +229,4 @@ class DeveloperSection extends StatelessWidget {
     );
   }
 }
+
