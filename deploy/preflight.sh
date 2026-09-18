@@ -336,9 +336,15 @@ while IFS= read -r entry; do
     occ_pp="${occ%%:*}"
     occ_desc="${occ#*:}"
     if [ "$pp" = "$occ_pp" ]; then
-      fail "端口冲突:$pp($desc)撞上了 $occ_desc"
-      fail "  这会直接影响机场,**禁止部署**。请修改 .env 换一个端口。"
-      conflict_found=1
+      # 专用机器上没有机场,「撞上机场端口」这个清单本身就不适用。
+      # 真正的占用由下面的 port_in_use 实测负责,那个在哪种机器上都对。
+      if [ "$(env_get LARES_DEDICATED_HOST 0)" = "1" ]; then
+        info "$pp($desc)在共存机型上属于机场端口,但本机已声明专用,跳过该清单"
+      else
+        fail "端口冲突:$pp($desc)撞上了 $occ_desc"
+        fail "  这会直接影响机场,**禁止部署**。请修改 .env 换一个端口。"
+        conflict_found=1
+      fi
     fi
   done
 
@@ -377,7 +383,17 @@ else
   info "      否则**建议保持 80 空着**,不要给 Lares 增加一个暴露面。"
 fi
 
-if port_in_use 443 tcp; then
+# 443 的语义在两种机型上**完全相反**:
+#   共存机:443 该有机场在听,没人听说明机场挂了 -> 阻断
+#   专用机:443 该是空的,Caddy 待会儿要用 -> 有人听才是问题
+if [ "$(env_get LARES_DEDICATED_HOST 0)" = "1" ]; then
+  if port_in_use 443 tcp; then
+    fail "443/tcp 已被占用 —— 专用机上 Caddy 需要它,抢不到会启动失败。"
+    fail "  先确认是什么在监听:sudo ss -ltnp | grep :443"
+  else
+    ok "443/tcp 空闲,Caddy 可以用。"
+  fi
+elif port_in_use 443 tcp; then
   ok "443/tcp 有人监听 —— 与「机场在跑」的预期一致。"
 else
   fail "443/tcp **没有任何监听** —— 机场极可能已经挂了!"
