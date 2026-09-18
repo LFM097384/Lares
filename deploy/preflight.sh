@@ -221,9 +221,17 @@ if pgrep -x xray >/dev/null 2>&1 || pgrep -f 'x-ui' >/dev/null 2>&1; then
 fi
 
 if [ "$proxy_seen" -eq 0 ]; then
-  warn "没有检测到运行中的 xray / x-ui。"
-  warn "      如果机场本来就该在跑,说明它**现在已经是挂的** —— 请先修好再部署,"
-  warn "      否则部署后无法区分「是我搞挂的」还是「本来就挂」。"
+  # 专用机器上本来就没有机场,那不是问题。
+  # 靠 .env 里的 LARES_DEDICATED_HOST 区分,而不是让用户每次看一堆假警告。
+  if [ "$(env_get LARES_DEDICATED_HOST 0)" = "1" ]; then
+    ok "未检测到 xray / x-ui —— 已声明为 Lares 专用机器,符合预期"
+  else
+    warn "没有检测到运行中的 xray / x-ui。"
+    warn "      如果这是台**专用机器**(Azure / 新买的 VPS),这条可以忽略,"
+    warn "      在 .env 里设 LARES_DEDICATED_HOST=1 即可不再提示。"
+    warn "      如果机场本来就该在跑,说明它**现在已经是挂的** —— 请先修好再部署,"
+    warn "      否则部署后无法区分「是我搞挂的」还是「本来就挂」。"
+  fi
 fi
 
 info "机场当前监听端口:"

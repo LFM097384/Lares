@@ -1,5 +1,8 @@
 # Lares 炉灵 — 公网部署
 
+> **在 Azure 上部署?** 看 [AZURE.md](AZURE.md) —— 那里讲了网络安全组、
+> 静态 IP、学生订阅到期这些 Azure 特有的坑。本文是通用说明。
+
 > ⚠️ **先读这一段。** 本目录的 compose 是为「**与已有服务共存的 VPS**」重写的。
 > 目标机器(RackNerd)上 `443/tcp` 是 VLESS+Reality 主入站、`8443/tcp` 是次入站、
 > `3443/udp` 是 Hysteria2、`9721` 是 3x-ui 面板。**这些端口绝对不能碰。**
