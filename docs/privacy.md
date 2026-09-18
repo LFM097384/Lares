@@ -100,9 +100,10 @@ title: 隐私政策 · Lares 炉灵
 
 ## 联系
 
-有任何疑问或需要删除某条数据，请通过
-[GitHub Issues](https://github.com/LFM097384/Lares/issues) 联系我们。
-涉及隐私的请求请在标题注明「隐私」。
+隐私相关的疑问或数据删除请求，请发邮件到 **support@laresapp.org**。
+
+不涉及隐私的公开问题也可以开
+[GitHub Issues](https://github.com/LFM097384/Lares/issues)。
 
 ## 变更
 

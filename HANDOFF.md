@@ -349,15 +349,17 @@ Apple 于 **2026-02-06** 专门修订 1.2,把 "random or anonymous chat" 明确�
 | 5 | ~~零合规资产~~ | 三者均为 ASC **必填 URL** | **已做** → GitHub Pages,见下 |
 | 6 | UGC 三件套缺失(1.2) | 无屏蔽、无举报、无 EULA | ✅ 已做 |
 | 7 | **iOS 选图功能实际不可用** | 见下「已确诊」 | ✅ 已修 |
-| 8 | ⚠️ **举报邮箱指向未批下来的域名** | `report.dart:4` `support@laresproject.eu.org` | **提审前必须改** |
+| 8 | ~~举报邮箱指向未批下来的域名~~ | 已购 `laresapp.org`,改为 `support@laresapp.org` | ✅ 已改 |
 
-### 🔴 提审前必改:举报邮箱会退信
+### 举报邮箱(已落定)
 
-`kSupportEmail` 现在是 `support@laresproject.eu.org`,而**那个域名还没批**。
-审核员会**实测举报通道**(1.2 必查项),发出去退信 = 现成的拒绝理由。
+`kSupportEmail` = `support@laresapp.org`(`app/lib/src/moderation/report.dart:4`,全仓唯一一处)。
 
-域名批下来后改 `app/lib/src/moderation/report.dart:4` 一处即可;
-若域名迟迟不批,换成任意真实可达的邮箱。
+旧的 `laresproject.eu.org` **从未注册成功**(MX / A 记录均不存在),已废弃。
+
+⚠️ **仍需确认**:邮箱必须能真的收发信。审核员会实测举报通道(1.2 必查项),
+「域名存在但收不到信」和「域名不存在」在结果上没有区别。
+配好转发后务必从外部邮箱实发一封验证。
 
 ### 合规页面(已上线)
 

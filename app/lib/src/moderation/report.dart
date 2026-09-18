@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show immutable;
 
 /// 举报支持邮箱。以后要改地址,只改这一处。
-const String kSupportEmail = 'support@laresproject.eu.org';
+const String kSupportEmail = 'support@laresapp.org';
 
 /// 举报分类。审核员会实测这个列表,分类要覆盖 1.2 常见滥用类型。
 enum ReportReason {

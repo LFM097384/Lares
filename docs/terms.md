@@ -73,4 +73,5 @@ Lares 炉灵是一个开源的小圈子语音应用。
 
 ## 联系
 
-[GitHub Issues](https://github.com/LFM097384/Lares/issues)
+- 邮件：**support@laresapp.org**
+- 公开问题：[GitHub Issues](https://github.com/LFM097384/Lares/issues)

@@ -6,8 +6,8 @@ title: 支持 · Lares 炉灵
 
 ## 遇到问题？
 
-所有问题、建议、举报都走
-**[GitHub Issues](https://github.com/LFM097384/Lares/issues)**。
+- **公开的问题与建议**：[GitHub Issues](https://github.com/LFM097384/Lares/issues)
+- **举报、隐私请求、不便公开的事**：**support@laresapp.org**
 
 提问题时带上这些会快很多：
 
