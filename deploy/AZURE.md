@@ -86,20 +86,67 @@ done
 
 ## 三、域名
 
-### 买一个(推荐)
+### 先用 Azure 送的免费域名
 
-**Cloudflare Registrar** 最省事:按成本价卖(`.com` 约 $10/年,不加价),
-而且买完 DNS 就在同一个控制台里,不用两头跑。
+创建虚拟机时(或事后在「公共 IP 地址 → 配置」里)填一个
+**DNS 名称标签**,就得到:
 
-> 也可以用 Azure 送的免费子域名 `xxx.westus.cloudapp.azure.com`
-> (创建虚拟机时填「DNS 名称标签」即可)。它能签 Let's Encrypt 证书、完全够用,
-> 但**绑死 Azure** —— 将来换服务商或订阅到期要迁走时,
-> 所有用户的配置都得改,而上架版本里默认地址是打包进去的。
-> 长期项目不建议。
+```
+你起的名字.westus.cloudapp.azure.com
+```
+
+免费、永久(只要虚拟机在)、无需备案。**这条路不用买域名。**
+
+### ⚠️ 但有个配额风险,必须先走 staging
+
+已核对 [publicsuffix.org](https://publicsuffix.org/list/) 与
+[Let's Encrypt 限额规则](https://letsencrypt.org/docs/rate-limits/):
+
+| 域名 | 在公共后缀列表里? | 注册域算作 |
+|---|---|---|
+| `xxx.cloudapp.net` | ✅ | 独立 |
+| `xxx.azurestaticapps.net` | ✅ | 独立 |
+| **`xxx.westus.cloudapp.azure.com`** | ❌ **不在** | **`azure.com`** |
+
+Let's Encrypt 按「注册域」算配额:**50 张/周**。
+`cloudapp.azure.com` 不在列表里,于是它的注册域是 `azure.com` ——
+**和全世界所有用这个后缀的人共享那 50 张**。
+
+这不是「一定签不下来」,而是「不可控」:取决于当周别人用了多少。
+
+**所以第一次部署一定要先走 staging**,在 `.env` 里:
+
+```bash
+LARES_ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+```
+
+staging 限额宽得多,拿来确认「端口通不通、解析对不对、配置有没有写错」。
+**链路跑通之后**再注释掉这行、重建 caddy 容器去抢正式配额 ——
+别把宝贵的失败次数浪费在自己的配置错误上。
+
+```bash
+# 切回正式证书
+vim .env                                        # 注释掉 LARES_ACME_CA
+docker compose up -d --force-recreate caddy
+```
+
+> staging 签出来的证书浏览器**不认**(根证书不受信任),
+> 那是正常的 —— 那一步只验证链路,不验证可用性。
+
+### 签不下来怎么办:买个域名
+
+正式配额抢不到的话,去 **Cloudflare Registrar** 买一个
+(按成本价,`.com` 约 $10/年,买完 DNS 在同一个控制台)。
+
+顺带一提,自有域名还解决另一个问题:`cloudapp.azure.com` **绑死 Azure**,
+将来迁走时所有用户的配置都得改,而上架版本里默认地址是打包进去的。
 
 ### 解析
 
-把域名的 **A 记录**指向虚拟机的公网 IP:
+**用 Azure 免费域名的话,这一步不用做** —— DNS 名称标签自动指向公网 IP。
+但仍然值得确认一次(见下面的 `dig`)。
+
+**自有域名**则要加一条 A 记录指向虚拟机的公网 IP:
 
 ```
 rtc.你的域名.com    A    <公网 IP>
@@ -159,11 +206,15 @@ vim .env
 Azure 专用机器用 **http 模式**(独占 80/443,最省事):
 
 ```bash
-LARES_DOMAIN=rtc.你的域名.com
+# Azure 免费域名,或你自己买的
+LARES_DOMAIN=你起的名字.westus.cloudapp.azure.com
 LARES_TLS_MODE=http
 LARES_HTTPS_PORT=443
 LARES_HTTP_PORT=80
 LARES_ACME_EMAIL=你的邮箱
+
+# ⚠️ 第一次部署务必先用 staging 验证链路(见上文「配额风险」)
+LARES_ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
 
 # 声明这是专用机器,preflight 就不会为「找不到 xray」报警
 LARES_DEDICATED_HOST=1

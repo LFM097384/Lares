@@ -17,9 +17,20 @@
 	# 证书到期提醒邮箱(留空则不注册邮箱)
 	email {$LARES_ACME_EMAIL}
 
-	# 首次上线建议先切到 LE staging 验证链路,确认无误再改回来,
-	# 免得反复失败撞上 Let's Encrypt 的速率限制(每域名每周 5 次失败上限):
-	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+	# ACME 目录。.env 里的 LARES_ACME_CA 控制,默认走正式环境。
+	#
+	# **强烈建议首次部署先用 staging**:
+	#   LARES_ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+	#
+	# staging 的限额宽得多,用来验证「端口通不通、解析对不对、Caddy 配置有没有错」
+	# 正合适。跑通了再删掉这行换正式的。
+	#
+	# ⚠️ 用 *.cloudapp.azure.com 这类 Azure 免费域名时**尤其要先走 staging**:
+	#    该后缀**不在**公共后缀列表里(已核对 publicsuffix.org),
+	#    所以 Let's Encrypt 把它的注册域算作 azure.com ——
+	#    50 张/周的配额是**和全世界共享的**,可能直接签不下来。
+	#    先用 staging 确认链路无误,再去抢正式配额,别把失败次数浪费在配置错误上。
+	acme_ca {$LARES_ACME_CA}
 }
 
 # 先引入共用路由片段,再定义站点(片段必须先于使用处出现)

@@ -147,6 +147,9 @@ services:
       LARES_DOMAIN: ${LARES_DOMAIN:?LARES_DOMAIN 未设置:还没域名就先用 LARES_TLS_MODE=selfsigned 并填服务器公网 IP}
       LARES_HTTPS_PORT: ${LARES_HTTPS_PORT:-8444}
       LARES_ACME_EMAIL: ${LARES_ACME_EMAIL:-}
+      # ACME 目录。默认正式环境;首次部署建议先在 .env 里换成 staging 验证链路。
+      # 给默认值而不是留空 —— Caddy 的 acme_ca 拿到空串会解析失败。
+      LARES_ACME_CA: ${LARES_ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
       # DNS-01 用:Cloudflare API Token(需 Zone.Zone:Read + Zone.DNS:Edit)
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
       # file 模式用:证书/私钥在容器内的路径
