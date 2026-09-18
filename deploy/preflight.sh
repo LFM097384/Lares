@@ -10,6 +10,12 @@
 #           不写文件(除了自己的 .state 基线目录)、不改防火墙、
 #           不碰 xray / 3x-ui 的任何配置或 unit。
 #
+#           两处会出网(都只读、都有超时、失败不阻断):
+#             · dig  查 LARES_DOMAIN 的 A 记录
+#             · curl 查本机公网 IP(用于比对域名有没有指对机器)
+#           解析不对的话证书必然签不下来,而 Let's Encrypt 每域名每周
+#           只给 5 次失败额度 —— 值得在动手前查清楚。
+#
 # 退出码:0 = 全部通过(允许部署);非 0 = 有硬阻断项(禁止部署)
 #
 # 用法:
@@ -70,6 +76,51 @@ else
     fail "LARES_DOMAIN 还是示例值 rtc.example.com,请改成真实域名。"
   else
     ok "LARES_DOMAIN = $domain"
+
+    # 域名真的解析到这台机器了吗?
+    #
+    # 这一步很值得查:解析不对的话证书必然签不下来,而 Let's Encrypt
+    # 每域名每周只给 5 次失败额度 —— 撞满了要等一周。
+    # 自签模式不需要域名,跳过。
+    if [ "$tls_mode" != "selfsigned" ]; then
+      _resolved=""
+      if command -v dig >/dev/null 2>&1; then
+        _resolved="$(dig +short A "$domain" 2>/dev/null | grep -E '^[0-9.]+$' | head -1)"
+      elif command -v getent >/dev/null 2>&1; then
+        _resolved="$(getent ahostsv4 "$domain" 2>/dev/null | awk '{print $1; exit}')"
+      fi
+
+      if [ -z "$_resolved" ]; then
+        fail "$domain 解析不出 A 记录 —— 证书签不下来。"
+        fail "  先去 DNS 控制台加一条 A 记录指向本机公网 IP,等它生效再部署。"
+      else
+        # 本机公网 IP(多个源互为备份,任一可用即可)
+        _myip=""
+        for _svc in 'https://api.ipify.org' 'https://ifconfig.me/ip'; do
+          _myip="$(curl -fsS --max-time 5 "$_svc" 2>/dev/null | tr -d '[:space:]')"
+          [ -n "$_myip" ] && break
+        done
+
+        if [ -z "$_myip" ]; then
+          warn "$domain -> $_resolved(取不到本机公网 IP,无法比对)"
+        elif [ "$_resolved" = "$_myip" ]; then
+          ok "$domain -> $_resolved(与本机公网 IP 一致)"
+        else
+          # Cloudflare 橙云是最常见的原因,单独点出来。
+          # 它有两个后果,任一都足以让服务不可用。
+          if printf '%s' "$_resolved" | grep -qE '^(104\.(1[6-9]|2[0-9]|3[01])\.|172\.6[4-9]\.|172\.7[01]\.|173\.245\.|188\.114\.|190\.93\.|197\.234\.|198\.41\.|162\.15[89]\.|103\.2[12][0-9]\.)'; then
+            fail "$domain 解析到 Cloudflare($_resolved),不是本机($_myip)。"
+            fail "  DNS 记录那朵云要点成**灰色(DNS only)**,不能是橙色(Proxied):"
+            fail "    · 橙云下 Let's Encrypt 拿到的是 Cloudflare 的 IP,HTTP-01 验证会失败"
+            fail "    · Cloudflare 免费版**不代理 UDP**,而 LiveKit 媒体走 UDP 7882"
+            fail "      —— 代理开着的话语音根本连不上"
+          else
+            fail "$domain 解析到 $_resolved,但本机公网 IP 是 $_myip。"
+            fail "  A 记录指错了机器,或者 DNS 还没生效(改完通常几分钟到几小时)。"
+          fi
+        fi
+      fi
+    fi
   fi
 
   # TLS 模式
