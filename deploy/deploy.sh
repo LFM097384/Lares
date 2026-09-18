@@ -60,7 +60,7 @@ assert_proxy_untouched_by_design() {
   hits="$(grep -nE 'systemctl[[:space:]]+(start|stop|restart|reload|disable|enable|mask)[[:space:]]+.*(x-ui|xray)' \
        "$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/lib/*.sh 2>/dev/null \
        | grep -v '^[^:]*:[0-9]*:[[:space:]]*#' \
-       | grep -vE '^[^:]*:[0-9]*:[[:space:]]*(printf|echo)[[:space:]]')"
+       | grep -vE '^[^:]*:[0-9]*:[[:space:]]*(printf|echo)[[:space:]]' || true)"
   if [ -n "$hits" ]; then
     printf '%s\n' "$hits"
     die "内部断言失败:脚本中出现了对 xray/x-ui 的 systemctl 写操作。已中止。"
