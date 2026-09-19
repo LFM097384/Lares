@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appTitle": "Lares",
+  "appTitle": "Lares Circle",
   "chatCollapse": "Hide messages",
   "chatComposerHint": "Say something, or drop in a picture",
   "chatEmpty": "It's quiet here. Anything you want to say, or a picture, can go here.",
@@ -251,7 +251,7 @@
   "settingsTitle": "Settings",
   "settingsWifiOnlyHq": "High quality on Wi-Fi only",
   "settingsWifiOnlyHqSub": "Uses a lower bitrate on mobile data to save it",
-  "updateAndroidInstallerOpened": "The system installer is open. If it says installing unknown apps is blocked, allow Lares to install apps in the settings screen it offers, then try again.",
+  "updateAndroidInstallerOpened": "The system installer is open. If it says installing unknown apps is blocked, allow Lares Circle to install apps in the settings screen it offers, then try again.",
   "updateAutoCheckSubtitle": "Checks quietly and only speaks up when there's a new version. Installing always needs your confirmation.",
   "updateAutoCheckTitle": "Check for updates at startup",
   "updateCheckNow": "Check now",

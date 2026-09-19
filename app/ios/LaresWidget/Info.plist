@@ -4,8 +4,10 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- 回落值。选择器里实际显示的名字由 LaresWidget.swift 的
+	     configurationDisplayName 决定,它查 Localizable.strings 做本地化。 -->
 	<key>CFBundleDisplayName</key>
-	<string>炉灵</string>
+	<string>Lares Circle</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

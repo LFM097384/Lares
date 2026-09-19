@@ -343,7 +343,7 @@ class AndroidInstaller implements UpdateInstaller {
           guidance: encodeInstallerNotice(
             UpdateNoticeCode.androidInstallerOpened,
             '系统安装器已打开。若提示「禁止安装未知应用」,'
-            '请在弹出的设置里允许「Lares 炉灵」安装应用后重试。',
+            '请在弹出的设置里允许「炉灵」安装应用后重试。',
           ),
         );
       }

@@ -923,7 +923,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updateAndroidInstallerOpened =>
-      '系统安装器已打开。若提示「禁止安装未知应用」，请在弹出的设置里允许「Lares 炉灵」安装应用后重试。';
+      '系统安装器已打开。若提示「禁止安装未知应用」，请在弹出的设置里允许「炉灵」安装应用后重试。';
 
   @override
   String get updateAutoCheckSubtitle => '静默检查，发现新版本才提示；安装永远需要你点确认。';

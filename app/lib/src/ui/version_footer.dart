@@ -9,6 +9,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../state/dev_mode_store.dart';
 import '../theme/tokens.dart';
 
@@ -16,7 +17,8 @@ import '../theme/tokens.dart';
 /// 测试里注入一个假的,免得依赖平台通道。
 typedef VersionReader = Future<String> Function();
 
-/// 设置页最底下那行「Lares 炉灵 v0.1.1 (2)」。
+/// 设置页最底下那行版本号,形如「炉灵 v0.1.1 (2)」/「Lares Circle v0.1.1 (2)」。
+/// App 名取自 ARB 的 appTitle,随语言变。
 ///
 /// 连点 [DevModeStore.unlockTaps] 次解锁开发者模式。不传 [devMode] 时它
 /// 就只是一行普通的版本号 —— 点不出任何东西。
@@ -103,7 +105,7 @@ class _VersionFooterState extends State<VersionFooter> {
     final devMode = widget.devMode;
 
     final label = Text(
-      'Lares 炉灵 v$_version',
+      '${AppLocalizations.of(context).appTitle} v$_version',
       textAlign: TextAlign.center,
       style: theme.textTheme.bodyMedium,
     );

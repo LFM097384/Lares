@@ -1607,7 +1607,7 @@ abstract class AppLocalizations {
   /// Android 安装指引：系统安装器已打开，并说明未知来源权限
   ///
   /// In zh, this message translates to:
-  /// **'系统安装器已打开。若提示「禁止安装未知应用」，请在弹出的设置里允许「Lares 炉灵」安装应用后重试。'**
+  /// **'系统安装器已打开。若提示「禁止安装未知应用」，请在弹出的设置里允许「炉灵」安装应用后重试。'**
   String get updateAndroidInstallerOpened;
 
   /// 自动检查更新开关的说明

@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Lares';
+  String get appTitle => 'Lares Circle';
 
   @override
   String get chatCollapse => 'Hide messages';
@@ -990,7 +990,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateAndroidInstallerOpened =>
-      'The system installer is open. If it says installing unknown apps is blocked, allow Lares to install apps in the settings screen it offers, then try again.';
+      'The system installer is open. If it says installing unknown apps is blocked, allow Lares Circle to install apps in the settings screen it offers, then try again.';
 
   @override
   String get updateAutoCheckSubtitle =>

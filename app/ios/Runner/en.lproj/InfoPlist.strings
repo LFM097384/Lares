@@ -1,0 +1,9 @@
+/* 英文环境下图标底下显示的名字。
+   单独的「Lares」在 App Store 已被 Ksenia 的 lares 安防产品占用,
+   所以商店名和这里都用 Lares Circle —— Circle 正是本产品的核心概念。 */
+"CFBundleDisplayName" = "Lares Circle";
+
+/* 权限弹窗的文案也要随语言走,否则英文机上会弹出中文说明 ——
+   那是 Guideline 5.1.1 的直接拒绝理由。 */
+"NSMicrophoneUsageDescription" = "Lares Circle needs the microphone so you can talk with people in your circle.";
+"NSLocationWhenInUseUsageDescription" = "When you turn on location sharing, people in your circle can see you on the map. Turn it off and sharing stops.";

@@ -106,8 +106,12 @@ struct LaresWidget: Widget {
     StaticConfiguration(kind: "LaresWidget", provider: LaresProvider()) { entry in
       LaresWidgetView(entry: entry)
     }
-    .configurationDisplayName("炉灵")
-    .description("显示主圈子在线状态,点一下一键加入主圈子")
+    // 这两行出现在「添加小组件」的选择器里 —— 审核员和用户都会看到,
+    // 必须随系统语言变。SwiftUI 把字面量当 LocalizedStringKey,
+    // 会去查本 target 的 Localizable.strings;查不到就原样显示键名,
+    // 所以键名本身也写成可读的英文,万一漏了本地化也不会露出乱码。
+    .configurationDisplayName("widget.displayName")
+    .description("widget.description")
     .supportedFamilies([.systemSmall, .systemMedium])
   }
 }

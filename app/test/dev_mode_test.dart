@@ -64,7 +64,7 @@ Future<void> _openSettings(
 /// 连点版本号 n 次。每一下之间 pump 一帧,模拟真实的连续点击。
 Future<void> _tapVersion(WidgetTester tester, int times) async {
   for (var i = 0; i < times; i++) {
-    await tester.tap(find.textContaining('Lares 炉灵 v'));
+    await tester.tap(find.textContaining('${zhStrings().appTitle} v'));
     await _pumpSheet(tester);
   }
 }
@@ -228,7 +228,7 @@ void main() {
 
       await _openSettings(tester, settings: settings, devMode: null);
 
-      expect(find.textContaining('Lares 炉灵 v'), findsOneWidget);
+      expect(find.textContaining('${zhStrings().appTitle} v'), findsOneWidget);
       expect(find.text('开发者选项'), findsNothing);
 
       // 点 10 次也不该解锁出什么来(没有 store,连计数都无从记起)
@@ -243,7 +243,7 @@ void main() {
 
       await _openSettings(tester, settings: settings, devMode: devMode);
 
-      expect(find.text('Lares 炉灵 v9.9.9 (42)'), findsOneWidget);
+      expect(find.text('${zhStrings().appTitle} v9.9.9 (42)'), findsOneWidget);
     });
   });
 
@@ -325,7 +325,7 @@ void main() {
       expect(find.text('仅 WiFi 下高音质'), findsOneWidget);
       expect(find.text('社区内容规范'), findsOneWidget);
       // 版本号还在(还能再连点解锁回来)
-      expect(find.textContaining('Lares 炉灵 v'), findsOneWidget);
+      expect(find.textContaining('${zhStrings().appTitle} v'), findsOneWidget);
     });
 
     testWidgets('关掉之后当场再连点 7 次:能重新打开', (tester) async {

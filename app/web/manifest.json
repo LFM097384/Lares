@@ -1,11 +1,11 @@
 {
-    "name": "Lares 炉灵",
-    "short_name": "炉灵",
+    "name": "Lares Circle",
+    "short_name": "Lares",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Lares 炉灵 — 宅火的守护神，随人而动:小圈子常驻语音空间",
+    "description": "A voice space that stays open for a few close friends.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

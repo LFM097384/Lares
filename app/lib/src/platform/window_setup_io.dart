@@ -11,7 +11,10 @@ Future<void> setupDesktopWindow() async {
     size: Size(1100, 720),
     minimumSize: Size(860, 560),
     center: true,
-    title: 'Lares 炉灵',
+    // 这里在 runApp 之前执行,拿不到 AppLocalizations,
+    // 所以用语言中性的品牌名。窗口标题栏很快会被 MaterialApp 的
+    // onGenerateTitle 接管(那个是本地化的)。
+    title: 'Lares Circle',
     titleBarStyle: TitleBarStyle.normal,
   );
   await windowManager.waitUntilReadyToShow(options, () async {

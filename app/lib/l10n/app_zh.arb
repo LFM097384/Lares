@@ -1153,7 +1153,7 @@
   "@settingsWifiOnlyHqSub": {
     "description": "「仅 WiFi 下高音质」开关的副标题"
   },
-  "updateAndroidInstallerOpened": "系统安装器已打开。若提示「禁止安装未知应用」，请在弹出的设置里允许「Lares 炉灵」安装应用后重试。",
+  "updateAndroidInstallerOpened": "系统安装器已打开。若提示「禁止安装未知应用」，请在弹出的设置里允许「炉灵」安装应用后重试。",
   "@updateAndroidInstallerOpened": {
     "description": "Android 安装指引：系统安装器已打开，并说明未知来源权限"
   },

@@ -6,8 +6,14 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- 图标下面显示的名字。这里是回落值(系统语言既非中文也非英文时用),
+	     实际显示由 en.lproj / zh-Hans.lproj 的 InfoPlist.strings 覆盖:
+	       en      → Lares Circle
+	       zh-Hans → 炉灵
+	     App Store 上的名字是 ASC 里单独填的(Lares Circle),与这里无关 ——
+	     单独的「Lares」已被 Ksenia 的安防产品占用。 -->
 	<key>CFBundleDisplayName</key>
-	<string>炉灵</string>
+	<string>Lares Circle</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

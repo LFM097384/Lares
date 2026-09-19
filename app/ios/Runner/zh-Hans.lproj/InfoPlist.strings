@@ -1,0 +1,9 @@
+/* 中文环境下图标底下显示的名字。
+   「炉灵」保留 —— 它不只是个名字,已经长进产品叙事里
+   (E2EE 说明用「开了加密则炉灵不可用」来讲代价)。 */
+"CFBundleDisplayName" = "炉灵";
+
+/* 权限弹窗文案。与 Info.plist 里的基准值一致,写在这里是为了
+   让两种语言都走同一套机制,避免以后改了一边忘了另一边。 */
+"NSMicrophoneUsageDescription" = "进圈后需要麦克风才能和圈友说话";
+"NSLocationWhenInUseUsageDescription" = "开启位置共享后,圈内朋友能在地图上看到你的位置(关闭即停止)";

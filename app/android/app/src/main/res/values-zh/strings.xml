@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  中文。回落语言(英文)在 values/strings.xml。
+  「炉灵」保留 —— 它已经长进产品叙事里,不只是个名字。
+-->
+<resources>
+    <string name="app_name">炉灵</string>
+
+    <!-- 行为已变更:小组件跟随「主圈子」,点一下直接加入主圈子 -->
+    <string name="widget_desc">炉灵:显示主圈子在线状态,点一下一键加入主圈子</string>
+    <!-- 小组件占位文案(真实内容由 App 经 home_widget 推送覆盖) -->
+    <string name="widget_primary_mark">🔥</string>
+    <string name="widget_title_default">我们的圈</string>
+    <string name="widget_presence_default">暂无人在,进去等等看?</string>
+    <string name="widget_action_join">点一下,进圈 →</string>
+    <string name="widget_action_open">点一下,建个圈 →</string>
+</resources>

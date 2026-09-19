@@ -1,11 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ⚠️ 这是**回落**语言,系统语言没有对应 values-xx/ 时用这份。
+  所以这里必须是英文 —— 放中文的话,一个西班牙语用户会看到中文。
+  中文在 values-zh/strings.xml。
+
+  App Store 主语言是 English,Google Play 同理按英文为基准。
+-->
 <resources>
+    <!-- 启动器图标下的名字。单独的「Lares」在 App Store 已被
+         Ksenia 的 lares 安防产品占用,故统一用 Lares Circle。 -->
+    <string name="app_name">Lares Circle</string>
+
     <!-- 行为已变更:小组件跟随「主圈子」,点一下直接加入主圈子 -->
-    <string name="widget_desc">炉灵:显示主圈子在线状态,点一下一键加入主圈子</string>
+    <string name="widget_desc">Lares Circle: see who\'s in your main circle, tap to join</string>
     <!-- 小组件占位文案(真实内容由 App 经 home_widget 推送覆盖) -->
     <string name="widget_primary_mark">🔥</string>
-    <string name="widget_title_default">我们的圈</string>
-    <string name="widget_presence_default">暂无人在,进去等等看?</string>
-    <string name="widget_action_join">点一下,进圈 →</string>
-    <string name="widget_action_open">点一下,建个圈 →</string>
+    <string name="widget_title_default">Our circle</string>
+    <string name="widget_presence_default">Nobody here. Go in and wait a bit?</string>
+    <string name="widget_action_join">Tap to join →</string>
+    <string name="widget_action_open">Tap to make a circle →</string>
 </resources>

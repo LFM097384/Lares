@@ -48,6 +48,46 @@ else
   puts "#{PRIVACY_FILE} 已加入 Runner 的 Copy Bundle Resources"
 end
 
+# ── 0.5) InfoPlist.strings 本地化:让图标下的名字随系统语言变 ──
+#
+# 同样必须在幂等闸门**之前** —— 理由同上。
+#
+# 为什么需要:App Store 主语言是 English,商店名叫 Lares Circle,
+# 但 Info.plist 里只能写死一个 CFBundleDisplayName。
+# 靠 en.lproj / zh-Hans.lproj 的 InfoPlist.strings 才能做到
+# 英文机显示 Lares Circle、中文机显示「炉灵」。
+#
+# 这里同时覆盖了两条权限说明 —— 英文机上弹出中文权限弹窗
+# 是 Guideline 5.1.1 的直接拒绝理由。
+#
+# 注意 knownRegions:工程原本只有 en 和 Base,不把 zh-Hans 加进去,
+# 那个 .lproj 会被 Xcode 当成普通目录忽略,**不报错、也不生效**。
+LOCALES = %w[en zh-Hans].freeze
+INFOPLIST_STRINGS = 'InfoPlist.strings'
+
+proj.root_object.known_regions |= LOCALES
+
+runner_group = proj.main_group.find_subpath('Runner', true)
+existing_var = runner_group.files.find do |f|
+  f.path.to_s.end_with?(INFOPLIST_STRINGS) ||
+    (f.respond_to?(:name) && f.name.to_s == INFOPLIST_STRINGS)
+end
+
+if existing_var
+  puts "#{INFOPLIST_STRINGS} 已接入,跳过"
+else
+  # 变体组(variant group)是 Xcode 表达「同一资源的多语言版本」的方式:
+  # 组名是 InfoPlist.strings,组里每个子文件对应一种语言。
+  var_group = runner_group.new_variant_group(INFOPLIST_STRINGS)
+  LOCALES.each do |loc|
+    ref = var_group.new_file("#{loc}.lproj/#{INFOPLIST_STRINGS}")
+    ref.name = loc
+  end
+  runner.resources_build_phase.add_file_reference(var_group)
+  proj.save(PROJ_PATH)
+  puts "#{INFOPLIST_STRINGS} 已接入(#{LOCALES.join(', ')})"
+end
+
 if proj.targets.any? { |t| t.name == WIDGET_NAME }
   puts "#{WIDGET_NAME} 已存在,跳过"
   exit 0
@@ -72,6 +112,16 @@ widget.add_file_references([swift])
 # Info.plist 仅作为构建设置引用,不进编译资源
 group.new_file('Info.plist')
 group.new_file('LaresWidget.entitlements')
+
+# Localizable.strings:小组件在「添加小组件」选择器里的名字与说明。
+# 审核员和用户都会看到这一屏,所以要随系统语言变。
+# 与主 App 的 InfoPlist.strings 同理,用变体组表达多语言。
+widget_strings = group.new_variant_group('Localizable.strings')
+LOCALES.each do |loc|
+  r = widget_strings.new_file("#{loc}.lproj/Localizable.strings")
+  r.name = loc
+end
+widget.resources_build_phase.add_file_reference(widget_strings)
 
 # 3) 构建设置
 widget.build_configurations.each do |c|
