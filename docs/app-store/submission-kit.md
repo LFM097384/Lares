@@ -121,7 +121,14 @@
 | 算法是否自研/专有 | **否**，均为标准算法 |
 | 分类 | 5D992.c，ENC 740.17(b)(1) |
 
-`Info.plist` 已写死 `ITSAppUsesNonExemptEncryption = true`。
+`Info.plist` 里**刻意不写** `ITSAppUsesNonExemptEncryption`。
+
+填 `true` 会被 altool 预检以 ITMS-90592 拒绝（它会继续索要
+只发给 CCATS 持有者的 `ITSEncryptionExportComplianceCode`）；
+填 `false` 又与事实不符。不写，改在 ASC 网页上按上表逐题回答 ——
+这才是自分类该走的路径。
+
+⚠️ 每上传一个新构建，TestFlight 页面都会要求回答一次这组问题。
 
 ⏰ **上架后义务**：次年 2 月 1 日前提交年度自分类报告。
 详见 `docs/compliance/encryption-export.md`。

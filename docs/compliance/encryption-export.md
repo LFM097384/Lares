@@ -9,7 +9,7 @@
 |---|---|
 | ECCN | **5D992.c** |
 | 授权类型 | **License Exception ENC — 740.17(b)(1)**（自分类） |
-| `ITSAppUsesNonExemptEncryption` | **`true`** |
+| `ITSAppUsesNonExemptEncryption` | **不写这个键**（见下文「为什么不写」） |
 | 需要 CCATS？ | **不需要** |
 | 需要 ERN？ | **不需要**（(b)(1) 自分类不要求） |
 | 需要年度自分类报告？ | **需要，每年 2 月 1 日前** |
@@ -59,8 +59,33 @@ BIS 明确堵死了这条路。
 | 算法是否为专有/自研？ | **否**，都是标准算法（AES、Argon2id、HMAC-SHA256） |
 | 是否属于 Mass Market 免除类别？ | 是 —— 5D992.c，ENC 740.17(b)(1) |
 
-`Info.plist` 里已写死 `ITSAppUsesNonExemptEncryption = true`，
-所以每次上传不会再弹这个问题，但**首次**仍需在合规问卷里选一次分类。
+### 为什么 `Info.plist` 里不写这个键
+
+三种取值都试过，只有「不写」能通过：
+
+| 取值 | 结果 |
+|---|---|
+| `false` | 语义是「豁免、无需申报」。只适用于仅 HTTPS/TLS 或仅用 Apple 系统加密的 App。**我们不适用** |
+| `true` | **2026-09-19 实测被拒**：altool 预检报 ITMS-90592 |
+| 不写 | ✅ 每次上传后由 ASC 网页问卷来问，这正是自分类该走的路 |
+
+`true` 的失败信息：
+
+```
+ITMS-90592: Invalid Export Compliance Code.
+The export compliance key value [] in the app's Info.plist doesn't match
+the key value of the app's export compliance documentation.
+```
+
+原因：`true` 会让 Apple 继续索要 `ITSEncryptionExportComplianceCode`，
+而那个编号**只发给上传过 CCATS 文档的 App**。
+我们走自分类，按规定就不需要 CCATS，自然没有编号 → 值为空 → 校验失败。
+
+这是个容易绕进去的循环：为了"正确申报"而填 `true`，反而卡在一个
+只有 CCATS 持有者才能满足的校验上。**自分类的正确申报位置是网页问卷，不是 plist。**
+
+分类结论没有变 —— 仍然是 5D992.c，仍然要交年度自分类报告。
+变的只是**在哪里申报**。
 
 ## ⏰ 年度自分类报告（有硬 deadline）
 
