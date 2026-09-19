@@ -1,0 +1,13 @@
+# 这些文件的换行必须是 LF,不能被 Windows 检出转成 CRLF。
+#
+# CNAME:GitHub Pages 用它绑定自定义域。带 CRLF 时域名会被解析成
+# "docs.laresapp.org\r",自定义域直接失效 —— 而 docs.laresapp.org
+# 是 App Store Connect 里填的隐私政策地址,掉了等于审核员点不开。
+site/public/CNAME text eol=lf
+docs/CNAME text eol=lf
+
+# Shell 脚本在 Linux 服务器上执行,CRLF 会让 shebang 变成
+# "#!/bin/bash\r",报错是 "bad interpreter: No such file or directory"
+# —— 指向的文件明明存在,极难看出是换行问题。
+*.sh text eol=lf
+deploy/*.sh text eol=lf

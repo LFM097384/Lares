@@ -1,0 +1,25 @@
+---
+/**
+ * 正文页 layout（隐私 / 条款 / 支持）。
+ *
+ * 这三页的正文来自 docs/ 下的同名 md，逐字搬运。
+ * 隐私政策和服务条款是 App Store 审核员看过的法律文本 —— 一个字都不要改。
+ * 唯一允许的改动是链接目标（privacy.md → /privacy），
+ * 因为旧的 .md 后缀在新路由下会 404，而链接目标不是正文可见文字。
+ *
+ * md 文件的 frontmatter 会作为 Astro.props.frontmatter 传进来。
+ */
+import Base from './Base.astro';
+
+const { frontmatter } = Astro.props;
+---
+
+<Base
+  title={frontmatter.title}
+  description={frontmatter.description}
+  lang="zh-Hans"
+  prose={true}
+>
+  <a class="backlink" href="/">← 回首页</a>
+  <slot />
+</Base>

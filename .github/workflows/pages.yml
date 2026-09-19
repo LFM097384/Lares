@@ -1,0 +1,282 @@
+# GitHub Pages 部署(Astro 站 site/ → docs.laresapp.org)
+#
+# 这个站不是普通文档站:privacy / terms / support 三个 URL 已经填进
+# App Store Connect,审核员会直接访问。任何一个打不开都可能导致拒审,
+# 所以这里的重点不是「把文件传上去」,而是**传上去之后证明它真的能访问**。
+#
+# 与 ios-build.yml 无关,互不影响。
+#
+# ⚠️ 切换到本 workflow 需要一步**人工操作**(Settings → Pages → Source
+#    改成 GitHub Actions)。在那之前站点仍由 /docs 目录的 Jekyll 提供,
+#    本 workflow 会自动跳过部署而不是报红 —— 见下面 preflight 的注释。
+#    完整切换步骤见 deploy/pages-switch.md。
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+    # 只有站点源码变化才重新部署。docs/ 的改动不触发这里 ——
+    # 切换完成前 docs/ 仍是线上站,由 Pages 自带的 Jekyll 流程管。
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: '部署到线上(取消勾选 = 只构建并上传 artifact,供人工下载检查)'
+        type: boolean
+        default: true
+
+# 默认只读;需要写权限的只有 deploy 那一个 job,在那里单独放开。
+permissions:
+  contents: read
+
+# 同一时刻只允许一个部署。cancel-in-progress 必须是 false ——
+# 部署到一半被取消会让 Pages 停在中间状态,而这个站不能出现空窗。
+# 宁可排队,也不要为了省几分钟 CI 时间去掐一个正在进行的部署。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # ── 环境探测:决定这次到底能不能构建/部署 ──────────────────────────────
+  # 存在两个「还没准备好」的状态,都不应该让 CI 变红:
+  #   1. site/ 还没建好(另一个 agent 在做)     → 跳过构建
+  #   2. Pages 的 Source 还是「Deploy from a branch」→ 跳过部署
+  # 第 2 条尤其重要:此时调 deploy-pages 一定失败(Pages 不接受来自
+  # workflow 的部署),报错信息还很隐晦。与其收一封看不懂的失败邮件,
+  # 不如在这里查清楚、把该做的人工操作直接写进 job summary。
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      has_site: ${{ steps.probe.outputs.has_site }}
+      has_lock: ${{ steps.probe.outputs.has_lock }}
+      pages_ready: ${{ steps.probe.outputs.pages_ready }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 探测 site/ 与 Pages 配置
+        id: probe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -f site/package.json ]; then
+            echo "has_site=true" >> "$GITHUB_OUTPUT"
+            echo "✓ site/package.json 存在"
+          else
+            echo "has_site=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::site/ 尚未就绪(没有 site/package.json),跳过构建。这是预期状态,不是错误。"
+          fi
+
+          # package-lock.json 决定两件事:能不能用 setup-node 的 npm 缓存,
+          # 以及该用 npm ci 还是 npm install。没有 lock 文件时对 setup-node
+          # 传 cache: npm 会直接报错,所以必须先探明。
+          if [ -f site/package-lock.json ]; then
+            echo "has_lock=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_lock=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::site/package-lock.json 不存在 —— 将退化为 npm install(无缓存、版本不锁定)。建议提交 lock 文件。"
+          fi
+
+          # build_type: "workflow" = 已切到 GitHub Actions
+          #             "legacy"   = 仍是 Deploy from a branch
+          # 查不到就当作 ready,把判断权交回给 deploy-pages 本身,
+          # 避免因为一次 API 抖动就永远不部署(静默不部署比报红更危险)。
+          BUILD_TYPE=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .build_type 2>/dev/null || echo "unknown")
+          echo "Pages build_type = $BUILD_TYPE"
+
+          if [ "$BUILD_TYPE" = "legacy" ]; then
+            echo "pages_ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### ⏸ 已跳过部署"
+              echo
+              echo "仓库 Pages 的 Source 目前仍是 **Deploy from a branch**(\`build_type=legacy\`),"
+              echo "此时从 workflow 部署会被拒绝,所以这一步被主动跳过了 —— **构建本身是成功的**。"
+              echo
+              echo "要正式启用,需要人工操作一次:"
+              echo "**Settings → Pages → Build and deployment → Source** 改为 **GitHub Actions**,"
+              echo "然后重跑本 workflow。详细步骤与回滚方法见 \`deploy/pages-switch.md\`。"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Pages Source 仍是 Deploy from a branch,已跳过部署。见 job summary。"
+          else
+            echo "pages_ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── 构建 Astro 站 ───────────────────────────────────────────────────────
+  build:
+    needs: preflight
+    if: needs.preflight.outputs.has_site == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          # 没有 lock 文件时必须把 cache 留空,否则 setup-node 直接失败。
+          cache: ${{ needs.preflight.outputs.has_lock == 'true' && 'npm' || '' }}
+          cache-dependency-path: site/package-lock.json
+
+      # 只为拿 base_path / origin 等输出,并确认 Pages 已启用。
+      # 注意:它**不会**把 Source 从 branch 改成 Actions ——
+      # 这个 action 只在「Pages 站点尚不存在」时才会去创建(build_type=workflow),
+      # 我们的站早就存在,所以它在这里是个 no-op。切换只能人工做。
+      - uses: actions/configure-pages@v5
+
+      - name: 安装依赖
+        working-directory: site
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: 构建
+        working-directory: site
+        run: npm run build
+
+      # 构建指纹 —— 这一步是后面自检能不能作数的关键。
+      #
+      # 为什么需要:切换前后 docs.laresapp.org 上都存在 /privacy、/terms、
+      # /support(旧 Jekyll 站也有),内部文档路径在旧站也同样是 404
+      # (docs/_config.yml 的 exclude 已经排除了)。也就是说,如果只按
+      # 状态码判断,自检对着**没更新的旧站**也会全绿 —— 那等于什么都没验。
+      # 写一个带 commit SHA 的文件,自检就能先确认「线上确实是这次的产物」,
+      # 再去看那几个 URL,否则一律当作 CDN 还没刷新继续等。
+      - name: 写入构建指纹
+        run: |
+          set -euo pipefail
+          printf 'sha=%s\nrun=%s\nbuilt=%s\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$(date -u +%FT%TZ)" \
+            > site/dist/build-id.txt
+          cat site/dist/build-id.txt
+
+      - name: 检查产物
+        run: |
+          set -euo pipefail
+          cd site/dist
+          echo "=== dist/ 顶层 ==="
+          ls -la
+          # 首页缺失说明构建出了问题,但 Astro 可能 exit 0 —— 主动拦一道。
+          [ -f index.html ] || { echo "::error::site/dist/ 里没有 index.html,构建产物不可用,拒绝部署。"; exit 1; }
+          # CNAME 只作提示:走 Actions 部署时自定义域由仓库 Settings 决定,
+          # 产物里的 CNAME 文件会被忽略,缺了也不影响绑定。
+          [ -f CNAME ] && echo "CNAME = $(cat CNAME)" || echo "(产物中无 CNAME,走 Actions 部署时不需要)"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  # ── 部署 ────────────────────────────────────────────────────────────────
+  deploy:
+    needs: [preflight, build]
+    # pages_ready=false 时跳过(灰色),而不是失败(红色):
+    # 「还没做那一步人工切换」是预期中的过渡状态,不是 CI 故障。
+    if: >-
+      needs.preflight.outputs.pages_ready == 'true' &&
+      (github.event_name != 'workflow_dispatch' || inputs.deploy)
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write      # 创建 Pages 部署
+      id-token: write   # deploy-pages 用 OIDC 向 Pages 证明产物来源
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ── 部署后自检 ──────────────────────────────────────────────────────────
+  # 单独成 job 而不是接在 deploy 后面的一步:自检失败要能一眼看出是
+  # 「发出去了但访问不到」,而不是「没发出去」—— 这两种情况的处置完全不同。
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: 验证线上可访问性
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+
+          BASE="https://docs.laresapp.org"
+
+          # 上架的必要条件:这四个必须 200
+          MUST_200="/ /privacy /terms /support"
+          # 内部文档,不该出现在公网:这三个必须 404
+          MUST_404="/plans/identity-and-roles /compliance/encryption-export /app-store/submission-kit"
+
+          # 跟随重定向再看最终状态码。Astro 默认输出 /privacy/index.html,
+          # Pages 会把 /privacy 301 到 /privacy/ —— 审核员的浏览器会跟过去,
+          # 所以「跟随后是 200」才是真实可访问性;不带 -L 会误判成失败。
+          code() { curl -sS -L -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000"; }
+
+          # 部署完 CDN 还要几十秒才全球生效,首轮不通是常态。
+          # 每 15 秒一轮,最多 8 轮(2 分钟),全部通过就提前结束。
+          for attempt in $(seq 1 8); do
+            echo "── 第 $attempt/8 轮 ────────────────────────────────"
+            FAIL=0
+            REPORT=""
+
+            # 先确认线上就是这次构建的产物,否则后面检查的可能是旧站。
+            LIVE=$(curl -sS -L --max-time 20 "$BASE/build-id.txt" 2>/dev/null | sed -n 's/^sha=//p' | tr -d '\r')
+            if [ "$LIVE" != "$EXPECTED_SHA" ]; then
+              echo "  指纹未刷新(线上 '${LIVE:-无}',期望 '$EXPECTED_SHA'),等 CDN"
+              FAIL=1
+              REPORT="构建指纹不匹配:线上 '${LIVE:-无}' ≠ 本次 '$EXPECTED_SHA'"
+            else
+              echo "  ✓ 指纹匹配,确认是本次部署"
+
+              for p in $MUST_200; do
+                C=$(code "$BASE$p")
+                if [ "$C" = "200" ]; then
+                  echo "  ✓ $p → $C"
+                else
+                  echo "  ✗ $p → $C(应为 200)"
+                  FAIL=1
+                  REPORT="$REPORT\n$BASE$p 返回 $C,应为 200"
+                fi
+              done
+
+              for p in $MUST_404; do
+                C=$(code "$BASE$p")
+                if [ "$C" = "404" ]; then
+                  echo "  ✓ $p → $C"
+                else
+                  echo "  ✗ $p → $C(应为 404,内部文档不应公开)"
+                  FAIL=1
+                  REPORT="$REPORT\n$BASE$p 返回 $C,应为 404(内部文档泄漏)"
+                fi
+              done
+            fi
+
+            if [ $FAIL -eq 0 ]; then
+              echo ""
+              echo "✅ 全部通过 —— 四个上架必需 URL 可访问,内部文档未泄漏。"
+              echo "### ✅ 线上自检通过" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            [ "$attempt" -lt 8 ] && { echo "  15 秒后重试…"; sleep 15; }
+          done
+
+          # 走到这里说明 2 分钟内始终没达标
+          echo "::error::线上自检失败:2 分钟重试后仍未全部达标。"
+          {
+            echo "### ❌ 线上自检失败"
+            echo
+            echo "重试 8 轮(约 2 分钟)后仍未通过:"
+            echo '```'
+            printf '%b\n' "$REPORT"
+            echo '```'
+            echo
+            echo "**这几个 URL 是 App Store 上架的必要条件,请立即处理。**"
+            echo "若短时间内修不好,按 \`deploy/pages-switch.md\` 的「回滚」一节切回 /docs 目录。"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1

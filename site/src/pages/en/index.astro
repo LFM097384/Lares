@@ -1,0 +1,99 @@
+---
+/**
+ * 首页（英文）—— /en/
+ *
+ * 语气参照 docs/l10n-guide.md 的语气表：克制、口语、不用力。
+ *   算了 → Never mind（不是 Cancel）
+ *   挂着 → Stay open（不是 Keep Alive）
+ * 禁止：感叹号、Title Case（按钮除外）、Powerful / Seamless 这类词。
+ *
+ * ⚠️ 只有首页有英文版。隐私 / 条款 / 支持 是 App Store 审核员看过的
+ * 中文法律文本，一个字都不能改 —— 也不该由实现者擅自上线一份
+ * 未经法务审阅的英文译本。页脚链接已标注 (中文)。
+ * 若产品方需要英文法律文本，那是一次单独的、需要审阅的工作。
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="Lares Circle — an always-on voice room for people you already know"
+  description="An always-on voice room for a small circle of people you already know. Walk in and talk, or just stay open without saying anything, like sitting around a fire. Open source, self-hosted, end-to-end encryption optional."
+  lang="en"
+  altHref="/"
+>
+  <section class="hero">
+    <h1>Lares Circle</h1>
+    <p class="hero__kicker">The household fire spirit, and it travels with you.</p>
+
+    {/*
+      英文版的唯一暖色落在 "fire" 上，与中文版的「火」对应。
+      每个页面各自只有一处 —— 同一个位置的两种语言，不是两处。
+    */}
+    <p class="hero__lede">
+      An <strong>always-on voice room</strong> for a small circle of people you
+      already know. Walk in and talk, or just stay open without saying
+      anything, like sitting around a <span class="ember">fire</span>.
+    </p>
+
+    <p class="hero__meta">
+      iOS, Android, Windows, macOS and Web. Currently in TestFlight, not on the
+      App Store yet.
+    </p>
+  </section>
+
+  <section aria-labelledby="what">
+    <h2 id="what">What it is</h2>
+
+    <ul class="cards">
+      <li class="card">
+        <h3>Always on</h3>
+        <p>Not a call you start. A room that is already there.</p>
+      </li>
+      <li class="card">
+        <h3>Small circles</h3>
+        <p>
+          You get in with the circle passphrase. No stranger discovery, no
+          random matching, no public room list.
+        </p>
+      </li>
+      <li class="card">
+        <h3>Encryption, if you want it</h3>
+        <p>
+          A circle can turn on end-to-end encryption. The key comes from the
+          passphrase, so the server cannot read anything either.
+        </p>
+      </li>
+    </ul>
+
+    {/* 与中文版同一个占位。真机截图待 TestFlight 装上后补。 */}
+    <div class="shot" role="img" aria-label="Screenshot pending">
+      Screenshot pending
+    </div>
+  </section>
+
+  <section aria-labelledby="not">
+    <h2 id="not">What it is not</h2>
+    <blockquote class="statement">
+      <p>
+        Not a place to meet strangers, and not anonymous chat. There is no
+        “people nearby”, no random pairing. That code does not exist in the
+        repository.
+      </p>
+    </blockquote>
+  </section>
+
+  <section aria-labelledby="oss">
+    <h2 id="oss">Open source, self-hosted</h2>
+    <p>
+      The server lives in <a href="https://github.com/LFM097384/Lares"
+        >the same repository</a
+      >, so you can run it on your own machine and point the app at your own
+      address.
+    </p>
+    <p>
+      No sign-up, no phone number, no email. No analytics, ads or crash
+      reporting SDKs. The <a href="/privacy">privacy policy</a> (in Chinese) says
+      so, and this site holds to it as well: no fonts, no third-party requests.
+    </p>
+  </section>
+</Base>

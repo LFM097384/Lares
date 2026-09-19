@@ -1,0 +1,16 @@
+{
+  "name": "lares-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lares 炉灵 官网 —— 静态站，零客户端 JS，零第三方请求",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "devDependencies": {
+    "astro": "^5.1.1"
+  }
+}

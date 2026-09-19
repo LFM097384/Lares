@@ -1,0 +1,92 @@
+---
+/**
+ * 首页（中文）
+ *
+ * 结构按 docs/design/web-brief.md「内容结构」节：
+ *   Hero → 它解决什么(3点) → 它不是什么 → 开源自托管 → 页脚
+ *
+ * 文案全部复用 docs/index.md 的现有句子。那些句子的语气是对的，
+ * 不要改写成营销腔。禁用词：革命性、颠覆、无缝、强大、极致、完美、感叹号。
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="炉灵 Lares Circle —— 熟人小圈子的常驻语音房"
+  description="一个给熟人小圈子用的常驻语音房——进去就能说话，不说话也可以一直挂着，像围坐在火边。开源自托管，可端到端加密。"
+  lang="zh-Hans"
+  altHref="/en"
+>
+  <section class="hero">
+    <h1>炉灵</h1>
+    <p class="hero__kicker">宅火的守护神，随人而动。</p>
+
+    {/*
+      全站唯一一处 --ember 就在下面这个「火」字上。
+      理由见 global.css 里 .ember 的注释。加第二处之前请先去掉这一处。
+    */}
+    <p class="hero__lede">
+      一个给熟人小圈子用的<strong>常驻语音房</strong>——进去就能说话，
+      不说话也可以一直挂着，像围坐在<span class="ember">火</span>边。
+    </p>
+
+    <p class="hero__meta">
+      支持 iOS / Android / Windows / macOS / Web。
+      App 正在 TestFlight 测试中，尚未上架。
+    </p>
+  </section>
+
+  <section aria-labelledby="what">
+    <h2 id="what">它是什么</h2>
+
+    <ul class="cards">
+      <li class="card">
+        <h3>常驻</h3>
+        <p>不是「发起通话」，是一个一直在那儿的房间。</p>
+      </li>
+      <li class="card">
+        <h3>小圈子</h3>
+        <p>
+          靠圈子口令进入，没有陌生人发现、没有随机匹配、没有公开房间列表。
+        </p>
+      </li>
+      <li class="card">
+        <h3>可加密</h3>
+        <p>
+          圈子可以开启端到端加密，密钥由圈口令派生，服务器也解不开。
+        </p>
+      </li>
+    </ul>
+
+    {/*
+      截图位。真机截图要等 TestFlight 装上才有，
+      那批图 App Store 也要用，会一次拍两用。
+      不要换成 Lorem 或占位图服务 —— 后者是第三方请求。
+      role="img" + aria-label 让屏幕阅读器读出「这里将来是截图」而不是念占位文字。
+    */}
+    <div class="shot" role="img" aria-label="产品截图待补">截图待补</div>
+  </section>
+
+  <section aria-labelledby="not">
+    <h2 id="not">它不是什么</h2>
+    <blockquote class="statement">
+      <p>
+        不是陌生人社交，不是匿名聊天。没有任何「发现附近的人」「随机连线」
+        这类功能，代码里也不存在相关实现。
+      </p>
+    </blockquote>
+  </section>
+
+  <section aria-labelledby="oss">
+    <h2 id="oss">开源自托管</h2>
+    <p>
+      服务器代码在<a href="https://github.com/LFM097384/Lares">同一个仓库</a>里，
+      你可以跑在自己的机器上。App 里能填自己的服务器地址。
+    </p>
+    <p>
+      不需要注册，不收集手机号邮箱。不接入任何分析、广告或崩溃上报 SDK ——
+      这一条<a href="/privacy">隐私政策</a>里写了，这个网站本身也做到了：
+      它不加载字体、不请求任何外部域名。
+    </p>
+  </section>
+</Base>

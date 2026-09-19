@@ -1,0 +1,135 @@
+---
+/**
+ * 全站唯一的 layout。
+ *
+ * 纪律：
+ *  - 不引入任何 <script>。零客户端 JS 是硬约束，不是目标。
+ *  - 不引入任何外域 <link>（字体、CDN、favicon 服务一律不行）。
+ *    隐私政策写着「不收集」，站点必须做到 —— DevTools Network 应只有本域。
+ *  - 样式由 global.css 提供，astro.config.mjs 里
+ *    inlineStylesheets: 'always' 会把它内联进每个 HTML，连同域 CSS 请求都没有。
+ */
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  /** 页面语言。决定 <html lang>，影响屏幕阅读器的发音和断行。 */
+  lang?: 'zh-Hans' | 'en';
+  /** 对应的另一语言版本路径；有值时输出 hreflang 互指。 */
+  altHref?: string;
+  /** 正文页（隐私/条款/支持）传 true，套用 .prose 的行宽与间距 */
+  prose?: boolean;
+}
+
+const {
+  title,
+  description,
+  lang = 'zh-Hans',
+  altHref,
+  prose = false,
+} = Astro.props;
+
+const isEn = lang === 'en';
+const home = isEn ? '/en' : '/';
+
+// 页脚链接。
+// 注意：隐私 / 条款 / 支持 只有中文版本 —— 那是 App Store 审核员看过的法律文本，
+// 一个字都不能改，也不该由我擅自翻译一份未经审阅的英文版上线。
+// 所以英文页脚指向同一批中文页，并标注 (中文)，让英文读者知道会跳到什么。
+const legal = [
+  { href: '/privacy', zh: '隐私政策', en: 'Privacy policy (中文)' },
+  { href: '/terms', zh: '服务条款', en: 'Terms of service (中文)' },
+  { href: '/support', zh: '支持与反馈', en: 'Support (中文)' },
+];
+
+const skipText = isEn ? 'Skip to content' : '跳到正文';
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="dark" />
+    <!-- 地址栏 / 状态栏跟随站点底色，避免深色页配亮色系统栏 -->
+    <meta name="theme-color" content="#121016" />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    {
+      altHref && (
+        <>
+          <link
+            rel="alternate"
+            hreflang={isEn ? 'zh-Hans' : 'en'}
+            href={new URL(altHref, Astro.site)}
+          />
+          <link
+            rel="alternate"
+            hreflang={isEn ? 'en' : 'zh-Hans'}
+            href={new URL(Astro.url.pathname, Astro.site)}
+          />
+        </>
+      )
+    }
+    {/*
+      favicon 是本域的 /favicon.svg —— 一个余烬色的小圆点。同域请求，不是第三方。
+
+      曾用 data: URI 内联以省下这个请求，但 SVG 根元素必须带 XML 命名空间，
+      而那个命名空间字面量是个 h-t-t-p 开头的 URI，会让验收脚本
+      「全站 grep 不得有明文 http 协议」永远报假阳性。命名空间只是 XML
+      解析器的标识符，浏览器从不去请求它 —— 但让验收跑出干净结果，
+      比省一个 1KB 的同域请求更有价值，所以换成独立文件。
+
+      ⚠️ 这里用 Astro 的 {/* *​/} 注释而不是 HTML 的 <!-- -->：
+      HTML 注释会原样输出到产物里，上面这段解释本身就会成为产物中
+      唯一的 http 匹配项（真的发生过）。Astro 注释在构建期就被丢掉。
+
+      标签栏里出现 #FF8A5C 不占用「只用一处」的预算：它在浏览器 chrome 里，
+      不与页面正文同屏争夺注意力。
+    */}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">{skipText}</a>
+
+    <main id="main" class={prose ? 'wrap prose' : 'wrap--wide wrap'}>
+      <slot />
+    </main>
+
+    <footer class="footer">
+      <div class={prose ? 'wrap' : 'wrap--wide wrap'}>
+        <nav aria-label={isEn ? 'Footer' : '页脚导航'}>
+          <ul>
+            <li><a href={home}>{isEn ? 'Home' : '首页'}</a></li>
+            {
+              legal.map((l) => (
+                <li>
+                  <a href={l.href}>{isEn ? l.en : l.zh}</a>
+                </li>
+              ))
+            }
+            <li>
+              <a href="https://github.com/LFM097384/Lares">
+                {isEn ? 'Source' : '源代码'}
+              </a>
+            </li>
+            <li>
+              <a href={isEn ? '/' : '/en'} lang={isEn ? 'zh-Hans' : 'en'}>
+                {isEn ? '中文' : 'English'}
+              </a>
+            </li>
+          </ul>
+        </nav>
+        <p class="footer__note">
+          {
+            isEn
+              ? 'Lares Circle is open source and self-hosted. This site loads no fonts, no analytics, and no third-party scripts.'
+              : '炉灵是开源自托管的。本站不加载字体、不做分析、没有第三方脚本。'
+          }
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
