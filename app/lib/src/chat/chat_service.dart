@@ -9,6 +9,7 @@ import 'chat_limits.dart';
 import 'chat_message.dart';
 import 'chat_text.dart';
 import 'chat_transport.dart';
+import 'frame_registry.dart';
 import 'image_assembler.dart';
 
 /// 图片超过 [maxImageBytes] 时抛出。
@@ -59,8 +60,21 @@ class ChatService extends ChangeNotifier {
       onFailure: _onImageFailed,
       now: _now,
     );
+    // 内核自带的两种类型也走注册表,和将来的插件走同一条路 ——
+    // 「自己不吃狗粮的插件系统一定是残废的」。
+    // 见 docs/plans/plugin-protocol.md。
+    frames
+      ..register(chatTypeText, (f) => _onTextFrame(f.header))
+      ..register(chatTypeImage, (f) => _assembler.addChunk(f.header, f.payload));
     _sub = _transport.inbound.listen(_onFrame);
   }
+
+  /// 帧类型注册表。内核的 text / img 已注册好;插件在这里挂自己的类型。
+  ///
+  /// 暴露成 public 是为了让上层(将来的 PluginHost)能注册,但
+  /// **只能注册,拿不到密钥** —— 处理器收到的 [IncomingFrame] 已经解密完毕。
+  /// 这是「即使插件是恶意的,也只能泄露它经手的那一条」的前提。
+  final FrameRegistry frames = FrameRegistry();
 
   final ChatTransport _transport;
 
@@ -266,14 +280,15 @@ class ChatService extends ChangeNotifier {
     // 忽略自己的消息:本地已乐观回显,再收一次会重复
     if (sid is String && sid == userId) return;
 
-    switch (decoded.type) {
-      case chatTypeText:
-        _onTextFrame(h);
-      case chatTypeImage:
-        _assembler.addChunk(h, decoded.payload);
-      default:
-        break; // 未知 t:忽略,不是错误
-    }
+    // 未知类型不是错误:对方可能装了我们没有的插件。
+    // dispatch 返回 false 即无人认领,静默丢弃 —— 这是向前兼容的正确姿态。
+    frames.dispatch(
+      IncomingFrame(
+        type: decoded.type,
+        header: h,
+        payload: decoded.payload,
+      ),
+    );
   }
 
   void _onTextFrame(Map<String, dynamic> h) {
@@ -358,6 +373,14 @@ class ChatService extends ChangeNotifier {
     _sub = null;
     _assembler.dispose();
     _messages.clear();
+    // 注册表里的处理器是闭包,持有 this。_onFrame 开头已有 _disposed 闸门,
+    // 分发本来也到不了这里;清掉是为了断开引用,别让插件的处理器
+    // 拖着一个已销毁的 ChatService 不放。
+    // 先拷一份再删:registeredTypes 是底层 Map 的视图,
+    // 边遍历边删会抛 ConcurrentModificationError。
+    for (final String t in List<String>.of(frames.registeredTypes)) {
+      frames.unregister(t);
+    }
     super.dispose();
   }
 }
