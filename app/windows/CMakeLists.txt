@@ -15,6 +15,18 @@ cmake_policy(VERSION 3.14...3.25)
 # 注意:不要全局加 /await —— geolocator_windows 自带 /await:strict,两者互斥(D8016)。
 add_compile_options(/utf-8)
 
+# local_auth_windows 仍在用 <experimental/coroutine>。MSVC 14.51(VS18)起
+# 该头文件里的 static_assert 直接把它变成**硬错误** STL1011,构建整个失败:
+#   error C2338: ... <experimental/coroutine> ... are deprecated by Microsoft
+#   and will be REMOVED SOON
+#
+# 这是上游插件的债,不是本项目的代码问题 —— GitHub runner 镜像升到 VS18
+# 之后才暴露出来,本地装着老版 VS 的机器上完全看不到。
+#
+# 这个宏是微软自己在错误信息里给的过渡开关。等 local_auth 迁到 C++20 的
+# <coroutine> 之后就可以删掉。
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)
