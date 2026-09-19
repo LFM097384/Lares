@@ -3,6 +3,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import '../platform/platform_info.dart'
     if (dart.library.io) '../platform/platform_info_io.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../config.dart';
 import '../moderation/block_store.dart';
 import '../moderation/consent_store.dart';
@@ -58,7 +59,9 @@ Future<void> showSettingsSheet(
         ?devMode,
         ?ice,
       ]),
-      builder: (context, _) => SafeArea(
+      builder: (context, _) {
+        final t = AppLocalizations.of(context);
+        return SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: LaresSpacing.lg),
           child: Column(
@@ -67,18 +70,18 @@ Future<void> showSettingsSheet(
               // ── 声音与打扰 ────────────────────────────────────────
               // 日常最常调的:音质、降噪、什么时候别来烦我。放最上面。
               SettingsGroup(
-                title: '声音与打扰',
+                title: t.settingsGroupSound,
                 children: [
                   SwitchListTile(
                     secondary: const Icon(Icons.wifi_rounded),
-                    title: const Text('仅 WiFi 下高音质'),
-                    subtitle: const Text('移动网络自动降码率,省流量'),
+                    title: Text(t.settingsWifiOnlyHq),
+                    subtitle: Text(t.settingsWifiOnlyHqSub),
                     value: settings.wifiOnlyHq,
                     onChanged: settings.setWifiOnlyHq,
                   ),
                   ListTile(
                     leading: const Icon(Icons.noise_control_off_rounded),
-                    title: const Text('降噪'),
+                    title: Text(t.settingsNoiseSuppression),
                     // 如实显示本平台真正能做到的,不承诺做不到的事
                     // (例如 Windows 不支持增强降噪,会诚实显示已回落)
                     subtitle: Text(
@@ -87,18 +90,18 @@ Future<void> showSettingsSheet(
                     trailing: DropdownButton<NoiseSuppressionMode>(
                       value: settings.noiseMode,
                       underline: const SizedBox.shrink(),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: NoiseSuppressionMode.off,
-                          child: Text('关闭'),
+                          child: Text(t.settingsNoiseOff),
                         ),
                         DropdownMenuItem(
                           value: NoiseSuppressionMode.standard,
-                          child: Text('标准'),
+                          child: Text(t.settingsNoiseStandard),
                         ),
                         DropdownMenuItem(
                           value: NoiseSuppressionMode.enhanced,
-                          child: Text('增强'),
+                          child: Text(t.settingsNoiseEnhanced),
                         ),
                       ],
                       onChanged: (v) {
@@ -108,16 +111,17 @@ Future<void> showSettingsSheet(
                   ),
                   ListTile(
                     leading: const Icon(Icons.do_not_disturb_on_outlined),
-                    title: const Text('免打扰时段'),
+                    title: Text(t.settingsDnd),
                     subtitle: Text(
                       settings.dndEnabled
+                          // 纯数字时段,不含词汇,两种语言一致 —— 不进 ARB
                           ? '${settings.dndStartHour}:00 - ${settings.dndEndHour}:00'
-                          : '未开启(敲门提示不受打扰)',
+                          : t.settingsDndOff,
                     ),
                     trailing: settings.dndEnabled
                         ? TextButton(
                             onPressed: () => settings.setDnd(-1, -1),
-                            child: const Text('关闭'),
+                            child: Text(t.settingsDndTurnOff),
                           )
                         : null,
                     onTap: () => _pickDnd(context, settings),
@@ -138,11 +142,11 @@ Future<void> showSettingsSheet(
                             ? Theme.of(context).colorScheme.error
                             : null,
                       ),
-                      title: const Text('录音与转写'),
+                      title: Text(t.settingsRecording),
                       subtitle: Text(
                         recordingConsent.captureAllowed
-                            ? '正在录音 —— 房间里所有人都看得到提示'
-                            : '默认关闭;开启时所有人都会看到提示',
+                            ? t.settingsRecordingOn
+                            : t.settingsRecordingOff,
                       ),
                       trailing: FilledButton.tonal(
                         onPressed: controller.circleId == null
@@ -166,14 +170,17 @@ Future<void> showSettingsSheet(
                                   messenger.showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        recordingConsent.message ?? '录音未能开始',
+                                        recordingConsent.message ??
+                                            t.settingsRecordingStartFailed,
                                       ),
                                     ),
                                   );
                                 }
                               },
                         child: Text(
-                          recordingConsent.captureAllowed ? '停止录音' : '开始录音',
+                          recordingConsent.captureAllowed
+                              ? t.settingsRecordingStop
+                              : t.settingsRecordingStart,
                         ),
                       ),
                     ),
@@ -185,18 +192,19 @@ Future<void> showSettingsSheet(
               // 普通用户**真的会遇到**的毛病,而且点一下就是系统对话框,
               // 不需要任何技术理解 —— 藏进开发者模式等于让人求助无门。
               SettingsGroup(
-                title: '这个圈子',
+                title: t.settingsGroupCircle,
                 children: [
                   // §2.1-1 核心入口:主圈子 + 主屏幕点一下直达
                   if (circleStore != null)
                     ListTile(
                       leading: const Icon(Icons.local_fire_department_rounded),
-                      title: const Text('主圈子'),
+                      title: Text(t.settingsPrimaryCircle),
                       subtitle: Text(
                         circleStore.primaryCircle == null
-                            ? '还没有圈子'
-                            : '${circleStore.primaryCircle!.name}\n'
-                                '小组件、快捷设置、托盘一键进的就是它',
+                            ? t.settingsPrimaryCircleNone
+                            : t.settingsPrimaryCircleSub(
+                                circleStore.primaryCircle!.name,
+                              ),
                       ),
                       trailing: circleStore.circles.length > 1
                           ? const Icon(Icons.chevron_right_rounded)
@@ -207,14 +215,14 @@ Future<void> showSettingsSheet(
                     ),
                   ListTile(
                     leading: const Icon(Icons.widgets_outlined),
-                    title: const Text('把圈子放到主屏幕'),
-                    subtitle: const Text('主屏幕点一下,直接进主圈子'),
+                    title: Text(t.settingsHomeWidget),
+                    subtitle: Text(t.settingsHomeWidgetSub),
                     onTap: () async {
                       final ok = await WidgetService.requestPin();
                       if (ctx.mounted && !ok) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(
-                            content: Text('当前设备不支持,请长按桌面手动添加'),
+                          SnackBar(
+                            content: Text(t.settingsHomeWidgetUnsupported),
                           ),
                         );
                       }
@@ -223,8 +231,8 @@ Future<void> showSettingsSheet(
                   // 后台运行保障(用户反馈):Android 请求忽略电池优化;iOS 说明机制
                   ListTile(
                     leading: const Icon(Icons.battery_saver_rounded),
-                    title: const Text('后台运行保障'),
-                    subtitle: const Text('挂机不掉线:电池优化白名单 / 后台音频'),
+                    title: Text(t.settingsBackground),
+                    subtitle: Text(t.settingsBackgroundSub),
                     onTap: () async {
                       final messenger = ScaffoldMessenger.of(ctx);
                       if (PlatformInfo.current == 'android') {
@@ -232,12 +240,12 @@ Future<void> showSettingsSheet(
                             .requestIgnoreBatteryOptimization();
                         messenger.showSnackBar(SnackBar(
                           content: Text(granted
-                              ? '已允许后台运行(国产 ROM 建议再开「自启动」)'
-                              : '请在系统设置里允许忽略电池优化'),
+                              ? t.settingsBackgroundGranted
+                              : t.settingsBackgroundDenied),
                         ));
                       } else {
-                        messenger.showSnackBar(const SnackBar(
-                          content: Text('在房间里时 iOS 会自动以后台音频保活,无需设置'),
+                        messenger.showSnackBar(SnackBar(
+                          content: Text(t.settingsBackgroundIos),
                         ));
                       }
                     },
@@ -249,13 +257,13 @@ Future<void> showSettingsSheet(
               // **绝不进开发者模式**:1.2 要求屏蔽与内容规范是随时可达的,
               // 藏在「连点 7 次才出现」的地方等于不可达,是明确的审核风险。
               SettingsGroup(
-                title: '待得住',
+                title: t.settingsGroupSafety,
                 children: [
                   if (blocks != null) BlockedUsersSection(blocks: blocks),
                   ListTile(
                     leading: const Icon(Icons.rule_rounded),
-                    title: const Text('社区内容规范'),
-                    subtitle: const Text('看看我们对内容的要求'),
+                    title: Text(t.settingsContentPolicy),
+                    subtitle: Text(t.settingsContentPolicySub),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     // 同意过之后仍然随时可查 ——
                     // 1.2 审核员会找「同意之后还能不能看到条款」
@@ -298,7 +306,8 @@ Future<void> showSettingsSheet(
             ],
           ),
         ),
-      ),
+        );
+      },
     ),
   );
 }
@@ -311,7 +320,7 @@ Future<void> _pickPrimaryCircle(
   final chosen = await showDialog<String>(
     context: context,
     builder: (ctx) => SimpleDialog(
-      title: const Text('哪个是主圈子?'),
+      title: Text(AppLocalizations.of(ctx).settingsPickPrimaryCircle),
       children: [
         for (final c in circleStore.circles)
           ListTile(
@@ -338,34 +347,37 @@ Future<void> _pickDnd(BuildContext context, SettingsStore settings) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => AlertDialog(
-        title: const Text('免打扰时段'),
-        content: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _HourPicker(
-              label: '从',
-              value: start,
-              onChanged: (v) => setState(() => start = v),
+      builder: (ctx, setState) {
+        final t = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(t.settingsDnd),
+          content: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _HourPicker(
+                label: t.settingsDndFrom,
+                value: start,
+                onChanged: (v) => setState(() => start = v),
+              ),
+              _HourPicker(
+                label: t.settingsDndTo,
+                value: end,
+                onChanged: (v) => setState(() => end = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(t.commonCancel),
             ),
-            _HourPicker(
-              label: '到',
-              value: end,
-              onChanged: (v) => setState(() => end = v),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(t.settingsDndConfirm),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('算了'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('就这样'),
-          ),
-        ],
-      ),
+        );
+      },
     ),
   );
   if (ok == true) await settings.setDnd(start, end);

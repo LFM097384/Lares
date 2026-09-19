@@ -76,8 +76,90 @@ enum RecordingConsentState {
   stopping,
 
   /// 起录失败(最典型的是 armingTimeout 超时未收到回显)。
-  /// 此状态下 [RecordingConsentController.message] 必为非空中文说明。
+  /// 此状态下 [RecordingConsentController.notice] 必为非空。
   failed,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 给用户看的提示:语义标识
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 控制器要对用户说的那句话的**语义标识**。
+///
+/// 按 `docs/l10n-guide.md` 的分层纪律:本文件是模型层,拿不到也不该拿
+/// [BuildContext],所以这里**只存标识,不存译文**,翻译查表放 UI 层
+/// (见 `recording_indicator.dart` 的 `recordingNoticeText`)。
+///
+/// 每个值对应一个 ARB 键,命名一一对应:
+///
+/// | 枚举值                | ARB 键                              |
+/// |-----------------------|-------------------------------------|
+/// | circleIdEmpty         | `recordingNoticeCircleIdEmpty`      |
+/// | alreadyInProgress     | `recordingNoticeAlreadyInProgress`  |
+/// | armingTimeout         | `recordingNoticeArmingTimeout`      |
+/// | serverMarkedInactive  | `recordingNoticeServerMarkedInactive` |
+/// | removedFromRoom       | `recordingNoticeRemovedFromRoom`    |
+/// | disconnected          | `recordingNoticeDisconnected`       |
+/// | graceExpired          | `recordingNoticeGraceExpired`       |
+/// | stateOutOfSync        | `recordingNoticeStateOutOfSync`     |
+/// | signalingSilent       | `recordingNoticeSignalingSilent`    |
+enum RecordingConsentNoticeCode {
+  /// 圈子 ID 为空,压根无从录起。
+  circleIdEmpty,
+
+  /// 已有录音流程占用中,要求调用方先停。
+  alreadyInProgress,
+
+  /// 等服务器回执超时,起录失败。带 [RecordingConsentNotice.seconds]。
+  armingTimeout,
+
+  /// 服务器明确表示本机没在录(正面矛盾),已强制停。
+  serverMarkedInactive,
+
+  /// 本机已被移出房间,已强制停。
+  removedFromRoom,
+
+  /// 信令断开,宽限期内尝试恢复中。
+  disconnected,
+
+  /// 宽限期耗尽仍未恢复,已强制停。带 [RecordingConsentNotice.seconds]。
+  graceExpired,
+
+  /// 快照里没有我但我自以为在录,重新确认中。
+  stateOutOfSync,
+
+  /// 久无入站消息(半开连接看门狗),重新确认中。
+  signalingSilent,
+}
+
+/// 一条待展示的提示 = 语义标识 + 它需要的参数。
+///
+/// 之所以不是裸枚举:有两条文案要把秒数嵌进句子里,而**语序在不同语言里会变**
+/// (中文「超过 5 秒仍未恢复」,英文 "stayed down for more than 5 seconds"),
+/// 所以秒数必须作为占位符参数传给 ARB,不能在这里拼成字符串。
+@immutable
+class RecordingConsentNotice {
+  /// 构造一条提示。[seconds] 仅对带秒数的那两个 code 有意义。
+  const RecordingConsentNotice(this.code, {this.seconds});
+
+  /// 语义标识。
+  final RecordingConsentNoticeCode code;
+
+  /// 句子里要嵌的秒数;不需要参数的提示为 null。
+  final int? seconds;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecordingConsentNotice &&
+          other.code == code &&
+          other.seconds == seconds;
+
+  @override
+  int get hashCode => Object.hash(code, seconds);
+
+  @override
+  String toString() => 'RecordingConsentNotice(${code.name}, seconds: $seconds)';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -275,6 +357,7 @@ class RecordingConsentController extends ChangeNotifier {
   RecordingConsentState _state = RecordingConsentState.idle;
   String? _activeCircleId;
   String? _message;
+  RecordingConsentNotice? _notice;
   bool _disposed = false;
 
   /// 上一次向外广播过的采集许可值,用于「仅在翻转时回调」。
@@ -308,10 +391,22 @@ class RecordingConsentController extends ChangeNotifier {
   /// 房间录音全景,驱动指示器。
   RoomRecordingState get room => _room;
 
-  /// 给用户看的中文失败/警告文案;一切正常时为 null。
+  /// 给用户看的失败/警告文案;一切正常时为 null。
   ///
   /// 覆盖两类:起录失败(如超时)与录音中的异常(如信令中断被迫停止)。
+  ///
+  /// ⚠️ **未本地化的遗留路径,新代码请改用 [notice]。**
+  /// 这里返回的是中文原文。之所以还留着:`ui/settings_sheet.dart` 目前把它
+  /// 直接塞进 SnackBar,而那个文件不在本批次范围内;贸然删掉会让仓库编译不过。
+  /// 消费方切到 [notice] + `recordingNoticeText(context, notice)` 之后,
+  /// 本 getter 即可删除。
   String? get message => _message;
+
+  /// 当前提示的**语义标识**([message] 的本地化版本)。
+  ///
+  /// 与 [message] 严格同生共灭:两者永远同时为 null 或同时非 null。
+  /// UI 层用 `recordingNoticeText(context, notice)` 查表得到当前语言的句子。
+  RecordingConsentNotice? get notice => _notice;
 
   /// 是否处在「失去确认但仍在宽限期内」。
   ///
@@ -345,7 +440,10 @@ class RecordingConsentController extends ChangeNotifier {
     if (_disposed) return Future<bool>.value(false);
 
     if (circleId.isEmpty) {
-      _message = '圈子 ID 为空,无法开始录音';
+      _setNotice(
+        RecordingConsentNoticeCode.circleIdEmpty,
+        '圈子 ID 为空,无法开始录音',
+      );
       _setState(RecordingConsentState.failed);
       return Future<bool>.value(false);
     }
@@ -360,13 +458,16 @@ class RecordingConsentController extends ChangeNotifier {
     if (_state == RecordingConsentState.arming ||
         _state == RecordingConsentState.recording ||
         _state == RecordingConsentState.stopping) {
-      _message = '已有录音流程进行中,请先停止当前录音';
+      _setNotice(
+        RecordingConsentNoticeCode.alreadyInProgress,
+        '已有录音流程进行中,请先停止当前录音',
+      );
       _notify();
       return Future<bool>.value(false);
     }
 
     _activeCircleId = circleId;
-    _message = null;
+    _clearNotice();
     final Completer<bool> completer = Completer<bool>();
     _arming = completer;
 
@@ -395,7 +496,7 @@ class RecordingConsentController extends ChangeNotifier {
         _state == RecordingConsentState.failed) {
       // 本来就没在录。清掉残留文案即可,不发多余的包。
       if (_message != null) {
-        _message = null;
+        _clearNotice();
         _notify();
       }
       return;
@@ -418,7 +519,7 @@ class RecordingConsentController extends ChangeNotifier {
     _rebuildRoom();
 
     _activeCircleId = null;
-    _message = null;
+    _clearNotice();
     _setState(RecordingConsentState.idle);
   }
 
@@ -496,7 +597,10 @@ class RecordingConsentController extends ChangeNotifier {
       // 这是**正面的**矛盾情报(不是「暂时不确定」),立刻无条件停采。
       if (_state == RecordingConsentState.recording ||
           _state == RecordingConsentState.arming) {
-        _abort('服务器已将本机标记为未在录音,已自动停止录音以免房间不知情');
+        _abort(
+          RecordingConsentNoticeCode.serverMarkedInactive,
+          '服务器已将本机标记为未在录音,已自动停止录音以免房间不知情',
+        );
         return;
       }
       _notify();
@@ -546,7 +650,10 @@ class RecordingConsentController extends ChangeNotifier {
       // 快照漏我是「这一帧里没看见我」(信息缺失)。正面矛盾立刻停,
       // 信息缺失给宽限 —— 而两条路最终都会停,谁也不会让麦一直热着。
       if (_state == RecordingConsentState.recording) {
-        _enterGrace('信令状态不同步,正在重新确认录音状态');
+        _enterGrace(
+          RecordingConsentNoticeCode.stateOutOfSync,
+          '信令状态不同步,正在重新确认录音状态',
+        );
         return;
       }
       if (_state == RecordingConsentState.arming) {
@@ -570,7 +677,10 @@ class RecordingConsentController extends ChangeNotifier {
       // 服务器把我从花名册里划掉了 —— 别人的指示器上已经没有我这一条。
       // 同 active:false,属正面矛盾,立刻停。
       _rebuildRoom();
-      _abort('本机已被移出房间,已自动停止录音以免房间不知情');
+      _abort(
+        RecordingConsentNoticeCode.removedFromRoom,
+        '本机已被移出房间,已自动停止录音以免房间不知情',
+      );
       return;
     }
 
@@ -596,7 +706,10 @@ class RecordingConsentController extends ChangeNotifier {
     // 万一注入的 send 没有 outbox 语义,补发丢失也不会出事:
     // 宽限期计时器照样会到点并强制停采。两条路都是安全侧。
     _reassert();
-    _enterGrace('信令连接已断开,正在尝试恢复;若无法恢复将自动停止录音');
+    _enterGrace(
+      RecordingConsentNoticeCode.disconnected,
+      '信令连接已断开,正在尝试恢复;若无法恢复将自动停止录音',
+    );
   }
 
   /// 拿到(或重新拿到)权威确认。
@@ -609,7 +722,7 @@ class RecordingConsentController extends ChangeNotifier {
     _graceTimer = null;
 
     if (_state == RecordingConsentState.arming) {
-      _message = null;
+      _clearNotice();
       _setState(RecordingConsentState.recording);
       _startHeartbeat();
       _completeArming(true);
@@ -619,7 +732,7 @@ class RecordingConsentController extends ChangeNotifier {
     if (_state == RecordingConsentState.recording) {
       // 宽限期内恢复:状态从未离开 recording,采集自始至终没断过,
       // 清掉警告即可,不打断录音。
-      if (wasInGrace) _message = null;
+      if (wasInGrace) _clearNotice();
       _notify();
     }
   }
@@ -642,16 +755,24 @@ class RecordingConsentController extends ChangeNotifier {
     _recorders.remove(userId);
     _rebuildRoom();
     _activeCircleId = null;
-    _message = '未能确认房间已被告知录音开始,已取消录音'
-        '(等待服务器回执超过 ${armingTimeout.inSeconds} 秒)';
+    _setNotice(
+      RecordingConsentNoticeCode.armingTimeout,
+      '未能确认房间已被告知录音开始,已取消录音'
+          '(等待服务器回执超过 ${armingTimeout.inSeconds} 秒)',
+      seconds: armingTimeout.inSeconds,
+    );
     _setState(RecordingConsentState.failed);
     _completeArming(false);
   }
 
   /// 进入宽限期。**已在宽限期内则不重置计时器** —— 否则反复的断线事件
   /// 能把宽限期无限续期,变成「一直没确认却一直在采集」。
-  void _enterGrace(String warning) {
-    _message = warning;
+  void _enterGrace(
+    RecordingConsentNoticeCode code,
+    String warning, {
+    int? seconds,
+  }) {
+    _setNotice(code, warning, seconds: seconds);
     if (_graceTimer != null) {
       _notify();
       return;
@@ -663,12 +784,20 @@ class RecordingConsentController extends ChangeNotifier {
   void _onGraceExpired() {
     _graceTimer = null;
     if (_state != RecordingConsentState.recording) return;
-    _abort('信令中断超过 ${gracePeriod.inSeconds} 秒仍未恢复,'
-        '无法确认房间知情,已自动停止录音');
+    _abort(
+      RecordingConsentNoticeCode.graceExpired,
+      '信令中断超过 ${gracePeriod.inSeconds} 秒仍未恢复,'
+          '无法确认房间知情,已自动停止录音',
+      seconds: gracePeriod.inSeconds,
+    );
   }
 
   /// 无条件中止:撤销采集许可 + 落下中文警告。
-  void _abort(String warning) {
+  void _abort(
+    RecordingConsentNoticeCode code,
+    String warning, {
+    int? seconds,
+  }) {
     final String? circleId = _activeCircleId;
     _cancelTimers();
     _setState(RecordingConsentState.stopping);
@@ -683,7 +812,7 @@ class RecordingConsentController extends ChangeNotifier {
     _recorders.remove(userId);
     _rebuildRoom();
     _activeCircleId = null;
-    _message = warning;
+    _setNotice(code, warning, seconds: seconds);
     _setState(RecordingConsentState.failed);
   }
 
@@ -716,7 +845,10 @@ class RecordingConsentController extends ChangeNotifier {
       // 半开连接:没有 _disconnected 事件,但久无入站音讯。
       // 按「失去确认」处理,重新声明并起宽限期。
       _reassert();
-      _enterGrace('长时间未收到信令消息,正在重新确认录音状态');
+      _enterGrace(
+        RecordingConsentNoticeCode.signalingSilent,
+        '长时间未收到信令消息,正在重新确认录音状态',
+      );
     });
   }
 
@@ -731,6 +863,26 @@ class RecordingConsentController extends ChangeNotifier {
       // 有意静默:发送失败不改变本机的采集许可。
       // 起录靠的是回显(收不到自然会超时失败),停录本来就不依赖发送成功。
     }
+  }
+
+  /// 落下一条提示。**这是 [_message] / [_notice] 唯一的写入口** ——
+  /// 两者必须同生共灭,分开赋值迟早会漂移成「中文说 A、英文说 B」。
+  ///
+  /// [zh] 是遗留的中文原文(见 [message] 上的说明),[code] 是语义标识,
+  /// [seconds] 只给需要把秒数嵌进句子的那两条。
+  void _setNotice(
+    RecordingConsentNoticeCode code,
+    String zh, {
+    int? seconds,
+  }) {
+    _message = zh;
+    _notice = RecordingConsentNotice(code, seconds: seconds);
+  }
+
+  /// 清空提示。同样必须两者一起清。
+  void _clearNotice() {
+    _message = null;
+    _notice = null;
   }
 
   void _setState(RecordingConsentState next) {

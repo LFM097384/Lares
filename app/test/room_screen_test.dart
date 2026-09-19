@@ -9,6 +9,8 @@ import 'package:lares_app/src/state/room_controller.dart';
 import 'package:lares_app/src/theme/theme.dart';
 import 'package:lares_app/src/ui/room_screen.dart';
 
+import 'helpers/localized_app.dart';
+
 /// 假信令:不碰真实 socket/定时器,只记录发送的消息
 class FakeSignalingClient extends SignalingClient {
   FakeSignalingClient() : super(url: 'ws://fake');
@@ -97,9 +99,9 @@ void main() {
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(
+      localizedApp(
+        RoomScreen(controller: controller, circleName: '我们的圈'),
         theme: LaresTheme.dark(),
-        home: RoomScreen(controller: controller, circleName: '我们的圈'),
       ),
     );
 

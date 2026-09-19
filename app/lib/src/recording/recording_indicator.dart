@@ -30,8 +30,44 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../theme/tokens.dart';
 import 'recording_consent.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 提示文案查表(模型层的语义标识 -> 当前语言的句子)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 把控制器给出的 [RecordingConsentNotice] 翻成当前语言的一句话。
+///
+/// 按 `docs/l10n-guide.md`:模型层只存标识,查表放 UI 层。
+/// 带秒数的两条走 ARB 占位符,**不在这里拼字符串** —— 语序在不同语言里会变。
+String recordingNoticeText(
+  BuildContext context,
+  RecordingConsentNotice notice,
+) {
+  final AppLocalizations t = AppLocalizations.of(context);
+  // seconds 只对带占位符的那两条有意义;缺失时退化成 0,
+  // 让句子依然成立,而不是崩在一个提示文案上。
+  final int seconds = notice.seconds ?? 0;
+  return switch (notice.code) {
+    RecordingConsentNoticeCode.circleIdEmpty => t.recordingNoticeCircleIdEmpty,
+    RecordingConsentNoticeCode.alreadyInProgress =>
+      t.recordingNoticeAlreadyInProgress,
+    RecordingConsentNoticeCode.armingTimeout =>
+      t.recordingNoticeArmingTimeout(seconds),
+    RecordingConsentNoticeCode.serverMarkedInactive =>
+      t.recordingNoticeServerMarkedInactive,
+    RecordingConsentNoticeCode.removedFromRoom =>
+      t.recordingNoticeRemovedFromRoom,
+    RecordingConsentNoticeCode.disconnected => t.recordingNoticeDisconnected,
+    RecordingConsentNoticeCode.graceExpired =>
+      t.recordingNoticeGraceExpired(seconds),
+    RecordingConsentNoticeCode.stateOutOfSync => t.recordingNoticeStateOutOfSync,
+    RecordingConsentNoticeCode.signalingSilent =>
+      t.recordingNoticeSignalingSilent,
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 视觉语气
@@ -51,6 +87,159 @@ enum RecordingIndicatorTone {
   /// 录音状态失去确认(宽限期)。改用 [LaresColors.statusBusy],
   /// 因为此刻的事实是「房间可能已经不知道了」,这比「有人在录」更需要注意。
   warning,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 指示器文案的来源
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// [RecordingIndicatorDisplay] 需要的全部字面量。
+///
+/// 存在的理由:显示内容的**推导逻辑**(谁做主语、时长取谁的、宽限期怎么降级)
+/// 是纯逻辑,必须能在没有 [BuildContext] 的情况下被单元测试逐条钉死;
+/// 而**字面量**必须跟随界面语言。把后者抽成一个接口,两个需求就不打架了 ——
+/// 逻辑只有一份,语言换一个实现。
+///
+/// 生产环境用 [LocalizedRecordingIndicatorStrings](由 ARB 驱动);
+/// 不传时退化成 [ZhRecordingIndicatorStrings](见 [RecordingIndicatorDisplay.derive])。
+abstract class RecordingIndicatorStrings {
+  /// 子类需要一个 const 构造。
+  const RecordingIndicatorStrings();
+
+  /// 没有任何人在录音时的兜底主句。
+  String get nobodyRecording;
+
+  /// 我自己在录。第一人称。
+  String get youAreRecording;
+
+  /// 录音状态失去确认(宽限期)。
+  String get statusUnconfirmed;
+
+  /// 只有一位别人在录:点名是谁。
+  String someoneRecording(String name);
+
+  /// 多人在录:以最早那位做主语。
+  String severalRecording(String name, int count);
+
+  /// 我在录、同时还有别人在录时补的那一行。
+  String alsoRecording(int count);
+
+  /// 已录时长。
+  String elapsedSeconds(int seconds);
+
+  /// 已录时长(分钟)。
+  String elapsedMinutes(int minutes);
+
+  /// 已录时长(整小时)。
+  String elapsedHours(int hours);
+
+  /// 已录时长(小时 + 分钟)。
+  String elapsedHoursMinutes(int hours, int minutes);
+
+  /// 把已连好的各短句包成无障碍朗读的整句。
+  ///
+  /// 连前缀带标点一起交给 ARB:中文是「录音提示:」(全角冒号、不带空格),
+  /// 英文是 "Recording notice: "(半角冒号 + 空格)。标点也是要翻译的。
+  String semanticsSentence(String body);
+
+  /// 把若干短句连成一串时用的分隔符。中文用顿号,英文用逗号加空格 ——
+  /// 标点是会翻译的,不能硬编码。
+  String get listSeparator;
+}
+
+/// 中文字面量。**中文是事实来源**(见 docs/l10n-guide.md),
+/// 所以它既是模板语言的实现,也是单元测试里的默认实现。
+class ZhRecordingIndicatorStrings extends RecordingIndicatorStrings {
+  /// 构造中文实现。
+  const ZhRecordingIndicatorStrings();
+
+  @override
+  String get nobodyRecording => '房间里没有人在录音';
+
+  @override
+  String get youAreRecording => '你正在录音';
+
+  @override
+  String get statusUnconfirmed => '录音状态未确认';
+
+  // 加书名号是为了把名字和句子切开:名字里带「正在」之类的字也不会歧义。
+  @override
+  String someoneRecording(String name) => '「$name」正在录音';
+
+  @override
+  String severalRecording(String name, int count) => '$name 等 $count 人正在录音';
+
+  @override
+  String alsoRecording(int count) => '房间里还有 $count 人在录音';
+
+  @override
+  String elapsedSeconds(int seconds) => '已录 $seconds 秒';
+
+  @override
+  String elapsedMinutes(int minutes) => '已录 $minutes 分钟';
+
+  @override
+  String elapsedHours(int hours) => '已录 $hours 小时';
+
+  @override
+  String elapsedHoursMinutes(int hours, int minutes) =>
+      '已录 $hours 小时 $minutes 分钟';
+
+  @override
+  String semanticsSentence(String body) => '录音提示:$body';
+
+  @override
+  String get listSeparator => ',';
+}
+
+/// 由 ARB 驱动的字面量,跟随界面语言。生产环境用这一个。
+class LocalizedRecordingIndicatorStrings extends RecordingIndicatorStrings {
+  /// 从 [AppLocalizations] 构造。
+  const LocalizedRecordingIndicatorStrings(this._t);
+
+  /// 从 [BuildContext] 取当前语言。
+  factory LocalizedRecordingIndicatorStrings.of(BuildContext context) =>
+      LocalizedRecordingIndicatorStrings(AppLocalizations.of(context));
+
+  final AppLocalizations _t;
+
+  @override
+  String get nobodyRecording => _t.recordingNobodyRecording;
+
+  @override
+  String get youAreRecording => _t.recordingYouAreRecording;
+
+  @override
+  String get statusUnconfirmed => _t.recordingStatusUnconfirmed;
+
+  @override
+  String someoneRecording(String name) => _t.recordingSomeoneRecording(name);
+
+  @override
+  String severalRecording(String name, int count) =>
+      _t.recordingSeveralRecording(name, count);
+
+  @override
+  String alsoRecording(int count) => _t.recordingAlsoRecording(count);
+
+  @override
+  String elapsedSeconds(int seconds) => _t.recordingElapsedSeconds(seconds);
+
+  @override
+  String elapsedMinutes(int minutes) => _t.recordingElapsedMinutes(minutes);
+
+  @override
+  String elapsedHours(int hours) => _t.recordingElapsedHours(hours);
+
+  @override
+  String elapsedHoursMinutes(int hours, int minutes) =>
+      _t.recordingElapsedHoursMinutes(hours, minutes);
+
+  @override
+  String semanticsSentence(String body) => _t.recordingSemanticsLabel(body);
+
+  @override
+  String get listSeparator => _t.recordingListSeparator;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,6 +275,7 @@ class RecordingIndicatorDisplay {
     required bool inGracePeriod,
     required String? message,
     required DateTime now,
+    RecordingIndicatorStrings strings = const ZhRecordingIndicatorStrings(),
   }) {
     final List<RemoteRecorder> recorders = room.recorders;
     final int count = room.recorderCount;
@@ -95,26 +285,24 @@ class RecordingIndicatorDisplay {
     // 因为那时更重要的事实是「状态未确认」。
     final String who;
     if (count == 0) {
-      who = '房间里没有人在录音';
+      who = strings.nobodyRecording;
     } else if (mine) {
       // 第一人称,不用名字。别人的名字读起来是「有人在录」,
       // 只有「你」才会让录音者意识到责任在自己身上。
-      who = '你正在录音';
+      who = strings.youAreRecording;
     } else if (count >= 2) {
       // recorders 由控制器按开始时间升序排好,取第一个即最早那位,
       // 顺序稳定 => 文案不会随消息到达次序抖动。
-      who = '${recorders.first.name} 等 $count 人正在录音';
+      who = strings.severalRecording(recorders.first.name, count);
     } else {
-      // 加书名号是为了把名字和句子切开:名字里带「正在」之类的字也不会歧义。
-      who = '「${recorders.first.name}」正在录音';
+      who = strings.someoneRecording(recorders.first.name);
     }
 
     // 我在录、同时别人也在录。这条必须补上:否则录音者会以为
     // 房间里只有自己这一路录音,从而误判在场者的知情范围。
     final int otherCount = room.others.length;
-    final String? othersLine = mine && otherCount > 0
-        ? '房间里还有 $otherCount 人在录音'
-        : null;
+    final String? othersLine =
+        mine && otherCount > 0 ? strings.alsoRecording(otherCount) : null;
 
     // 已录时长取「标题主语那一位」的 since:标题说的是谁,时长就是谁的,
     // 否则会出现「你正在录音 / 已录 2 小时」而那 2 小时其实是别人的。
@@ -123,24 +311,29 @@ class RecordingIndicatorDisplay {
         : mine
             ? room.recorderOf(room.localUserId) ?? recorders.first
             : recorders.first;
-    final String? elapsed =
-        subject == null ? null : formatElapsed(subject.since, now);
+    final String? elapsed = subject == null
+        ? null
+        : formatElapsed(subject.since, now, strings: strings);
 
     if (inGracePeriod) {
       // 宽限期:采集其实还开着(抖动不该毁录音),但房间**可能**已经
       // 看不到我的指示灯了。这种不确定性必须原样传达,不能粉饰成正常录音。
+      final String graceDetail = othersLine == null
+          ? who
+          : '$who${strings.listSeparator}$othersLine';
       return RecordingIndicatorDisplay(
         tone: RecordingIndicatorTone.warning,
-        headline: '录音状态未确认',
+        headline: strings.statusUnconfirmed,
         elapsedLabel: elapsed,
-        detail: othersLine == null ? who : '$who,$othersLine',
+        detail: graceDetail,
         message: message,
         showStopAction: mine,
         semanticsLabel: _composeSemantics(
-          headline: '录音状态未确认',
-          detail: othersLine == null ? who : '$who,$othersLine',
+          headline: strings.statusUnconfirmed,
+          detail: graceDetail,
           elapsed: elapsed,
           message: message,
+          strings: strings,
         ),
       );
     }
@@ -159,6 +352,7 @@ class RecordingIndicatorDisplay {
         detail: othersLine,
         elapsed: elapsed,
         message: message,
+        strings: strings,
       ),
     );
   }
@@ -185,19 +379,28 @@ class RecordingIndicatorDisplay {
   /// 是否显示「停止录音」。仅当我自己是录音者时为 true。
   final bool showStopAction;
 
-  /// 把 [since] 到 [now] 的间隔格式化成中文时长。
+  /// 把 [since] 到 [now] 的间隔格式化成当前语言的时长。
   ///
   /// 时钟偏移(服务器 since 在未来)会得到负数;这里**钳到 0** 而不是
   /// 显示「已录 -3 秒」—— 指示器一旦说过一次胡话,它说的所有话都会被打折。
-  static String formatElapsed(DateTime since, DateTime now) {
+  ///
+  /// 单复数交给 ARB 的 ICU plural 处理(英文 "1 minute" / "3 minutes",
+  /// 中文无变化),这里只管挑档位,不拼词尾。
+  static String formatElapsed(
+    DateTime since,
+    DateTime now, {
+    RecordingIndicatorStrings strings = const ZhRecordingIndicatorStrings(),
+  }) {
     final Duration raw = now.difference(since);
     final Duration d = raw.isNegative ? Duration.zero : raw;
-    if (d.inSeconds < 60) return '已录 ${d.inSeconds} 秒';
-    if (d.inMinutes < 60) return '已录 ${d.inMinutes} 分钟';
+    if (d.inSeconds < 60) return strings.elapsedSeconds(d.inSeconds);
+    if (d.inMinutes < 60) return strings.elapsedMinutes(d.inMinutes);
     final int hours = d.inHours;
     final int minutes = d.inMinutes - hours * 60;
     // 整点时省掉「0 分钟」:「已录 2 小时 0 分钟」读起来像机器报时。
-    return minutes == 0 ? '已录 $hours 小时' : '已录 $hours 小时 $minutes 分钟';
+    return minutes == 0
+        ? strings.elapsedHours(hours)
+        : strings.elapsedHoursMinutes(hours, minutes);
   }
 
   static String _composeSemantics({
@@ -205,6 +408,7 @@ class RecordingIndicatorDisplay {
     required String? detail,
     required String? elapsed,
     required String? message,
+    required RecordingIndicatorStrings strings,
   }) {
     final List<String> parts = <String>[
       headline,
@@ -214,7 +418,7 @@ class RecordingIndicatorDisplay {
     ];
     // 固定前缀「录音提示」:朗读常常是从半句开始被听到的,
     // 把最关键的词放在最前面,听到第一个词就知道是怎么回事。
-    return '录音提示:${parts.join(',')}';
+    return strings.semanticsSentence(parts.join(strings.listSeparator));
   }
 
   @override
@@ -344,6 +548,13 @@ class _RecordingIndicatorBannerState extends State<RecordingIndicatorBanner>
         // 保证「没有指示器」严格等价于「没有人在录音」。
         if (!room.anyoneRecording) return const SizedBox.shrink();
 
+        // 控制器的提示走语义标识查表,而不是它那份遗留中文 message。
+        final RecordingConsentNotice? notice = widget.controller.notice;
+        final String? noticeText =
+            notice == null ? null : recordingNoticeText(context, notice);
+        final RecordingIndicatorStrings strings =
+            LocalizedRecordingIndicatorStrings.of(context);
+
         return AnimatedBuilder(
           animation: _pulse,
           builder: (BuildContext context, Widget? child) {
@@ -352,8 +563,9 @@ class _RecordingIndicatorBannerState extends State<RecordingIndicatorBanner>
                 RecordingIndicatorDisplay.derive(
               room: room,
               inGracePeriod: widget.controller.inGracePeriod,
-              message: widget.controller.message,
+              message: noticeText,
               now: widget.now(),
+              strings: strings,
             );
             return _buildBanner(context, display);
           },
@@ -566,7 +778,8 @@ class RecordingStopButton extends StatelessWidget {
     return FilledButton.tonalIcon(
       onPressed: onStop,
       icon: const Icon(Icons.stop_rounded),
-      label: const Text('停止录音'),
+      // const 去掉:本地化字符串不是编译期常量。
+      label: Text(AppLocalizations.of(context).recordingStop),
     );
   }
 }
@@ -592,31 +805,32 @@ Future<bool> showRecordingConsentDialog(
     context: context,
     builder: (BuildContext ctx) {
       final ColorScheme scheme = Theme.of(ctx).colorScheme;
+      final AppLocalizations t = AppLocalizations.of(ctx);
       return AlertDialog(
         shape: const RoundedRectangleBorder(
           borderRadius: LaresRadii.cardRadius,
         ),
-        title: const Text('开始录音?'),
+        title: Text(t.recordingConsentTitle),
         // 正文只讲**后果**,不讲功能。用户需要判断的不是「这个按钮做什么」,
         // 而是「我按下去之后,这个房间里会发生什么」。
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text('房间里每个人都会立刻收到通知,知道是你在录。'),
+            Text(t.recordingConsentEveryoneNotified),
             const SizedBox(height: LaresSpacing.sm),
-            const Text('录音期间,所有人的界面上都会一直显示录音提示,关不掉。'),
+            Text(t.recordingConsentPersistentNotice),
             const SizedBox(height: LaresSpacing.sm),
-            const Text('声音会被转写成文字,只保存在本地设备,不会上传。'),
+            Text(t.recordingConsentLocalOnly),
             const SizedBox(height: LaresSpacing.sm),
-            Text('现在房间里有 $memberCount 个人。'),
+            Text(t.recordingConsentMemberCount(memberCount)),
           ],
         ),
         actions: <Widget>[
           // 取消在前:默认视线落点是「不做这件事」。
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('再想想'),
+            child: Text(t.recordingConsentReconsider),
           ),
           FilledButton(
             // 显式关掉自动聚焦:否则一次无意的回车就能把确认按掉,
@@ -627,7 +841,7 @@ Future<bool> showRecordingConsentDialog(
               foregroundColor: scheme.onPrimary,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('开始录音'),
+            child: Text(t.recordingConsentStart),
           ),
         ],
       );

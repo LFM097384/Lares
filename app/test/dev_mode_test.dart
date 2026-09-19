@@ -8,6 +8,7 @@ import 'package:lares_app/src/theme/theme.dart';
 import 'package:lares_app/src/ui/settings_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers/localized_app.dart';
 import 'support/fake_room.dart';
 
 /// 设置页是个底部弹层,里面有会自己跑的动画(UpdatePanel 的进度条等),
@@ -34,9 +35,8 @@ Future<void> _openSettings(
   final circleStore = await CircleStore.load();
 
   await tester.pumpWidget(
-    MaterialApp(
-      theme: LaresTheme.dark(),
-      home: Scaffold(
+    localizedApp(
+      Scaffold(
         body: Builder(
           builder: (context) => TextButton(
             onPressed: () => showSettingsSheet(
@@ -54,6 +54,7 @@ Future<void> _openSettings(
           ),
         ),
       ),
+      theme: LaresTheme.dark(),
     ),
   );
   await tester.tap(find.text('开设置'));
@@ -161,8 +162,11 @@ void main() {
 
       await s.disable();
       expect(s.enabled, isFalse);
-      expect(s.tapsRemaining, DevModeStore.unlockTaps,
-          reason: '关掉时残留的计数必须清空,否则下一下就又解锁了');
+      expect(
+        s.tapsRemaining,
+        DevModeStore.unlockTaps,
+        reason: '关掉时残留的计数必须清空,否则下一下就又解锁了',
+      );
 
       final reloaded = await DevModeStore.load();
       expect(reloaded.enabled, isFalse, reason: '关掉的状态也要存下去');
@@ -219,8 +223,7 @@ void main() {
       expect(find.text('社区内容规范'), findsOneWidget);
     });
 
-    testWidgets('压根不传 devMode 时:版本号还在,但点不出任何东西',
-        (tester) async {
+    testWidgets('压根不传 devMode 时:版本号还在,但点不出任何东西', (tester) async {
       final settings = await SettingsStore.load();
 
       await _openSettings(tester, settings: settings, devMode: null);
@@ -257,8 +260,7 @@ void main() {
       expect(find.text('服务器与口令'), findsNothing);
     });
 
-    testWidgets('点满 7 次:弹「开发者模式已开启」,开发者区当场出现',
-        (tester) async {
+    testWidgets('点满 7 次:弹「开发者模式已开启」,开发者区当场出现', (tester) async {
       final settings = await SettingsStore.load();
       final devMode = await DevModeStore.load();
 
@@ -276,8 +278,7 @@ void main() {
       expect(find.text('开发者模式'), findsOneWidget);
     });
 
-    testWidgets('解锁之后重开设置页:开发者区还在(状态真的存住了)',
-        (tester) async {
+    testWidgets('解锁之后重开设置页:开发者区还在(状态真的存住了)', (tester) async {
       final settings = await SettingsStore.load();
       final devMode = await DevModeStore.load();
 
@@ -300,8 +301,7 @@ void main() {
   });
 
   group('设置页:在开发者区里把它关掉', () {
-    testWidgets('拨掉「开发者模式」开关:整块收起,普通项照旧',
-        (tester) async {
+    testWidgets('拨掉「开发者模式」开关:整块收起,普通项照旧', (tester) async {
       final settings = await SettingsStore.load();
       final devMode = await DevModeStore.load();
       await devMode.setEnabled(true);
@@ -345,8 +345,7 @@ void main() {
   });
 
   group('设置页:合规项绝不进开发者模式', () {
-    testWidgets('未解锁时,屏蔽名单与内容规范照样可达(指南 1.2)',
-        (tester) async {
+    testWidgets('未解锁时,屏蔽名单与内容规范照样可达(指南 1.2)', (tester) async {
       final settings = await SettingsStore.load();
       final devMode = await DevModeStore.load();
       final blocks = await BlockStore.load();

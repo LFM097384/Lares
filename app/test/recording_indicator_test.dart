@@ -6,6 +6,8 @@ import 'package:lares_app/src/recording/recording_indicator.dart';
 import 'package:lares_app/src/theme/theme.dart';
 import 'package:lares_app/src/theme/tokens.dart';
 
+import 'helpers/localized_app.dart';
+
 const String kMe = 'u_me';
 const String kCircle = 'c';
 
@@ -27,16 +29,14 @@ Widget wrap(
     controller: controller,
     now: now ?? () => kSince,
   );
-  return MaterialApp(
+  return localizedScaffold(
+    disableAnimations
+        ? MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: banner,
+          )
+        : banner,
     theme: LaresTheme.dark(),
-    home: Scaffold(
-      body: disableAnimations
-          ? MediaQuery(
-              data: const MediaQueryData(disableAnimations: true),
-              child: banner,
-            )
-          : banner,
-    ),
   );
 }
 
@@ -253,11 +253,11 @@ void main() {
       expect(find.text('你正在录音'), findsOneWidget);
       final RecordingIndicatorDisplay display =
           RecordingIndicatorDisplay.derive(
-        room: c.room,
-        inGracePeriod: c.inGracePeriod,
-        message: c.message,
-        now: kSince,
-      );
+            room: c.room,
+            inGracePeriod: c.inGracePeriod,
+            message: c.message,
+            now: kSince,
+          );
       expect(display.headline, '录音状态未确认');
       expect(display.detail, '你正在录音');
       // 控制器的中文说明被原样透出
@@ -508,22 +508,20 @@ void main() {
       int memberCount = 6,
     }) async {
       await tester.pumpWidget(
-        MaterialApp(
-          theme: LaresTheme.dark(),
-          home: Scaffold(
-            body: Builder(
-              builder: (BuildContext ctx) => TextButton(
-                onPressed: () async {
-                  final bool ok = await showRecordingConsentDialog(
-                    ctx,
-                    memberCount: memberCount,
-                  );
-                  onResult(ok);
-                },
-                child: const Text('开'),
-              ),
+        localizedScaffold(
+          Builder(
+            builder: (BuildContext ctx) => TextButton(
+              onPressed: () async {
+                final bool ok = await showRecordingConsentDialog(
+                  ctx,
+                  memberCount: memberCount,
+                );
+                onResult(ok);
+              },
+              child: const Text('开'),
             ),
           ),
+          theme: LaresTheme.dark(),
         ),
       );
       await tester.tap(find.text('开'));

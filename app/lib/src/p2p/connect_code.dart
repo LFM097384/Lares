@@ -72,6 +72,15 @@ class ConnectCodeResult {
   bool get isOk => sdp != null;
 
   /// 给用户看的一句话。
+  ///
+  /// ⚠️ **未本地化的遗留路径。** 本地化后的文案在 UI 层
+  /// (`ui/p2p_screen.dart` 的 `connectCodeErrorLabel`),按 [error] 查表。
+  ///
+  /// 这里之所以还留着中文:[P2PSession.failure] 是个 `String?`,
+  /// 拿不到 [ConnectCodeError] 本身,UI 只收到一段已经拼好的文字。
+  /// 要彻底去掉本 getter,得先让 P2PSession 把错误码原样带出来
+  /// (加一个 `ConnectCodeError? codeError` 字段),再让 `_Status` 去查表。
+  /// 那是 `p2p_session.dart` 的改动,不在本批次范围内。
   String get message => switch (error) {
         null => '',
         ConnectCodeError.notLaresCode => '这段文字不是 Lares 连接码,再确认一下?',

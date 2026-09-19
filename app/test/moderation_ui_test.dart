@@ -19,6 +19,9 @@ import 'package:lares_app/src/ui/room_screen.dart';
 import 'package:lares_app/src/ui/widgets/avatar_orb.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers/localized_app.dart';
+import 'helpers/report_reason_labels.dart';
+
 /// 假信令:不碰真实 socket,只记录发出的消息(与 room_screen_test.dart 同款)
 class FakeSignalingClient extends SignalingClient {
   FakeSignalingClient() : super(url: 'ws://fake');
@@ -65,13 +68,13 @@ class FakeRtcService implements RtcService {
 
   @override
   ResolvedAudioTuning previewTuning(AudioTuning tuning) => resolveAudioTuning(
-        tuning,
-        const AudioPlatformCapabilities(
-          platform: 'windows',
-          supportsAudioSession: false,
-          supportsEnhanced: false,
-        ),
-      );
+    tuning,
+    const AudioPlatformCapabilities(
+      platform: 'windows',
+      supportsAudioSession: false,
+      supportsEnhanced: false,
+    ),
+  );
 
   @override
   Future<void> leave() async {
@@ -136,7 +139,7 @@ class FakeTransport implements ChatTransport {
 
 /// 统一宿主:固定暗色主题 + Scaffold(SnackBar 需要 ScaffoldMessenger)
 Widget _host(Widget child) =>
-    MaterialApp(theme: LaresTheme.dark(), home: Scaffold(body: child));
+    localizedScaffold(child, theme: LaresTheme.dark());
 
 /// 展开态的 ChatPanel 收到新消息会起一段滚动动画([_scrollDuration] 160ms),
 /// 用例结束时它可能还没跑完,框架就会报
@@ -146,10 +149,7 @@ Widget _host(Widget child) =>
 /// 逼 ChatPanelState.dispose() 收掉 ScrollController。
 /// 不用 addTearDown 是因为它是 LIFO —— 会排在 chat.dispose() **之前**跑,
 /// 那时面板还挂着,等于没拆。
-Future<void> _settleAndUnmount(
-  WidgetTester tester,
-  ChatService chat,
-) async {
+Future<void> _settleAndUnmount(WidgetTester tester, ChatService chat) async {
   // ChatService 内部的 ImageAssembler 挂着一个 5 秒的 Timer.periodic,
   // 只有 chat.dispose() 会取消它。addTearDown 是 LIFO,拆树会排在
   // chat.dispose() 之前,所以这里必须显式、按顺序来:
@@ -213,13 +213,13 @@ void main() {
       final RoomController controller = _roomWithMembers(tester);
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: LaresTheme.dark(),
-          home: RoomScreen(
+        localizedApp(
+          RoomScreen(
             controller: controller,
             circleName: '我们的圈',
             blocks: blocks,
           ),
+          theme: LaresTheme.dark(),
         ),
       );
       await _pumpSheet(tester);
@@ -241,13 +241,13 @@ void main() {
       final RoomController controller = _roomWithMembers(tester);
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: LaresTheme.dark(),
-          home: RoomScreen(
+        localizedApp(
+          RoomScreen(
             controller: controller,
             circleName: '我们的圈',
             blocks: blocks,
           ),
+          theme: LaresTheme.dark(),
         ),
       );
       await _pumpSheet(tester);
@@ -259,19 +259,18 @@ void main() {
       expect(find.text('举报'), findsOneWidget);
     });
 
-    testWidgets('点「屏蔽这个人」:名单真的记下了,网格里也看得出来',
-        (WidgetTester tester) async {
+    testWidgets('点「屏蔽这个人」:名单真的记下了,网格里也看得出来', (WidgetTester tester) async {
       final BlockStore blocks = await BlockStore.load();
       final RoomController controller = _roomWithMembers(tester);
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: LaresTheme.dark(),
-          home: RoomScreen(
+        localizedApp(
+          RoomScreen(
             controller: controller,
             circleName: '我们的圈',
             blocks: blocks,
           ),
+          theme: LaresTheme.dark(),
         ),
       );
       await _pumpSheet(tester);
@@ -312,13 +311,13 @@ void main() {
       final RoomController controller = _roomWithMembers(tester);
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: LaresTheme.dark(),
-          home: RoomScreen(
+        localizedApp(
+          RoomScreen(
             controller: controller,
             circleName: '我们的圈',
             blocks: blocks,
           ),
+          theme: LaresTheme.dark(),
         ),
       );
       await _pumpSheet(tester);
@@ -340,14 +339,13 @@ void main() {
       expect(find.text('屏蔽这个人'), findsNothing);
     });
 
-    testWidgets('不给 blocks 时一切照旧:长按仍是踢人确认',
-        (WidgetTester tester) async {
+    testWidgets('不给 blocks 时一切照旧:长按仍是踢人确认', (WidgetTester tester) async {
       final RoomController controller = _roomWithMembers(tester);
 
       await tester.pumpWidget(
-        MaterialApp(
+        localizedApp(
+          RoomScreen(controller: controller, circleName: '我们的圈'),
           theme: LaresTheme.dark(),
-          home: RoomScreen(controller: controller, circleName: '我们的圈'),
         ),
       );
       await _pumpSheet(tester);
@@ -361,8 +359,7 @@ void main() {
   });
 
   group('消息面板的屏蔽与处置', () {
-    testWidgets('屏蔽后那条消息就不见了,解除屏蔽又原样回来',
-        (WidgetTester tester) async {
+    testWidgets('屏蔽后那条消息就不见了,解除屏蔽又原样回来', (WidgetTester tester) async {
       final BlockStore blocks = await BlockStore.load();
       final FakeTransport transport = FakeTransport();
       final ChatService chat = ChatService(
@@ -400,8 +397,7 @@ void main() {
       await _settleAndUnmount(tester, chat);
     });
 
-    testWidgets('长按别人的消息:开处置菜单,键是稳定的 senderId',
-        (WidgetTester tester) async {
+    testWidgets('长按别人的消息:开处置菜单,键是稳定的 senderId', (WidgetTester tester) async {
       final BlockStore blocks = await BlockStore.load();
       final FakeTransport transport = FakeTransport();
       final ChatService chat = ChatService(
@@ -472,8 +468,7 @@ void main() {
       await _settleAndUnmount(tester, chat);
     });
 
-    testWidgets('不给 blocks 时面板照旧工作,消息也不挂长按',
-        (WidgetTester tester) async {
+    testWidgets('不给 blocks 时面板照旧工作,消息也不挂长按', (WidgetTester tester) async {
       final FakeTransport transport = FakeTransport();
       final ChatService chat = ChatService(
         transport: transport,
@@ -541,31 +536,27 @@ void main() {
 
     /// 拿到「提交举报」按钮的 onPressed —— null 就是灰的
     VoidCallback? submitHandler(WidgetTester tester) => tester
-        .widget<FilledButton>(
-          find.widgetWithText(FilledButton, '提交举报'),
-        )
+        .widget<FilledButton>(find.widgetWithText(FilledButton, '提交举报'))
         .onPressed;
 
-    testWidgets('没选理由之前,提交键一直是灰的(绝不替用户预选)',
-        (WidgetTester tester) async {
+    testWidgets('没选理由之前,提交键一直是灰的(绝不替用户预选)', (WidgetTester tester) async {
       _tallWindow(tester);
       final BlockStore blocks = await BlockStore.load();
       await openReportFlow(tester, blocks: blocks);
 
       // 七个分类都摆出来了,但一个都没选中
       for (final ReportReason r in ReportReason.values) {
-        expect(find.text(r.label), findsOneWidget);
+        expect(find.text(zhReasonLabel(r)), findsOneWidget);
       }
       expect(submitHandler(tester), isNull);
 
-      await tester.tap(find.text(ReportReason.harassment.label));
+      await tester.tap(find.text(zhReasonLabel(ReportReason.harassment)));
       await tester.pumpAndSettle();
 
       expect(submitHandler(tester), isNotNull);
     });
 
-    testWidgets('提交一次只调一次送达,草稿里是稳定 id 和选中的理由',
-        (WidgetTester tester) async {
+    testWidgets('提交一次只调一次送达,草稿里是稳定 id 和选中的理由', (WidgetTester tester) async {
       _tallWindow(tester);
       final BlockStore blocks = await BlockStore.load();
       final List<ReportDraft> delivered = await openReportFlow(
@@ -575,7 +566,7 @@ void main() {
         messageExcerpt: '一段很难听的话',
       );
 
-      await tester.tap(find.text(ReportReason.hateSpeech.label));
+      await tester.tap(find.text(zhReasonLabel(ReportReason.hateSpeech)));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '他连着说了三遍');
       await tester.pumpAndSettle();
@@ -600,13 +591,12 @@ void main() {
       expect(find.text(kSupportEmail), findsOneWidget);
     });
 
-    testWidgets('举报完顺手问屏蔽:点「屏蔽」就真的记下',
-        (WidgetTester tester) async {
+    testWidgets('举报完顺手问屏蔽:点「屏蔽」就真的记下', (WidgetTester tester) async {
       _tallWindow(tester);
       final BlockStore blocks = await BlockStore.load();
       await openReportFlow(tester, blocks: blocks);
 
-      await tester.tap(find.text(ReportReason.spam.label));
+      await tester.tap(find.text(zhReasonLabel(ReportReason.spam)));
       await tester.pumpAndSettle();
       await tester.tap(find.text('提交举报'));
       await tester.pumpAndSettle();
@@ -628,7 +618,7 @@ void main() {
       await blocks.block('u_other');
       await openReportFlow(tester, blocks: blocks);
 
-      await tester.tap(find.text(ReportReason.other.label));
+      await tester.tap(find.text(zhReasonLabel(ReportReason.other)));
       await tester.pumpAndSettle();
       await tester.tap(find.text('提交举报'));
       await tester.pumpAndSettle();
@@ -641,10 +631,12 @@ void main() {
     testWidgets('点「算了」就什么都不做:不送达、不屏蔽', (WidgetTester tester) async {
       _tallWindow(tester);
       final BlockStore blocks = await BlockStore.load();
-      final List<ReportDraft> delivered =
-          await openReportFlow(tester, blocks: blocks);
+      final List<ReportDraft> delivered = await openReportFlow(
+        tester,
+        blocks: blocks,
+      );
 
-      await tester.tap(find.text(ReportReason.violence.label));
+      await tester.tap(find.text(zhReasonLabel(ReportReason.violence)));
       await tester.pumpAndSettle();
       await tester.tap(find.text('算了'));
       await tester.pumpAndSettle();

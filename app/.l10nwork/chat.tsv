@@ -1,0 +1,16 @@
+chatCollapse	GETTER	lib\src\ui\chat_panel.dart
+chatComposerHint	GETTER	lib\src\ui\chat_panel.dart
+chatEmpty	GETTER	lib\src\ui\chat_panel.dart
+chatExpand	GETTER	lib\src\ui\chat_panel.dart
+chatImageMissing	GETTER	lib\src\ui\chat_panel.dart
+chatImageOpen	GETTER	lib\src\ui\chat_panel.dart
+chatImagePickFailed	GETTER	lib\src\ui\chat_panel.dart
+chatImagePickUnsupported	GETTER	lib\src\ui\chat_panel.dart
+chatImageSendFailed	GETTER	lib\src\ui\chat_panel.dart
+chatImageViewer	GETTER	lib\src\ui\chat_panel.dart
+chatImageViewerClose	GETTER	lib\src\ui\chat_panel.dart
+chatRemaining	CALL(left)	lib\src\ui\chat_panel.dart
+chatSend	GETTER	lib\src\ui\chat_panel.dart
+chatSendFailed	GETTER	lib\src\ui\chat_panel.dart
+chatSendImage	GETTER	lib\src\ui\chat_panel.dart
+chatUnread	GETTER	lib\src\ui\chat_panel.dart

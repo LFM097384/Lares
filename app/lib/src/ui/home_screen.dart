@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../chat/chat_service.dart';
 import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
@@ -84,14 +85,18 @@ class HomeScreen extends StatelessWidget {
         return ListenableBuilder(
           listenable: controller,
           builder: (context, _) {
+            final t = AppLocalizations.of(context);
             final inRoom = controller.phase != RoomPhase.idle;
             // 被踢提示(弹出一次即清)
             if (controller.kickedBy != null) {
               final by = controller.kickedBy!;
               controller.kickedBy = null;
+              // 名字为空时用「管理员」兜底。注意这里走的是占位符而不是拼接 ——
+              // 「谁把你请出去」在英文里语序在前,拼接会把句子拆坏。
+              final who = by.isEmpty ? t.homeKickedByAdmin : by;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('你被${by.isEmpty ? '管理员' : by}请出了房间')),
+                  SnackBar(content: Text(t.homeKickedBy(who))),
                 );
               });
             }
@@ -112,7 +117,8 @@ class HomeScreen extends StatelessWidget {
                   ? roomScreen
                   : Scaffold(
                       appBar: AppBar(
-                        title: const Text('Lares'),
+                        // 应用名本身也要本地化:中文版叫「炉灵」。
+                        title: Text(t.appTitle),
                         actions: [
                           _SettingsAction(
                             controller: controller,
@@ -147,7 +153,7 @@ class HomeScreen extends StatelessWidget {
                             child: Row(
                               children: [
                                 Text(
-                                  'Lares',
+                                  t.appTitle,
                                   style: Theme.of(context).textTheme.titleLarge,
                                 ),
                                 const Spacer(),
@@ -199,6 +205,7 @@ class _CircleList extends StatelessWidget {
     return ListenableBuilder(
       listenable: Listenable.merge([controller, circleStore, e2ee]),
       builder: (context, _) {
+        final t = AppLocalizations.of(context);
         final joining = controller.phase == RoomPhase.joining;
         return ListView(
           padding: const EdgeInsets.all(LaresSpacing.md),
@@ -227,14 +234,14 @@ class _CircleList extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: () => _showAddCircleDialog(context),
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('加个圈子'),
+                label: Text(t.homeAddCircle),
               ),
             ),
             Center(
               child: TextButton(
                 onPressed: () => _showJoinByLinkDialog(context),
                 child: Text(
-                  '有邀请链接?粘贴进圈',
+                  t.homePasteInvite,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
@@ -246,26 +253,27 @@ class _CircleList extends StatelessWidget {
   }
 
   Future<void> _showAddCircleDialog(BuildContext context) async {
+    final t = AppLocalizations.of(context);
     final field = TextEditingController();
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('加个圈子'),
+        title: Text(t.homeAddCircle),
         content: TextField(
           controller: field,
           autofocus: true,
           maxLength: 16,
-          decoration: const InputDecoration(hintText: '比如:家人、死党群、考研搭子'),
+          decoration: InputDecoration(hintText: t.homeAddCircleHint),
           onSubmitted: (_) => Navigator.pop(ctx, field.text),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('算了'),
+            child: Text(t.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, field.text),
-            child: const Text('建一个'),
+            child: Text(t.homeAddCircleConfirm),
           ),
         ],
       ),
@@ -277,33 +285,36 @@ class _CircleList extends StatelessWidget {
 
   /// 粘贴邀请链接进圈:`lares://circle/<id>?name=X`,或直接粘贴圈子 id
   Future<void> _showJoinByLinkDialog(BuildContext context) async {
+    final t = AppLocalizations.of(context);
     final field = TextEditingController();
     final input = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('粘贴邀请链接'),
+        title: Text(t.homePasteInviteTitle),
         content: TextField(
           controller: field,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'lares://circle/… 或圈子 id',
+          decoration: InputDecoration(
+            hintText: t.homePasteInviteHint,
           ),
           onSubmitted: (_) => Navigator.pop(ctx, field.text),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('算了'),
+            child: Text(t.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, field.text),
-            child: const Text('进圈'),
+            child: Text(t.homeJoinCircle),
           ),
         ],
       ),
     );
     if (input == null) return;
-    final circle = _parseInvite(input.trim());
+    // 兜底圈名在这里取(UI 层),不把 context 递进 _parseInvite ——
+    // 那是个纯函数,应当保持可单测。
+    final circle = _parseInvite(input.trim(), t.homeInvitedCircleFallback);
     if (circle == null) return;
     await circleStore.add(circle);
     // 直接进房
@@ -314,16 +325,17 @@ class _CircleList extends StatelessWidget {
     controller.join(circle.id);
   }
 
-  Circle? _parseInvite(String input) {
+  /// [fallbackName] 由调用方从本地化取好再传进来,保持本函数不依赖 context。
+  Circle? _parseInvite(String input, String fallbackName) {
     if (input.isEmpty) return null;
     if (input.startsWith('lares://circle/')) {
       final uri = Uri.parse(input);
       final id = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : '';
       if (id.isEmpty) return null;
-      return Circle(id: id, name: uri.queryParameters['name'] ?? '朋友的圈');
+      return Circle(id: id, name: uri.queryParameters['name'] ?? fallbackName);
     }
     // 纯 id
-    return Circle(id: input, name: '朋友的圈');
+    return Circle(id: input, name: fallbackName);
   }
 }
 
@@ -345,6 +357,7 @@ class _CircleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final isCurrentRoom =
         controller.circleId == circle.id && controller.phase != RoomPhase.idle;
     // 大厅摘要优先(未进房也可见);当前房间用房间快照兜底
@@ -357,11 +370,17 @@ class _CircleTile extends StatelessWidget {
     // 和「几个人在」放同一行 —— 对用户来说这是同一类信息:
     // 「这个圈子现在有没有人可以说话」。
     final waiting = controller.availableIn(circle.id);
+    // 人名连接符按语言走:中文顿号、英文逗号+空格。
+    // 拼人名列表这件事没法交给 ICU,但分隔符本身必须本地化。
+    final sep = t.commonListSeparator;
+    final waitingNames = waiting.map((w) => w.name).join(sep);
     final subtitle = switch ((online, waiting.length)) {
-      (0, 0) => '暂无人在,进去等等看?',
-      (0, _) => '${waiting.map((w) => w.name).join('、')} 有空,等人来找',
-      (_, 0) => '$online 个人在${names.isNotEmpty ? ' · ${names.join('、')}' : ''}',
-      _ => '$online 个人在 · ${waiting.map((w) => w.name).join('、')} 有空',
+      (0, 0) => t.homeCircleEmpty,
+      (0, _) => t.homeCircleWaitingOnly(waitingNames),
+      (_, 0) => names.isNotEmpty
+          ? t.homeCircleOnlineWithNames(online, names.join(sep))
+          : t.homeCircleOnline(online),
+      _ => t.homeCircleOnlineAndWaiting(online, waitingNames),
     };
 
     final isPrimary = circleStore.isPrimary(circle.id);
@@ -389,7 +408,7 @@ class _CircleTile extends StatelessWidget {
             if (isPrimary) ...[
               const SizedBox(width: LaresSpacing.sm),
               Tooltip(
-                message: '主圈子 · 小组件一键加入',
+                message: t.homePrimaryCircleTooltip,
                 child: Icon(
                   Icons.local_fire_department_rounded,
                   size: 16,
@@ -405,7 +424,7 @@ class _CircleTile extends StatelessWidget {
           children: [
             // 邀请入口前置(用户反馈:找不到获取圈子链接的地方)
             IconButton(
-              tooltip: '邀请朋友进圈',
+              tooltip: t.homeInviteFriends,
               icon: const Icon(Icons.ios_share_rounded, size: 18),
               onPressed: () => _showInviteDialog(context),
             ),
@@ -452,17 +471,18 @@ class _CircleTile extends StatelessWidget {
 
   /// 邀请对话框:展示 lares://circle 链接,一键复制
   Future<void> _showInviteDialog(BuildContext context) async {
+    final t = AppLocalizations.of(context);
     final link =
         'lares://circle/${circle.id}?name=${Uri.encodeComponent(circle.name)}';
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('邀请朋友进「${circle.name}」'),
+        title: Text(t.homeInviteTitle(circle.name)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('把这段链接发给朋友,对方点一下就进圈(也可在 App 里粘贴):'),
+            Text(t.homeInviteBody),
             const SizedBox(height: LaresSpacing.md),
             SelectableText(
               link,
@@ -479,7 +499,7 @@ class _CircleTile extends StatelessWidget {
               if (ctx.mounted) Navigator.pop(ctx);
             },
             icon: const Icon(Icons.copy_rounded, size: 16),
-            label: const Text('复制'),
+            label: Text(t.commonCopy),
           ),
         ],
       ),
@@ -488,6 +508,7 @@ class _CircleTile extends StatelessWidget {
 
   /// 长按圈子:设为主圈 / 邀请 / 敲门模式开关 / 删除(默认圈仅不可删)
   void _showCircleMenu(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final knockOn = controller.circlePresence[circle.id]?.knockRequired == true;
     final isPrimary = circleStore.isPrimary(circle.id);
     showModalBottomSheet<void>(
@@ -504,9 +525,13 @@ class _CircleTile extends StatelessWidget {
                     : Icons.local_fire_department_outlined,
                 color: isPrimary ? Theme.of(context).colorScheme.primary : null,
               ),
-              title: Text(isPrimary ? '已是主圈子' : '设为主圈子'),
+              title: Text(
+                isPrimary ? t.homePrimaryCircleAlready : t.homePrimaryCircleSet,
+              ),
               subtitle: Text(
-                isPrimary ? '小组件、快捷设置、托盘点一下进的就是这个圈' : '主屏小组件点一下,直接进这个圈',
+                isPrimary
+                    ? t.homePrimaryCircleAlreadyDesc
+                    : t.homePrimaryCircleSetDesc,
               ),
               enabled: !isPrimary,
               onTap: isPrimary
@@ -518,8 +543,8 @@ class _CircleTile extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.ios_share_rounded),
-              title: const Text('邀请朋友进圈'),
-              subtitle: const Text('复制邀请链接发给朋友'),
+              title: Text(t.homeInviteFriends),
+              subtitle: Text(t.homeInviteFriendsDesc),
               onTap: () async {
                 Navigator.pop(ctx);
                 await _showInviteDialog(context);
@@ -534,8 +559,8 @@ class _CircleTile extends StatelessWidget {
                     ? Icons.door_front_door_rounded
                     : Icons.door_front_door_outlined,
               ),
-              title: Text(knockOn ? '敲门模式:开(点一下关闭)' : '敲门模式:关(点一下开启)'),
-              subtitle: const Text('开启后,圈外人进来需要里面的人放行'),
+              title: Text(knockOn ? t.homeKnockModeOn : t.homeKnockModeOff),
+              subtitle: Text(t.homeKnockModeDesc),
               onTap: () {
                 controller.setKnockMode(circle.id, !knockOn);
                 Navigator.pop(ctx);
@@ -544,7 +569,7 @@ class _CircleTile extends StatelessWidget {
             if (circle.id != CircleStore.defaultCircle.id)
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('删除这个圈子'),
+                title: Text(t.homeDeleteCircle),
                 onTap: () {
                   circleStore.remove(circle.id);
                   // 顺手清掉加密开关,不留悬空登记 ——
@@ -582,6 +607,7 @@ class _E2EETile extends StatefulWidget {
 class _E2EETileState extends State<_E2EETile> {
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final id = widget.circle.id;
     final bool on = widget.e2ee.isEnabled(id);
@@ -595,10 +621,15 @@ class _E2EETileState extends State<_E2EETile> {
             on ? Icons.lock_rounded : Icons.lock_open_rounded,
             color: on && status.isEncrypted ? LaresColors.ember : null,
           ),
-          title: const Text('端到端加密'),
+          title: Text(t.e2eeTitle),
           subtitle: Text(
             // 代价说明始终展示,开与不开都一样 —— 让人在按下去之前就知道。
-            '$kE2EECostNotice\n密钥从你的圈口令派生,只在设备本地,绝不上传服务器。',
+            //
+            // 注:原先直接内插 e2ee_status.dart 里的 kE2EECostNotice 常量。
+            // 那个常量是顶层 const、拿不到 context,且 e2ee_degrade_test
+            // 直接断言它的内容,故此处改为走本地化键 e2eeCostNotice
+            // (文案与该常量逐字一致),常量本身保持原样不动。
+            '${t.e2eeCostNotice}\n${t.e2eeKeyLocalNotice}',
             style: theme.textTheme.bodyMedium,
           ),
           isThreeLine: true,
@@ -646,7 +677,7 @@ class _SettingsAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: '设置',
+      tooltip: AppLocalizations.of(context).settingsTitle,
       icon: const Icon(Icons.tune_rounded, size: 20),
       onPressed: () => showSettingsSheet(
         context,
@@ -688,6 +719,7 @@ class AvailableToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final on = controller.iAmAvailable;
     final n = controller.myAvailableCircles.length;
@@ -708,7 +740,7 @@ class AvailableToggle extends StatelessWidget {
       ),
       title: Row(
         children: [
-          const Text('我有空'),
+          Text(t.homeAvailable),
           if (picked) ...[
             const SizedBox(width: LaresSpacing.sm),
             Icon(
@@ -721,10 +753,10 @@ class AvailableToggle extends StatelessWidget {
       ),
       subtitle: Text(
         on
-            ? '$n 个圈子看得到 · 谁先来就跟谁聊,进去之后其他圈子就看不到了'
+            ? t.homeAvailableOnDesc(n)
             // 没挂着时就把「可以挑」这件事说出来 ——
             // 长按是个藏起来的手势,不说没人会去试。
-            : '挂出去,让圈友知道你现在能聊 · 长按可挑圈子',
+            : t.homeAvailableOffDesc,
         style: theme.textTheme.bodyMedium,
       ),
       value: on,
@@ -752,6 +784,7 @@ class AvailableToggle extends StatelessWidget {
   /// 入口是长按而不是常驻按钮:多数时候「对所有人可见」就是对的,
   /// 挑选是少数情况(比如今晚只想跟家里人聊)。
   Future<void> _pickCircles(BuildContext context) async {
+    final t = AppLocalizations.of(context);
     // 起始值:已经挂着就沿用当前选择,没挂着则默认全选
     final selected = <String>{
       ...(controller.iAmAvailable
@@ -763,14 +796,13 @@ class AvailableToggle extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setInner) => AlertDialog(
-          title: const Text('对哪几个圈子可见'),
+          title: Text(t.homeAvailablePickTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '挂出去之后,这几个圈子的人会看到你有空。\n'
-                '谁先来找你,就跟谁聊 —— 那一刻其他圈子就看不到你了。',
+                t.homeAvailablePickBody,
                 style: Theme.of(ctx).textTheme.bodyMedium,
               ),
               const SizedBox(height: LaresSpacing.md),
@@ -803,7 +835,7 @@ class AvailableToggle extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('算了'),
+              child: Text(t.commonCancel),
             ),
             // 一个都没选就等于不挂着 —— 与其让用户提交一个空选择再困惑
             // 为什么没人看得到,不如直接把按钮禁掉。
@@ -811,7 +843,7 @@ class AvailableToggle extends StatelessWidget {
               onPressed: selected.isEmpty
                   ? null
                   : () => Navigator.pop(ctx, selected),
-              child: const Text('就这几个'),
+              child: Text(t.homeAvailablePickConfirm),
             ),
           ],
         ),
@@ -831,30 +863,31 @@ class _RenameAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return IconButton(
-      tooltip: '改昵称',
+      tooltip: t.homeRename,
       icon: const Icon(Icons.edit_outlined, size: 20),
       onPressed: () async {
         final field = TextEditingController(text: controller.userName);
         final name = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('圈子里叫你什么?'),
+            title: Text(t.homeRenameTitle),
             content: TextField(
               controller: field,
               autofocus: true,
               maxLength: 12,
-              decoration: const InputDecoration(hintText: '昵称'),
+              decoration: InputDecoration(hintText: t.homeRenameHint),
               onSubmitted: (_) => Navigator.pop(ctx, field.text),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('算了'),
+                child: Text(t.commonCancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, field.text),
-                child: const Text('就叫这个'),
+                child: Text(t.homeRenameConfirm),
               ),
             ],
           ),
@@ -883,7 +916,10 @@ class _EmptyRoomHint extends StatelessWidget {
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
           ),
           const SizedBox(height: LaresSpacing.md),
-          Text('点左边圈子,一键进圈', style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            AppLocalizations.of(context).homeEmptyRoomHint,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ],
       ),
     );

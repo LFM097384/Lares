@@ -12,6 +12,8 @@ import 'package:lares_app/src/chat/image_source.dart'
 import 'package:lares_app/src/theme/theme.dart';
 import 'package:lares_app/src/ui/chat_panel.dart';
 
+import 'helpers/localized_app.dart';
+
 /// 最小合法 PNG:1×1、RGBA、全透明。
 ///
 /// 为什么非得是真字节:`Image.memory` 拿到垃圾字节会走 errorBuilder,
@@ -125,13 +127,12 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   // 声明 noSuchMethod 可让分析器放过「未实现全部接口」的报错,
   // 同时保证误调用会立刻抛错暴露问题,而不是悄悄返回 null。
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// 统一的宿主:固定成暗色主题,与 room_screen_test.dart 一致。
 Widget _host(Widget child) =>
-    MaterialApp(theme: LaresTheme.dark(), home: Scaffold(body: child));
+    localizedScaffold(child, theme: LaresTheme.dark());
 
 /// 把窗口调成指定尺寸与字体缩放,并登记好复位。
 /// 直接改 tester.view 而不是套一层 MediaQuery,是为了让溢出检测作用于真实约束。
@@ -237,9 +238,7 @@ void main() {
     final chat = FakeChatService();
     addTearDown(chat.dispose);
 
-    await tester.pumpWidget(
-      _host(ChatPanel(chat: chat, enterToSend: true)),
-    );
+    await tester.pumpWidget(_host(ChatPanel(chat: chat, enterToSend: true)));
 
     // ── 裸回车:应当恰好发出一条 ──
     await tester.enterText(find.byType(TextField), '来了');
@@ -249,8 +248,10 @@ void main() {
 
     expect(chat.sentTexts, <String>['来了']);
     // 发出去之后输入框清空
-    expect(tester.widget<TextField>(find.byType(TextField)).controller?.text,
-        isEmpty);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      isEmpty,
+    );
 
     // ── Shift+回车:一条都不该发 ──
     await tester.enterText(find.byType(TextField), '第一行');
@@ -273,9 +274,7 @@ void main() {
     final chat = FakeChatService();
     addTearDown(chat.dispose);
 
-    await tester.pumpWidget(
-      _host(ChatPanel(chat: chat, enterToSend: false)),
-    );
+    await tester.pumpWidget(_host(ChatPanel(chat: chat, enterToSend: false)));
 
     await tester.enterText(find.byType(TextField), '晚点说');
     await tester.pump();
@@ -299,9 +298,7 @@ void main() {
     final chat = FakeChatService();
     addTearDown(chat.dispose);
 
-    await tester.pumpWidget(
-      _host(ChatPanel(chat: chat, enterToSend: true)),
-    );
+    await tester.pumpWidget(_host(ChatPanel(chat: chat, enterToSend: true)));
 
     for (final String raw in <String>['', '   ', '\n\n', '\u3000\t ']) {
       await tester.enterText(find.byType(TextField), raw);
@@ -364,7 +361,10 @@ void main() {
 
     expect(tester.takeException(), isNull);
     // 面板整体仍在窗口高度之内,没有把语音主界面挤走
-    expect(tester.getSize(find.byType(ChatPanel)).height, lessThanOrEqualTo(640));
+    expect(
+      tester.getSize(find.byType(ChatPanel)).height,
+      lessThanOrEqualTo(640),
+    );
   });
 
   // 超大字号回归。必须还原 RoomScreen 的真实结构才复现得出来:
@@ -379,24 +379,21 @@ void main() {
       addTearDown(chat.dispose);
       // 塞满 30 条,让列表真的「想要」空间,而不是乐得缩成 0
       chat.seed(<ChatMessage>[
-        for (int i = 0; i < 30; i++)
-          _text('第 $i 句话,外面下雪了', isMine: i.isEven),
+        for (int i = 0; i < 30; i++) _text('第 $i 句话,外面下雪了', isMine: i.isEven),
       ]);
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: LaresTheme.dark(),
-          home: Scaffold(
-            body: SafeArea(
-              child: Column(
-                children: <Widget>[
-                  const Expanded(child: SizedBox.expand()), // 成员网格
-                  ChatPanel(chat: chat, initiallyExpanded: true),
-                  const SizedBox(height: 140), // 主麦克风控制栏
-                ],
-              ),
+        localizedScaffold(
+          SafeArea(
+            child: Column(
+              children: <Widget>[
+                const Expanded(child: SizedBox.expand()), // 成员网格
+                ChatPanel(chat: chat, initiallyExpanded: true),
+                const SizedBox(height: 140), // 主麦克风控制栏
+              ],
             ),
           ),
+          theme: LaresTheme.dark(),
         ),
       );
       await tester.pumpAndSettle();
@@ -616,8 +613,7 @@ void main() {
         ChatPanel(
           chat: chat,
           initiallyExpanded: true,
-          onPickImage: () async =>
-              PickedImage(bytes: png, width: 1, height: 1),
+          onPickImage: () async => PickedImage(bytes: png, width: 1, height: 1),
         ),
       ),
     );

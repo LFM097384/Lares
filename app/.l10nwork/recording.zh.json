@@ -1,0 +1,153 @@
+{
+  "recordingStop": "停止录音",
+  "@recordingStop": {
+    "description": "录音指示条上的「停止录音」按钮"
+  },
+  "recordingNobodyRecording": "房间里没有人在录音",
+  "@recordingNobodyRecording": {
+    "description": "录音指示器主语句:房间里没有任何人在录音"
+  },
+  "recordingYouAreRecording": "你正在录音",
+  "@recordingYouAreRecording": {
+    "description": "录音指示器主语句:录音的人是你自己,第一人称提醒责任在己"
+  },
+  "recordingStatusUnconfirmed": "录音状态未确认",
+  "@recordingStatusUnconfirmed": {
+    "description": "宽限期标题:信令中断,无法确认房间是否还看得见录音指示"
+  },
+  "recordingSomeoneRecording": "「{name}」正在录音",
+  "@recordingSomeoneRecording": {
+    "description": "录音指示器主语句:只有一个人在录音,显示其名字。书名号用于把名字和句子切开",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "recordingSeveralRecording": "{count, plural, other{{name} 等 {count} 人正在录音}}",
+  "@recordingSeveralRecording": {
+    "description": "录音指示器主语句:多人同时录音,显示最早开始的那位的名字和总人数",
+    "placeholders": {
+      "name": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "recordingAlsoRecording": "{count, plural, other{房间里还有 {count} 人在录音}}",
+  "@recordingAlsoRecording": {
+    "description": "我在录音时的补充行:房间里除我之外还有几个人也在录",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "recordingElapsedSeconds": "{seconds, plural, other{已录 {seconds} 秒}}",
+  "@recordingElapsedSeconds": {
+    "description": "已录时长,不足一分钟时按秒显示",
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "recordingElapsedMinutes": "{minutes, plural, other{已录 {minutes} 分钟}}",
+  "@recordingElapsedMinutes": {
+    "description": "已录时长,不足一小时时按分钟显示",
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "recordingElapsedHours": "{hours, plural, other{已录 {hours} 小时}}",
+  "@recordingElapsedHours": {
+    "description": "已录时长,满整点小时时省略分钟",
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "recordingElapsedHoursMinutes": "已录 {hours, plural, other{{hours} 小时}} {minutes, plural, other{{minutes} 分钟}}",
+  "@recordingElapsedHoursMinutes": {
+    "description": "已录时长,超过一小时且有零头分钟时显示小时加分钟",
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" }
+    }
+  },
+  "recordingSemanticsLabel": "录音提示:{body}",
+  "@recordingSemanticsLabel": {
+    "description": "读屏用的整条录音提示。固定前缀放在最前面,听到第一个词就知道是怎么回事",
+    "placeholders": {
+      "body": { "type": "String" }
+    }
+  },
+  "recordingListSeparator": ",",
+  "@recordingListSeparator": {
+    "description": "拼接录音提示各分句时用的分隔符。中文用逗号,英文用逗号加空格"
+  },
+  "recordingConsentTitle": "开始录音?",
+  "@recordingConsentTitle": {
+    "description": "开始录音前的确认对话框标题"
+  },
+  "recordingConsentEveryoneNotified": "房间里每个人都会立刻收到通知,知道是你在录。",
+  "@recordingConsentEveryoneNotified": {
+    "description": "录音确认对话框正文第一条:房间里所有人都会立刻知道是你在录"
+  },
+  "recordingConsentPersistentNotice": "录音期间,所有人的界面上都会一直显示录音提示,关不掉。",
+  "@recordingConsentPersistentNotice": {
+    "description": "录音确认对话框正文第二条:录音期间提示常驻且无法关闭"
+  },
+  "recordingConsentLocalOnly": "声音会被转写成文字,只保存在本地设备,不会上传。",
+  "@recordingConsentLocalOnly": {
+    "description": "录音确认对话框正文第三条:音频转写为文字并只留在本机,不上传"
+  },
+  "recordingConsentMemberCount": "{count, plural, other{现在房间里有 {count} 个人。}}",
+  "@recordingConsentMemberCount": {
+    "description": "录音确认对话框正文第四条:当前房间里的人数",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "recordingConsentReconsider": "再想想",
+  "@recordingConsentReconsider": {
+    "description": "录音确认对话框的取消按钮"
+  },
+  "recordingConsentStart": "开始录音",
+  "@recordingConsentStart": {
+    "description": "录音确认对话框的确认按钮"
+  },
+  "recordingNoticeCircleIdEmpty": "圈子 ID 为空,无法开始录音",
+  "@recordingNoticeCircleIdEmpty": {
+    "description": "录音提示:圈子 ID 为空,压根无从录起"
+  },
+  "recordingNoticeAlreadyInProgress": "已有录音流程进行中,请先停止当前录音",
+  "@recordingNoticeAlreadyInProgress": {
+    "description": "录音提示:已有录音流程占用中,要求先停止当前录音"
+  },
+  "recordingNoticeArmingTimeout": "未能确认房间已被告知录音开始,已取消录音(等待服务器回执超过 {seconds, plural, other{{seconds} 秒}})",
+  "@recordingNoticeArmingTimeout": {
+    "description": "录音提示:等服务器回执超时,起录失败已取消。括号里是等待的秒数",
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "recordingNoticeServerMarkedInactive": "服务器已将本机标记为未在录音,已自动停止录音以免房间不知情",
+  "@recordingNoticeServerMarkedInactive": {
+    "description": "录音提示:服务器明确表示本机没在录,属正面矛盾,已强制停止"
+  },
+  "recordingNoticeRemovedFromRoom": "本机已被移出房间,已自动停止录音以免房间不知情",
+  "@recordingNoticeRemovedFromRoom": {
+    "description": "录音提示:本机已被移出房间,别人看不到我的录音指示,已强制停止"
+  },
+  "recordingNoticeDisconnected": "信令连接已断开,正在尝试恢复;若无法恢复将自动停止录音",
+  "@recordingNoticeDisconnected": {
+    "description": "录音提示:信令断开,宽限期内尝试恢复中"
+  },
+  "recordingNoticeGraceExpired": "信令中断超过 {seconds, plural, other{{seconds} 秒}}仍未恢复,无法确认房间知情,已自动停止录音",
+  "@recordingNoticeGraceExpired": {
+    "description": "录音提示:宽限期耗尽仍未恢复,无法确认房间知情,已强制停止。数字是宽限期秒数",
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "recordingNoticeStateOutOfSync": "信令状态不同步,正在重新确认录音状态",
+  "@recordingNoticeStateOutOfSync": {
+    "description": "录音提示:服务器快照里没有我但本机自以为在录,正在重新确认"
+  },
+  "recordingNoticeSignalingSilent": "长时间未收到信令消息,正在重新确认录音状态",
+  "@recordingNoticeSignalingSilent": {
+    "description": "录音提示:久无入站信令消息(半开连接看门狗),正在重新确认"
+  }
+}

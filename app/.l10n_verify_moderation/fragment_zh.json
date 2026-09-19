@@ -1,0 +1,215 @@
+  "moderationBlock": "屏蔽这个人",
+  "@moderationBlock": {
+    "description": "处置菜单里的屏蔽入口标题"
+  },
+
+  "moderationBlockHint": "听不到他的声音,也不再显示他的消息",
+  "@moderationBlockHint": {
+    "description": "屏蔽入口的副标题,说明屏蔽之后会发生什么"
+  },
+
+  "moderationBlockShort": "屏蔽",
+  "@moderationBlockShort": {
+    "description": "对话框里的屏蔽确认按钮,短标签"
+  },
+
+  "moderationUnblock": "解除屏蔽",
+  "@moderationUnblock": {
+    "description": "已屏蔽时,处置菜单里的解除屏蔽入口标题"
+  },
+
+  "moderationUnblockHint": "他的声音和消息会重新出现",
+  "@moderationUnblockHint": {
+    "description": "解除屏蔽入口的副标题"
+  },
+
+  "moderationSuggestBlockTitle": "顺手屏蔽他?",
+  "@moderationSuggestBlockTitle": {
+    "description": "举报送达后追问要不要顺手屏蔽的对话框标题"
+  },
+
+  "moderationSuggestBlockBody": "屏蔽后你不会再听到他的声音,也不会看到他的消息。",
+  "@moderationSuggestBlockBody": {
+    "description": "追问屏蔽的对话框正文"
+  },
+
+  "moderationNoUserId": "拿不到身份标识",
+  "@moderationNoUserId": {
+    "description": "处置菜单顶部,对方 userId 为空时的占位副标题"
+  },
+
+  "roomKickMember": "请出房间",
+  "@roomKickMember": {
+    "description": "把成员请出房间的菜单项标题"
+  },
+
+  "roomKickMemberHint": "对方可以稍后再进来,不是封禁",
+  "@roomKickMemberHint": {
+    "description": "请出房间的副标题,强调这不是永久封禁"
+  },
+
+  "reportAction": "举报",
+  "@reportAction": {
+    "description": "处置菜单里举报某个人的入口标题"
+  },
+
+  "reportActionHint": "把情况告诉我们,24 小时内处理",
+  "@reportActionHint": {
+    "description": "举报入口的副标题。24 小时是对外承诺,审核员会核对,改动需谨慎。"
+  },
+
+  "reportMessageAction": "举报这条消息",
+  "@reportMessageAction": {
+    "description": "长按某条消息后的举报入口标题"
+  },
+
+  "reportDialogTitle": "举报「{name}」",
+  "@reportDialogTitle": {
+    "description": "举报对话框标题,带被举报者昵称",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "老王"
+      }
+    }
+  },
+
+  "reportPickReason": "挑一条最贴近的。我们会看完再回你。",
+  "@reportPickReason": {
+    "description": "举报对话框里分类列表上方的说明"
+  },
+
+  "reportNoteHint": "补充说明(可不填)",
+  "@reportNoteHint": {
+    "description": "举报补充说明输入框的占位提示"
+  },
+
+  "reportSubmit": "提交举报",
+  "@reportSubmit": {
+    "description": "举报对话框的提交按钮。没选分类之前是禁用的。"
+  },
+
+  "reportAccepted": "已提交,我们会在 24 小时内处理",
+  "@reportAccepted": {
+    "description": "举报送达后的 SnackBar 回执。24 小时是对外承诺,审核员会逐字核对。"
+  },
+
+  "reportDeliveryTitle": "最后一步:把邮件发出来",
+  "@reportDeliveryTitle": {
+    "description": "提示用户手动发出举报邮件的常驻对话框标题"
+  },
+
+  "reportDeliveryBody": "我们已经帮你把举报写好并打开邮件。确认后点发送即可。\n要是邮件没有自动打开,内容也已经放进剪贴板了 —— 手动新建一封,粘贴后发到:",
+  "@reportDeliveryBody": {
+    "description": "送达说明正文。要同时对两种结果成立:邮件 App 被拉起来了,以及没拉起来只剩剪贴板。所以不写死「已复制,请粘贴」。"
+  },
+
+  "reportDeliveryFollowUp": "收到后 24 小时内处理完,结果也回这个邮箱。",
+  "@reportDeliveryFollowUp": {
+    "description": "送达说明里邮箱下方的处理承诺"
+  },
+
+  "reportReasonHarassment": "骚扰或人身攻击",
+  "@reportReasonHarassment": {
+    "description": "举报分类:骚扰。对应 ReportReason.harassment。"
+  },
+
+  "reportReasonHateSpeech": "仇恨或歧视言论",
+  "@reportReasonHateSpeech": {
+    "description": "举报分类:仇恨言论。对应 ReportReason.hateSpeech。"
+  },
+
+  "reportReasonSexualContent": "色情或性暗示内容",
+  "@reportReasonSexualContent": {
+    "description": "举报分类:色情内容。对应 ReportReason.sexualContent。"
+  },
+
+  "reportReasonViolence": "暴力或血腥内容",
+  "@reportReasonViolence": {
+    "description": "举报分类:暴力内容。对应 ReportReason.violence。"
+  },
+
+  "reportReasonIllegal": "违法或危险行为",
+  "@reportReasonIllegal": {
+    "description": "举报分类:违法行为。对应 ReportReason.illegal。"
+  },
+
+  "reportReasonSpam": "垃圾信息或刷屏",
+  "@reportReasonSpam": {
+    "description": "举报分类:垃圾信息。对应 ReportReason.spam。"
+  },
+
+  "reportReasonOther": "其他",
+  "@reportReasonOther": {
+    "description": "举报分类:其他。对应 ReportReason.other。"
+  },
+
+  "policyTitle": "社区内容规范",
+  "@policyTitle": {
+    "description": "内容规范页标题。首次启动的同意门和设置里「再看一遍」共用。"
+  },
+
+  "policySummary": "这是给熟人小圈子用的语音空间。想让它一直待得住,下面几条要守住。",
+  "@policySummary": {
+    "description": "内容规范页的开头摘要"
+  },
+
+  "policyAgree": "我已阅读并同意",
+  "@policyAgree": {
+    "description": "内容规范的同意按钮。必须是明确的肯定动作,不能写成「知道了」这类含糊说法(审核指南 1.2)。"
+  },
+
+  "policyDecline": "不同意",
+  "@policyDecline": {
+    "description": "内容规范的拒绝按钮"
+  },
+
+  "policyZeroToleranceTitle": "对滥用行为零容忍",
+  "@policyZeroToleranceTitle": {
+    "description": "内容规范第一条的小标题:零容忍声明(审核指南 1.2 必需)"
+  },
+
+  "policyZeroToleranceBody": "骚扰、人身攻击、仇恨或歧视言论、色情内容、暴力内容、违法信息,一律不允许出现在这里。语音、文字、图片、位置都算,没有例外。",
+  "@policyZeroToleranceBody": {
+    "description": "内容规范第一条正文"
+  },
+
+  "policyOwnContentTitle": "你对自己发布的内容负责",
+  "@policyOwnContentTitle": {
+    "description": "内容规范第二条的小标题:用户对自己内容负责"
+  },
+
+  "policyOwnContentBody": "你说出口、发出去、分享出去的每一条内容,责任都在你自己身上。加入一个圈子,就是接受这条。",
+  "@policyOwnContentBody": {
+    "description": "内容规范第二条正文"
+  },
+
+  "policyRemovalTitle": "违规者会被移除",
+  "@policyRemovalTitle": {
+    "description": "内容规范第三条的小标题:违规者会被移除"
+  },
+
+  "policyRemovalBody": "违规的人会被移出圈子;情节严重的会被永久禁止使用本服务。收到举报后,我们在 24 小时内处理完并给出结果。",
+  "@policyRemovalBody": {
+    "description": "内容规范第三条正文。含 24 小时处理承诺。"
+  },
+
+  "policyToolsTitle": "你手上有工具",
+  "@policyToolsTitle": {
+    "description": "内容规范第四条的小标题:用户手上有屏蔽与举报工具"
+  },
+
+  "policyToolsBody": "任何时候都可以在本机屏蔽某个人,屏蔽后不再收到对方的任何内容。要举报,可以在成员列表里选那个人,也可以长按具体那条消息。",
+  "@policyToolsBody": {
+    "description": "内容规范第四条正文"
+  },
+
+  "commonGotIt": "知道了",
+  "@commonGotIt": {
+    "description": "通用的「知道了」确认按钮,用于只需要用户确认已读的对话框"
+  },
+
+  "commonNoThanks": "不用了",
+  "@commonNoThanks": {
+    "description": "通用的婉拒按钮,用于「要不要顺手做件事」这类追问"
+  }

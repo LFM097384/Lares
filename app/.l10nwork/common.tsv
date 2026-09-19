@@ -1,0 +1,6 @@
+appTitle	GETTER	lib\main.dart;lib\src\ui\home_screen.dart
+commonCancel	GETTER	lib\src\ui\home_screen.dart;lib\src\ui\moderation_menus.dart;lib\src\ui\room_screen.dart;lib\src\ui\server_settings_section.dart;lib\src\ui\settings_sheet.dart
+commonCopy	GETTER	lib\src\ui\home_screen.dart
+commonGotIt	GETTER	lib\src\ui\moderation_menus.dart
+commonListSeparator	GETTER	lib\src\ui\home_screen.dart
+commonNoThanks	GETTER	lib\src\ui\moderation_menus.dart

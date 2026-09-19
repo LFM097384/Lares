@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../chat/chat_limits.dart';
 import '../chat/chat_message.dart';
 import '../chat/chat_service.dart';
@@ -71,6 +72,33 @@ const double _listHeightMax = 320;
 
 /// 面板自身的固定边饰高度(上下内边距 + 分隔线),参与高度预算的算术。
 const double _panelChromeHeight = 24;
+
+/// 面板能冒出的三种安静提示。
+///
+/// 刻意存标识而不存译好的字符串:本地化文案不是编译期常量,更重要的是
+/// State 里攥着一句中文/英文,用户中途切语言它就留在旧语言上了。
+/// 存 enum、在 UI 层查表(见 [_noticeText]),与 l10n 规范里
+/// 「模型只存语义 key,翻译放 UI 层」同构 —— 这里的「模型」就是面板自己的 State。
+enum _Notice {
+  /// 文字消息没能发出去(意料之外的错;传输失败由 ChatService 自己标 failed)。
+  sendFailed,
+
+  /// 系统选图器自身失败(筛选器配错、权限被拒、文件读不出来)。
+  pickFailed,
+
+  /// 图片没能发出去(通常是超限,一个包都没发)。
+  imageSendFailed,
+}
+
+/// [_Notice] 到文案的查表。放 UI 层,拿得到 context。
+String _noticeText(BuildContext context, _Notice notice) {
+  final AppLocalizations t = AppLocalizations.of(context);
+  return switch (notice) {
+    _Notice.sendFailed => t.chatSendFailed,
+    _Notice.pickFailed => t.chatImagePickFailed,
+    _Notice.imageSendFailed => t.chatImageSendFailed,
+  };
+}
 
 /// 文字+图片侧信道面板(设计.md §2.3 的定向翻案)。
 ///
@@ -146,7 +174,8 @@ class ChatPanelState extends State<ChatPanel> {
 
   /// 一句平静的失败提示。null 表示无事发生。
   /// 刻意不是 SnackBar:SnackBar 会浮起来抢注意力,这里只要一行小字。
-  String? _notice;
+  /// 只存标识,译文在渲染时查表 —— 见 [_Notice]。
+  _Notice? _notice;
 
   @override
   void initState() {
@@ -260,9 +289,9 @@ class ChatPanelState extends State<ChatPanel> {
     );
   }
 
-  void _setNotice(String? text) {
-    if (!mounted || _notice == text) return;
-    setState(() => _notice = text);
+  void _setNotice(_Notice? notice) {
+    if (!mounted || _notice == notice) return;
+    setState(() => _notice = notice);
   }
 
   Future<void> _send() async {
@@ -286,7 +315,7 @@ class ChatPanelState extends State<ChatPanel> {
       // 能走到这儿的是意料之外的错。把原文还给用户,别让人白打一遍。
       if (!mounted) return;
       _controller.text = text;
-      _setNotice('没发出去');
+      _setNotice(_Notice.sendFailed);
     }
   }
 
@@ -299,7 +328,7 @@ class ChatPanelState extends State<ChatPanel> {
       // pickImage() 只对「用户取消」返回 null,真失败(筛选器配错、权限被拒、
       // 文件读不出来)一律上抛,由这里兜住。这行小字就是用户唯一能看见的痕迹——
       // 曾经它被下层吞掉,结果 iOS 上按钮点了毫无反应,谁也不知道出了事。
-      _setNotice('没能打开图片');
+      _setNotice(_Notice.pickFailed);
       return;
     }
     // null = 用户取消(或选了个空文件)。不是错误,什么都不做。
@@ -316,7 +345,7 @@ class ChatPanelState extends State<ChatPanel> {
       // 但这里**不** import 那个具体异常类型 —— 面板不该和 chat_service
       // 的实现细节耦合,它今天叫什么、明天改不改名都不该影响 UI 编译。
       // 宽 catch 不等于吞掉:下面这行小字就是用户能看见的痕迹。
-      _setNotice('这张图没发出去');
+      _setNotice(_Notice.imageSendFailed);
     }
   }
 
@@ -497,7 +526,7 @@ class _MessageList extends StatelessWidget {
           vertical: LaresSpacing.lg,
         ),
         child: Text(
-          '这里很安静。想说的话、一张图,都可以放这儿。',
+          AppLocalizations.of(context).chatEmpty,
           style: theme.textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),
@@ -627,7 +656,7 @@ class _FailedMark extends StatelessWidget {
           ),
           const SizedBox(width: LaresSpacing.xs),
           Text(
-            '没发出去',
+            AppLocalizations.of(context).chatSendFailed,
             style: theme.textTheme.bodyMedium
                 ?.copyWith(color: theme.colorScheme.error),
           ),
@@ -662,7 +691,7 @@ class _ImageThumb extends StatelessWidget {
         : _fallbackAspect;
 
     return Semantics(
-      label: '图片,点开看大图',
+      label: AppLocalizations.of(context).chatImageOpen,
       button: true,
       child: InkWell(
         onTap: () => _openImageViewer(context, bytes),
@@ -701,7 +730,7 @@ class _ImagePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
-      label: '这张图没收到',
+      label: AppLocalizations.of(context).chatImageMissing,
       child: SizedBox(
         width: _thumbWidth,
         child: AspectRatio(
@@ -747,7 +776,7 @@ class _ImageViewerDialog extends StatelessWidget {
       insetPadding: const EdgeInsets.all(LaresSpacing.md),
       shape: RoundedRectangleBorder(borderRadius: LaresRadii.cardRadius),
       child: Semantics(
-        label: '图片大图,点空白处关闭',
+        label: AppLocalizations.of(context).chatImageViewer,
         child: SizedBox(
           // 给个确定尺寸:否则 Dialog 会缩到图片的固有尺寸,
           // 一张 1×1 的图会变成一个看不见的对话框。
@@ -774,7 +803,7 @@ class _ImageViewerDialog extends StatelessWidget {
                 top: LaresSpacing.xs,
                 right: LaresSpacing.xs,
                 child: IconButton(
-                  tooltip: '关闭大图',
+                  tooltip: AppLocalizations.of(context).chatImageViewerClose,
                   icon: const Icon(Icons.close_rounded),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
@@ -796,7 +825,7 @@ class _UnreadDot extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       // 圆点自身不含文字,读屏用户全靠这句
-      label: '有新消息',
+      label: AppLocalizations.of(context).chatUnread,
       child: Container(
         width: _unreadDotSize,
         height: _unreadDotSize,
@@ -846,8 +875,8 @@ class _Composer extends StatelessWidget {
   /// 剩余可输入字素簇数;null 表示离上限还远,**不显示**计数器。
   final int? remaining;
 
-  /// 一行平静的失败提示;null 表示无事发生。
-  final String? notice;
+  /// 一行平静的失败提示;null 表示无事发生。译文在 build 里查表。
+  final _Notice? notice;
 
   final bool imagePickEnabled;
   final double maxHeight;
@@ -899,7 +928,7 @@ class _Composer extends StatelessWidget {
               // 限一行:超大字号下这句会折成好几行,把面板顶穿。
               // 它只是一句安静的附注,折行反而显得像报错。
               child: Text(
-                notice!,
+                _noticeText(context, notice!),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium
@@ -915,7 +944,7 @@ class _Composer extends StatelessWidget {
               // 只在最后 50 个字素簇内露面。常驻计数器会让人紧张。
               // 同样限一行:3× 字号下它能折到 189px,比输入框还高。
               child: Text(
-                '还能写 $left 个字',
+                AppLocalizations.of(context).chatRemaining(left),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium,
@@ -947,7 +976,7 @@ class _Composer extends StatelessWidget {
                       style: theme.textTheme.bodyLarge,
                       decoration: InputDecoration(
                         isDense: true,
-                        hintText: '说点什么,或者放张图',
+                        hintText: AppLocalizations.of(context).chatComposerHint,
                         hintStyle: theme.textTheme.bodyMedium,
                         filled: true,
                         fillColor: theme.scaffoldBackgroundColor,
@@ -967,13 +996,14 @@ class _Composer extends StatelessWidget {
               ),
               IconButton(
                 // 禁用也要留着入口,不藏 —— 依赖一落地用户就知道该点哪儿
-                tooltip:
-                    imagePickEnabled ? '发一张图' : '当前版本暂不支持选图',
+                tooltip: imagePickEnabled
+                    ? AppLocalizations.of(context).chatSendImage
+                    : AppLocalizations.of(context).chatImagePickUnsupported,
                 icon: const Icon(Icons.image_outlined),
                 onPressed: imagePickEnabled ? onPickImage : null,
               ),
               IconButton(
-                tooltip: '发送',
+                tooltip: AppLocalizations.of(context).chatSend,
                 icon: const Icon(Icons.send_rounded),
                 color: theme.colorScheme.primary,
                 onPressed: canSend ? onSend : null,
@@ -1011,7 +1041,9 @@ class _ToggleButton extends StatelessWidget {
           children: <Widget>[
             // IconButton 自带 >=48 的点击区,不额外加 SizedBox
             IconButton(
-              tooltip: expanded ? '收起消息' : '展开消息',
+              tooltip: expanded
+                  ? AppLocalizations.of(context).chatCollapse
+                  : AppLocalizations.of(context).chatExpand,
               icon: Icon(
                 expanded
                     ? Icons.keyboard_arrow_down_rounded
@@ -1023,6 +1055,8 @@ class _ToggleButton extends StatelessWidget {
               const Positioned(
                 right: LaresSpacing.sm,
                 top: LaresSpacing.sm,
+                // _UnreadDot 内部读 AppLocalizations,但它自身无字段,
+                // 构造仍是 const —— 本地化发生在它的 build 里,不影响这里。
                 child: _UnreadDot(),
               ),
           ],

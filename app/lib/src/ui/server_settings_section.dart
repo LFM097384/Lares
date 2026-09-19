@@ -1,11 +1,29 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../auth/auth_credential.dart';
 import '../net/biometric_gate.dart';
 import '../net/connection_test.dart';
 import '../net/server_profile.dart';
 import '../state/settings_store.dart';
 import '../theme/tokens.dart';
+
+/// [AuthMode] 的显示名。
+///
+/// 按本地化规范,enum 只留标识(`wire` 仍是唯一的序列化值),
+/// 翻译查表放在 UI 层 —— 不把 BuildContext 传进 auth 模型层。
+///
+/// 注意:`AuthMode.label`(中文硬编码)目前仍存在于 auth_credential.dart,
+/// 还有 connection_test.dart / signaling_client.dart 两处在用它。
+/// 那两个文件不属于本批次,等它们本地化后 `label` 即可删除。
+String authModeLabel(BuildContext context, AuthMode mode) {
+  final t = AppLocalizations.of(context);
+  return switch (mode) {
+    AuthMode.none => t.settingsAuthModeNone,
+    AuthMode.token => t.settingsAuthModeToken,
+    AuthMode.circle => t.settingsAuthModeCircle,
+  };
+}
 
 /// 设置页的「服务器与口令」区块。
 ///
@@ -30,16 +48,18 @@ class ServerSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final active = settings.activeProfile;
     final count = settings.serverProfiles.profiles.length;
     return ListTile(
       leading: const Icon(Icons.dns_outlined),
-      title: const Text('服务器与口令'),
+      title: Text(t.settingsServer),
       subtitle: Text(
         active == null
-            ? '默认(打包内置)${defaultUrl == null ? '' : '\n$defaultUrl'}'
+            ? '${t.settingsServerBuiltIn}${defaultUrl == null ? '' : '\n$defaultUrl'}'
             : '${active.label} · ${active.url}\n'
-                '${active.authMode.label}${count > 1 ? ' · 共 $count 个服务器' : ''}',
+                '${authModeLabel(context, active.authMode)}'
+                '${count > 1 ? ' · ${t.settingsServerCount(count)}' : ''}',
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () => showServerProfilesSheet(
@@ -66,6 +86,7 @@ Future<void> showServerProfilesSheet(
     builder: (ctx) => ListenableBuilder(
       listenable: settings,
       builder: (context, _) {
+        final t = AppLocalizations.of(context);
         final profiles = settings.serverProfiles.profiles;
         return SafeArea(
           child: Padding(
@@ -77,13 +98,13 @@ Future<void> showServerProfilesSheet(
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                       LaresSpacing.lg, 0, LaresSpacing.lg, LaresSpacing.sm),
-                  child: Text('服务器',
+                  child: Text(t.settingsServerListTitle,
                       style: Theme.of(context).textTheme.titleMedium),
                 ),
                 if (profiles.isEmpty)
                   ListTile(
                     leading: const Icon(Icons.check_circle_rounded),
-                    title: const Text('默认(打包内置)'),
+                    title: Text(t.settingsServerBuiltIn),
                     subtitle: Text(defaultUrl ?? '—'),
                   ),
                 for (final p in profiles)
@@ -97,11 +118,12 @@ Future<void> showServerProfilesSheet(
                           : null,
                     ),
                     title: Text(p.label),
-                    subtitle: Text('${p.url}\n${p.authMode.label}'),
+                    subtitle: Text(
+                        '${p.url}\n${authModeLabel(context, p.authMode)}'),
                     isThreeLine: true,
                     trailing: IconButton(
                       icon: const Icon(Icons.edit_outlined),
-                      tooltip: '编辑',
+                      tooltip: t.settingsServerEdit,
                       onPressed: () => _editProfile(ctx, settings, userId, p),
                     ),
                     onTap: () => settings.setActiveProfile(p.id),
@@ -109,7 +131,7 @@ Future<void> showServerProfilesSheet(
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.add_rounded),
-                  title: const Text('添加服务器'),
+                  title: Text(t.settingsServerAdd),
                   onTap: () => _editProfile(ctx, settings, userId, null),
                 ),
                 // 明文存储:不粉饰,直接告诉用户
@@ -129,8 +151,7 @@ Future<void> showServerProfilesSheet(
                       const SizedBox(width: LaresSpacing.sm),
                       Expanded(
                         child: Text(
-                          '口令以明文保存在本机设置里,不是加密存储。'
-                          '别人拿到这台设备的文件就能读到 —— 共用设备请谨慎。',
+                          t.settingsServerPlaintextWarning,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
@@ -167,20 +188,24 @@ Future<void> _editProfile(
       (existing.token.isNotEmpty || existing.circlePasscodes.isNotEmpty);
   if (hasSecrets) {
     final BiometricGate g = gate ?? LocalAuthGate();
-    final ok = await g.authenticate('查看或修改服务器口令');
+    final ok = await g.authenticate(
+        AppLocalizations.of(context).settingsServerBiometricReason);
     if (!ok) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('没验证通过,没打开')),
+          SnackBar(
+            content: Text(
+                AppLocalizations.of(context).settingsServerBiometricFailed),
+          ),
         );
       }
       return;
     }
   }
   if (!context.mounted) return;
+  final defaultLabel = AppLocalizations.of(context).settingsServerDefaultLabel;
   final id = existing?.id ?? settings.serverProfiles.newId();
-  final labelField =
-      TextEditingController(text: existing?.label ?? '我的服务器');
+  final labelField = TextEditingController(text: existing?.label ?? defaultLabel);
   final urlField = TextEditingController(text: existing?.url ?? '');
   final tokenField = TextEditingController(text: existing?.token ?? '');
   // circle 模式:MVP 先管一个圈的口令(圈 id + 口令),够覆盖主人的两套部署
@@ -200,7 +225,7 @@ Future<void> _editProfile(
   ServerProfile compose(String url) => ServerProfile(
         id: id,
         label: labelField.text.trim().isEmpty
-            ? '我的服务器'
+            ? defaultLabel
             : labelField.text.trim(),
         url: url,
         authMode: mode,
@@ -215,6 +240,7 @@ Future<void> _editProfile(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setState) {
+        final t = AppLocalizations.of(ctx);
         // 服务器说了自己收哪几种模式时,只显示那几种(外加 none)
         final allowed = serverModes.isEmpty
             ? AuthMode.values
@@ -224,7 +250,8 @@ Future<void> _editProfile(
                   if (m != AuthMode.none && serverModes.contains(m.wire)) m,
               ];
         return AlertDialog(
-          title: Text(isNew ? '添加服务器' : '编辑服务器'),
+          title: Text(
+              isNew ? t.settingsServerAdd : t.settingsServerEditTitle),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -232,9 +259,9 @@ Future<void> _editProfile(
               children: [
                 TextField(
                   controller: labelField,
-                  decoration: const InputDecoration(
-                    labelText: '名字',
-                    hintText: '例:家里的 VPS',
+                  decoration: InputDecoration(
+                    labelText: t.settingsServerName,
+                    hintText: t.settingsServerNameHint,
                   ),
                 ),
                 const SizedBox(height: LaresSpacing.sm),
@@ -242,7 +269,8 @@ Future<void> _editProfile(
                   controller: urlField,
                   autofocus: isNew,
                   decoration: InputDecoration(
-                    labelText: '地址',
+                    labelText: t.settingsServerUrl,
+                    // 示例地址本身不是自然语言,两种语言共用
                     hintText: 'wss://rtc.example.com:8444/ws',
                     errorText: urlError,
                   ),
@@ -251,14 +279,15 @@ Future<void> _editProfile(
                 const SizedBox(height: LaresSpacing.md),
                 Row(
                   children: [
-                    const Text('需要口令'),
+                    Text(t.settingsServerAuthLabel),
                     const Spacer(),
                     DropdownButton<AuthMode>(
                       value: allowed.contains(mode) ? mode : AuthMode.none,
                       underline: const SizedBox.shrink(),
                       items: [
                         for (final m in allowed)
-                          DropdownMenuItem(value: m, child: Text(m.label)),
+                          DropdownMenuItem(
+                              value: m, child: Text(authModeLabel(ctx, m))),
                       ],
                       onChanged: (v) => setState(() {
                         if (v != null) mode = v;
@@ -270,23 +299,25 @@ Future<void> _editProfile(
                   TextField(
                     controller: tokenField,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: '共享令牌',
-                      hintText: '服务器的 LARES_AUTH_TOKEN',
+                    decoration: InputDecoration(
+                      labelText: t.settingsAuthModeToken,
+                      hintText: t.settingsServerTokenHint,
                     ),
                   ),
                 if (mode == AuthMode.circle) ...[
                   TextField(
                     controller: circleIdField,
-                    decoration: const InputDecoration(
-                      labelText: '圈子 ID',
+                    decoration: InputDecoration(
+                      labelText: t.settingsServerCircleId,
+                      // 圈子 id 的示例值,不是自然语言
                       hintText: 'home',
                     ),
                   ),
                   TextField(
                     controller: passField,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: '圈口令'),
+                    decoration: InputDecoration(
+                        labelText: t.settingsServerCirclePasscode),
                   ),
                 ],
                 const SizedBox(height: LaresSpacing.md),
@@ -301,7 +332,7 @@ Future<void> _editProfile(
                               child:
                                   CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.network_check_rounded, size: 18),
-                      label: const Text('测试连接'),
+                      label: Text(t.settingsServerTest),
                       onPressed: testing
                           ? null
                           : () async {
@@ -373,11 +404,11 @@ Future<void> _editProfile(
                   await settings.removeProfile(id);
                   if (ctx.mounted) Navigator.pop(ctx, false);
                 },
-                child: const Text('删除'),
+                child: Text(t.settingsServerDelete),
               ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('算了'),
+              child: Text(t.commonCancel),
             ),
             FilledButton(
               onPressed: () async {
@@ -390,7 +421,7 @@ Future<void> _editProfile(
                     activate: true);
                 if (ctx.mounted) Navigator.pop(ctx, true);
               },
-              child: const Text('保存'),
+              child: Text(t.settingsServerSave),
             ),
           ],
         );
@@ -400,7 +431,9 @@ Future<void> _editProfile(
 
   if (saved == true && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保存,重启 App 生效')),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).settingsServerSaved),
+      ),
     );
   }
 }

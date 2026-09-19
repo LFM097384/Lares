@@ -10,9 +10,26 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/gen/app_localizations.dart';
+import '../p2p/connect_code.dart';
 import '../p2p/ice_store.dart';
 import '../p2p/p2p_session.dart';
 import '../theme/tokens.dart';
+
+/// 连接码解析失败的人话说明 —— 查表放在 UI 层,模型层只存 [ConnectCodeError]。
+///
+/// 目前还没有调用方:[P2PSession.failure] 是个已经拼好的 `String?`,
+/// 把错误码原样带出来是 `p2p_session.dart` 的改动。这张表先按规范备好,
+/// 那边一旦改完(加 `ConnectCodeError? codeError`),`_Status` 直接换过来即可。
+String connectCodeErrorLabel(BuildContext context, ConnectCodeError error) {
+  final t = AppLocalizations.of(context);
+  return switch (error) {
+    ConnectCodeError.notLaresCode => t.p2pErrorNotLaresCode,
+    ConnectCodeError.versionMismatch => t.p2pErrorVersionMismatch,
+    ConnectCodeError.corrupted => t.p2pErrorCorrupted,
+    ConnectCodeError.wrongKind => t.p2pErrorWrongKind,
+  };
+}
 
 class P2PScreen extends StatefulWidget {
   const P2PScreen({super.key, required this.ice, this.onStartMesh});
@@ -60,10 +77,11 @@ class _P2PScreenState extends State<P2PScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = AppLocalizations.of(context);
     final s = _session;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('直连对话')),
+      appBar: AppBar(title: Text(t.p2pTitle)),
       body: ListView(
         padding: const EdgeInsets.all(LaresSpacing.lg),
         children: [
@@ -72,15 +90,15 @@ class _P2PScreenState extends State<P2PScreen> {
           if (_role == _Role.undecided) ...[
             _RoleCard(
               icon: Icons.outgoing_mail,
-              title: '我先开口',
-              body: '生成一段连接码发给对方,等对方回一段给你。',
+              title: t.p2pRoleOffererTitle,
+              body: t.p2pRoleOffererBody,
               onTap: _startAsOfferer,
             ),
             const SizedBox(height: LaresSpacing.md),
             _RoleCard(
               icon: Icons.move_to_inbox_rounded,
-              title: '对方发我码了',
-              body: '把对方发来的连接码贴进来,生成一段回给他。',
+              title: t.p2pRoleAnswererTitle,
+              body: t.p2pRoleAnswererBody,
               onTap: () => setState(() => _role = _Role.answerer),
             ),
             // 多人只在有服务器信令时给 —— 星形拓扑下 3 人也要建 2 条连接、
@@ -89,10 +107,8 @@ class _P2PScreenState extends State<P2PScreen> {
               const SizedBox(height: LaresSpacing.md),
               _RoleCard(
                 icon: Icons.group_rounded,
-                title: '圈里的人一起(最多 4 人)',
-                body: '连接码由服务器转交,不用手动传。'
-                    '会自动挑一个人转发声音 —— 优先挑电脑,'
-                    '因为它插着电、网更稳。',
+                title: t.p2pRoleMeshTitle,
+                body: t.p2pRoleMeshBody,
                 onTap: () {
                   widget.onStartMesh!();
                   Navigator.pop(context);
@@ -101,15 +117,19 @@ class _P2PScreenState extends State<P2PScreen> {
             ],
           ] else ...[
             if (s != null && s.phase == P2PPhase.gathering)
-              const _Waiting(text: '正在准备连接信息…'),
+              _Waiting(text: t.p2pPreparing),
             if (s?.localCode != null) _CodeBox(
-              label: _role == _Role.offerer ? '① 把这段发给对方' : '② 把这段回给对方',
+              label: _role == _Role.offerer
+                  ? t.p2pCodeSendToPeer
+                  : t.p2pCodeSendBack,
               code: s!.localCode!,
             ),
             if (_needsPaste(s)) ...[
               const SizedBox(height: LaresSpacing.lg),
               Text(
-                _role == _Role.offerer ? '② 贴入对方回给你的码' : '① 贴入对方发来的码',
+                _role == _Role.offerer
+                    ? t.p2pPasteReplyLabel
+                    : t.p2pPasteIncomingLabel,
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: LaresSpacing.sm),
@@ -121,7 +141,7 @@ class _P2PScreenState extends State<P2PScreen> {
                   hintText: 'LARES-…',
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    tooltip: '从剪贴板粘贴',
+                    tooltip: t.p2pPasteFromClipboard,
                     icon: const Icon(Icons.content_paste_rounded),
                     onPressed: () async {
                       final d = await Clipboard.getData('text/plain');
@@ -131,7 +151,7 @@ class _P2PScreenState extends State<P2PScreen> {
                 ),
               ),
               const SizedBox(height: LaresSpacing.sm),
-              FilledButton(onPressed: _paste, child: const Text('连接')),
+              FilledButton(onPressed: _paste, child: Text(t.p2pConnect)),
             ],
             if (s != null) ...[
               const SizedBox(height: LaresSpacing.lg),
@@ -161,6 +181,7 @@ class _Explainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(LaresSpacing.md),
@@ -172,22 +193,22 @@ class _Explainer extends StatelessWidget {
                 Icon(Icons.cable_rounded,
                     size: 18, color: theme.colorScheme.primary),
                 const SizedBox(width: LaresSpacing.sm),
-                Text('不经过任何服务器', style: theme.textTheme.titleMedium),
+                Text(t.p2pNoServerTitle, style: theme.textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: LaresSpacing.sm),
             Text(
-              '你和对方互传一段连接码,声音就在两台设备之间直接走。\n'
-              '连接码怎么传都行 —— 微信、短信、当面念都可以。',
+              t.p2pNoServerBody,
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: LaresSpacing.sm),
             // 这段不能省。做不到的事要说在前面,而不是等用户连不上再解释。
+            //
+            // 中继那句拆成两条完整的句子,而不是往中间插一个片段 ——
+            // 半句话的语序在别的语言里未必还能对得上。
             Text(
-              '⚠️ 只能一对一,而且这里没有文字、图片和加密标记 —— '
-              '那些功能依赖服务器。\n'
-              '另外约两三成的网络组合直连不了,'
-              '${ice.turn == null ? '需要在设置里填一台中继服务器(TURN)' : '会走你配的中继服务器'}。',
+              '${t.p2pCaveats}\n'
+              '${ice.turn == null ? t.p2pCaveatNoTurn : t.p2pCaveatHasTurn}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -237,6 +258,7 @@ class _CodeBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -266,14 +288,14 @@ class _CodeBox extends StatelessWidget {
                 await Clipboard.setData(ClipboardData(text: code));
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('连接码已复制,发给对方吧')),
+                  SnackBar(content: Text(t.p2pCodeCopied)),
                 );
               },
               icon: const Icon(Icons.copy_rounded, size: 18),
-              label: const Text('复制'),
+              label: Text(t.p2pCopy),
             ),
             const SizedBox(width: LaresSpacing.sm),
-            Text('${code.length} 字符',
+            Text(t.p2pCharCount(code.length),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 )),
@@ -310,30 +332,33 @@ class _Status extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = AppLocalizations.of(context);
     final (IconData icon, String text, Color color) = switch (session.phase) {
       P2PPhase.connected => (
           Icons.check_circle_rounded,
-          '连上了,可以说话',
+          t.p2pStatusConnected,
           theme.colorScheme.primary,
         ),
       P2PPhase.connecting => (
           Icons.sync_rounded,
-          '正在连接…',
+          t.p2pStatusConnecting,
           theme.colorScheme.onSurfaceVariant,
         ),
       P2PPhase.waitingForPeer => (
           Icons.hourglass_empty_rounded,
-          '等对方那边动作',
+          t.p2pStatusWaitingForPeer,
           theme.colorScheme.onSurfaceVariant,
         ),
+      // ⚠️ session.failure 是 p2p_session.dart 拼好的中文,尚未本地化。
+      // 见本文件顶部 connectCodeErrorLabel 的说明。
       P2PPhase.failed => (
           Icons.error_outline_rounded,
-          session.failure ?? '没能连上',
+          session.failure ?? t.p2pStatusFailed,
           theme.colorScheme.error,
         ),
       P2PPhase.closed => (
           Icons.call_end_rounded,
-          '已断开',
+          t.p2pStatusClosed,
           theme.colorScheme.onSurfaceVariant,
         ),
       _ => (

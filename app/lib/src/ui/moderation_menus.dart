@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../chat/chat_message.dart';
 import '../moderation/block_store.dart';
 import '../moderation/report.dart';
@@ -22,8 +23,23 @@ const int _noteMaxLines = 3;
 /// 500 字足够描述一次滥用,也不至于让邮件正文长到没人愿意读。
 const int _noteMaxLength = 500;
 
-/// 提交成功后的回执文案。审核员会逐字核对这句承诺,别改动。
-const String _reportAcceptedNotice = '已提交,我们会在 24 小时内处理';
+/// 举报分类的显示名。
+///
+/// [ReportReason] 本身只存标识(见 report.dart 的长注释),给人看的名字在这里查表 ——
+/// 模型层拿不到 context,也不该拿到。switch 不写 default:以后往枚举里加一类,
+/// 编译器会直接指着这里说少了一条,而不是让界面上悄悄冒出个空白选项。
+String reportReasonLabel(BuildContext context, ReportReason reason) {
+  final AppLocalizations t = AppLocalizations.of(context);
+  return switch (reason) {
+    ReportReason.harassment => t.reportReasonHarassment,
+    ReportReason.hateSpeech => t.reportReasonHateSpeech,
+    ReportReason.sexualContent => t.reportReasonSexualContent,
+    ReportReason.violence => t.reportReasonViolence,
+    ReportReason.illegal => t.reportReasonIllegal,
+    ReportReason.spam => t.reportReasonSpam,
+    ReportReason.other => t.reportReasonOther,
+  };
+}
 
 /// 举报的送达方式。生产实现是 [deliverReport],测试可注入假实现。
 typedef ReportDelivery = Future<void> Function(ReportDraft draft);
@@ -75,6 +91,7 @@ Future<void> showMemberModerationSheet(
   ReportDelivery? delivery,
 }) {
   final bool blocked = blocks.isBlocked(member.userId);
+  final AppLocalizations t = AppLocalizations.of(context);
   return showModalBottomSheet<void>(
     context: context,
     builder: (BuildContext ctx) => SafeArea(
@@ -85,8 +102,8 @@ Future<void> showMemberModerationSheet(
           if (blocked)
             ListTile(
               leading: const Icon(Icons.person_add_alt_1_rounded),
-              title: const Text('解除屏蔽'),
-              subtitle: const Text('他的声音和消息会重新出现'),
+              title: Text(t.moderationUnblock),
+              subtitle: Text(t.moderationUnblockHint),
               onTap: () async {
                 Navigator.pop(ctx);
                 await blocks.unblock(member.userId);
@@ -95,8 +112,8 @@ Future<void> showMemberModerationSheet(
           else
             ListTile(
               leading: const Icon(Icons.block_rounded),
-              title: const Text('屏蔽这个人'),
-              subtitle: const Text('听不到他的声音,也不再显示他的消息'),
+              title: Text(t.moderationBlock),
+              subtitle: Text(t.moderationBlockHint),
               onTap: () async {
                 Navigator.pop(ctx);
                 await blocks.block(member.userId);
@@ -104,8 +121,8 @@ Future<void> showMemberModerationSheet(
             ),
           ListTile(
             leading: const Icon(Icons.flag_outlined),
-            title: const Text('举报'),
-            subtitle: const Text('把情况告诉我们,24 小时内处理'),
+            title: Text(t.reportAction),
+            subtitle: Text(t.reportActionHint),
             onTap: () async {
               // 先关菜单再办事,并且用**外层** context ——
               // ctx 随菜单一起消失,拿它去开对话框会撞 deactivated widget。
@@ -124,8 +141,8 @@ Future<void> showMemberModerationSheet(
           if (onKick != null)
             ListTile(
               leading: const Icon(Icons.logout_rounded),
-              title: const Text('请出房间'),
-              subtitle: const Text('对方可以稍后再进来,不是封禁'),
+              title: Text(t.roomKickMember),
+              subtitle: Text(t.roomKickMemberHint),
               onTap: () {
                 Navigator.pop(ctx);
                 onKick();
@@ -151,6 +168,7 @@ Future<void> showMessageModerationSheet(
   ReportDelivery? delivery,
 }) {
   final bool blocked = blocks.isBlocked(message.senderId);
+  final AppLocalizations t = AppLocalizations.of(context);
   return showModalBottomSheet<void>(
     context: context,
     builder: (BuildContext ctx) => SafeArea(
@@ -161,8 +179,8 @@ Future<void> showMessageModerationSheet(
           if (blocked)
             ListTile(
               leading: const Icon(Icons.person_add_alt_1_rounded),
-              title: const Text('解除屏蔽'),
-              subtitle: const Text('他的声音和消息会重新出现'),
+              title: Text(t.moderationUnblock),
+              subtitle: Text(t.moderationUnblockHint),
               onTap: () async {
                 Navigator.pop(ctx);
                 await blocks.unblock(message.senderId);
@@ -171,8 +189,8 @@ Future<void> showMessageModerationSheet(
           else
             ListTile(
               leading: const Icon(Icons.block_rounded),
-              title: const Text('屏蔽这个人'),
-              subtitle: const Text('听不到他的声音,也不再显示他的消息'),
+              title: Text(t.moderationBlock),
+              subtitle: Text(t.moderationBlockHint),
               onTap: () async {
                 Navigator.pop(ctx);
                 await blocks.block(message.senderId);
@@ -180,8 +198,8 @@ Future<void> showMessageModerationSheet(
             ),
           ListTile(
             leading: const Icon(Icons.flag_outlined),
-            title: const Text('举报这条消息'),
-            subtitle: const Text('把情况告诉我们,24 小时内处理'),
+            title: Text(t.reportMessageAction),
+            subtitle: Text(t.reportActionHint),
             onTap: () async {
               Navigator.pop(ctx);
               // 图片消息的 text 是 null,摘录自然是空串 —— 那就干脆传 null,
@@ -235,8 +253,9 @@ Future<void> showReportFlow(
       builder: (BuildContext ctx) => StatefulBuilder(
         builder: (BuildContext ctx, StateSetter setState) {
           final ThemeData theme = Theme.of(ctx);
+          final AppLocalizations t = AppLocalizations.of(ctx);
           return AlertDialog(
-            title: Text('举报「$targetName」'),
+            title: Text(t.reportDialogTitle(targetName)),
             // 七个分类 + 输入框在矮窗口里放不下,内容自己滚,
             // 别让对话框顶穿屏幕(与 server_settings_section.dart 同款做法)。
             content: SingleChildScrollView(
@@ -245,7 +264,7 @@ Future<void> showReportFlow(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Text(
-                    '挑一条最贴近的。我们会看完再回你。',
+                    t.reportPickReason,
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: LaresSpacing.sm),
@@ -265,7 +284,7 @@ Future<void> showReportFlow(
                             value: r,
                             dense: true,
                             contentPadding: EdgeInsets.zero,
-                            title: Text(r.label),
+                            title: Text(reportReasonLabel(ctx, r)),
                           ),
                       ],
                     ),
@@ -280,7 +299,7 @@ Future<void> showReportFlow(
                     style: theme.textTheme.bodyLarge,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: '补充说明(可不填)',
+                      hintText: t.reportNoteHint,
                       hintStyle: theme.textTheme.bodyMedium,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(LaresRadii.md),
@@ -293,14 +312,14 @@ Future<void> showReportFlow(
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('算了'),
+                child: Text(t.commonCancel),
               ),
               FilledButton(
                 // 没选分类就一直灰着。这是「不替用户做选择」的硬保证,
                 // 审核员会实测这一点。
                 onPressed:
                     reason == null ? null : () => Navigator.pop(ctx, true),
-                child: const Text('提交举报'),
+                child: Text(t.reportSubmit),
               ),
             ],
           );
@@ -326,12 +345,12 @@ Future<void> showReportFlow(
       messageExcerpt: messageExcerpt,
     );
 
-    // 信使必须在 await 之前就捏在手里:送达之后再去 of(context) 就晚了
+    // 信使和文案都必须在 await 之前就捏在手里:
+    // 送达之后再去 of(context) 就晚了(context 可能已经不在树上)
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String acceptedNotice = AppLocalizations.of(context).reportAccepted;
     await (delivery ?? deliverReport)(draft);
-    messenger.showSnackBar(
-      const SnackBar(content: Text(_reportAcceptedNotice)),
-    );
+    messenger.showSnackBar(SnackBar(content: Text(acceptedNotice)));
 
     if (!context.mounted) return;
     await _showDeliveryInstructions(context);
@@ -357,17 +376,14 @@ Future<void> _showDeliveryInstructions(BuildContext context) {
     context: context,
     builder: (BuildContext ctx) {
       final ThemeData theme = Theme.of(ctx);
+      final AppLocalizations t = AppLocalizations.of(ctx);
       return AlertDialog(
-        title: const Text('最后一步:把邮件发出来'),
+        title: Text(t.reportDeliveryTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
-              '我们已经帮你把举报写好并打开邮件。确认后点发送即可。\n'
-              '要是邮件没有自动打开,内容也已经放进剪贴板了 —— '
-              '手动新建一封,粘贴后发到:',
-            ),
+            Text(t.reportDeliveryBody),
             const SizedBox(height: LaresSpacing.md),
             SelectableText(
               kSupportEmail,
@@ -377,7 +393,7 @@ Future<void> _showDeliveryInstructions(BuildContext context) {
             ),
             const SizedBox(height: LaresSpacing.md),
             Text(
-              '收到后 24 小时内处理完,结果也回这个邮箱。',
+              t.reportDeliveryFollowUp,
               style: theme.textTheme.bodyMedium,
             ),
           ],
@@ -385,7 +401,7 @@ Future<void> _showDeliveryInstructions(BuildContext context) {
         actions: <Widget>[
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('知道了'),
+            child: Text(t.commonGotIt),
           ),
         ],
       );
@@ -401,20 +417,23 @@ Future<void> _suggestBlock(
 }) async {
   final bool? ok = await showDialog<bool>(
     context: context,
-    builder: (BuildContext ctx) => AlertDialog(
-      title: const Text('顺手屏蔽他?'),
-      content: const Text('屏蔽后你不会再听到他的声音,也不会看到他的消息。'),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('不用了'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('屏蔽'),
-        ),
-      ],
-    ),
+    builder: (BuildContext ctx) {
+      final AppLocalizations t = AppLocalizations.of(ctx);
+      return AlertDialog(
+        title: Text(t.moderationSuggestBlockTitle),
+        content: Text(t.moderationSuggestBlockBody),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(t.commonNoThanks),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(t.moderationBlockShort),
+          ),
+        ],
+      );
+    },
   );
   if (ok == true) await blocks.block(targetUserId);
 }
@@ -436,7 +455,7 @@ class _TargetHeader extends StatelessWidget {
       leading: const Icon(Icons.person_outline_rounded),
       title: Text(name, style: theme.textTheme.titleLarge),
       subtitle: Text(
-        userId.isEmpty ? '拿不到身份标识' : userId,
+        userId.isEmpty ? AppLocalizations.of(context).moderationNoUserId : userId,
         style: theme.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
       ),
     );

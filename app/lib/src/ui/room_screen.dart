@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../chat/chat_service.dart';
 import '../config.dart';
 import '../e2ee/e2ee_controller.dart';
@@ -255,6 +256,7 @@ class _KnockBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -278,17 +280,17 @@ class _KnockBanner extends StatelessWidget {
             child: ListTile(
               dense: true,
               leading: const Icon(Icons.door_front_door_outlined),
-              title: Text('${knock.name} 想进来'),
+              title: Text(t.roomKnockWants(knock.name)),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextButton(
                     onPressed: () => controller.dismissKnock(knock.userId),
-                    child: const Text('先不'),
+                    child: Text(t.roomKnockDeny),
                   ),
                   FilledButton.tonal(
                     onPressed: () => controller.allowKnock(knock.userId),
-                    child: const Text('让他进'),
+                    child: Text(t.roomKnockAllow),
                   ),
                 ],
               ),
@@ -317,6 +319,7 @@ class _RoomHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return ListenableBuilder(
       listenable: Listenable.merge([controller, e2ee]),
@@ -363,13 +366,16 @@ class _RoomHeader extends StatelessWidget {
                     ),
                     Text(
                       switch (controller.phase) {
-                        RoomPhase.joining =>
-                          controller.knocking ? '敲门中,等里面的人应门…' : '正在进去…',
+                        RoomPhase.joining => controller.knocking
+                            ? t.roomKnocking
+                            : t.roomJoining,
                         RoomPhase.inRoom =>
-                          count <= 1 ? '就你一个在,等等看?' : '$count 个人在',
+                          count <= 1 ? t.roomAloneHere : t.roomPeopleHere(count),
                         // 只显示人话。原始异常留给日志,不甩给用户。
+                        // 注:errorMessage 本身由 room_controller.dart 产出,
+                        // 仍是中文硬编码 —— 那个文件不在本批范围内,待后续批次。
                         RoomPhase.error =>
-                          controller.errorMessage ?? '出错了',
+                          controller.errorMessage ?? t.roomErrorGeneric,
                         RoomPhase.idle => '',
                       },
                       style: theme.textTheme.bodyMedium,
@@ -382,7 +388,7 @@ class _RoomHeader extends StatelessWidget {
               const Spacer(),
               if (onToggleMap != null)
                 IconButton(
-                  tooltip: showMap ? '回到房间' : '位置共享地图',
+                  tooltip: showMap ? t.roomBackToRoom : t.roomLocationMap,
                   onPressed: onToggleMap,
                   icon: Icon(
                     showMap ? Icons.groups_rounded : Icons.map_outlined,
@@ -391,7 +397,7 @@ class _RoomHeader extends StatelessWidget {
                 ),
               if (controller.lastJoinLatency != null)
                 Tooltip(
-                  message: '本次进房耗时',
+                  message: t.roomJoinLatencyTooltip,
                   child: Text(
                     '${controller.lastJoinLatency!.inMilliseconds}ms',
                     style: theme.textTheme.bodyMedium,
@@ -439,6 +445,7 @@ class _VoiceNoteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final vn = voiceNotes;
     if (vn == null) {
       return const IconButton.filledTonal(
@@ -457,7 +464,7 @@ class _VoiceNoteButton extends StatelessWidget {
             isLabelVisible: count > 0,
             label: Text('$count'),
             child: IconButton.filledTonal(
-              tooltip: count > 0 ? '听 $count 条留言(长按留一条)' : '长按留语音便签',
+              tooltip: count > 0 ? t.noteListen(count) : t.noteRecordHint,
               style: vn.recording
                   ? IconButton.styleFrom(
                       backgroundColor: LaresColors.ember,
@@ -483,19 +490,20 @@ class _VoiceNoteButton extends StatelessWidget {
 /// 踢人确认
 Future<void> _confirmKick(
     BuildContext context, RoomController controller, Member m) async {
+  final t = AppLocalizations.of(context);
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text('把「${m.name}」请出房间?'),
-      content: const Text('对方会被移出房间(可以稍后再进来,不是封禁)'),
+      title: Text(t.roomKickTitle(m.name)),
+      content: Text(t.roomKickBody),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('算了'),
+          child: Text(t.commonCancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('请出'),
+          child: Text(t.roomKickConfirm),
         ),
       ],
     ),
@@ -513,6 +521,7 @@ class _MemberGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final BlockStore? blocks = this.blocks;
     return ListenableBuilder(
       // 必须把 blocks 一起并进来:屏蔽是在 BlockStore 上发生的,
@@ -522,7 +531,7 @@ class _MemberGrid extends StatelessWidget {
         final members = controller.members;
         if (members.isEmpty) {
           return Center(
-            child: Text('房间里还空着,坐一会儿?',
+            child: Text(t.roomEmpty,
                 style: Theme.of(context).textTheme.bodyMedium),
           );
         }
@@ -589,7 +598,9 @@ class _BlockedOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Semantics(
-      label: '已屏蔽',
+      // 无障碍标签同样要翻译 —— 读屏用户也是用户,而且这是审核指南 1.2
+      // 「屏蔽能力必须找得到」的一部分。
+      label: AppLocalizations.of(context).roomBlockedSemantics,
       // container: true 是必须的:AvatarOrb 自己已经建了一个语义节点
       // (还带 excludeSemantics),外层若不独立成节点,这个标签就会被吞掉,
       // 读屏用户根本听不到「已屏蔽」三个字。
@@ -631,6 +642,7 @@ class _ControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return ListenableBuilder(
       listenable: controller,
@@ -643,10 +655,14 @@ class _ControlBar extends StatelessWidget {
               // 轻状态选择(§2.2:降低「现在方不方便进」的顾虑)
               SegmentedButton<MemberStatus>(
                 showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: MemberStatus.free, label: Text('随时聊')),
-                  ButtonSegment(value: MemberStatus.busy, label: Text('在忙')),
-                  ButtonSegment(value: MemberStatus.ears, label: Text('耳朵在')),
+                // ⚠️ const 必须去掉:本地化字符串不是编译期常量。
+                segments: [
+                  ButtonSegment(
+                      value: MemberStatus.free, label: Text(t.roomStatusFree)),
+                  ButtonSegment(
+                      value: MemberStatus.busy, label: Text(t.roomStatusBusy)),
+                  ButtonSegment(
+                      value: MemberStatus.ears, label: Text(t.roomStatusEars)),
                 ],
                 selected: {controller.myStatus},
                 onSelectionChanged: (s) => controller.setStatus(s.first),
@@ -663,7 +679,7 @@ class _ControlBar extends StatelessWidget {
                 children: [
                   // 离开:低调,无仪式感
                   IconButton.filledTonal(
-                    tooltip: '离开',
+                    tooltip: t.roomLeave,
                     onPressed: controller.leave,
                     icon: const Icon(Icons.call_end_rounded),
                   ),
@@ -673,7 +689,7 @@ class _ControlBar extends StatelessWidget {
                     width: 76,
                     height: 76,
                     child: IconButton.filled(
-                      tooltip: controller.muted ? '说话' : '静音',
+                      tooltip: controller.muted ? t.roomUnmute : t.roomMute,
                       style: IconButton.styleFrom(
                         backgroundColor: controller.muted
                             ? theme.colorScheme.surface

@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../theme/tokens.dart';
 import '../update/update_models.dart';
 import '../update/update_service.dart';
@@ -36,7 +37,8 @@ class _UpdatePanelState extends State<UpdatePanel> {
   late final UpdateService _service;
   late final bool _ownsService;
 
-  String _currentVersion = '…';
+  /// null 表示还没读出来(界面显示省略号);读失败则置为空串走「未知」文案。
+  String? _currentVersion;
   bool _autoCheck = true;
 
   @override
@@ -59,7 +61,7 @@ class _UpdatePanelState extends State<UpdatePanel> {
       });
       if (widget.autoCheckOnOpen) await _service.maybeAutoCheck();
     } catch (_) {
-      if (mounted) setState(() => _currentVersion = '未知');
+      if (mounted) setState(() => _currentVersion = '');
     }
   }
 
@@ -110,32 +112,53 @@ class _UpdatePanelState extends State<UpdatePanel> {
     );
   }
 
-  Widget _header(ThemeData theme) => Row(
-        children: [
-          Icon(
-            Icons.system_update_alt_rounded,
-            color: LaresColors.ember,
-            size: 20,
-          ),
-          const SizedBox(width: LaresSpacing.sm),
-          Text('版本与更新', style: theme.textTheme.titleLarge),
-          const Spacer(),
-          Text('当前 v$_currentVersion', style: theme.textTheme.bodyMedium),
-        ],
-      );
+  Widget _header(ThemeData theme) {
+    final t = AppLocalizations.of(context);
+    final v = _currentVersion;
+    return Row(
+      children: [
+        Icon(
+          Icons.system_update_alt_rounded,
+          color: LaresColors.ember,
+          size: 20,
+        ),
+        const SizedBox(width: LaresSpacing.sm),
+        Text(t.updateTitle, style: theme.textTheme.titleLarge),
+        const Spacer(),
+        Text(
+          v == null
+              ? t.updateCurrentVersion('…')
+              : (v.isEmpty
+                  ? t.updateVersionUnknown
+                  : t.updateCurrentVersion(v)),
+          style: theme.textTheme.bodyMedium,
+        ),
+      ],
+    );
+  }
 
   Widget _statusLine(ThemeData theme, UpdateState state) {
+    final t = AppLocalizations.of(context);
     final (text, color) = switch (state.stage) {
-      UpdateStage.idle => ('还没检查过更新。', null),
-      UpdateStage.checking => ('正在检查…', null),
-      UpdateStage.upToDate => ('已是最新版本。', LaresColors.statusFree),
+      UpdateStage.idle => (t.updateStatusIdle, null),
+      UpdateStage.checking => (t.updateStatusChecking, null),
+      UpdateStage.upToDate => (t.updateStatusUpToDate, LaresColors.statusFree),
       UpdateStage.available => (
-          '发现新版本 v${state.info?.latestDisplay ?? ''}',
+          t.updateStatusAvailable(state.info?.latestDisplay ?? ''),
           LaresColors.ember,
         ),
-      UpdateStage.downloading => ('正在下载更新包…', null),
-      UpdateStage.readyToInstall => ('下载完成,可以安装了。', LaresColors.statusFree),
-      UpdateStage.failed => (state.reason ?? '检查失败。', theme.colorScheme.error),
+      UpdateStage.downloading => (t.updateStatusDownloading, null),
+      UpdateStage.readyToInstall => (
+          t.updateStatusReady,
+          LaresColors.statusFree,
+        ),
+      UpdateStage.failed => (
+          // 失败原因一律走语义码翻译;state.reason 是中文调试文本,不上界面。
+          state.failure == null
+              ? t.updateStatusCheckFailed
+              : _noticeText(t, state.failure!),
+          theme.colorScheme.error,
+        ),
     };
 
     return Row(
@@ -160,19 +183,88 @@ class _UpdatePanelState extends State<UpdatePanel> {
     );
   }
 
+  /// 语义码 -> 本地化文案。
+  ///
+  /// 这就是 l10n 规范里「模型只存标识,翻译查表放 UI 层」的那张表:服务层与
+  /// 安装器拿不到 BuildContext,于是把 [UpdateNoticeCode] 传上来,在这里落地。
+  String _noticeText(AppLocalizations t, UpdateFailure f) => switch (f.code) {
+        // ── 检查 ──
+        UpdateNoticeCode.unknownVersion =>
+          t.updateErrUnknownVersion(f.text ?? ''),
+        UpdateNoticeCode.rateLimited => f.number == null
+            ? t.updateErrRateLimited
+            : t.updateErrRateLimitedUntil(f.number!),
+        UpdateNoticeCode.githubRefused =>
+          t.updateErrGithubRefused(f.number ?? 0),
+        UpdateNoticeCode.noReleases => t.updateErrNoReleases,
+        UpdateNoticeCode.httpError => t.updateErrHttp(f.number ?? 0),
+        UpdateNoticeCode.malformed => t.updateErrMalformed,
+        UpdateNoticeCode.timeout => t.updateErrTimeout,
+        UpdateNoticeCode.offline => t.updateErrOffline,
+
+        // ── 下载 ──
+        UpdateNoticeCode.noAsset => t.updateErrNoAsset,
+        UpdateNoticeCode.downloadHttp =>
+          t.updateErrDownloadHttp(f.number ?? 0),
+        UpdateNoticeCode.sizeMismatch =>
+          t.updateErrSizeMismatch(f.number ?? 0, f.number2 ?? 0),
+        UpdateNoticeCode.checksum => t.updateErrChecksum,
+        UpdateNoticeCode.downloadTimeout => t.updateErrDownloadTimeout,
+        UpdateNoticeCode.downloadError =>
+          t.updateErrDownloadFailed(f.text ?? ''),
+
+        // ── 安装 ──
+        UpdateNoticeCode.notDownloaded => t.updateErrNotDownloaded,
+        // 兜底:未编码的原文(如 Web 侧实现)直接显示,不显示裸 key
+        UpdateNoticeCode.installFailed =>
+          f.text ?? t.updateErrInstallFailed,
+
+        // ── Windows ──
+        UpdateNoticeCode.winNoInstallDir => t.updateErrWinNoInstallDir,
+        UpdateNoticeCode.winNotWritable => t.updateErrWinNotWritable,
+        UpdateNoticeCode.winProbeFailed =>
+          t.updateErrWinProbeFailed(f.text ?? ''),
+        UpdateNoticeCode.winUnzipFailed =>
+          t.updateErrWinUnzipFailed(f.text ?? ''),
+        UpdateNoticeCode.winPackageInvalid =>
+          t.updateErrWinPackageInvalid(f.text ?? ''),
+        UpdateNoticeCode.winLaunchFailed =>
+          t.updateErrWinLaunchFailed(f.text ?? ''),
+        UpdateNoticeCode.winRestarting => t.updateWinRestarting,
+
+        // ── Android ──
+        UpdateNoticeCode.androidInstallerNotOpened =>
+          t.updateErrAndroidInstallerNotOpened,
+        UpdateNoticeCode.androidLaunchFailed =>
+          t.updateErrAndroidLaunchFailed(f.text ?? ''),
+        UpdateNoticeCode.androidInstallerOpened =>
+          t.updateAndroidInstallerOpened,
+
+        // ── macOS / iOS ──
+        UpdateNoticeCode.macosDragToApps => t.updateMacosDragToApps,
+        UpdateNoticeCode.iosNoSelfUpdate => t.updateErrIosNoSelfUpdate,
+        UpdateNoticeCode.iosCannotInstall => t.updateErrIosCannotInstall,
+      };
+
+  /// 这条通知是否是「多步指引」——需要用弹窗承载,SnackBar 放不下。
+  ///
+  /// 按语义码判断,而不是数翻译后文本里的换行符:换行结构会随语言变化。
+  bool _needsDialog(UpdateNoticeCode code) =>
+      code == UpdateNoticeCode.macosDragToApps ||
+      code == UpdateNoticeCode.androidInstallerOpened;
+
   /// 平台无法自助更新时的解释(iOS / Web / 缺包)。
   Widget? _platformNotice(ThemeData theme, UpdateInfo info) {
+    final t = AppLocalizations.of(context);
     String? msg;
     if (info.platform == UpdatePlatform.ios) {
-      msg = 'iOS 无法在 App 内更新。若用 TestFlight 安装,请到 TestFlight 更新;'
-          '若是免费签名侧载,签名 7 天到期后需要用电脑重新侧载新版本 .ipa。';
+      msg = t.updateNoticeIos;
     } else if (info.platform == UpdatePlatform.web) {
-      msg = 'Web 版随服务端更新:强制刷新页面(Ctrl/Cmd + Shift + R)即可。';
+      msg = t.updateNoticeWeb;
     } else if (!info.hasDownloadableAsset) {
-      msg = '这个版本没有为当前平台提供可下载的安装包,'
-          '请到 GitHub Releases 页面手动获取。';
+      msg = t.updateNoticeNoAssetForPlatform;
     } else if (info.capability == UpdateCapability.downloadAndGuide) {
-      msg = 'macOS 需要你手动把新版本拖进「应用程序」完成替换,下载后会自动打开访达。';
+      msg = t.updateNoticeMacos;
     }
     if (msg == null) return null;
 
@@ -210,7 +302,7 @@ class _UpdatePanelState extends State<UpdatePanel> {
           child: SingleChildScrollView(
             child: SelectableText(
               info.release.body.trim().isEmpty
-                  ? '(这个版本没有写更新说明)'
+                  ? AppLocalizations.of(context).updateNoReleaseNotes
                   : info.release.body.trim(),
               style: theme.textTheme.bodyMedium,
             ),
@@ -238,7 +330,9 @@ class _UpdatePanelState extends State<UpdatePanel> {
         ),
         const SizedBox(height: LaresSpacing.xs),
         Text(
-          indeterminate ? '下载中…' : '${(p * 100).toStringAsFixed(0)}%',
+          indeterminate
+              ? AppLocalizations.of(context).updateDownloading
+              : '${(p * 100).toStringAsFixed(0)}%',
           style: theme.textTheme.bodyMedium,
         ),
       ],
@@ -247,13 +341,11 @@ class _UpdatePanelState extends State<UpdatePanel> {
 
   /// 如实展示完整性级别 —— 不夸大。
   Widget _integrityLine(ThemeData theme, UpdateState state) {
+    final t = AppLocalizations.of(context);
     final text = switch (state.integrity) {
-      IntegrityLevel.sizeAndPublishedSha256 =>
-        '完整性:文件大小一致,且 SHA-256 与发布说明中公布的校验和匹配。',
-      IntegrityLevel.sizeOnly =>
-        '完整性:仅核对了文件大小与 GitHub 声明一致(发布说明未提供校验和,'
-            '无法验证内容真伪;传输安全依赖 HTTPS)。',
-      IntegrityLevel.none => '完整性:未能校验(发布信息未提供大小)。',
+      IntegrityLevel.sizeAndPublishedSha256 => t.updateIntegrityFull,
+      IntegrityLevel.sizeOnly => t.updateIntegritySizeOnly,
+      IntegrityLevel.none => t.updateIntegrityNone,
     };
     return Text(
       text,
@@ -262,12 +354,13 @@ class _UpdatePanelState extends State<UpdatePanel> {
   }
 
   Widget _actions(ThemeData theme, UpdateState state) {
+    final t = AppLocalizations.of(context);
     final info = state.info;
     final buttons = <Widget>[
       OutlinedButton.icon(
         onPressed: state.isBusy ? null : () => _service.check(),
         icon: const Icon(Icons.refresh_rounded, size: 18),
-        label: const Text('立即检查'),
+        label: Text(t.updateCheckNow),
       ),
     ];
 
@@ -279,7 +372,7 @@ class _UpdatePanelState extends State<UpdatePanel> {
         FilledButton.icon(
           onPressed: () => _service.download(),
           icon: const Icon(Icons.download_rounded, size: 18),
-          label: Text(_downloadLabel(info)),
+          label: Text(_downloadLabel(t, info)),
         ),
       );
     }
@@ -291,8 +384,8 @@ class _UpdatePanelState extends State<UpdatePanel> {
           icon: const Icon(Icons.install_desktop_rounded, size: 18),
           label: Text(
             info?.capability == UpdateCapability.downloadAndGuide
-                ? '打开所在文件夹'
-                : '立即安装',
+                ? t.updateRevealFolder
+                : t.updateInstallNow,
           ),
         ),
       );
@@ -305,15 +398,16 @@ class _UpdatePanelState extends State<UpdatePanel> {
     );
   }
 
-  String _downloadLabel(UpdateInfo info) {
+  String _downloadLabel(AppLocalizations t, UpdateInfo info) {
     final size = info.asset?.size ?? 0;
-    if (size <= 0) return '下载更新';
+    if (size <= 0) return t.updateDownload;
     final mb = size / (1024 * 1024);
-    return '下载更新 (${mb.toStringAsFixed(1)} MB)';
+    return t.updateDownloadWithSize(mb.toStringAsFixed(1));
   }
 
   /// 安装永远是**显式确认**的动作 —— 绝不自动执行。
   Future<void> _confirmInstall() async {
+    final t = AppLocalizations.of(context);
     final info = _service.state.info;
     final isRestart = info?.capability == UpdateCapability.downloadAndInstall &&
         info?.platform == UpdatePlatform.windows;
@@ -322,19 +416,16 @@ class _UpdatePanelState extends State<UpdatePanel> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('现在安装更新?'),
-          content: const Text(
-            'Lares 会关闭,替换程序文件后自动重新启动。\n'
-            '如果你正在圈子里说话,会先断开连接。',
-          ),
+          title: Text(t.updateInstallConfirmTitle),
+          content: Text(t.updateInstallConfirmBody),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('稍后'),
+              child: Text(t.updateLater),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('安装并重启'),
+              child: Text(t.updateInstallAndRestart),
             ),
           ],
         ),
@@ -347,29 +438,36 @@ class _UpdatePanelState extends State<UpdatePanel> {
 
     // Windows:助手脚本已在后台等待,现在必须退出以释放 exe 的文件锁。
     if (outcome.ok && outcome.requiresQuit) {
+      final quitMsg = outcome.guidance == null
+          ? t.updateQuitting
+          : _noticeText(t, parseUpdateNotice(outcome.guidance!));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(outcome.guidance ?? '正在退出以完成更新…')),
+        SnackBar(content: Text(quitMsg)),
       );
       await Future<void>.delayed(const Duration(milliseconds: 600));
       _service.quitForUpdate();
       return;
     }
 
-    final text = outcome.ok
-        ? (outcome.guidance ?? '已开始安装。')
-        : (outcome.message ?? '安装失败。');
+    // 成功看 guidance、失败看 message;两者都是安装器编码过的语义码。
+    final raw = outcome.ok ? outcome.guidance : outcome.message;
+    final notice = raw == null ? null : parseUpdateNotice(raw);
+    final text = notice == null
+        ? (outcome.ok ? t.updateInstallStarted : t.updateErrInstallFailed)
+        : _noticeText(t, notice);
 
-    if (outcome.guidance != null && outcome.guidance!.contains('\n')) {
-      // 多步指引(macOS)用弹窗,信息量大,SnackBar 放不下
+    // 多步指引用弹窗承载(SnackBar 放不下);判断依据是语义码而非换行符,
+    // 因为换行结构会随语言变化。
+    if (notice != null && _needsDialog(notice.code)) {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('接下来这样做'),
+          title: Text(t.updateNextStepsTitle),
           content: SingleChildScrollView(child: Text(text)),
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('知道了'),
+              child: Text(t.updateGotIt),
             ),
           ],
         ),
@@ -383,9 +481,12 @@ class _UpdatePanelState extends State<UpdatePanel> {
         contentPadding: EdgeInsets.zero,
         value: _autoCheck,
         activeThumbColor: LaresColors.ember,
-        title: Text('启动时检查更新', style: theme.textTheme.bodyLarge),
+        title: Text(
+          AppLocalizations.of(context).updateAutoCheckTitle,
+          style: theme.textTheme.bodyLarge,
+        ),
         subtitle: Text(
-          '静默检查,发现新版本才提示;安装永远需要你点确认。',
+          AppLocalizations.of(context).updateAutoCheckSubtitle,
           style: theme.textTheme.bodyMedium,
         ),
         onChanged: (v) async {

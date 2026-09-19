@@ -5,6 +5,7 @@ import 'package:lares_app/src/state/room_controller.dart';
 import 'package:lares_app/src/ui/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers/localized_app.dart';
 import 'support/fake_room.dart';
 
 /// 「我有空」挑选圈子的 UI 测试。
@@ -36,15 +37,15 @@ void main() {
     await store.add(const Circle(id: 'yi', name: '同事'));
     await store.add(const Circle(id: 'bing', name: '球友'));
 
-    await t.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: ListView(
-          children: [
-            AvailableToggle(controller: c, circleStore: store),
-          ],
+    await t.pumpWidget(
+      localizedApp(
+        Scaffold(
+          body: ListView(
+            children: [AvailableToggle(controller: c, circleStore: store)],
+          ),
         ),
       ),
-    ));
+    );
     return (c, signaling);
   }
 
@@ -52,8 +53,10 @@ void main() {
     final (c, _) = await pump(t);
     await t.tap(find.byType(Switch));
     await t.pump();
-    expect(c.myAvailableCircles.toSet(),
-        containsAll(<String>['jia', 'yi', 'bing']));
+    expect(
+      c.myAvailableCircles.toSet(),
+      containsAll(<String>['jia', 'yi', 'bing']),
+    );
     // 4 = 默认的 home + 我们加的三个
     expect(c.myAvailableCircles, hasLength(4));
   });
@@ -65,7 +68,8 @@ void main() {
     expect(find.text('对哪几个圈子可见'), findsOneWidget);
     // 三个圈子都在,且都勾上
     for (final w in t.widgetList<CheckboxListTile>(
-        find.byType(CheckboxListTile))) {
+      find.byType(CheckboxListTile),
+    )) {
       expect(w.value, isTrue, reason: '没挂着时默认全选');
     }
   });
@@ -123,10 +127,10 @@ void main() {
     await t.longPress(find.text('我有空'));
     await t.pumpAndSettle();
 
-    final tiles =
-        t.widgetList<CheckboxListTile>(find.byType(CheckboxListTile)).toList();
+    final tiles = t
+        .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+        .toList();
     // 三个里只有「家里」是勾上的
     expect(tiles.where((w) => w.value == true), hasLength(1));
   });
 }
-

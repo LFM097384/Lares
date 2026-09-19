@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'installer_api.dart';
 import 'update_models.dart';
+import 'update_service.dart' show UpdateNoticeCode, encodeInstallerNotice;
 
 export 'installer_api.dart';
 
@@ -119,7 +120,10 @@ class WindowsInstaller implements UpdateInstaller {
     try {
       final dir = installDir;
       if (!dir.existsSync()) {
-        return '找不到安装目录,请手动下载新版本覆盖安装。';
+        return encodeInstallerNotice(
+          UpdateNoticeCode.winNoInstallDir,
+          '找不到安装目录,请手动下载新版本覆盖安装。',
+        );
       }
       // 真写一次:比对比路径字符串(Program Files)可靠得多,
       // 因为用户可能装在任意目录,也可能以管理员身份运行。
@@ -137,10 +141,17 @@ class WindowsInstaller implements UpdateInstaller {
       }
       return null;
     } on FileSystemException {
-      return '安装目录不可写(通常是装在 Program Files 且未以管理员身份运行)。'
-          '请手动下载新版本,或把 Lares 移到用户目录后再试。';
+      return encodeInstallerNotice(
+        UpdateNoticeCode.winNotWritable,
+        '安装目录不可写(通常是装在 Program Files 且未以管理员身份运行)。'
+        '请手动下载新版本,或把 Lares 移到用户目录后再试。',
+      );
     } catch (e) {
-      return '无法确认安装目录是否可写:$e';
+      return encodeInstallerNotice(
+        UpdateNoticeCode.winProbeFailed,
+        '无法确认安装目录是否可写:$e',
+        arg: '$e',
+      );
     }
   }
 
@@ -169,15 +180,21 @@ class WindowsInstaller implements UpdateInstaller {
             "-DestinationPath '${_esc(extractDir.path)}' -Force",
       ]);
       if (unzip.exitCode != 0) {
-        return InstallOutcome.failure('更新包解压失败:${unzip.stderr}');
+        return InstallOutcome.failure(encodeInstallerNotice(
+          UpdateNoticeCode.winUnzipFailed,
+          '更新包解压失败:${unzip.stderr}',
+          arg: '${unzip.stderr}',
+        ));
       }
 
       // 4) 校验:必须解出可执行文件,否则包是坏的,立即中止(不动旧版本)
       final root = _findPayloadRoot(extractDir, exeName);
       if (root == null) {
-        return InstallOutcome.failure(
+        return InstallOutcome.failure(encodeInstallerNotice(
+          UpdateNoticeCode.winPackageInvalid,
           '更新包内容异常(未找到 $exeName),已中止,当前版本未被改动。',
-        );
+          arg: exeName,
+        ));
       }
 
       // 5) 写助手脚本并脱离启动
@@ -207,13 +224,20 @@ class WindowsInstaller implements UpdateInstaller {
         mode: ProcessStartMode.detached, // 关键:父进程退出后脚本继续活着
       );
 
-      return const InstallOutcome(
+      return InstallOutcome(
         ok: true,
         requiresQuit: true,
-        guidance: '即将退出并完成更新,几秒后会自动重新启动。',
+        guidance: encodeInstallerNotice(
+          UpdateNoticeCode.winRestarting,
+          '即将退出并完成更新,几秒后会自动重新启动。',
+        ),
       );
     } catch (e) {
-      return InstallOutcome.failure('安装启动失败:$e');
+      return InstallOutcome.failure(encodeInstallerNotice(
+        UpdateNoticeCode.winLaunchFailed,
+        '安装启动失败:$e',
+        arg: '$e',
+      ));
     }
   }
 
@@ -314,17 +338,32 @@ class AndroidInstaller implements UpdateInstaller {
         'path': apkPath,
       });
       if (ok == true) {
-        return const InstallOutcome(
+        return InstallOutcome(
           ok: true,
-          guidance: '系统安装器已打开。若提示「禁止安装未知应用」,'
-              '请在弹出的设置里允许「Lares 炉灵」安装应用后重试。',
+          guidance: encodeInstallerNotice(
+            UpdateNoticeCode.androidInstallerOpened,
+            '系统安装器已打开。若提示「禁止安装未知应用」,'
+            '请在弹出的设置里允许「Lares 炉灵」安装应用后重试。',
+          ),
         );
       }
-      return const InstallOutcome.failure('系统安装器未能打开。');
+      return InstallOutcome.failure(encodeInstallerNotice(
+        UpdateNoticeCode.androidInstallerNotOpened,
+        '系统安装器未能打开。',
+      ));
     } on PlatformException catch (e) {
-      return InstallOutcome.failure('拉起安装器失败:${e.message ?? e.code}');
+      final detail = e.message ?? e.code;
+      return InstallOutcome.failure(encodeInstallerNotice(
+        UpdateNoticeCode.androidLaunchFailed,
+        '拉起安装器失败:$detail',
+        arg: detail,
+      ));
     } catch (e) {
-      return InstallOutcome.failure('拉起安装器失败:$e');
+      return InstallOutcome.failure(encodeInstallerNotice(
+        UpdateNoticeCode.androidLaunchFailed,
+        '拉起安装器失败:$e',
+        arg: '$e',
+      ));
     }
   }
 
@@ -376,10 +415,14 @@ class MacOsInstaller implements UpdateInstaller {
     return InstallOutcome(
       ok: true,
       revealedPath: revealPath,
-      guidance: '已在访达中为你打开新版本:\n'
-          '1. 退出正在运行的 Lares;\n'
-          '2. 把新的 lares_app.app 拖进「应用程序」,选择替换;\n'
-          '3. 首次打开若提示「无法验证开发者」,右键点图标选「打开」。',
+      guidance: encodeInstallerNotice(
+        UpdateNoticeCode.macosDragToApps,
+        // 多步指引:UI 依据语义码决定用弹窗承载(不再靠数换行符判断)
+        '已在访达中为你打开新版本:\n'
+        '1. 退出正在运行的 Lares;\n'
+        '2. 把新的 lares_app.app 拖进「应用程序」,选择替换;\n'
+        '3. 首次打开若提示「无法验证开发者」,右键点图标选「打开」。',
+      ),
     );
   }
 
@@ -398,13 +441,18 @@ class IosInstaller implements UpdateInstaller {
   UpdateCapability get capability => UpdateCapability.notifyOnly;
 
   @override
-  Future<String?> preflight() async =>
-      'iOS 无法在 App 内自我更新:请通过 TestFlight 更新,'
-      '或用电脑重新侧载新版本 .ipa。';
+  Future<String?> preflight() async => encodeInstallerNotice(
+        UpdateNoticeCode.iosNoSelfUpdate,
+        'iOS 无法在 App 内自我更新:请通过 TestFlight 更新,'
+        '或用电脑重新侧载新版本 .ipa。',
+      );
 
   @override
   Future<InstallOutcome> install(String filePath) async =>
-      const InstallOutcome.failure('iOS 无法在 App 内安装更新包。');
+      InstallOutcome.failure(encodeInstallerNotice(
+        UpdateNoticeCode.iosCannotInstall,
+        'iOS 无法在 App 内安装更新包。',
+      ));
 
   @override
   void quitForUpdate() {/* iOS 不允许 App 自行退出 */}

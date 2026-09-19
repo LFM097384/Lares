@@ -33,6 +33,29 @@ enum E2EEStatus {
   failed,
 }
 
+/// ## 本地化状态(2026-xx 施工中)
+///
+/// [E2EEStatus] 本身**就是**语义 key —— 枚举值只存标识,不带任何文案,
+/// 所以这一层不需要改造。按 `docs/l10n-guide.md` 的分层纪律,翻译查表
+/// 放在 UI 层,不把 `BuildContext` 渗进这个纯逻辑文件。
+///
+/// 下面的 [E2EEStatusX.shortLabel] / [E2EEStatusX.explanation] 与
+/// [kE2EECostNotice] 是**待迁移的遗留中文**:它们的消费方
+/// (`ui/widgets/e2ee_badge.dart`、`ui/home_screen.dart`)以及
+/// `test/e2ee_degrade_test.dart` 都不在本批范围内,现在删掉会让仓库编译不过。
+/// 保留原样,由负责那些文件的后续改动一次性切换。
+///
+/// ARB 键与枚举值的对应关系(UI 层照此写 switch):
+///
+/// | E2EEStatus          | shortLabel                          | explanation                          |
+/// |---------------------|-------------------------------------|--------------------------------------|
+/// | disabled            | `e2eeShortLabelDisabled`            | `e2eeExplanationDisabled`            |
+/// | encrypted           | `e2eeShortLabelEncrypted`           | `e2eeExplanationEncrypted`           |
+/// | platformUnsupported | `e2eeShortLabelPlatformUnsupported` | `e2eeExplanationPlatformUnsupported` |
+/// | noPasscode          | `e2eeShortLabelNoPasscode`          | `e2eeExplanationNoPasscode`          |
+/// | failed              | `e2eeShortLabelFailed`              | `e2eeExplanationFailed`              |
+///
+/// [kE2EECostNotice] 对应 `e2eeCostNotice`。
 extension E2EEStatusX on E2EEStatus {
   /// 是否**真的**加密了。UI 的锁图标只认这一个判断。
   bool get isEncrypted => this == E2EEStatus.encrypted;

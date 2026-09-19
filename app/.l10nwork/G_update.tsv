@@ -1,0 +1,64 @@
+updateAndroidInstallerOpened	GETTER	lib\src\ui\update_panel.dart
+updateAutoCheckSubtitle	GETTER	lib\src\ui\update_panel.dart
+updateAutoCheckTitle	GETTER	lib\src\ui\update_panel.dart
+updateCheckNow	GETTER	lib\src\ui\update_panel.dart
+updateCurrentVersion	CALL('…')	lib\src\ui\update_panel.dart
+updateDownload	GETTER	lib\src\ui\update_panel.dart
+updateDownloading	GETTER	lib\src\ui\update_panel.dart
+updateDownloadWithSize	CALL(mb.toStringAsFixed(1))	lib\src\ui\update_panel.dart
+updateErrAndroidInstallerNotOpened	GETTER	lib\src\ui\update_panel.dart
+updateErrAndroidLaunchFailed	CALL(f.text ?? '')	lib\src\ui\update_panel.dart
+updateErrChecksum	GETTER	lib\src\ui\update_panel.dart
+updateErrDownloadFailed	CALL(f.text ?? '')	lib\src\ui\update_panel.dart
+updateErrDownloadHttp	CALL(f.number ?? 0)	lib\src\ui\update_panel.dart
+updateErrDownloadTimeout	GETTER	lib\src\ui\update_panel.dart
+updateErrGithubRefused	CALL(f.number ?? 0)	lib\src\ui\update_panel.dart
+updateErrHttp	CALL(f.number ?? 0)	lib\src\ui\update_panel.dart
+updateErrInstallFailed	GETTER	lib\src\ui\update_panel.dart
+updateErrIosCannotInstall	GETTER	lib\src\ui\update_panel.dart
+updateErrIosNoSelfUpdate	GETTER	lib\src\ui\update_panel.dart
+updateErrMalformed	GETTER	lib\src\ui\update_panel.dart
+updateErrNoAsset	GETTER	lib\src\ui\update_panel.dart
+updateErrNoReleases	GETTER	lib\src\ui\update_panel.dart
+updateErrNotDownloaded	GETTER	lib\src\ui\update_panel.dart
+updateErrOffline	GETTER	lib\src\ui\update_panel.dart
+updateErrRateLimited	GETTER	lib\src\ui\update_panel.dart
+updateErrRateLimitedUntil	CALL(f.number!)	lib\src\ui\update_panel.dart
+updateErrSizeMismatch	CALL(f.number ?? 0, f.number2 ?? 0)	lib\src\ui\update_panel.dart
+updateErrTimeout	GETTER	lib\src\ui\update_panel.dart
+updateErrUnknownVersion	CALL(f.text ?? '')	lib\src\ui\update_panel.dart
+updateErrWinLaunchFailed	CALL(f.text ?? '')	lib\src\ui\update_panel.dart
+updateErrWinNoInstallDir	GETTER	lib\src\ui\update_panel.dart
+updateErrWinNotWritable	GETTER	lib\src\ui\update_panel.dart
+updateErrWinPackageInvalid	CALL(f.text ?? '')	lib\src\ui\update_panel.dart
+updateErrWinProbeFailed	CALL(f.text ?? '')	lib\src\ui\update_panel.dart
+updateErrWinUnzipFailed	CALL(f.text ?? '')	lib\src\ui\update_panel.dart
+updateGotIt	GETTER	lib\src\ui\update_panel.dart
+updateInstallAndRestart	GETTER	lib\src\ui\update_panel.dart
+updateInstallConfirmBody	GETTER	lib\src\ui\update_panel.dart
+updateInstallConfirmTitle	GETTER	lib\src\ui\update_panel.dart
+updateInstallNow	GETTER	lib\src\ui\update_panel.dart
+updateInstallStarted	GETTER	lib\src\ui\update_panel.dart
+updateIntegrityFull	GETTER	lib\src\ui\update_panel.dart
+updateIntegrityNone	GETTER	lib\src\ui\update_panel.dart
+updateIntegritySizeOnly	GETTER	lib\src\ui\update_panel.dart
+updateLater	GETTER	lib\src\ui\update_panel.dart
+updateMacosDragToApps	GETTER	lib\src\ui\update_panel.dart
+updateNextStepsTitle	GETTER	lib\src\ui\update_panel.dart
+updateNoReleaseNotes	GETTER	lib\src\ui\update_panel.dart
+updateNoticeIos	GETTER	lib\src\ui\update_panel.dart
+updateNoticeMacos	GETTER	lib\src\ui\update_panel.dart
+updateNoticeNoAssetForPlatform	GETTER	lib\src\ui\update_panel.dart
+updateNoticeWeb	GETTER	lib\src\ui\update_panel.dart
+updateQuitting	GETTER	lib\src\ui\update_panel.dart
+updateRevealFolder	GETTER	lib\src\ui\update_panel.dart
+updateStatusAvailable	CALL(state.info?.latestDisplay ?? '')	lib\src\ui\update_panel.dart
+updateStatusCheckFailed	GETTER	lib\src\ui\update_panel.dart
+updateStatusChecking	GETTER	lib\src\ui\update_panel.dart
+updateStatusDownloading	GETTER	lib\src\ui\update_panel.dart
+updateStatusIdle	GETTER	lib\src\ui\update_panel.dart
+updateStatusReady	GETTER	lib\src\ui\update_panel.dart
+updateStatusUpToDate	GETTER	lib\src\ui\update_panel.dart
+updateTitle	GETTER	lib\src\ui\update_panel.dart
+updateVersionUnknown	GETTER	lib\src\ui\update_panel.dart
+updateWinRestarting	GETTER	lib\src\ui\update_panel.dart

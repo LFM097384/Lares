@@ -1,0 +1,10 @@
+{
+  "commonConfirm": "好",
+  "@commonConfirm": {
+    "description": "确认按钮"
+  },
+  "commonDone": "完成",
+  "@commonDone": {
+    "description": "完成按钮"
+  }
+}

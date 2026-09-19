@@ -48,6 +48,135 @@ enum UpdateStage {
   failed,
 }
 
+/// 更新流程里一切**用户可见文案**的语义码(失败原因 + 操作指引)。
+///
+/// 本地化纪律(docs/l10n-guide.md §「拿不到 context 的地方」):服务层与安装器
+/// 都拿不到 BuildContext,所以**只存标识**,翻译查表放 UI 层(见
+/// update_panel.dart 的 `_noticeText`)。绝不把 context 渗进模型层。
+///
+/// 前半段是本服务自己产生的;后半段(`win*`/`android*`/`ios*`/`web*`)来自平台
+/// 安装器 —— 它们的契约(`installer_api.dart` 的 `preflight()` 与
+/// `InstallOutcome.message` / `.guidance`)是 `String?`,且该文件本批次不在可改
+/// 范围内,因此安装器用 [kInstallerNoticePrefix] 编码的字符串回传语义码,
+/// 由 [parseUpdateNotice] 还原成本枚举。
+enum UpdateNoticeCode {
+  // ── 检查阶段 ──
+  unknownVersion,
+  rateLimited,
+  githubRefused,
+  noReleases,
+  httpError,
+  malformed,
+  timeout,
+  offline,
+
+  // ── 下载阶段 ──
+  noAsset,
+  downloadHttp,
+  sizeMismatch,
+  checksum,
+  downloadTimeout,
+  downloadError,
+
+  // ── 安装阶段(服务层)──
+  notDownloaded,
+  installFailed,
+
+  // ── 安装器:失败 ──
+  winNoInstallDir,
+  winNotWritable,
+  winProbeFailed,
+  winUnzipFailed,
+  winPackageInvalid,
+  winLaunchFailed,
+  androidInstallerNotOpened,
+  androidLaunchFailed,
+  iosNoSelfUpdate,
+  iosCannotInstall,
+
+  // ── 安装器:成功后的操作指引 ──
+  winRestarting,
+  androidInstallerOpened,
+  macosDragToApps,
+}
+
+/// 一条通知的完整描述:语义码 + 参数,外加一份**中文调试文本**。
+///
+/// [debugText] 只用于 `debugPrint` 与 [UpdateState.reason](既有单元测试断言的
+/// 就是它)。它**不会**出现在界面上 —— UI 一律走 [code] 查表翻译。按 l10n 规范,
+/// 调试日志与测试字符串不参与翻译,所以这里保留中文是有意的。
+@immutable
+class UpdateFailure {
+  const UpdateFailure(
+    this.code,
+    this.debugText, {
+    this.text,
+    this.number,
+    this.number2,
+  });
+
+  final UpdateNoticeCode code;
+
+  /// 中文调试文本。只进日志与 [UpdateState.reason],不进 UI。
+  final String debugText;
+
+  /// 字符串参数:原始版本号 / 异常详情 / 解压器 stderr / 可执行文件名。
+  final String? text;
+
+  /// 数字参数:HTTP 状态码 / 限流恢复分钟数 / 期望字节数。
+  final int? number;
+
+  /// 第二个数字参数:实际收到的字节数。
+  final int? number2;
+}
+
+/// 安装器把语义码塞进 `String` 契约时用的前缀。
+///
+/// 编码格式:`lares.notice:<UpdateNoticeCode 的 name>|<中文调试文本>[\u0000<参数>]`。
+/// 中文尾巴有两个作用:① 让只认字符串的既有测试仍能断言;
+/// ② 万一 UI 漏了某个分支,退化为显示中文而不是显示一个裸 key。
+const String kInstallerNoticePrefix = 'lares.notice:';
+
+/// 按 [kInstallerNoticePrefix] 编码一条安装器通知。
+String encodeInstallerNotice(
+  UpdateNoticeCode code,
+  String debugText, {
+  String? arg,
+}) =>
+    '$kInstallerNoticePrefix${code.name}|'
+    '${arg == null ? debugText : '$debugText\u0000$arg'}';
+
+/// 还原安装器回传的字符串。
+///
+/// 不是本约定编码的字符串(例如 `installer.dart` 里 WebInstaller 目前直接写的
+/// 中文)照原样包成 [UpdateNoticeCode.installFailed] 并把原文放进
+/// [UpdateFailure.text],界面退化为显示该原文,而不是显示一个裸 key。
+UpdateFailure parseUpdateNotice(String raw) {
+  if (!raw.startsWith(kInstallerNoticePrefix)) {
+    return UpdateFailure(UpdateNoticeCode.installFailed, raw, text: raw);
+  }
+  final payload = raw.substring(kInstallerNoticePrefix.length);
+  final sep = payload.indexOf('|');
+  if (sep < 0) {
+    return UpdateFailure(UpdateNoticeCode.installFailed, raw, text: raw);
+  }
+
+  final name = payload.substring(0, sep);
+  final rest = payload.substring(sep + 1);
+  final argAt = rest.indexOf('\u0000');
+  final debugText = argAt < 0 ? rest : rest.substring(0, argAt);
+  final arg = argAt < 0 ? null : rest.substring(argAt + 1);
+
+  for (final c in UpdateNoticeCode.values) {
+    if (c.name == name) return UpdateFailure(c, debugText, text: arg);
+  }
+  return UpdateFailure(
+    UpdateNoticeCode.installFailed,
+    debugText,
+    text: arg ?? debugText,
+  );
+}
+
 /// 不可变状态快照。
 @immutable
 class UpdateState {
@@ -56,6 +185,7 @@ class UpdateState {
     this.info,
     this.progress = 0,
     this.reason,
+    this.failure,
     this.downloadedPath,
     this.sha256Hex,
     this.integrity = IntegrityLevel.none,
@@ -68,7 +198,13 @@ class UpdateState {
   /// 0.0 ~ 1.0;服务端未给 Content-Length 时为 -1(不确定进度)。
   final double progress;
 
+  /// 中文调试文本。**UI 不读它** —— 只为日志与既有单元测试保留。
+  /// 界面要显示的失败原因请读 [failure] 并在 UI 层翻译。
   final String? reason;
+
+  /// 结构化失败原因(语义码 + 参数)。UI 据此查表翻译。
+  final UpdateFailure? failure;
+
   final String? downloadedPath;
 
   /// 已下载文件的实际 SHA-256(小写 hex),仅在下载完成后有值。
@@ -85,6 +221,7 @@ class UpdateState {
     UpdateInfo? info,
     double? progress,
     String? reason,
+    UpdateFailure? failure,
     String? downloadedPath,
     String? sha256Hex,
     IntegrityLevel? integrity,
@@ -95,6 +232,7 @@ class UpdateState {
         info: info ?? this.info,
         progress: progress ?? this.progress,
         reason: reason ?? this.reason,
+        failure: failure ?? this.failure,
         downloadedPath: downloadedPath ?? this.downloadedPath,
         sha256Hex: sha256Hex ?? this.sha256Hex,
         integrity: integrity ?? this.integrity,
@@ -218,7 +356,14 @@ class UpdateService extends ChangeNotifier {
       final currentRaw = await currentVersion();
       final current = LaresVersion.tryParse(currentRaw);
       if (current == null) {
-        return _fail('无法识别当前版本号($currentRaw)', silent: silent);
+        return _fail(
+          UpdateFailure(
+            UpdateNoticeCode.unknownVersion,
+            '无法识别当前版本号($currentRaw)',
+            text: currentRaw,
+          ),
+          silent: silent,
+        );
       }
 
       final uri = Uri.https(
@@ -238,26 +383,55 @@ class UpdateService extends ChangeNotifier {
       if (resp.statusCode == 403 || resp.statusCode == 429) {
         final remaining = resp.headers['x-ratelimit-remaining'];
         if (remaining == '0') {
-          final resetAt = _rateLimitReset(resp.headers);
+          final resetMins = _rateLimitResetMinutes(resp.headers);
           return _fail(
-            'GitHub 接口调用次数用完了(未登录每小时 60 次)'
-            '${resetAt == null ? '' : ',约 $resetAt 后恢复'}。稍后再试。',
+            UpdateFailure(
+              UpdateNoticeCode.rateLimited,
+              'GitHub 接口调用次数用完了(未登录每小时 60 次)'
+              '${resetMins == null ? '' : ',约 $resetMins 分钟后恢复'}。稍后再试。',
+              number: resetMins,
+            ),
             silent: silent,
           );
         }
-        return _fail('GitHub 拒绝了这次请求(${resp.statusCode})。稍后再试。',
-            silent: silent);
+        return _fail(
+          UpdateFailure(
+            UpdateNoticeCode.githubRefused,
+            'GitHub 拒绝了这次请求(${resp.statusCode})。稍后再试。',
+            number: resp.statusCode,
+          ),
+          silent: silent,
+        );
       }
       if (resp.statusCode == 404) {
-        return _fail('仓库还没有发布任何版本。', silent: silent);
+        return _fail(
+          const UpdateFailure(
+            UpdateNoticeCode.noReleases,
+            '仓库还没有发布任何版本。',
+          ),
+          silent: silent,
+        );
       }
       if (resp.statusCode != 200) {
-        return _fail('检查失败(HTTP ${resp.statusCode})。', silent: silent);
+        return _fail(
+          UpdateFailure(
+            UpdateNoticeCode.httpError,
+            '检查失败(HTTP ${resp.statusCode})。',
+            number: resp.statusCode,
+          ),
+          silent: silent,
+        );
       }
 
       final release = ReleaseInfo.fromJsonString(utf8.decode(resp.bodyBytes));
       if (release == null) {
-        return _fail('发布信息格式异常,无法解析。', silent: silent);
+        return _fail(
+          const UpdateFailure(
+            UpdateNoticeCode.malformed,
+            '发布信息格式异常,无法解析。',
+          ),
+          silent: silent,
+        );
       }
 
       final checkedAt = _now();
@@ -291,11 +465,17 @@ class UpdateService extends ChangeNotifier {
         ),
       ));
     } on TimeoutException {
-      _fail('网络超时,暂时查不了更新。', silent: silent);
+      _fail(
+        const UpdateFailure(UpdateNoticeCode.timeout, '网络超时,暂时查不了更新。'),
+        silent: silent,
+      );
     } catch (e) {
       // 断网 / DNS 失败 / TLS 问题都落到这里 —— 一律降级,不崩
       debugPrint('[update] 检查失败: $e');
-      _fail('连不上网络,暂时查不了更新。', silent: silent);
+      _fail(
+        const UpdateFailure(UpdateNoticeCode.offline, '连不上网络,暂时查不了更新。'),
+        silent: silent,
+      );
     }
   }
 
@@ -309,7 +489,10 @@ class UpdateService extends ChangeNotifier {
     final info = _state.info;
     final asset = info?.asset;
     if (info == null || asset == null) {
-      return _fail('这个平台没有可下载的安装包。');
+      return _fail(const UpdateFailure(
+        UpdateNoticeCode.noAsset,
+        '这个平台没有可下载的安装包。',
+      ));
     }
     if (_state.isBusy) return;
 
@@ -317,7 +500,7 @@ class UpdateService extends ChangeNotifier {
     final installer = createInstaller(_platform);
     final blocker = await installer.preflight();
     if (blocker != null && installer.capability != UpdateCapability.notifyOnly) {
-      return _fail(blocker);
+      return _fail(parseUpdateNotice(blocker));
     }
 
     _emit(_state.copyWith(stage: UpdateStage.downloading, progress: 0));
@@ -332,7 +515,11 @@ class UpdateService extends ChangeNotifier {
       if (resp.statusCode != 200) {
         await target.close();
         await target.delete();
-        return _fail('下载失败(HTTP ${resp.statusCode})。');
+        return _fail(UpdateFailure(
+          UpdateNoticeCode.downloadHttp,
+          '下载失败(HTTP ${resp.statusCode})。',
+          number: resp.statusCode,
+        ));
       }
 
       final total = resp.contentLength ?? asset.size;
@@ -358,9 +545,12 @@ class UpdateService extends ChangeNotifier {
       // 1) 字节数核对 —— 唯一一个 GitHub 事先提供的凭据
       if (asset.size > 0 && received != asset.size) {
         await target.delete();
-        return _fail(
+        return _fail(UpdateFailure(
+          UpdateNoticeCode.sizeMismatch,
           '下载的文件大小不对(期望 ${asset.size} 字节,实际 $received),已删除。',
-        );
+          number: asset.size,
+          number2: received,
+        ));
       }
 
       // 2) SHA-256:始终算、始终记
@@ -372,7 +562,10 @@ class UpdateService extends ChangeNotifier {
       if (expected != null) {
         if (expected.toLowerCase() != hex) {
           await target.delete();
-          return _fail('文件校验和不匹配,可能已损坏或被篡改,已删除。');
+          return _fail(const UpdateFailure(
+            UpdateNoticeCode.checksum,
+            '文件校验和不匹配,可能已损坏或被篡改,已删除。',
+          ));
         }
         level = IntegrityLevel.sizeAndPublishedSha256;
       }
@@ -385,10 +578,14 @@ class UpdateService extends ChangeNotifier {
         integrity: level,
       ));
     } on TimeoutException {
-      _fail('下载超时。');
+      _fail(const UpdateFailure(UpdateNoticeCode.downloadTimeout, '下载超时。'));
     } catch (e) {
       debugPrint('[update] 下载失败: $e');
-      _fail('下载失败:$e');
+      _fail(UpdateFailure(
+        UpdateNoticeCode.downloadError,
+        '下载失败:$e',
+        text: '$e',
+      ));
     }
   }
 
@@ -396,11 +593,24 @@ class UpdateService extends ChangeNotifier {
   Future<InstallOutcome> install() async {
     final path = _state.downloadedPath;
     if (path == null) {
-      return const InstallOutcome.failure('还没有下载好的安装包。');
+      // 用 kInstallerNoticePrefix 编码,UI 才能翻译;中文尾巴保证日志与
+      // 既有单元测试(断言「还没有下载」)仍然成立。
+      return InstallOutcome.failure(
+        encodeInstallerNotice(
+          UpdateNoticeCode.notDownloaded,
+          '还没有下载好的安装包。',
+        ),
+      );
     }
     final installer = createInstaller(_platform);
     final outcome = await installer.install(path);
-    if (!outcome.ok) _fail(outcome.message ?? '安装失败。');
+    if (!outcome.ok) {
+      _fail(
+        outcome.message == null
+            ? const UpdateFailure(UpdateNoticeCode.installFailed, '安装失败。')
+            : parseUpdateNotice(outcome.message!),
+      );
+    }
     return outcome;
   }
 
@@ -420,13 +630,21 @@ class UpdateService extends ChangeNotifier {
     }
   }
 
-  void _fail(String reason, {bool silent = false}) {
+  /// 记一次失败。
+  ///
+  /// [failure] 同时带语义码与中文调试文本:前者给 UI 翻译,后者进日志与
+  /// [UpdateState.reason](调试字段,不上界面)。
+  void _fail(UpdateFailure failure, {bool silent = false}) {
     if (silent) {
-      debugPrint('[update] 静默检查失败: $reason');
+      debugPrint('[update] 静默检查失败: ${failure.debugText}');
       // 静默失败保持原状态,不打扰用户
       return;
     }
-    _emit(_state.copyWith(stage: UpdateStage.failed, reason: reason));
+    _emit(_state.copyWith(
+      stage: UpdateStage.failed,
+      reason: failure.debugText,
+      failure: failure,
+    ));
   }
 
   void _emit(UpdateState next) {
@@ -434,13 +652,15 @@ class UpdateService extends ChangeNotifier {
     notifyListeners();
   }
 
-  static String? _rateLimitReset(Map<String, String> headers) {
+  /// 限流恢复还剩多少**分钟**。返回数字而不是拼好的字符串 ——
+  /// 「分钟」这个词该由 UI 层按语言给出。
+  static int? _rateLimitResetMinutes(Map<String, String> headers) {
     final raw = headers['x-ratelimit-reset'];
     final secs = int.tryParse(raw ?? '');
     if (secs == null) return null;
     final at = DateTime.fromMillisecondsSinceEpoch(secs * 1000);
     final mins = at.difference(DateTime.now()).inMinutes;
-    return mins <= 0 ? null : '$mins 分钟';
+    return mins <= 0 ? null : mins;
   }
 
   static Future<String> _defaultVersionReader() async {
