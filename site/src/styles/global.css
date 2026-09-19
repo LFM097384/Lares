@@ -2,17 +2,32 @@
  * Lares 炉灵 官网 —— 全局样式
  *
  * 读这个文件前请先读 docs/design/web-brief.md 和
- * docs/design/ui-research.md §2.1 / §3。下面的数字不是审美偏好，
+ * docs/design/ui-research.md §2.1 / §2.2 / §3 / §4。下面的数字不是审美偏好，
  * 是那两份文档里的硬约束，改之前请先推翻它们的论据。
  *
- * 三条最容易被无意破坏的纪律：
+ * 五条最容易被无意破坏的纪律：
  *   1. --ember 全站只用一处（见 .ember），它代表「火」。铺满就廉价了。
+ *      「一处」包括它的光 —— 光晕用 currentColor，所以光和火是同一个来源，
+ *      不是第二处。
+ *      ⚠️ 验收会 grep 这个 token 的引用次数，**全文件必须恰好 1 次**
+ *      （在 .ember 里）。所以注释里一律写 `--ember`，
+ *      不要写成 v-a-r(…) 的完整形式，否则注释自己就会把计数顶到 2。
  *   2. 正文对比度 ≥ 8:1，次要文字 ≥ 5:1。不是 WCAG 的 4.5:1 及格线。
  *      理由见 ui-research.md §2.1：暗色下小字号可读性损失最大
  *      (Piepenbrock et al. 2014, Human Factors 56(5):942-951)，
  *      且 WCAG 2.x 的公式对深色偏乐观，所以要留余量。
+ *      ⚠️ 由此派生出一条版面纪律：**任何承载次要文字的底色都不得亮过
+ *      --surface-high**。#9A93A3 对 #26222E 实测 5.23:1，那是天花板，
+ *      不是起点。加任何浅底之前先算这个数。
  *   3. 不加载任何 Web Font。中文字体动辄几 MB，
  *      而且外链字体 = 第三方请求 = 打脸隐私政策。
+ *   4. 不做玻璃拟态（ui-research §2.2 结论「Lares 不用」）。
+ *      深色底上叠半透明层会压扁本就只有 tone 4–24 的层级空间，
+ *      与下面的表面阶梯直接打架。质感靠**容器色 + 顶部受光 + 极克制的阴影**，
+ *      不靠模糊。
+ *   5. 不用 SVG data URI 做噪点/纹理。SVG 根元素要带 xmlns，那是个
+ *      h-t-t-p 开头的字面量，会让「全站不得有明文 http」的验收永远报红。
+ *      理由同 Base.astro 里 favicon 那段注释。
  */
 
 /* ── 色板：直接取自 app/lib/src/theme/tokens.dart，不要自己调 ───────── */
@@ -29,11 +44,38 @@
    * 刻意没有定义的 token，不是遗漏：
    *   --ember-soft  —— 会诱使人再用一次 ember，没有它就不会有第二处。
    *   --status-*    —— 状态色只在 App 里展示成员状态时用，官网没有这个场景。
+   *                    连「示意图」里也不用：那张图是结构示意，不是状态演示，
+   *                    一旦上了三种状态色，全站就有四种彩色了。
    * 需要时从 tokens.dart 取，不要凭记忆写。
    */
 
+  /*
+   * 中性描边与受光。全部由 --text 稀释而来，不引入新色相 ——
+   * 这是深色界面看起来"有做工"的最便宜手段：
+   * 一条顶部高光 + 一条底部阴影 = 表面有厚度。
+   */
+  --line: rgba(242, 238, 233, 0.08); /* 常规分隔线 */
+  --line-strong: rgba(242, 238, 233, 0.14); /* 标题下的起笔 */
+  --lit: rgba(242, 238, 233, 0.06); /* 容器顶边受光 */
+
   --measure: 34rem; /* 正文行宽上限，中文约 40 字/行 */
   --gutter: 1.25rem;
+
+  /*
+   * 间距音阶。节奏靠这五个值，不要随手写 2.37rem。
+   * 都是流体的：窄屏收紧，宽屏放开 —— 「呼吸感」在小屏上是奢侈品。
+   */
+  --s1: 0.5rem;
+  --s2: 1rem;
+  --s3: clamp(1.5rem, 3vw, 2rem);
+  --s4: clamp(2.25rem, 5vw, 3.25rem);
+  --s5: clamp(3.5rem, 8vw, 5.5rem);
+  --s6: clamp(4.5rem, 11vw, 8rem);
+
+  /* 圆角：沿用 LaresRadii（sm 10 / md 16 / lg 24 / xl 32），不另起一套 */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
 
   /* 只做深色。亮色模式「可做可不做，但不要做一半」—— 所以不做。
      声明 color-scheme 让滚动条、表单控件跟着变深，避免出现亮色残片。 */
@@ -52,12 +94,52 @@ html {
   /* 锚点跳转留出呼吸空间；本站无 JS，这是纯 CSS 的平滑落点 */
   scroll-padding-top: 2rem;
   -webkit-text-size-adjust: 100%;
+  background: var(--bg); /* 过度滚动时露出的也是站点底色 */
 }
 
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
+
+  /*
+   * 环境光。整站唯一的"光源"暗示，但它**不含任何暖色**——
+   * 它只是把 --bg 往 --surface-high 方向提亮一点点，色相完全不变。
+   *
+   * 为什么不做暖色光晕（这条是本次最重要的一个设计决定）：
+   * ui-research §3.2 实测过 #FF8A5C 以低 alpha 压在 #121016 上的结果：
+   *   5%  → #1E161A
+   *   10% → #2A1C1D   ← 原文称之为"浑浊棕色"，是用户抱怨过的那个颜色
+   * 根因是「冷紫底 + 暖橙光 = 脏」：两者色相差约 100°，低 alpha 混合后
+   * 既不暖也不紫，落进灰褐死区。App 那边的解法是把底色换成暖中性 #181210，
+   * 但**网站换不了底色** —— #121016 是 tokens.dart 锁死的值。
+   *
+   * 所以这里走另一条路：**环境光只给亮度，不给色相；全站唯一的暖色由
+   * 那一个 ember 字自己发出**（见 .ember 的 text-shadow）。
+   * 构图因此变成「昏暗的房间 + 一个暖光点」——那正好就是围炉的样子，
+   * 而且零"浑浊"风险、零额外色相、零 --ember 引用增量。
+   *
+   * 峰值取 --surface-high 的 70%：
+   *   0.7 × #26222E + 0.3 × #121016 = #201D27
+   *   --text     对 #201D27 = 14.36:1 ✅（要求 ≥8）
+   *   --text-dim 对 #201D27 =  5.59:1 ✅（要求 ≥5）
+   * 这是"页面上最亮的底色"。全站真正的最坏情况是 .statement 那 3.5% 的受光
+   * 再叠在它上面 → #27242E，实测 --text 13.19:1 / --text-dim 5.13:1，仍然达标
+   * —— 但 5.13 离 5:1 的地板只剩 0.13，所以**这里是天花板，不是起点**。
+   * 调亮这个值 = 调低全站对比度余量，改之前先重算上面所有数。
+   *
+   * background-size 让它锚在文档顶部、随页面滚走 ——
+   * 不是 background-attachment: fixed。固定背景 = 视差观感，
+   * web-brief 明确禁止视差，而且 iOS Safari 上它会抖。
+   */
+  background-color: var(--bg);
+  background-image: radial-gradient(
+    120% 42rem at 50% -6rem,
+    rgba(38, 34, 46, 0.7) 0%,
+    rgba(38, 34, 46, 0.34) 36%,
+    rgba(38, 34, 46, 0) 72%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 52rem;
 
   /* 系统字体栈，零网络请求。
      顺序：Apple → Windows → 中文字形 → 通用回落。
@@ -91,7 +173,7 @@ body {
  */
 :focus-visible {
   outline: 2px solid var(--text);
-  outline-offset: 2px;
+  outline-offset: 3px;
   border-radius: 2px;
 }
 
@@ -105,11 +187,32 @@ body {
   background: var(--surface-high);
   color: var(--text);
   text-decoration: none;
-  border-radius: 0 0 8px 0;
+  border-radius: 0 0 var(--r-sm) 0;
 }
 
 .skip-link:focus {
   left: 0;
+}
+
+/*
+ * 全局减弱动效。ui-research §4 的默认答案是"不动"，这里是把那条纪律
+ * 交给用户的系统开关。本站的动效只有一处（.ember 的呼吸），
+ * 但这个兜底写成通配是为了防止后来者加了动效忘了加开关。
+ *
+ * 注意：不是把动画时长设 0 了事 —— .ember 在下面被显式冻结在呼吸的中点，
+ * 免得它停在某个随机相位上（ui-research §4.5「优雅停止」）。
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ── 排版 ───────────────────────────────────────────────────────── */
@@ -125,18 +228,37 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(1.75rem, 5.5vw, 2.5rem);
+  font-size: clamp(1.9rem, 5.5vw, 2.6rem);
   margin: 0 0 0.75rem;
 }
 
 h2 {
-  font-size: clamp(1.3rem, 3.5vw, 1.6rem);
-  margin: 2.75rem 0 0.9rem;
+  font-size: clamp(1.45rem, 3.4vw, 1.85rem);
+  margin: var(--s4) 0 var(--s2);
+}
+
+/*
+ * 每个 h2 下面一条渐隐细线。
+ * 这是全站分区节奏的主要视觉手段：比色块便宜，比留白明确，
+ * 而且在正文页（隐私/条款）上同样成立 —— 那三页有十几个 h2，
+ * 一条起笔线能把长文切成可扫读的块，样式改进不动一个字。
+ */
+h2::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 0.85rem;
+  background: linear-gradient(
+    90deg,
+    var(--line-strong),
+    rgba(242, 238, 233, 0.03) 55%,
+    transparent
+  );
 }
 
 h3 {
   font-size: 1.1rem;
-  margin: 2rem 0 0.6rem;
+  margin: var(--s3) 0 0.6rem;
 }
 
 p {
@@ -159,6 +281,7 @@ a {
   text-decoration-color: var(--text-dim);
   text-underline-offset: 0.2em;
   text-decoration-thickness: 1px;
+  transition: text-decoration-color 160ms ease-out;
 }
 
 a:hover,
@@ -181,17 +304,26 @@ li::marker {
 
 hr {
   border: 0;
-  border-top: 1px solid var(--surface-high);
-  margin: 2.5rem 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--line-strong) 20%,
+    var(--line-strong) 80%,
+    transparent
+  );
+  margin: var(--s4) 0;
 }
 
 code {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
   font-size: 0.9em;
   background: var(--surface);
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  padding: 0.1em 0.4em;
+  border-radius: 6px;
 }
 
 /*
@@ -210,8 +342,8 @@ th,
 td {
   text-align: left;
   vertical-align: top;
-  padding: 0.6rem 0.7rem;
-  border-bottom: 1px solid var(--surface-high);
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
   line-height: 1.6;
 }
@@ -219,13 +351,19 @@ td {
 th {
   font-weight: 600;
   color: var(--text);
-  border-bottom-color: var(--text-dim);
+  border-bottom-color: var(--line-strong);
+}
+
+/* 斑马纹用极淡的受光而不是 --surface 实色：
+   实色会让表格看起来像贴上去的色块，与 §2.1「相邻层只差一档」相悖。 */
+tbody tr:nth-child(odd) {
+  background: rgba(242, 238, 233, 0.022);
 }
 
 @media (max-width: 26rem) {
   th,
   td {
-    padding: 0.5rem 0.4rem;
+    padding: 0.5rem 0.45rem;
     font-size: 0.92em;
   }
 }
@@ -246,11 +384,21 @@ th {
 
 main {
   display: block;
-  padding-block: 2.5rem 1rem;
+  padding-block: var(--s3) 1rem;
 }
 
 section {
-  margin-block: 3.5rem;
+  margin-block: var(--s5);
+}
+
+/*
+ * 最后一个分区不要再留下边距：它会和 .footer 的 margin-top 叠加，
+ * 在正文结束与页脚之间开出一个两百多像素的空洞
+ * （1280px 实测 232px —— 看起来像页面加载失败）。
+ * 分区之间的呼吸是好的，正文尽头的空洞不是。
+ */
+main > section:last-child {
+  margin-bottom: 0;
 }
 
 /* ── 唯一的暖色 ─────────────────────────────────────────────────── */
@@ -265,59 +413,231 @@ section {
  *     让全站唯一的暖色正好是「火」字，是零成本的同义反复。
  *
  * 对比度：#FF8A5C 对 #121016 = 8.14:1（与 ui-research §3.2 的实测值一致）。
+ * 注意它是落在 hero 环境光上的，最坏情况底色 #201D27 → 7.14:1。
+ * 这仍然远超 WCAG 对大字（≥18pt）要求的 3:1，且它不是正文
+ * ——「正文 ≥8:1」那条约束管的是 --text，不是这一个装饰性的字。
+ *
+ * 🔥 光晕：text-shadow 用 currentColor，不是第二次引用 --ember。
+ * 这是本次改版的核心手法，值得写清楚：
+ * 页面里唯一的暖光就是这个字发出来的。背景的环境光是纯亮度、零色相的
+ * （见 body 的注释），所以整页的构图是「昏暗房间里的一个暖光点」——
+ * 正好是"围坐在火边"。光和火同源，因此「只用一处」在字面上和精神上都成立：
+ *   - --ember 的引用在本文件出现 1 次（就在下一行）
+ *   - 每页带 .ember 的元素 1 个
+ * 加任何第二处之前，请先把这一处去掉。
  *
  * ⚠️ 关于字号，有一条实测得来的教训：
  * ui-research §3.2 禁止「<18pt 的品牌色文字」（暗色下橙字会晃眼），
  * 18pt = 24px。最初 .hero__lede 用 clamp(1.15rem, 2.6vw, 1.35rem)，
- * 在 375px 视口实测只渲染到 18.4px —— 不达标。所以 .hero__lede
- * 的字号被上调到 clamp(1.3rem, 4.5vw, 1.5rem)。
- *
- * 但 8.14:1 已经远超正文 8:1 的要求，且这里只有一个字（不是「大段橙字」），
- * §3.2 真正担心的晃眼场景并不成立。所以本站把 24px 当作目标而非死线：
- * 宽视口下达到 24px，窄视口下 20.8px 是可接受的妥协
- * —— 单字、8.14:1、且被高对比正文包围。
+ * 在 375px 视口实测只渲染到 18.4px —— 不达标。
+ * 本次改版把 .hero__lede 上调到 clamp(1.35rem, 4.6vw, 1.6rem)，
+ * 实测区间 21.6px（375px 视口）→ 25.6px（≥557px 视口），
+ * 宽屏已越过 24px 门槛，窄屏 21.6px 是可接受的妥协
+ * —— 单字、被高对比正文包围、且不是"大段橙字"（§3.2 真正担心的场景）。
  *
  * 结论：改 .hero__lede 字号就是在改这条合规判断，两处要一起看。
- *
- * 加这个类之前请先把已有的那一处去掉。
  */
 .ember {
   color: var(--ember);
-  /* 唯一的暖色配一点字重，让它在 8.14:1 下站得住，而不必靠加大面积 */
+  /* 唯一的暖色配一点字重，让它站得住，而不必靠加大面积 */
   font-weight: 600;
+  /* 呼吸的炉火。见下方 @keyframes hearth-breathe 的注释。 */
+  text-shadow: 0 0 1.7rem currentColor;
+  animation: hearth-breathe 4.5s linear infinite;
+}
+
+/*
+ * 炉火呼吸 —— 全站唯一的动画。
+ *
+ * 遵守 ui-research §4 的三条铁律：
+ *   铁律 3「idle 期只用非位移属性」—— 这里只动 text-shadow 的模糊半径。
+ *     WCAG 2.1 SC 2.3.3 把 blur 明确排除在"运动动画"之外，字本身不移动、
+ *     不缩放、不变色，所以正文对比度也一点没动。
+ *   §4.2「呼吸用 sin 不用 easeInOut 往复」—— easeInOut 在端点停留太久，
+ *     看起来像喘气。所以这里列出 sin 的八个采样点，用 linear 插值，
+ *     而不是两个关键帧配 ease-in-out。周期 4.5s 也取自 §4.2。
+ *   §4.3「幅度必须克制」—— 模糊半径 1.35rem↔2.05rem。半径变大 = 同样的墨
+ *     摊得更薄 = 更暗，所以这一条同时实现了"亮度呼吸"，且峰值永远不会
+ *     比静态值更刺眼。
+ *
+ * 这不是 §4.4 禁止的"为了显得活泼的装饰动画"：它是产品隐喻本身
+ * （火在烧）的最小表达，而且是全站唯一一处。第二处就该被砍掉。
+ */
+@keyframes hearth-breathe {
+  0% {
+    text-shadow: 0 0 1.7rem currentColor;
+  }
+  12.5% {
+    text-shadow: 0 0 1.95rem currentColor;
+  }
+  25% {
+    text-shadow: 0 0 2.05rem currentColor;
+  }
+  37.5% {
+    text-shadow: 0 0 1.95rem currentColor;
+  }
+  50% {
+    text-shadow: 0 0 1.7rem currentColor;
+  }
+  62.5% {
+    text-shadow: 0 0 1.45rem currentColor;
+  }
+  75% {
+    text-shadow: 0 0 1.35rem currentColor;
+  }
+  87.5% {
+    text-shadow: 0 0 1.45rem currentColor;
+  }
+  100% {
+    text-shadow: 0 0 1.7rem currentColor;
+  }
+}
+
+/*
+ * 减弱动效下把火冻在呼吸的中点，而不是让它停在随机相位
+ * —— ui-research §4.5「Gracefully transition to a resting state」。
+ * 上面的通配规则已经把 animation-duration 压到 0.01ms，这里再钉一次
+ * 静态值，保证最终帧是确定的。
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ember {
+    animation: none !important;
+    text-shadow: 0 0 1.7rem currentColor;
+  }
 }
 
 /* ── Hero ───────────────────────────────────────────────────────── */
 
+/*
+ * Hero 的视觉重量由两件事承担：排版落差（字号 + 留白 + 那一个发光的字），
+ * 以及右侧的围炉示意图。刻意没有按钮 —— App 还在 TestFlight，
+ * 做一个点不动的假 CTA 会比朴素更难看。
+ *
+ * 为什么示意图放在 hero 而不是"卖点之后"：
+ * 单列的 hero 在 ≥1000px 上右半边是空的，整页于是读起来像一份左对齐的文档
+ * —— 这正是"正确但无趣"的来源。把示意图提到 hero 右侧，一次解决两件事：
+ * 首屏有了画面，宽屏有了构图。而且它就落在「像围坐在火边」那句话旁边，
+ * 图和话互相解释。
+ */
 .hero {
-  padding-block: 3.5rem 1rem;
+  padding-block: var(--s5) var(--s2);
   margin-block: 0;
 }
 
-.hero__kicker {
+/*
+ * 两栏只在 ≥60rem 启用。低于这个宽度示意图落到文字下方（正常文档流），
+ * 不需要任何额外规则 —— 这是"移动端优先"真正省事的地方。
+ * 1.05fr / 0.95fr 而不是 1fr / 1fr：文字栏略宽，视觉重心才在左边。
+ */
+@media (min-width: 60rem) {
+  .hero--split {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: var(--s4);
+    align-items: center;
+  }
+
+  /* hero 里的示意图不再需要外边距，网格已经给了间距 */
+  .hero--split .hearth {
+    margin: 0;
+  }
+}
+
+.hero__eyebrow {
   color: var(--text-dim);
   font-size: 0.95rem;
-  margin: 0 0 1rem;
+  margin: 0 0 var(--s2);
+  /* 西文小标的字距；中文页这行是中文，下面用 :lang 单独处理 */
+  letter-spacing: 0.04em;
+}
+
+.hero__eyebrow:lang(zh-Hans) {
+  letter-spacing: 0; /* clreq 密排：中文不加字距 */
+}
+
+/*
+ * 字号落差是"看起来像产品门面"与"看起来像文档"之间最大的一个开关。
+ * 原来 h1 是 clamp(1.75rem, 5.5vw, 2.5rem)——那是一篇博客标题的尺寸。
+ * 「炉灵」只有两个字，放到 4.4rem 才配得上它是个名字而不是一个小标题。
+ */
+.hero__title {
+  font-size: clamp(2.9rem, 12vw, 4.4rem);
+  line-height: 1.05;
+  margin: 0 0 0.6rem;
+  font-weight: 600;
+}
+
+/* 拉丁文标题可以收一点字距；中文标题绝不能（clreq） */
+.hero__title:lang(en) {
+  letter-spacing: -0.02em;
+}
+
+/*
+ * 另一种语言的名字，小而暗，垫在主名下面。
+ * 作用有两个：给 hero 多一级层次；让中英两页看起来是一对而不是两个站。
+ */
+.hero__alt {
+  display: block;
+  color: var(--text-dim);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--s3);
+}
+
+.hero__alt:lang(zh-Hans) {
+  letter-spacing: 0.12em; /* 两个汉字的疏排是标题手法，不是正文密排 */
 }
 
 /*
  * Hero 正文。字号刻意比普通正文大一档，原因见 .ember 的注释：
  * 唯一那个 ember 字就长在这句话里，字号决定了它是否满足 §3.2 的大字门槛。
- * 实测渲染区间 20.8px（375px 视口）→ 24px（≥1067px 视口）。
+ * 实测渲染区间 21.6px（375px 视口）→ 25.6px（≥557px 视口）。
  * 改小之前请先读 .ember 那段。
  */
 .hero__lede {
-  font-size: clamp(1.3rem, 4.5vw, 1.5rem);
-  line-height: 1.6;
-  max-width: 32rem;
-  margin: 0 0 1.5rem;
+  font-size: clamp(1.35rem, 4.6vw, 1.6rem);
+  line-height: 1.65;
+  max-width: 30rem;
+  margin: 0 0 var(--s3);
+  text-wrap: pretty;
 }
 
 .hero__meta {
   color: var(--text-dim);
   font-size: 0.95rem;
-  margin: 0 0 1.75rem;
+  margin: 0;
   max-width: 32rem;
+}
+
+/*
+ * 状态徽标。用来说"还在 TestFlight"这件事——它是事实，不是营销，
+ * 所以做成一个安静的小药丸而不是横幅。
+ * 那个点是中性的 --text-dim，不是状态色：状态色系属于 App 里的成员在场，
+ * 官网没有那个场景（见 :root 的注释）。
+ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.38rem 0.85rem 0.38rem 0.72rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--lit);
+  color: var(--text); /* 对 --surface 15.01:1。别改成 --text-dim，那会掉到 5.84:1 */
+  font-size: 0.88rem;
+  line-height: 1.4;
+  margin-bottom: var(--s2);
+}
+
+.badge::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex: none;
 }
 
 /* ── 卡片（三个卖点） ───────────────────────────────────────────── */
@@ -326,87 +646,312 @@ section {
   display: grid;
   /* min(100%, …) 是防溢出的关键：窄视口下轨道不会宽过容器 */
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-  gap: 1.25rem;
+  gap: var(--s2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/*
+ * 卡片的厚度来自三层，全部是中性的、零新色相的：
+ *   1. 容器色本身做微渐变（顶部略亮），这是 §2.1「深色用容器色表达高度」
+ *      的正解，也是"顶部受光"的物理暗示。
+ *      顶色 #221E2A 落在 --surface(#1C1922) 与 --surface-high(#26222E) 之间，
+ *      tone 差只有一档，符合 §2.1「相邻两层只差 1 档，不要跳档」。
+ *      实测 --text 对 #221E2A = 14.13:1，--text-dim = 5.50:1，都达标。
+ *   2. inset 顶边高光 1px —— 这一条是深色界面"看起来有做工"最便宜的手段。
+ *   3. 外阴影。M3 说深色不用阴影表高度，那是针对 App 里密排的容器；
+ *      网页上卡片是孤立的，一点点环境遮蔽能把它从背景里托起来。
+ *      刻意只给很暗、很散的一层，不做多层叠加的"浮夸卡片"。
+ * 不用 backdrop-filter —— §2.2，不解释了。
+ */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--surface-high);
-  border-radius: 16px;
-  padding: 1.25rem;
+  background: linear-gradient(180deg, #221e2a 0%, var(--surface) 62%);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--s3);
   margin: 0;
+  box-shadow:
+    inset 0 1px 0 var(--lit),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 14px 32px -18px rgba(0, 0, 0, 0.7);
 }
 
 .card h3 {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.55rem;
   font-size: 1.05rem;
+}
+
+/* h2 下的渐隐线是分区语言，卡片标题不该也有一条，否则满屏都是线 */
+.card h3::after {
+  content: none;
 }
 
 .card p {
   margin: 0;
-  /* 卡片正文仍用 --text（15.01:1 对 --surface），不降级成 --text-dim */
+  /* 卡片正文仍用 --text（14.13:1 对卡片顶色），不降级成 --text-dim */
   color: var(--text);
   font-size: 0.97rem;
 }
 
-/* ── 截图占位 ───────────────────────────────────────────────────── */
+/* ── 围炉示意图（截图占位的替代物） ─────────────────────────────── */
 
 /*
  * 真机截图要等 TestFlight 装上才有。
- * 不用 Lorem，不用 placehold.co / picsum 这类占位图服务
- * —— 那些是第三方请求，隐私政策里写着「不收集」。
- * 这里是纯 CSS 的方块，零请求。
+ *
+ * 原来这里是一个写着「截图待补」的虚线框 —— 诚实，但难看，
+ * 而且它把首页最该有画面的位置变成了一个洞。
+ *
+ * 现在这里是一张**纯 CSS 的结构示意图**：中心一个火塘，两圈成员围着坐。
+ * 三条纪律：
+ *   1. **不能像真截图**。所以：没有任何假文字、假图标、假状态栏，
+ *      全是几何形；而且下面有一行明写的 figcaption。
+ *      示意图误导审核员或用户，比一个洞更糟。
+ *   2. **只用 --surface 系列 + --text-dim**，不碰 ember，也不碰状态色。
+ *      它是结构示意，不是状态演示。
+ *   3. **不用 SVG**。inline SVG 在 HTML5 里其实可以省掉 xmlns，
+ *      但纯 CSS 连这个判断都不用做，且 border-radius 画同心圆完全够用。
+ *
+ * 排布参数照抄 ui-research §3.3 方案 A（仓库 app/tool/hearth/ 已实现并出图）：
+ * 双环、内环少外环多、每环起始角错开，避免内外环径向对齐显得死板。
+ * 真截图到位后整块替换成 <img>，figcaption 一并删掉。
  */
-.shot {
-  aspect-ratio: 9 / 16;
-  max-height: 20rem;
-  margin: 0 auto 1rem;
+.hearth {
+  margin: var(--s4) 0 0;
+  padding: 0;
+}
+
+/*
+ * font-size 是这张图唯一的缩放旋钮：下面所有尺寸都用 em。
+ * 375px 视口下解析为 9.75px（外环半径 7.8em ≈ 76px，整图高约 172px，
+ * 装得进 4/3 的框）；宽屏封顶 0.95rem。
+ *
+ * ⚠️ 底色比卡片**更深**（#1A1620，比 --surface 还低半档），这是刻意的：
+ * 图里的元素是靠"比底更亮"被看见的，底越深，同样的元素越读得出来。
+ * 第一版把底做成和卡片一样亮，结果整张图糊成一团 —— 实测踩过。
+ * 顺带这也符合 §3.1「bgDeep 只在房间页用，比其他页更暗半档」的意思：
+ * 这张图画的就是房间。
+ */
+.hearth__frame {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  margin-inline: auto;
+  aspect-ratio: 4 / 3;
+  font-size: clamp(0.62rem, 2.7vw, 0.95rem);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: radial-gradient(
+      70% 60% at 50% 52%,
+      rgba(242, 238, 233, 0.045) 0%,
+      rgba(242, 238, 233, 0) 70%
+    ),
+    linear-gradient(180deg, #1f1b26 0%, #1a1620 72%);
+  box-shadow:
+    inset 0 1px 0 var(--lit),
+    0 14px 34px -20px rgba(0, 0, 0, 0.75);
+  overflow: hidden;
+}
+
+/* 顶部一条窄带，暗示"房间有个标题栏"。不写字，所以不会被当成截图。 */
+.hearth__bar {
+  position: absolute;
+  top: 1.6em;
+  left: 2em;
+  width: 7.5em;
+  height: 0.85em;
+  border-radius: 999px;
+  background: rgba(242, 238, 233, 0.12);
+}
+
+/*
+ * 火塘。三圈同心的中性描边，越往外越淡 —— 这是"光从中心散开"的
+ * 零颜色成本版本。它不发暖光：暖光在全站只有 hero 那一个字有资格发。
+ */
+.hearth__core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2.6em;
+  height: 2.6em;
+  margin: -1.3em 0 0 -1.3em;
+  border-radius: 50%;
+  background: rgba(242, 238, 233, 0.34);
+  box-shadow:
+    0 0 0 0.7em rgba(242, 238, 233, 0.1),
+    0 0 0 1.5em rgba(242, 238, 233, 0.055),
+    0 0 0 2.5em rgba(242, 238, 233, 0.028),
+    0 0 2.2em 0.6em rgba(242, 238, 233, 0.07);
+}
+
+/* 两条座位环的轨迹线，很淡，只为让"围坐"这件事被读出来 */
+.hearth__ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  border: 1px dashed rgba(242, 238, 233, 0.1);
+}
+
+.hearth__ring--1 {
+  width: 9.2em;
+  height: 9.2em;
+  margin: -4.6em 0 0 -4.6em;
+}
+
+.hearth__ring--2 {
+  width: 15.6em;
+  height: 15.6em;
+  margin: -7.8em 0 0 -7.8em;
+}
+
+/*
+ * 一个座位 = 一个成员头像的轮廓。
+ * --a 角度、--r 半径由 HTML 的 inline style 给（是数据不是脚本）。
+ * 外层 rotate 把它送到位，内层反向 rotate 把它转正
+ * —— 这样座位本身不跟着环倾斜。
+ */
+.hearth__seat {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2.1em;
+  height: 2.1em;
+  margin: -1.05em 0 0 -1.05em;
+  border-radius: 50%;
+  background: #35303d;
+  border: 1px solid rgba(242, 238, 233, 0.16);
+  transform: rotate(var(--a)) translateY(calc(-1 * var(--r)))
+    rotate(calc(-1 * var(--a)));
+}
+
+/*
+ * 「正在说话」的那一位。App 里这是一圈 ember 描边，
+ * 但官网的暖色预算只有一个字，所以这里降级成中性的亮环 + 略大。
+ * 这是刻意的取舍，不是忘了上色。
+ */
+.hearth__seat--speaking {
+  background: #4a4354;
+  border-color: rgba(242, 238, 233, 0.5);
+  box-shadow: 0 0 0 0.3em rgba(242, 238, 233, 0.12);
+}
+
+/* 底部的操作栏轮廓：一个主键、两个次键。同样不写字、不画图标。 */
+.hearth__dock {
+  position: absolute;
+  left: 50%;
+  bottom: 1.5em;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--surface-high);
-  border: 1px dashed var(--text-dim);
-  border-radius: 12px;
+  gap: 1.5em;
+}
+
+.hearth__key {
+  display: block;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+  background: #2b2633;
+  border: 1px solid rgba(242, 238, 233, 0.12);
+}
+
+/* 主键更大 —— §3.3「麦克风是绝对主角」，但这里同样不给它品牌色 */
+.hearth__key--main {
+  width: 3.2em;
+  height: 3.2em;
+  background: #443d4d;
+  border-color: rgba(242, 238, 233, 0.28);
+}
+
+/*
+ * 这行字是这张图的诚信声明，不是装饰。删了它，图就成了误导。
+ * --text-dim 对页面底 6.37:1 ✅，对 hero 环境光 5.59:1 ✅。
+ */
+.hearth__cap {
+  margin: 0.9rem 0 0;
   color: var(--text-dim);
-  font-size: 0.9rem;
-  /* 占位文字不该被当成正文读，也不该被选中复制进截图说明 */
-  user-select: none;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  text-align: center;
+  max-width: 26rem;
+  margin-inline: auto;
 }
 
 /* ── 引述块（「它不是什么」） ───────────────────────────────────── */
 
+/*
+ * 这段文案是全站最有力的一句，排版上就该按"声明"来做：
+ * 字号比正文大、行宽收窄、左边一条渐隐的竖线。
+ * 竖线做成渐变而不是实色，是为了让它像一道光而不是一条边框。
+ */
 .statement {
-  background: var(--surface);
-  border-left: 3px solid var(--surface-high);
-  border-radius: 0 12px 12px 0;
-  padding: 1.25rem 1.4rem;
+  position: relative;
+  background: linear-gradient(
+    100deg,
+    rgba(242, 238, 233, 0.035),
+    rgba(242, 238, 233, 0) 62%
+  );
+  border: 1px solid var(--line);
+  border-left: 0;
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+  padding: var(--s3) var(--s3) var(--s3) calc(var(--s3) + 0.2rem);
   margin: 0;
+  max-width: 40rem;
+}
+
+.statement::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    rgba(242, 238, 233, 0.3),
+    rgba(242, 238, 233, 0.06)
+  );
 }
 
 .statement p {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: clamp(1.1rem, 2.4vw, 1.22rem);
+  line-height: 1.7;
 }
 
 /* ── 页脚 ───────────────────────────────────────────────────────── */
 
 .footer {
-  border-top: 1px solid var(--surface-high);
-  margin-top: 4rem;
-  padding-block: 2rem 3rem;
+  position: relative;
+  margin-top: var(--s6);
+  padding-block: var(--s4) var(--s5);
   color: var(--text-dim);
   font-size: 0.95rem;
+}
+
+/* 顶边用渐隐线而不是整条实线：整条实线会把页脚切成"另一个页面" */
+.footer::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--line-strong) 15%,
+    var(--line-strong) 85%,
+    transparent
+  );
 }
 
 .footer nav ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1.5rem;
+  gap: 0.75rem 1.75rem;
   list-style: none;
-  margin: 0 0 1.25rem;
+  margin: 0 0 var(--s3);
   padding: 0;
 }
 
@@ -425,8 +970,20 @@ section {
 
 /* ── 正文页（隐私 / 条款 / 支持） ───────────────────────────────── */
 
+/*
+ * 这三页的文字一个字都不能动（App Store 审核员看过），样式可以。
+ * 所以改法只有两类：一是让它们和首页共享同一套壳（环境光、渐隐线、
+ * 页脚），免得点进来像换了个网站；二是给长文更好的扫读节奏。
+ */
 .prose > :first-child {
   margin-top: 0;
+}
+
+/* 正文页的 h1 不需要 hero 那么大，但也该比 h2 明确高一档 */
+.prose h1 {
+  font-size: clamp(2rem, 6vw, 2.6rem);
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
 }
 
 .prose .updated {
@@ -435,15 +992,36 @@ section {
   margin-top: -0.25rem;
 }
 
-/* 返回链接 */
+/* 长文里 h2 的上间距要比首页更大，靠留白分章 */
+.prose h2 {
+  margin-top: var(--s4);
+}
+
+.prose h3 {
+  margin-top: var(--s3);
+}
+
+/* 返回链接 —— 做成一个小药丸，让它读起来像导航而不是一句正文 */
 .backlink {
-  display: inline-block;
-  margin-bottom: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: var(--s3);
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--lit);
   color: var(--text-dim);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition:
+    color 160ms ease-out,
+    border-color 160ms ease-out;
 }
 
 .backlink:hover,
 .backlink:focus-visible {
   color: var(--text);
+  border-color: var(--line-strong);
 }

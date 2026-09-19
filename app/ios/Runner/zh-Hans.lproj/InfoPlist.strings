@@ -7,3 +7,8 @@
    让两种语言都走同一套机制,避免以后改了一边忘了另一边。 */
 "NSMicrophoneUsageDescription" = "进圈后需要麦克风才能和圈友说话";
 "NSLocationWhenInUseUsageDescription" = "开启位置共享后,圈内朋友能在地图上看到你的位置(关闭即停止)";
+
+/* 相机:本 App 不用,但 libwebrtc 静态引用了相机 API,不声明会被
+   ITMS-90683 判 FAILED。如实说明,不要编用途。 */
+"NSCameraUsageDescription" = "本应用不使用相机。这条说明是底层音视频库(WebRTC)的固定要求,即使只做语音通话也必须声明。";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "开启位置共享后,圈内朋友能在地图上看到你的位置。本应用只在你打开 App 时共享,不在后台持续定位。";

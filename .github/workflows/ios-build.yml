@@ -279,7 +279,66 @@ jobs:
             exit 1
           fi
           [ $CODE -eq 0 ] || { cat /tmp/up.err; exit $CODE; }
-          echo "✓ 已上传。ASC 处理通常 5–30 分钟,完成后 TestFlight 里可见。"
+          echo "✓ 字节已送达 Apple。但这**不等于**构建可用 —— 见下一步。"
+
+      # ⚠️ 这一步是这个 workflow 里最重要的检查,不要删。
+      #
+      # altool **只报送达,不报处理结果**。2026-09-19 实测:连续两次
+      # "No errors uploading"、有 delivery-uuid、32MB 确实传到了 Apple,
+      # 但构建**从未出现**在 TestFlight,没有任何邮件或界面提示。
+      # 真正的原因(ITMS-90683 缺 NSCameraUsageDescription)只存在于
+      # REST API 的 GET /v1/buildUploads/<id> 的 state.errors 里。
+      #
+      # 教训:altool 的成功只说明字节到了,处理阶段的失败它一概不知。
+      # 所以这里轮询 ASC,拿到 VALID 才算真成功。
+      - name: 确认 ASC 处理结果
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUILD_NUMBER: ${{ steps.ver.outputs.build }}
+        run: |
+          set -euo pipefail
+          npm install jsonwebtoken --no-save --silent
+
+          cat > /tmp/check.mjs <<'JS'
+          import fs from 'node:fs';
+          import jwt from 'jsonwebtoken';
+          const KEY_ID = process.env.ASC_KEY_ID;
+          const ISSUER = process.env.ASC_ISSUER_ID;
+          const WANT = process.env.BUILD_NUMBER;
+          const p8 = `${process.env.HOME}/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8`;
+          const tok = () => jwt.sign({}, fs.readFileSync(p8, 'utf8'), {
+            algorithm: 'ES256', issuer: ISSUER, expiresIn: '15m',
+            audience: 'appstoreconnect-v1', header: { alg: 'ES256', kid: KEY_ID, typ: 'JWT' },
+          });
+          const get = async (p) => {
+            const r = await fetch('https://api.appstoreconnect.apple.com/v1' + p,
+              { headers: { Authorization: `Bearer ${tok()}` } });
+            return r.ok ? r.json() : null;
+          };
+          // 处理要 5-30 分钟,这里最多等 20 分钟。超时不算失败 ——
+          // 可能只是慢;但 FAILED / INVALID 必须立刻红掉。
+          for (let i = 1; i <= 40; i++) {
+            const j = await get(`/builds?limit=20&sort=-uploadedDate`
+              + `&fields[builds]=version,processingState,uploadedDate`);
+            const b = j?.data?.find(x => x.attributes.version === WANT);
+            if (b) {
+              const st = b.attributes.processingState;
+              console.log(`[${i}] build ${WANT} → ${st}`);
+              if (st === 'VALID') { console.log('✓ 构建可用,TestFlight 里能看到了'); process.exit(0); }
+              if (st === 'INVALID' || st === 'FAILED') {
+                console.log(`::error::构建被判为 ${st}。去 ASC 或用 scripts/asc-status.mjs 查具体原因。`);
+                process.exit(1);
+              }
+            } else {
+              console.log(`[${i}] 还没出现 build ${WANT}...`);
+            }
+            await new Promise(s => setTimeout(s, 30000));
+          }
+          console.log('::warning::20 分钟内没等到结果。可能只是慢,但也可能被静默丢弃 —— 请手动确认。');
+          JS
+
+          node /tmp/check.mjs
 
       # 留一份签名产物便于排查(不含密钥)
       - uses: actions/upload-artifact@v4

@@ -9,6 +9,7 @@
  * 不要改写成营销腔。禁用词：革命性、颠覆、无缝、强大、极致、完美、感叹号。
  */
 import Base from '../layouts/Base.astro';
+import Hearth from '../components/Hearth.astro';
 ---
 
 <Base
@@ -17,23 +18,51 @@ import Base from '../layouts/Base.astro';
   lang="zh-Hans"
   altHref="/en"
 >
-  <section class="hero">
-    <h1>炉灵</h1>
-    <p class="hero__kicker">宅火的守护神，随人而动。</p>
+  {/*
+    Hero 是两栏的（≥60rem 才分栏，窄屏自动堆叠）。
+    示意图放在这里而不是"卖点之后"：单列 hero 在宽屏上右半边是空的，
+    整页于是读起来像一份左对齐的文档。图就落在「像围坐在火边」那句话旁边，
+    图和话互相解释。理由详见 global.css 的 .hero 注释。
+  */}
+  <section class="hero hero--split">
+    <div>
+      <p class="hero__eyebrow">宅火的守护神，随人而动。</p>
+
+      <h1 class="hero__title">
+        炉灵
+        <span class="hero__alt" lang="en">Lares Circle</span>
+      </h1>
+
+      {/*
+        全站唯一一处 --ember 就在下面这个「火」字上。
+        那点光晕是这个字自己发的（.ember 的 text-shadow 用 currentColor），
+        不是第二个颜色 —— 理由见 global.css 里 .ember 的注释。
+        加第二处之前请先去掉这一处。
+      */}
+      {/*
+        ⚠️ 中文正文不要在源码里换行。
+        HTML 会把换行折叠成一个空格，而中文句子里本来没有空格，
+        于是「说话，」和「不说话」之间会多出一个真实可见的空隙。
+        （浏览器实测确认过，不是理论问题。）
+        所以下面这几句中文长句一律单行书写，宁可超出编辑器宽度。
+      */}
+      <p class="hero__lede">一个给熟人小圈子用的<strong>常驻语音房</strong>——进去就能说话，不说话也可以一直挂着，像围坐在<span class="ember">火</span>边。</p>
+
+      <p class="badge">App 正在 TestFlight 测试中，尚未上架</p>
+
+      <p class="hero__meta">支持 iOS / Android / Windows / macOS / Web。</p>
+    </div>
 
     {/*
-      全站唯一一处 --ember 就在下面这个「火」字上。
-      理由见 global.css 里 .ember 的注释。加第二处之前请先去掉这一处。
+      截图位。真机截图要等 TestFlight 装上才有，那批图 App Store 也要用。
+      在那之前这里放一张纯 CSS 的**结构示意图** —— 它必须一眼看出是示意图
+      （没有任何假文字/假图标，且下面有一行明写的说明），
+      画得像真截图会误导用户和审核员，比留个洞更糟。
     */}
-    <p class="hero__lede">
-      一个给熟人小圈子用的<strong>常驻语音房</strong>——进去就能说话，
-      不说话也可以一直挂着，像围坐在<span class="ember">火</span>边。
-    </p>
-
-    <p class="hero__meta">
-      支持 iOS / Android / Windows / macOS / Web。
-      App 正在 TestFlight 测试中，尚未上架。
-    </p>
+    <Hearth
+      caption="示意图，不是截图：中间是炉火，大家围着坐。真机截图待补。"
+      alt="示意图：一个圆形的房间，中间是炉火，成员的头像分两圈围坐在周围，底部是麦克风和两个次要按钮。"
+    />
   </section>
 
   <section aria-labelledby="what">
@@ -46,47 +75,26 @@ import Base from '../layouts/Base.astro';
       </li>
       <li class="card">
         <h3>小圈子</h3>
-        <p>
-          靠圈子口令进入，没有陌生人发现、没有随机匹配、没有公开房间列表。
-        </p>
+        <p>靠圈子口令进入，没有陌生人发现、没有随机匹配、没有公开房间列表。</p>
       </li>
       <li class="card">
         <h3>可加密</h3>
-        <p>
-          圈子可以开启端到端加密，密钥由圈口令派生，服务器也解不开。
-        </p>
+        <p>圈子可以开启端到端加密，密钥由圈口令派生，服务器也解不开。</p>
       </li>
     </ul>
-
-    {/*
-      截图位。真机截图要等 TestFlight 装上才有，
-      那批图 App Store 也要用，会一次拍两用。
-      不要换成 Lorem 或占位图服务 —— 后者是第三方请求。
-      role="img" + aria-label 让屏幕阅读器读出「这里将来是截图」而不是念占位文字。
-    */}
-    <div class="shot" role="img" aria-label="产品截图待补">截图待补</div>
   </section>
 
   <section aria-labelledby="not">
     <h2 id="not">它不是什么</h2>
     <blockquote class="statement">
-      <p>
-        不是陌生人社交，不是匿名聊天。没有任何「发现附近的人」「随机连线」
-        这类功能，代码里也不存在相关实现。
-      </p>
+      {/* 同上：中文单行书写，避免换行被折叠成可见空格 */}
+      <p>不是陌生人社交，不是匿名聊天。没有任何「发现附近的人」「随机连线」这类功能，代码里也不存在相关实现。</p>
     </blockquote>
   </section>
 
   <section aria-labelledby="oss">
     <h2 id="oss">开源自托管</h2>
-    <p>
-      服务器代码在<a href="https://github.com/LFM097384/Lares">同一个仓库</a>里，
-      你可以跑在自己的机器上。App 里能填自己的服务器地址。
-    </p>
-    <p>
-      不需要注册，不收集手机号邮箱。不接入任何分析、广告或崩溃上报 SDK ——
-      这一条<a href="/privacy">隐私政策</a>里写了，这个网站本身也做到了：
-      它不加载字体、不请求任何外部域名。
-    </p>
+    <p>服务器代码在<a href="https://github.com/LFM097384/Lares">同一个仓库</a>里，你可以跑在自己的机器上。App 里能填自己的服务器地址。</p>
+    <p>不需要注册，不收集手机号邮箱。不接入任何分析、广告或崩溃上报 SDK —— 这一条<a href="/privacy">隐私政策</a>里写了，这个网站本身也做到了：它不加载字体、不请求任何外部域名。</p>
   </section>
 </Base>

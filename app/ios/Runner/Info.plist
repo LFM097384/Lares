@@ -29,6 +29,27 @@
 	<string>进圈后需要麦克风才能和圈友说话</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>开启位置共享后,圈内朋友能在地图上看到你的位置(关闭即停止)</string>
+	<!-- ⚠️ 本 App **不使用相机**,但这条是必填的。
+	     libwebrtc(flutter_webrtc 带进来的)静态引用了相机 API,
+	     Apple 的静态扫描只看符号、不看是否真的调用。
+	     缺了它 → ITMS-90683,构建被判 FAILED。
+
+	     2026-09-19 踩过一次,而且极难定位:altool 报 "No errors uploading"、
+	     有 delivery-uuid、32MB 确实传到了 Apple,但构建**从不出现**在
+	     TestFlight,也没有任何邮件。原因只有在 REST API 的
+	     `GET /v1/buildUploads/<id>` 的 `state.errors` 里才看得到。
+	     altool **不上报处理阶段的错误**,这是它和 REST 通道的关键差别。
+
+	     文案如实说明「不用相机」—— 审核员会读这些字符串,
+	     写一个假用途反而是风险。 -->
+	<key>NSCameraUsageDescription</key>
+	<string>本应用不使用相机。这条说明是底层音视频库(WebRTC)的固定要求,即使只做语音通话也必须声明。</string>
+	<!-- 同上,也是 libwebrtc / geolocator 的静态引用带来的。
+	     这一条在 90683 里只是 warning 不是 error,但补上没有坏处:
+	     真到了某次 Apple 收紧扫描,它会变成 error。
+	     我们只在前台共享位置,文案如实写明。 -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>开启位置共享后,圈内朋友能在地图上看到你的位置。本应用只在你打开 App 时共享,不在后台持续定位。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- 局域网开发联调:允许本地网络走明文 ws://(公网部署用 wss,不受影响) -->

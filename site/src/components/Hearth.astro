@@ -1,0 +1,93 @@
+---
+/**
+ * 围炉示意图 —— 纯 CSS，零图片、零 SVG、零 JS。
+ *
+ * 这是截图占位的替代物。三条纪律（样式侧的说明见 global.css 的 .hearth 段）：
+ *
+ *  1. **它必须一眼看出是示意图，不能像真截图。**
+ *     所以图里没有一个字、没有一个图标、没有假状态栏，全是几何形；
+ *     并且图下方有一行明写的 figcaption 说明。
+ *     真截图还没有（App 刚上 TestFlight），画得像真的会误导用户和审核员。
+ *  2. **只用 --surface 系列 + 中性描边。** 不碰 --ember（全站暖色只有
+ *     hero 那一个字），也不碰 --status-*（那是 App 里展示成员在场的色系，
+ *     官网没有这个场景）。
+ *  3. **不用 SVG。** 不是 SVG 不好，是 SVG 根元素要带 xmlns，那个字面量是
+ *     h-t-t-p 开头的，会让「全站不得有明文 http」的验收报假阳性
+ *     —— 同 Base.astro 里 favicon 那段注释的教训。border-radius 画同心圆够用。
+ *
+ * 排布参数照抄 ui-research.md §3.3 方案 A「围炉环形」
+ * （仓库 app/tool/hearth/ 已实现并出过图，2/5/12/20 人的排布都验证过）：
+ *   - 双环，内环少、外环多
+ *   - 每环起始角错开，避免内外环径向对齐显得死板
+ *   - 座位序固定，说话的人只是"往里挪一点"，不重排
+ * 这里取 9 人（内 3 外 6），是能同时读出"两圈"和"有空位"的最小人数。
+ *
+ * 真截图到位后：整个组件换成 <img>，figcaption 一并删掉。
+ */
+
+interface Props {
+  /** 图下方那行说明。它是诚信声明不是装饰，不要省。 */
+  caption: string;
+  /** 给屏幕阅读器的图形描述。 */
+  alt: string;
+}
+
+const { caption, alt } = Astro.props;
+
+/**
+ * 座位表。angle 单位是度，radius 用 em —— 整图靠容器的 font-size 缩放，
+ * 所以一个旋钮就能响应式，不需要媒体查询改每一个座位。
+ *
+ * 内环起始 -90°（正上方），外环起始 -60°，两环错开 30°。
+ * speaking 只给一个人：§3.3 的「说话者只做径向内移，不换角度」，
+ * 这里静态图表现为略大 + 亮环。
+ */
+const inner = [-90, 30, 150];
+const outer = [-60, 0, 60, 120, 180, 240];
+const speakingAngle = 30; // 内环右下那位
+---
+
+<figure class="hearth">
+  <div class="hearth__frame" role="img" aria-label={alt}>
+    {/* 顶部窄带：暗示房间有个标题栏。刻意不写字。 */}
+    <span class="hearth__bar" aria-hidden="true"></span>
+
+    {/* 两条座位环的轨迹 */}
+    <span class="hearth__ring hearth__ring--1" aria-hidden="true"></span>
+    <span class="hearth__ring hearth__ring--2" aria-hidden="true"></span>
+
+    {/* 火塘：三圈同心的中性散射，不发暖光 */}
+    <span class="hearth__core" aria-hidden="true"></span>
+
+    {
+      inner.map((a) => (
+        <span
+          class:list={[
+            'hearth__seat',
+            a === speakingAngle && 'hearth__seat--speaking',
+          ]}
+          style={`--a:${a}deg;--r:4.6em`}
+          aria-hidden="true"
+        />
+      ))
+    }
+    {
+      outer.map((a) => (
+        <span
+          class="hearth__seat"
+          style={`--a:${a}deg;--r:7.8em`}
+          aria-hidden="true"
+        />
+      ))
+    }
+
+    {/* 底部操作栏：一个主键（麦克风）+ 两个次键。同样不画图标。 */}
+    <span class="hearth__dock" aria-hidden="true">
+      <span class="hearth__key"></span>
+      <span class="hearth__key hearth__key--main"></span>
+      <span class="hearth__key"></span>
+    </span>
+  </div>
+
+  <figcaption class="hearth__cap">{caption}</figcaption>
+</figure>

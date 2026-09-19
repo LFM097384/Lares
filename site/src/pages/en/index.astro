@@ -13,6 +13,7 @@
  * 若产品方需要英文法律文本，那是一次单独的、需要审阅的工作。
  */
 import Base from '../../layouts/Base.astro';
+import Hearth from '../../components/Hearth.astro';
 ---
 
 <Base
@@ -21,24 +22,39 @@ import Base from '../../layouts/Base.astro';
   lang="en"
   altHref="/"
 >
-  <section class="hero">
-    <h1>Lares Circle</h1>
-    <p class="hero__kicker">The household fire spirit, and it travels with you.</p>
+  {/* 结构与中文首页一致 —— 两栏 hero，≥60rem 才分栏。见 global.css 的 .hero。 */}
+  <section class="hero hero--split">
+    <div>
+      <p class="hero__eyebrow">
+        The household fire spirit, and it travels with you.
+      </p>
 
-    {/*
-      英文版的唯一暖色落在 "fire" 上，与中文版的「火」对应。
-      每个页面各自只有一处 —— 同一个位置的两种语言，不是两处。
-    */}
-    <p class="hero__lede">
-      An <strong>always-on voice room</strong> for a small circle of people you
-      already know. Walk in and talk, or just stay open without saying
-      anything, like sitting around a <span class="ember">fire</span>.
-    </p>
+      <h1 class="hero__title">
+        Lares Circle
+        <span class="hero__alt" lang="zh-Hans">炉灵</span>
+      </h1>
 
-    <p class="hero__meta">
-      iOS, Android, Windows, macOS and Web. Currently in TestFlight, not on the
-      App Store yet.
-    </p>
+      {/*
+        英文版的唯一暖色落在 "fire" 上，与中文版的「火」对应。
+        每个页面各自只有一处 —— 同一个位置的两种语言，不是两处。
+        那圈光晕是这个词自己发的（currentColor），不是第二个颜色。
+      */}
+      <p class="hero__lede">
+        An <strong>always-on voice room</strong> for a small circle of people you
+        already know. Walk in and talk, or just stay open without saying
+        anything, like sitting around a <span class="ember">fire</span>.
+      </p>
+
+      <p class="badge">In TestFlight, not on the App Store yet</p>
+
+      <p class="hero__meta">iOS, Android, Windows, macOS and Web.</p>
+    </div>
+
+    {/* 与中文版同一个示意图组件。真机截图待 TestFlight 装上后补。 */}
+    <Hearth
+      caption="A diagram, not a screenshot: the fire sits in the middle and people sit around it. Real screenshots are pending."
+      alt="Diagram: a round room with a fire at the centre, member avatars seated in two rings around it, and a microphone plus two smaller controls at the bottom."
+    />
   </section>
 
   <section aria-labelledby="what">
@@ -64,11 +80,6 @@ import Base from '../../layouts/Base.astro';
         </p>
       </li>
     </ul>
-
-    {/* 与中文版同一个占位。真机截图待 TestFlight 装上后补。 */}
-    <div class="shot" role="img" aria-label="Screenshot pending">
-      Screenshot pending
-    </div>
   </section>
 
   <section aria-labelledby="not">

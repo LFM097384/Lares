@@ -7,3 +7,8 @@
    那是 Guideline 5.1.1 的直接拒绝理由。 */
 "NSMicrophoneUsageDescription" = "Lares Circle needs the microphone so you can talk with people in your circle.";
 "NSLocationWhenInUseUsageDescription" = "When you turn on location sharing, people in your circle can see you on the map. Turn it off and sharing stops.";
+
+/* 相机:本 App 不用,但 libwebrtc 静态引用了相机 API,不声明会被
+   ITMS-90683 判 FAILED。如实说明,不要编一个用途 —— 审核员会读这些字。 */
+"NSCameraUsageDescription" = "Lares Circle does not use the camera. This notice is required because the underlying audio library (WebRTC) references the camera API, even for voice-only calls.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "When you turn on location sharing, people in your circle can see you on the map. Sharing only happens while the app is open — there is no background tracking.";
