@@ -85,6 +85,16 @@ widget.build_configurations.each do |c|
   c.build_settings['MARKETING_VERSION'] = MARKETING_VERSION
   c.build_settings['GENERATE_INFOPLIST_FILE'] = 'NO'
   c.build_settings['PRODUCT_NAME'] = WIDGET_NAME
+  # 签名:走自动签名。CI 带 -allowProvisioningUpdates,
+  # xcodebuild 会拿 ASC API 密钥去为这个 target 申请描述文件。
+  #
+  # Team ID 不写死,从命令行的 DEVELOPMENT_TEAM=... 继承 ——
+  # 这样它不必进仓库,换团队也不用改脚本。
+  #
+  # ⚠️ 少了这两行,归档时 Widget 会因为找不到签名身份而失败,
+  # 报错只会指向 target 名字,不会告诉你缺的是签名配置。
+  c.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+  c.build_settings['DEVELOPMENT_TEAM'] = '$(DEVELOPMENT_TEAM)'
   c.build_settings['LD_RUNPATH_SEARCH_PATHS'] = [
     '$(inherited)',
     '@executable_path/Frameworks',
