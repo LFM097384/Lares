@@ -5,6 +5,11 @@ name: Platform Builds
 
 on:
   workflow_dispatch:
+    inputs:
+      upload_testflight:
+        description: '签名并上传到 TestFlight(需先配好 ASC_* Secrets)'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -50,6 +55,208 @@ jobs:
           name: lares-ios-unsigned
           path: app/build/ios/iphoneos/lares_app.ipa
           retention-days: 14
+
+  # ── TestFlight:已签名构建 + 上传 ────────────────────────────────────────
+  # 与上面的 build-ios 并存,分工不同:
+  #   build-ios        未签名 .ipa —— 侧载、Release 资产、自动更新用
+  #   testflight       已签名 .ipa —— 装进真机、提交 App Store 用
+  #
+  # 只在手动触发且勾选 upload_testflight 时运行 —— 每次上传都会占用一个
+  # build number,误触会浪费号段,也会在 ASC 里堆垃圾构建。
+  #
+  # 需要的 Secrets(仓库 Settings → Secrets and variables → Actions):
+  #   ASC_KEY_ID        App Store Connect API 密钥 ID(10 位)
+  #   ASC_ISSUER_ID     Issuer ID(UUID,整个团队一个)
+  #   ASC_PRIVATE_KEY   .p8 文件的**完整文本**(含 BEGIN/END 行)
+  #   APPLE_TEAM_ID     10 位 Team ID
+  # 配置步骤见 deploy/ios-ci.md。
+  testflight:
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_testflight
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.3'
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Add LaresWidget target
+        run: |
+          gem install xcodeproj --no-document
+          ruby ios/add_widget_target.rb
+
+      # API 密钥落到 altool / xcodebuild 都会去找的标准位置。
+      # altool 按固定顺序搜 AuthKey_<keyId>.p8,~/.appstoreconnect/private_keys
+      # 是其中最规范的一个;xcodebuild 则用 -authenticationKeyPath 显式指定。
+      - name: 安装 App Store Connect API 密钥
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_PRIVATE_KEY" ]; then
+            echo "::error::缺少 ASC_KEY_ID / ASC_PRIVATE_KEY,见 deploy/ios-ci.md"
+            exit 1
+          fi
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s\n' "$ASC_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          # 只验证格式,绝不打印内容
+          head -1 ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            | grep -q 'BEGIN PRIVATE KEY' \
+            || { echo "::error::.p8 格式不对:应以 -----BEGIN PRIVATE KEY----- 开头。检查 Secret 是否粘贴完整(含首尾两行)。"; exit 1; }
+
+      # build number 用 GitHub 的 run_number,保证单调递增。
+      # ASC 拒收重复的 build number(ITMS-90189),而 pubspec 里的 +2 是手写的,
+      # 重跑一次 workflow 就会撞号。
+      - name: 计算 build number
+        id: ver
+        run: |
+          BASE=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1)
+          echo "name=$BASE"               >> "$GITHUB_OUTPUT"
+          echo "build=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "→ $BASE (build ${{ github.run_number }})"
+
+      # 自动签名:xcodebuild 拿 API 密钥自己去 ASC 创建/下载证书和描述文件。
+      # 这样就不必在 Windows 上折腾 CSR → p12 → mobileprovision,
+      # 证书过期也不用管。
+      - name: 构建已签名 .ipa
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          # 先让 Flutter 生成 Xcode 工程与 Generated.xcconfig,
+          # 但不让它自己打包 —— flutter build ipa 在
+          # path_provider_foundation 2.6.0 下会漏掉 Runner.app(flutter#187752)。
+          # 我们已用 dependency_overrides 钉回 2.5.1,这里仍走
+          # xcodebuild archive + exportArchive 的标准路径:多一层保险,
+          # 且导出选项完全可控。
+          flutter build ios --release --no-codesign \
+            --build-name=${{ steps.ver.outputs.name }} \
+            --build-number=${{ steps.ver.outputs.build }} \
+            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://lares.westus.cloudapp.azure.com:443/ws' }}
+
+          KEY=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            archive
+
+          # method 必须是 app-store-connect;旧的 app-store 已弃用
+          cat > /tmp/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>stripSwiftSymbols</key><true/>
+            <!-- false:用我们上面算好的 build number,别让 Xcode 擅自改 -->
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+          ls -lh build/export/
+
+      # 结构自检:flutter#187752 的症状就是 Payload/ 下没有 .app。
+      # 这个 bug 在上传前毫无征兆,只有 altool 报一句指不到原因的
+      # FailedToExpandPackage。与其到那时再猜,不如在这里直接拆开看。
+      - name: 校验 .ipa 结构
+        run: |
+          set -euo pipefail
+          IPA=$(ls build/export/*.ipa | head -1)
+          echo "检查 $IPA"
+          unzip -l "$IPA" | head -20
+          if ! unzip -l "$IPA" | grep -qE 'Payload/[^/]+\.app/'; then
+            echo "::error::.ipa 里的 Payload/ 下没有 .app —— 疑似 flutter#187752。检查 pubspec.yaml 的 dependency_overrides 是否仍钉着 path_provider_foundation 2.5.1。"
+            exit 1
+          fi
+          echo "✓ Payload/*.app 存在"
+
+      # 先 validate 再 upload:validate 免费且快,能提前抓出签名、
+      # 权限、隐私清单一类问题,省掉一次漫长的上传。
+      - name: 预检(altool validate)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          IPA=$(ls build/export/*.ipa | head -1)
+          set +e
+          OUT=$(xcrun altool --validate-app -f "$IPA" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" \
+            --output-format json 2>/tmp/val.err)
+          CODE=$?
+          set -e
+          echo "$OUT"
+          # altool 有个坑:有时 exit 0 但 JSON 里带着 product-errors
+          if echo "$OUT" | grep -q '"product-errors"'; then
+            echo "::error::预检未通过,详见上面的 product-errors"
+            cat /tmp/val.err || true
+            exit 1
+          fi
+          [ $CODE -eq 0 ] || { cat /tmp/val.err; exit $CODE; }
+
+      - name: 上传到 TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          IPA=$(ls build/export/*.ipa | head -1)
+          set +e
+          OUT=$(xcrun altool --upload-package "$IPA" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" \
+            --output-format json 2>/tmp/up.err)
+          CODE=$?
+          set -e
+          echo "$OUT"
+          if echo "$OUT" | grep -q '"product-errors"'; then
+            echo "::error::上传被拒,详见上面的 product-errors"
+            cat /tmp/up.err || true
+            exit 1
+          fi
+          [ $CODE -eq 0 ] || { cat /tmp/up.err; exit $CODE; }
+          echo "✓ 已上传。ASC 处理通常 5–30 分钟,完成后 TestFlight 里可见。"
+
+      # 留一份签名产物便于排查(不含密钥)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lares-ios-signed
+          path: app/build/export/
+          retention-days: 7
 
   # macOS 桌面端顺带构建(同一 runner,产物 .app)
   build-macos:

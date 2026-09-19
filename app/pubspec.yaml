@@ -76,6 +76,25 @@ dependencies:
   local_auth: ^3.0.2
   archive: ^4.3.0
 
+# ⚠️ 钉版本,不是洁癖,是绕开一个会让 iOS 上传直接失败的上游 bug。
+#
+# path_provider_foundation 2.6.0 起改用 objective_c 的 code-assets 机制。
+# 该版本触发 flutter#187752:`flutter build ipa` 打包时会把 Runner.app
+# 从 Payload/ 里漏掉,产出一个结构无效的 .ipa。症状极难定位 ——
+# 构建全绿、产物也在,直到 altool 上传时才报 FailedToExpandPackage,
+# 而那个报错完全指不到真正的原因。
+#
+# 同版本还有 flutter#186794:DOBJC_initializeApi 的 dlopen 用相对路径、
+# 忽略 @rpath,在真机上 FFI 加载崩溃。
+#
+# 2.5.1 是引入 objective_c FFI 之前的最后一版,两个问题都没有。
+# 我们并不需要 2.6.0 的任何新特性 —— path_provider 在本项目只用于
+# 自动更新的下载目录(installer_io.dart),且那条路在 iOS 上根本不走。
+#
+# 解除条件:上游修掉 187752 并发布后,删掉这一段跑一次 iOS 上传验证。
+dependency_overrides:
+  path_provider_foundation: 2.5.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
