@@ -8,7 +8,12 @@ npm-debug.log
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-app/pubspec.lock
+# app/pubspec.lock 刻意**不**忽略(2026-09 改)。
+# Flutter 官方对「应用」的建议就是提交 lock 文件;先前忽略它意味着
+# CI 每次 pub get 都可能解析到不同版本。这不是理论风险 ——
+# path_provider_foundation 从 2.5.1 漂到 2.6.0 会让 iOS 上传产出
+# 结构无效的 ipa(flutter#187752),而报错要到 altool 阶段才出现。
+# 锁住版本,让本地跑通的组合等于 CI 跑的组合。
 *.iml
 .idea/
 
