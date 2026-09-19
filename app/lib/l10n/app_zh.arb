@@ -1,0 +1,54 @@
+{
+  "@@locale": "zh",
+
+  "appTitle": "炉灵",
+  "@appTitle": {
+    "description": "应用名。英文版用 Lares,中文版用炉灵。"
+  },
+
+  "commonCancel": "算了",
+  "@commonCancel": {
+    "description": "取消按钮。刻意不用「取消」—— 口语化一点,和产品语气一致。"
+  },
+
+  "commonConfirm": "好",
+  "@commonConfirm": {
+    "description": "确认按钮"
+  },
+
+  "commonDone": "完成",
+  "@commonDone": {
+    "description": "完成按钮"
+  },
+
+  "homeAddCircle": "加个圈子",
+  "@homeAddCircle": {
+    "description": "主屏幕上新建圈子的按钮"
+  },
+
+  "homeAddCircleHint": "比如:家人、死党群、考研搭子",
+  "@homeAddCircleHint": {
+    "description": "新建圈子时,名称输入框的占位提示。举的例子要像真实的小圈子。"
+  },
+
+  "homePasteInvite": "有邀请链接?粘贴进圈",
+  "@homePasteInvite": {
+    "description": "主屏幕上通过邀请链接加入圈子的入口"
+  },
+
+  "homeKickedBy": "你被{who}请出了房间",
+  "@homeKickedBy": {
+    "description": "被移出房间时的提示",
+    "placeholders": {
+      "who": {
+        "type": "String",
+        "example": "管理员"
+      }
+    }
+  },
+
+  "homeKickedByAdmin": "管理员",
+  "@homeKickedByAdmin": {
+    "description": "移出者名字为空时的兜底称呼,填进 homeKickedBy 的 {who}"
+  }
+}

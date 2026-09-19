@@ -1,0 +1,14 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Lares",
+  "commonCancel": "Never mind",
+  "commonConfirm": "OK",
+  "commonDone": "Done",
+
+  "homeAddCircle": "New circle",
+  "homeAddCircleHint": "Family, close friends, study group…",
+  "homePasteInvite": "Have an invite link? Paste it",
+  "homeKickedBy": "{who} removed you from the room",
+  "homeKickedByAdmin": "An admin"
+}

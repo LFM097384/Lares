@@ -48,3 +48,6 @@ deploy/.state/
 # 音频捕获验证工具的产物(WAV/日志,体积大且机器相关)
 app/spike_out/
 app/tool/capture_out/
+
+# gen-l10n 每次构建重写的缺翻译清单,属构建产物
+app/lib/l10n/untranslated.json

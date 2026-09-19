@@ -21,6 +21,7 @@ exclude:
   - compliance/
   - available-protocol.md
   - recording-consent-protocol.md
+  - l10n-guide.md
 
 # 相对链接在自定义域(docs.laresapp.org)下按根路径解析
 baseurl: ""

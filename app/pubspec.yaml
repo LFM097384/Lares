@@ -9,6 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # 本地化:官方方案。App Store 主语言为 English,而 App 原本全中文 ——
+  # 元数据语言与 App 实际语言不符会被 Guideline 2.3.7 / 4.0 拒。
+  flutter_localizations:
+    sdk: flutter
+  # ARB 生成代码依赖它(也提供日期/数字的区域格式化)
+  intl: any
   # RTC:LiveKit 官方 Flutter SDK(iOS/Android/Windows/macOS 全平台)
   livekit_client: ^2.5.0
   # 裸 WebRTC:点对点直连(lib/src/p2p/)用它,不走 SFU
@@ -103,3 +109,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # 由 l10n.yaml 驱动,从 lib/l10n/*.arb 生成 AppLocalizations
+  generate: true

@@ -1,0 +1,19 @@
+# flutter gen-l10n 的配置。`flutter pub get` 与构建时会自动跑。
+#
+# 模板语言选中文:所有文案都是先用中文写出来的,中文是事实来源。
+# 英文由中文翻译而来,而不是反过来 —— 这样 ARB 里的 description
+# 能贴着原意写,翻译时也不会二次走样。
+arb-dir: lib/l10n
+template-arb-file: app_zh.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+
+# 生成到 .dart_tool/ 之外,纳入版本控制。
+# 理由:CI 上若 gen-l10n 因任何原因没跑,构建会以「找不到 AppLocalizations」
+# 失败在一个和本地化无关的地方,排查成本高。生成物入库则始终可编译。
+output-dir: lib/l10n/gen
+
+# 未翻译的键在构建时报出来,不要静默回落到模板语言 ——
+# 静默回落意味着英文界面里会突然冒出中文,而我们不会发现。
+untranslated-messages-file: lib/l10n/untranslated.json
+nullable-getter: false

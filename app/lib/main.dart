@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
+import 'l10n/gen/app_localizations.dart';
 import 'src/chat/chat_service.dart';
 import 'src/recording/recording_consent.dart';
 import 'src/chat/session_chat_transport.dart';
@@ -427,8 +428,22 @@ class LaresApp extends StatelessWidget {
     );
     final consentStore = consent;
     return MaterialApp(
-      title: 'Lares 炉灵',
+      // onGenerateTitle 而非 title:后者取不到本地化上下文。
+      // 这个标题会出现在 Android 的任务切换器里。
+      onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // 跟随系统语言;系统语言不在 supportedLocales 里时回落到英文
+      // (而不是中文 —— App Store 主语言是 English)。
+      localeResolutionCallback: (locale, supported) {
+        if (locale != null) {
+          for (final l in supported) {
+            if (l.languageCode == locale.languageCode) return l;
+          }
+        }
+        return const Locale('en');
+      },
       // 暗色优先(§8.2-2):默认暗色,跟随系统切亮色
       theme: LaresTheme.light(),
       darkTheme: LaresTheme.dark(),
