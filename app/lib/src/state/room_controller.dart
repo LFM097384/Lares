@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../auth/auth_credential.dart';
 import '../net/signaling_client.dart';
 import '../recording/recording_consent.dart';
 import '../p2p/host_election.dart';
@@ -267,8 +268,28 @@ class RoomController extends ChangeNotifier {
   void preconnect() => _signaling.connect();
 
   /// 一键进房
-  Future<void> join(String targetCircleId) async {
-    if (phase == RoomPhase.joining) return;
+  ///
+  /// [force] 仅供 [retryJoin] 内部使用:它已经把 phase 摆到 joining
+  /// (为了不让界面跳回主页),此时那个「已经在进房了」的守卫会误伤。
+  Future<void> join(String targetCircleId, {bool force = false}) async {
+    if (!force && phase == RoomPhase.joining) return;
+
+    // ⚠️ 凭据不全就别进 joining —— 否则会**永远**停在「正在进去…」。
+    //
+    // 信令层的 connect() 在凭据不完整时会**直接 return 不发起连接**
+    // (见 signaling_client.dart:270,理由是白撞一次只会把服务端的失败
+    // 计数往上推、离 4429 更近)。既然连接压根没建立,就不会有 4401,
+    // 也就不会有 _disconnected —— 上一轮加的失败处理全都等不到。
+    //
+    // 2026-09-19 真机实测:通过邀请链接加的圈子不填口令,必然卡死。
+    // 修 4401 那次只覆盖了「连上了但被拒」,没覆盖「根本没连」。
+    final cred = settings?.credentialFor(targetCircleId);
+    if (cred != null && cred.mode != AuthMode.none && !cred.isComplete) {
+      circleId = targetCircleId;
+      _failJoin(StateError('auth_required'));
+      return;
+    }
+
     phase = RoomPhase.joining;
     errorMessage = null;
     circleId = targetCircleId;
@@ -314,12 +335,18 @@ class RoomController extends ChangeNotifier {
   /// 而期间若再重连一次那条消息就丢了 —— [switchServerAndJoin] 踩过同一个坑,
   /// 所以那里也是先 `waitHandshake` 再 `join`。
   Future<void> retryJoin(String targetCircleId) async {
-    // 上一轮失败的残留状态先清掉,免得界面在等待期间还显示着旧错误。
-    if (phase != RoomPhase.idle) {
-      phase = RoomPhase.idle;
-      errorMessage = null;
-      notifyListeners();
-    }
+    // 清掉上一轮的错误,但**绝不能落到 idle**。
+    //
+    // 移动端 home_screen 用 `phase != idle` 判断「是否显示房间页」,
+    // 一旦 idle 就立刻切回圈子列表 —— 用户刚在房间页填完口令按了重试,
+    // 界面却跳回主页,而后面还要 await 握手最多 10 秒,他只能干看着。
+    // 2026-09-19 真机实测报告的「填完口令自动回到主页面」就是这条。
+    //
+    // 直接进 joining:语义也更准 —— 我们确实正在进房。
+    phase = RoomPhase.joining;
+    errorMessage = null;
+    circleId = targetCircleId;
+    notifyListeners();
 
     // circle 模式下这个 setter 会自己触发一次带新凭据的干净重连;
     // 值没变时它什么都不做,所以下面仍要兜一次显式重连。
@@ -353,7 +380,7 @@ class RoomController extends ChangeNotifier {
     // 失败不会丢:_failJoin 会把 phase / errorMessage 落好并通知监听者,
     // 那才是 UI 真正读的通道。这里只需接住 completeError 以免它变成
     // 未捕获的异步错误。
-    unawaited(join(targetCircleId).catchError((Object _) {}));
+    unawaited(join(targetCircleId, force: true).catchError((Object _) {}));
   }
 
   /// 预热入口:App 启动后为默认圈子提前备 token

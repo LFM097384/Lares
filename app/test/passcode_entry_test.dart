@@ -398,6 +398,47 @@ void main() {
     });
   });
 
+  group('真机实测回归(2026-09-19)', () {
+    test('没填口令时不进 joining —— 直接给出路,不是干等', () async {
+      // 信令层在凭据不完整时**根本不发起连接**(免得白撞一次把失败计数
+      // 推向 4429),于是永远等不到 4401,上一轮修的失败处理全部落空。
+      // 症状:通过邀请链接加的圈子不填口令 → 永久「正在进去…」。
+      final signaling = _FakeSignaling();
+      final settings = await SettingsStore.load(vault: InMemorySecretVault());
+      final controller = _makeController(signaling, settings: settings);
+      addTearDown(controller.dispose);
+
+      await settings.setCirclePasscode('work', 'x'); // 先建出 circle 档案
+      await settings.setCirclePasscode('work', ''); // 再清空口令
+
+      await controller.join('work');
+
+      expect(controller.phase, RoomPhase.error, reason: '不能停在 joining');
+      expect(controller.needsPasscode, isTrue, reason: '要能弹口令框');
+    });
+
+    test('retryJoin 期间不回落 idle —— 否则移动端会跳回主页', () async {
+      // home_screen 用 phase != idle 决定显示房间页还是圈子列表。
+      // retryJoin 曾在开头把 phase 设成 idle 来「清残留」,结果用户
+      // 刚填完口令按重试,界面就跳回主页,而后面还要等握手最多 10 秒。
+      final signaling = _FakeSignaling();
+      final settings = await SettingsStore.load(vault: InMemorySecretVault());
+      final controller = _makeController(signaling, settings: settings);
+      addTearDown(controller.dispose);
+
+      await _failWith4401(signaling, controller, 'work', pump: pumpEventQueue);
+      await settings.setCirclePasscode('work', '对的口令');
+
+      final phases = <RoomPhase>[];
+      controller.addListener(() => phases.add(controller.phase));
+      await controller.retryJoin('work');
+
+      expect(phases, isNot(contains(RoomPhase.idle)),
+          reason: '整个重试过程都不该出现 idle,那会把用户弹回主页');
+      expect(controller.phase, RoomPhase.joining);
+    });
+  });
+
   group('E2EE 要跟着口令一起刷新', () {
     test('刚填的口令能立刻被 E2EE 读到(派生密钥用的就是它)', () async {
       // 口令变化 = E2EE 密钥变化。这里守的是「新填的口令真的走到了
