@@ -88,7 +88,25 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
+      # ⚠️ 必须在「Add LaresWidget target」**之前** ——
+      # 脚本要拿这个号写进 Widget 的 CFBundleVersion,
+      # 两边版本号对不上会触发 ITMS-90473,详见下面那一步的注释。
+      - name: 计算 build number
+        id: ver
+        run: |
+          BASE=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1)
+          echo "name=$BASE"                     >> "$GITHUB_OUTPUT"
+          echo "build=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "→ $BASE (build ${{ github.run_number }})"
+
+      # ⚠️ 这里注入的版本号必须与主 App 完全一致。
+      # 不一致时 ASC 报 ITMS-90473,而那只是个 **warning** ——
+      # 上传显示成功、构建却永远不出现在 TestFlight 里,极难定位。
+      # 2026-09-19 实测踩过:Widget 停在 pubspec 的 +2、主 App 是 run_number 21。
       - name: Add LaresWidget target
+        env:
+          LARES_BUILD_NAME: ${{ steps.ver.outputs.name }}
+          LARES_BUILD_NUMBER: ${{ steps.ver.outputs.build }}
         run: |
           gem install xcodeproj --no-document
           ruby ios/add_widget_target.rb
@@ -112,17 +130,6 @@ jobs:
           head -1 ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
             | grep -q 'BEGIN PRIVATE KEY' \
             || { echo "::error::.p8 格式不对:应以 -----BEGIN PRIVATE KEY----- 开头。检查 Secret 是否粘贴完整(含首尾两行)。"; exit 1; }
-
-      # build number 用 GitHub 的 run_number,保证单调递增。
-      # ASC 拒收重复的 build number(ITMS-90189),而 pubspec 里的 +2 是手写的,
-      # 重跑一次 workflow 就会撞号。
-      - name: 计算 build number
-        id: ver
-        run: |
-          BASE=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1)
-          echo "name=$BASE"               >> "$GITHUB_OUTPUT"
-          echo "build=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-          echo "→ $BASE (build ${{ github.run_number }})"
 
       # 自动签名:xcodebuild 拿 API 密钥自己去 ASC 创建/下载证书和描述文件。
       # 这样就不必在 Windows 上折腾 CSR → p12 → mobileprovision,
@@ -203,6 +210,30 @@ jobs:
             exit 1
           fi
           echo "✓ Payload/*.app 存在"
+
+          # 扩展与主 App 的 CFBundleVersion 必须完全一致。
+          # 不一致时 ASC 只报一个 **warning**(ITMS-90473),上传照样成功,
+          # 但构建会被判为无效、永远不出现在 TestFlight 里 —— 没有任何报错。
+          # 2026-09-19 实测踩过一次,所以在这里主动拦下来。
+          WORK=$(mktemp -d)
+          unzip -q "$IPA" -d "$WORK"
+          APP=$(ls -d "$WORK"/Payload/*.app | head -1)
+          APP_VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
+          echo "主 App CFBundleVersion = $APP_VER"
+          FAILED=0
+          for ext in "$APP"/PlugIns/*.appex; do
+            [ -e "$ext" ] || continue
+            EXT_VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ext/Info.plist")
+            NAME=$(basename "$ext")
+            if [ "$EXT_VER" != "$APP_VER" ]; then
+              echo "::error::$NAME 的 CFBundleVersion 是 $EXT_VER,与主 App 的 $APP_VER 不一致(ITMS-90473)。构建会上传成功但永远不出现在 TestFlight。检查 ios/add_widget_target.rb 是否收到了 LARES_BUILD_NUMBER。"
+              FAILED=1
+            else
+              echo "✓ $NAME = $EXT_VER"
+            fi
+          done
+          rm -rf "$WORK"
+          [ $FAILED -eq 0 ] || exit 1
 
       # 先 validate 再 upload:validate 免费且快,能提前抓出签名、
       # 权限、隐私清单一类问题,省掉一次漫长的上传。

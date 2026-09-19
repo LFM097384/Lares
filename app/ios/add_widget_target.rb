@@ -7,17 +7,29 @@ PROJ_PATH = File.join(__dir__, 'Runner.xcodeproj')
 WIDGET_NAME = 'LaresWidget'
 APP_GROUP = 'group.com.lfm097384.lares'
 
-# 版本号从 pubspec.yaml 读(唯一事实源)。
-# 为什么必须在这里注入:extension 版本号与主 App 不一致时 **App Store 拒收整个包**,
-# 而主 App 走 $(FLUTTER_BUILD_NAME)/$(FLUTTER_BUILD_NUMBER) —— 那两个变量来自
-# Flutter 生成的 Generated.xcconfig,Widget target 并不继承它,取不到值。
+# 版本号默认从 pubspec.yaml 读,但**允许环境变量覆盖**。
+#
+# 为什么必须在这里注入:extension 版本号与主 App 不一致时
+# **ASC 会把整个构建判为无效**(ITMS-90473),而且它只是个
+# warning —— 上传显示成功、构建却永远不出现在 TestFlight 里,
+# 极难定位。2026-09-19 实测踩过一次。
+#
+# 主 App 走 $(FLUTTER_BUILD_NAME)/$(FLUTTER_BUILD_NUMBER),
+# 那两个变量来自 Flutter 生成的 Generated.xcconfig,
+# Widget target 并不继承它,取不到值,所以只能在这里写死。
+#
+# ⚠️ 为什么需要环境变量覆盖:CI 上 build number 用 github.run_number
+# (pubspec 里那个手写的 +N 重跑一次就会撞号,ASC 拒收重复 build number)。
+# 若这里仍读 pubspec,Widget 会停在 +2 而主 App 是 21,于是 90473。
+# 两边必须由**同一个来源**决定。
 # pubspec 的 version 行形如 `version: 0.1.1+2`。
 pubspec_path = File.join(__dir__, '..', 'pubspec.yaml')
 m = File.read(pubspec_path).match(/^version:\s*(\d+(?:\.\d+)*)\+(\d+)\s*$/)
 abort '读不到 pubspec.yaml 的 version(期望形如 `version: 0.1.1+2`)' if m.nil?
-MARKETING_VERSION = m[1]
-BUILD_NUMBER = m[2]
-puts "版本号(取自 pubspec):#{MARKETING_VERSION}+#{BUILD_NUMBER}"
+MARKETING_VERSION = ENV['LARES_BUILD_NAME'].to_s.empty? ? m[1] : ENV['LARES_BUILD_NAME']
+BUILD_NUMBER = ENV['LARES_BUILD_NUMBER'].to_s.empty? ? m[2] : ENV['LARES_BUILD_NUMBER']
+src = ENV['LARES_BUILD_NUMBER'].to_s.empty? ? 'pubspec' : '环境变量'
+puts "版本号(取自 #{src}):#{MARKETING_VERSION}+#{BUILD_NUMBER}"
 
 proj = Xcodeproj::Project.open(PROJ_PATH)
 
