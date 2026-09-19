@@ -220,6 +220,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homePasteInviteHint => 'lares://circle/… 或圈子 id';
 
   @override
+  String get homePasteInvitePasscode => '圈子口令(朋友给了就填)';
+
+  @override
+  String get homePasteInvitePasscodeHint => '没有就空着,进不去的时候还能补';
+
+  @override
   String get homePasteInviteTitle => '粘贴邀请链接';
 
   @override
@@ -662,6 +668,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get roomJoining => '正在进去…';
+
+  @override
+  String get roomPasscodeHint => '口令';
+
+  @override
+  String get roomPasscodeRetry => '再试一次';
+
+  @override
+  String get roomPasscodeSavedElsewhere =>
+      '口令记下了。这台服务器当前用的是共享令牌,得去设置里改成按圈口令才会生效。';
 
   @override
   String get roomJoinLatencyTooltip => '本次进房耗时';

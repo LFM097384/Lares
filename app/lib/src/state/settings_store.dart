@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_credential.dart';
+import '../config.dart';
 import '../net/secret_migration.dart';
 import '../net/secret_vault.dart';
 import '../net/server_profile.dart';
@@ -225,6 +226,82 @@ class SettingsStore extends ChangeNotifier {
       debugPrint('[lares] 凭据写入安全存储失败: $err');
     }
   }
+
+  /// 给某个圈子记一个口令,并保证它**真的会被用上**。
+  ///
+  /// ## 为什么不能只写 `circlePasscodes[circleId] = pass`
+  ///
+  /// 口令只在 `authMode == AuthMode.circle` 时才会被 [credentialFor] 读到
+  /// (见 `ServerProfile.credentialFor` 的 switch)。于是有两种「写了等于没写」:
+  ///
+  /// 1. **一个档案都没有**(全新安装的绝大多数用户):`active` 为 null,
+  ///    根本没有地方可写;
+  /// 2. **档案存在但 authMode 是 none**:值存进去了,但取凭据时那条 case
+  ///    直接返回 `AuthCredential.none`,口令一辈子不会被用到。
+  ///
+  /// 这两种情况恰恰就是本功能要解决的场景 —— 用户刚通过邀请链接加了个圈子。
+  /// 静默无效比不提供输入框更糟:用户填了、按了重试、又被拒,
+  /// 而界面没有任何线索说明为什么。所以这里**顺手把档案补齐**。
+  ///
+  /// ## 边界:绝不动用户显式配过的 token 模式
+  ///
+  /// `authMode == AuthMode.token` 表示用户(或运维)明确选了共享令牌那套。
+  /// 把它改成 circle 会让一个本来能用的配置当场连不上
+  /// —— 因为 circle 模式下 [AuthCredential.isComplete] 要求口令非空,
+  /// 而 `SignalingClient.connect()` 对不完整的凭据**拒绝连接**。
+  /// 所以 token 模式下只把口令存下来(将来切到 circle 模式即刻可用),
+  /// 并返回 false 告诉调用方「存了,但这台服务器现在不吃这一套」。
+  ///
+  /// 返回值:口令是否会**立即生效**。false 时 UI 应当如实告知用户
+  /// 还需要去设置里调整服务器配置,不要假装成功。
+  Future<bool> setCirclePasscode(String circleId, String passcode) async {
+    final id = circleId.trim();
+    if (id.isEmpty) return false;
+
+    final active = serverProfiles.active;
+
+    // 情况 1:一个档案都没有 —— 就地建一个,地址用当前实际在用的那个。
+    if (active == null) {
+      final profileId = serverProfiles.newId();
+      final created = ServerProfile(
+        id: profileId,
+        // 标签不走 ARB:这是存储层,不该依赖 BuildContext。
+        // 用地址本身当名字,比一个翻译过的「我的服务器」更有信息量。
+        label: effectiveSignalingUrl ?? LaresConfig.signalingUrl,
+        url: effectiveSignalingUrl ?? LaresConfig.signalingUrl,
+        authMode: AuthMode.circle,
+        circlePasscodes: {id: passcode},
+      );
+      await setServerProfiles(ServerProfiles(
+        profiles: [...serverProfiles.profiles, created],
+        activeId: profileId,
+      ));
+      return true;
+    }
+
+    final merged = <String, String>{...active.circlePasscodes, id: passcode};
+
+    // 情况 2:token 模式 —— 只存,不改模式(理由见上)。
+    if (active.authMode == AuthMode.token) {
+      await upsertProfile(active.copyWith(circlePasscodes: merged));
+      return false;
+    }
+
+    // 情况 3:none 或已经是 circle。
+    //
+    // none -> circle 是安全的升级:none 意味着用户从没配过鉴权
+    // (多半是本地开发默认值或迁移过来的老 signalingOverride),
+    // 而此刻用户正在**亲手输入一个圈子口令**,意图不言自明。
+    await upsertProfile(active.copyWith(
+      authMode: AuthMode.circle,
+      circlePasscodes: merged,
+    ));
+    return true;
+  }
+
+  /// 某个圈子当前存着的口令(没有则空串)。供 UI 预填输入框。
+  String passcodeFor(String circleId) =>
+      serverProfiles.active?.circlePasscodes[circleId] ?? '';
 
   /// 新增或更新一个档案(按 id 覆盖),并可顺手设为当前
   Future<void> upsertProfile(ServerProfile profile, {bool activate = false}) {

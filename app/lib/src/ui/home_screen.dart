@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -80,6 +82,7 @@ class HomeScreen extends StatelessWidget {
         final list = _CircleList(
           controller: controller,
           circleStore: circleStore,
+          settings: settings,
           e2ee: e2ee,
         );
         return ListenableBuilder(
@@ -193,11 +196,15 @@ class _CircleList extends StatelessWidget {
   const _CircleList({
     required this.controller,
     required this.circleStore,
+    required this.settings,
     this.e2ee,
   });
 
   final RoomController controller;
   final CircleStore circleStore;
+
+  /// 口令要存进它(走 SecretVault,不落明文 prefs)。
+  final SettingsStore settings;
   final E2EEController? e2ee;
 
   @override
@@ -283,46 +290,84 @@ class _CircleList extends StatelessWidget {
     await circleStore.add(Circle(id: id, name: name.trim()));
   }
 
-  /// 粘贴邀请链接进圈:`lares://circle/<id>?name=X`,或直接粘贴圈子 id
+  /// 粘贴邀请链接进圈:`lares://circle/<id>?name=X`,或直接粘贴圈子 id。
+  ///
+  /// 口令是**可选**的第二个字段:邀请链接刻意不带口令(带上等于把 E2EE
+  /// 密钥一起发出去,而链接会经微信/短信/剪贴板流转),朋友通常会另外发一份。
+  /// 一次填完最顺;不填也能继续 —— 进不去时房内还能补。
   Future<void> _showJoinByLinkDialog(BuildContext context) async {
     final t = AppLocalizations.of(context);
     final field = TextEditingController();
-    final input = await showDialog<String>(
+    final passField = TextEditingController();
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(t.homePasteInviteTitle),
-        content: TextField(
-          controller: field,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: t.homePasteInviteHint,
-          ),
-          onSubmitted: (_) => Navigator.pop(ctx, field.text),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: field,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: t.homePasteInviteHint,
+              ),
+            ),
+            const SizedBox(height: LaresSpacing.sm),
+            TextField(
+              controller: passField,
+              // 口令不回显:旁边有人看着屏幕是最常见的泄露方式,
+              // 而这个输入框的场景恰恰是「朋友刚把口令发给你」。
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: t.homePasteInvitePasscode,
+                hintText: t.homePasteInvitePasscodeHint,
+              ),
+              onSubmitted: (_) => Navigator.pop(ctx, true),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: Text(t.commonCancel),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, field.text),
+            onPressed: () => Navigator.pop(ctx, true),
             child: Text(t.homeJoinCircle),
           ),
         ],
       ),
     );
-    if (input == null) return;
+    if (ok != true) return;
     // 兜底圈名在这里取(UI 层),不把 context 递进 _parseInvite ——
     // 那是个纯函数,应当保持可单测。
-    final circle = _parseInvite(input.trim(), t.homeInvitedCircleFallback);
+    final circle = _parseInvite(field.text.trim(), t.homeInvitedCircleFallback);
     if (circle == null) return;
     await circleStore.add(circle);
+
+    // 口令要在进房**之前**存好:进房路径上要拿它算鉴权证明,
+    // 还要派生 E2EE 密钥(prepareEncryption 在 rtc.join 之前跑)。
+    // 晚一步存就等于这次进房仍然没有口令。
+    final pass = passField.text;
+    if (pass.isNotEmpty) {
+      await settings.setCirclePasscode(circle.id, pass);
+    }
+
     // 直接进房
     if (controller.phase != RoomPhase.idle &&
         controller.circleId != circle.id) {
       await controller.leave();
     }
-    controller.join(circle.id);
+    // 刚填了口令:走 retryJoin —— 它会先把连接的「证明哪个圈子」摆正
+    // 并带新凭据重新握手。普通 join 用的是上一次握手的身份,
+    // 而那多半证明的是主圈子,不是刚加的这个。
+    if (pass.isNotEmpty) {
+      unawaited(controller.retryJoin(circle.id));
+    } else {
+      controller.join(circle.id);
+    }
   }
 
   /// [fallbackName] 由调用方从本地化取好再传进来,保持本函数不依赖 context。

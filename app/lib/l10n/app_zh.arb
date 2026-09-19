@@ -271,6 +271,14 @@
   "@homePasteInviteHint": {
     "description": "粘贴邀请链接输入框的提示文字"
   },
+  "homePasteInvitePasscode": "圈子口令(朋友给了就填)",
+  "@homePasteInvitePasscode": {
+    "description": "粘贴邀请链接对话框里可选的口令输入框标签。邀请链接刻意不带口令,朋友通常会另外发一份"
+  },
+  "homePasteInvitePasscodeHint": "没有就空着,进不去的时候还能补",
+  "@homePasteInvitePasscodeHint": {
+    "description": "口令输入框的占位提示。强调可以不填,别让人卡在这一步"
+  },
   "homePasteInviteTitle": "粘贴邀请链接",
   "@homePasteInviteTitle": {
     "description": "粘贴邀请链接对话框的标题"
@@ -811,6 +819,18 @@
   "roomJoining": "正在进去…",
   "@roomJoining": {
     "description": "正在加入房间时的状态行"
+  },
+  "roomPasscodeHint": "口令",
+  "@roomPasscodeHint": {
+    "description": "进房被拒后,房内那个补填口令输入框的标签"
+  },
+  "roomPasscodeRetry": "再试一次",
+  "@roomPasscodeRetry": {
+    "description": "填完口令后重新进房的按钮"
+  },
+  "roomPasscodeSavedElsewhere": "口令记下了。这台服务器当前用的是共享令牌,得去设置里改成按圈口令才会生效。",
+  "@roomPasscodeSavedElsewhere": {
+    "description": "服务器档案是 token 模式时的提示:口令存下了但不会立刻生效,不要假装成功"
   },
   "roomJoinLatencyTooltip": "本次进房耗时",
   "@roomJoinLatencyTooltip": {

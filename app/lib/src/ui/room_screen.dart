@@ -104,6 +104,13 @@ class _RoomScreenState extends State<RoomScreen> {
                     controller: controller,
                     e2ee: widget.e2ee!,
                   ),
+                // 「这个圈子要口令」—— 当场补填,不必跑去设置页。
+                // 放在敲门横幅之前:它是一条**挡路**的错误,
+                // 而敲门是别人的请求,此刻还轮不到。
+                _PasscodeRetryBanner(
+                  controller: controller,
+                  settings: widget.settings,
+                ),
                 _KnockBanner(controller: controller, settings: widget.settings),
                 // 录音指示器:房间里有人在录音时对**所有人**常驻显示。
                 // 这是本 App 唯一刻意「吵」的组件 —— 安静的设计 ≠ 藏起来。
@@ -241,6 +248,132 @@ class _BreathingBackgroundState extends State<_BreathingBackground>
             ),
           ),
           child: const SizedBox.expand(),
+        );
+      },
+    );
+  }
+}
+
+/// 进房被拒于「差一个口令」时,当场补填的横幅。
+///
+/// ## 为什么值得一个常驻输入框,而不是一句「去设置里填」
+///
+/// 邀请链接**刻意不带口令** —— 口令经 Argon2id 派生出 E2EE 密钥,写进链接
+/// 等于把密钥一起发出去,而链接会经微信/短信/剪贴板流转。代价是:通过链接
+/// 加进来的圈子,本地必然没有口令,第一次进房必然被 4401 拒。
+///
+/// 那是新用户遇到的**第一个**障碍。让他去翻设置页、找到服务器档案、
+/// 看懂「按圈口令」是什么意思,才能填一个朋友刚发给他的四位数 —— 太远了。
+///
+/// ## 只在「确实是口令问题」时出现
+///
+/// 判据是 [RoomController.needsPasscode],它读的是结构化的错误种类,
+/// 不是去匹配错误文案的文字。网络不好、服务器没配 LiveKit 的时候弹口令框
+/// 是误导 —— 用户会反复输入一个本来就没错的口令。
+class _PasscodeRetryBanner extends StatefulWidget {
+  const _PasscodeRetryBanner({required this.controller, this.settings});
+
+  final RoomController controller;
+  final SettingsStore? settings;
+
+  @override
+  State<_PasscodeRetryBanner> createState() => _PasscodeRetryBannerState();
+}
+
+class _PasscodeRetryBannerState extends State<_PasscodeRetryBanner> {
+  final _field = TextEditingController();
+
+  /// 正在保存/重连中:按钮置灰,防止连点。
+  /// 连点的代价是实打实的:服务端 5 分钟 10 次失败就封 IP(4429)。
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final settings = widget.settings;
+    final circleId = widget.controller.circleId;
+    final pass = _field.text;
+    if (settings == null || circleId == null || pass.isEmpty || _busy) return;
+
+    setState(() => _busy = true);
+    // 存口令。返回 false 表示「存下了,但这台服务器当前用的是共享令牌,
+    // 不会立刻生效」—— 那种情况必须如实说,不能假装重试会成功。
+    final effective = await settings.setCirclePasscode(circleId, pass);
+    if (!mounted) return;
+
+    if (!effective) {
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).roomPasscodeSavedElsewhere),
+        ),
+      );
+      return;
+    }
+
+    // 输入框在重试之前就清空:口令已经存进 SecretVault 了,
+    // 没有任何理由让它继续留在一个 widget 的内存里。
+    _field.clear();
+    await widget.controller.retryJoin(circleId);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        // settings 为 null 时不渲染:没有它就无处存口令,
+        // 给一个按了没反应的按钮比不给更糟(可选协作者一律优雅降级)。
+        if (!widget.controller.needsPasscode || widget.settings == null) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            LaresSpacing.lg,
+            LaresSpacing.sm,
+            LaresSpacing.lg,
+            0,
+          ),
+          child: Card(
+            color: Theme.of(context).colorScheme.surface,
+            child: Padding(
+              padding: const EdgeInsets.all(LaresSpacing.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _field,
+                      // 不回显:这个场景就是「旁边可能有人」。
+                      obscureText: true,
+                      enabled: !_busy,
+                      decoration: InputDecoration(
+                        labelText: t.roomPasscodeHint,
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                  ),
+                  const SizedBox(width: LaresSpacing.sm),
+                  FilledButton(
+                    onPressed: _busy ? null : _submit,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(t.roomPasscodeRetry),
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );

@@ -231,6 +231,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homePasteInviteHint => 'lares://circle/… or a circle id';
 
   @override
+  String get homePasteInvitePasscode =>
+      'Circle passcode (if your friend sent one)';
+
+  @override
+  String get homePasteInvitePasscodeHint =>
+      'Leave it blank if you don\'t have one — you can add it later';
+
+  @override
   String get homePasteInviteTitle => 'Paste an invite link';
 
   @override
@@ -713,6 +721,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get roomJoining => 'Going in…';
+
+  @override
+  String get roomPasscodeHint => 'Passcode';
+
+  @override
+  String get roomPasscodeRetry => 'Try again';
+
+  @override
+  String get roomPasscodeSavedElsewhere =>
+      'Passcode saved. This server currently uses a shared token, so you\'ll need to switch it to per-circle passcodes in settings before it works.';
 
   @override
   String get roomJoinLatencyTooltip => 'How long it took to get in';

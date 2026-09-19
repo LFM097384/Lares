@@ -72,7 +72,38 @@ class RoomController extends ChangeNotifier {
 
   RoomPhase phase = RoomPhase.idle;
   String? circleId;
-  String? errorMessage;
+
+  String? _errorMessage;
+
+  /// 给用户看的一句人话(没失败时为 null)。
+  ///
+  /// 做成属性而不是裸字段,是为了在**每一处**赋值时顺手记下这次失败的
+  /// [lastErrorKind]。失败路径有六七条(鉴权被拒、限流、RTC 未配置、敲门超时、
+  /// 跨服务器连不上、`_connectRtc` 的 catch),挨个去改既啰嗦又必然漏 ——
+  /// 而漏掉一条的表现是「该弹的口令框不弹」,很难在测试里发现。
+  ///
+  /// 尤其是:`_failJoin` 是刚修好「卡死在正在进去…」那个 bug 的地方,
+  /// 已有测试盯着,这样写就一个字都不用动它。
+  String? get errorMessage => _errorMessage;
+
+  set errorMessage(String? value) {
+    _errorMessage = value;
+    // 反查种类。自定义文案(如跨服务器失败)对不上任何一条,落 null ——
+    // 那正确:它们本来也不该弹口令框。
+    lastErrorKind = value == null ? null : kindOfJoinMessage(value);
+  }
+
+  /// 最近一次失败的**种类**(没失败过则为 null)。
+  ///
+  /// 与 [errorMessage] 的分工:那个是给人看的一句话,这个是给代码看的一位信息。
+  /// UI 要据此决定「该不该显示口令输入框」—— 绝不能去匹配 [errorMessage]
+  /// 的文字,那在英文界面下当场失效,也经不起一次文案润色。
+  JoinErrorKind? lastErrorKind;
+
+  /// 这次失败是不是「差一个口令」。房内补填口令的入口只在它为 true 时出现 ——
+  /// 网络不好、服务器没配 LiveKit 的时候弹口令框纯属误导。
+  bool get needsPasscode =>
+      phase == RoomPhase.error && lastErrorKind == JoinErrorKind.needsPasscode;
 
   /// 最近一次进房耗时(性能透明度,设计.md §2.2)
   Duration? lastJoinLatency;
@@ -259,6 +290,70 @@ class RoomController extends ChangeNotifier {
     }
     // 后续由 _onSignalingMessage 的 room/token 事件接力
     return _joinCompleter!.future;
+  }
+
+  /// 刚填完口令之后重新进房。
+  ///
+  /// ## 为什么不能直接再调一次 [join]
+  ///
+  /// 两个原因,少考虑任何一个都会表现成「填了口令,按重试,还是进不去」:
+  ///
+  /// 1. **信令层已经停止重连了。** 4401 之后 `_onAuthRejected` 给一次重试机会,
+  ///    第二次仍失败就**不再排重连定时器**(否则 5 分钟 10 次必然撞上 4429 封禁)。
+  ///    它明确把主动权交还给上层:「等用户改口令后 reconnectWithNewCredential()
+  ///    再来」。所以必须显式叫醒它,否则 [join] 发出的消息只会躺在 outbox 里。
+  ///
+  /// 2. **连接证明的是「哪个圈子」得先对。** circle 模式下服务端把会话钉死在
+  ///    证明过的那个圈子上(`server/src/index.js` 的 `circleAllowed`),
+  ///    而 `authCircleId` 在 `main.dart` 里只跟着**主圈子**走。
+  ///    通过邀请链接加进来的圈子通常不是主圈子 —— 不在这里纠正,
+  ///    握手就会拿 home 的口令去证明 work,必然再次 4401。
+  ///
+  /// 顺序很要紧:先摆正 `authCircleId`(它的 setter 在 circle 模式下自带一次
+  /// 干净重连),再等握手,最后才 join。握手没完成就 join,消息会进 outbox,
+  /// 而期间若再重连一次那条消息就丢了 —— [switchServerAndJoin] 踩过同一个坑,
+  /// 所以那里也是先 `waitHandshake` 再 `join`。
+  Future<void> retryJoin(String targetCircleId) async {
+    // 上一轮失败的残留状态先清掉,免得界面在等待期间还显示着旧错误。
+    if (phase != RoomPhase.idle) {
+      phase = RoomPhase.idle;
+      errorMessage = null;
+      notifyListeners();
+    }
+
+    // circle 模式下这个 setter 会自己触发一次带新凭据的干净重连;
+    // 值没变时它什么都不做,所以下面仍要兜一次显式重连。
+    final before = _signaling.authCircleId;
+    _signaling.authCircleId = targetCircleId;
+    if (before == targetCircleId) {
+      // 圈子没变、变的是口令本身(最常见:用户填了之前压根没有的那个口令)。
+      // 这条路径必须显式重连 —— 见上面第 1 条,信令层已经不会自己再来了。
+      _signaling.reconnectWithNewCredential();
+    }
+
+    // 握手要现做:刚刚才把连接拆了重建。给的时间与跨服务器那条路径一致。
+    final ok = await _signaling.waitHandshake(const Duration(seconds: 10));
+    if (!ok) {
+      // 没握上手的原因通常仍是鉴权(口令又错了),也可能是网络。
+      // 统一走 humanize,措辞与其它失败路径保持一致。
+      phase = RoomPhase.error;
+      errorMessage = humanizeJoinError(StateError('auth_failed'));
+      notifyListeners();
+      return;
+    }
+
+    // ⚠️ 刻意**不 await** join() 的返回值。
+    //
+    // join() 返回的是 `_joinCompleter.future` —— 它要等服务器把 room/token
+    // 发回来才完成,失败时则 completeError。本方法的职责到「已经把这次进房
+    // 发出去了」为止:界面要的是 phase 从 error 变回 joining(转圈),
+    // 而不是一个要等好几秒才落地的 Future。await 它会让调用方(以及测试)
+    // 一直挂着,而在服务端压根不回话的 4401 场景里,那就是永远。
+    //
+    // 失败不会丢:_failJoin 会把 phase / errorMessage 落好并通知监听者,
+    // 那才是 UI 真正读的通道。这里只需接住 completeError 以免它变成
+    // 未捕获的异步错误。
+    unawaited(join(targetCircleId).catchError((Object _) {}));
   }
 
   /// 预热入口:App 启动后为默认圈子提前备 token

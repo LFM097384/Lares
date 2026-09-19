@@ -434,6 +434,18 @@ abstract class AppLocalizations {
   /// **'lares://circle/… 或圈子 id'**
   String get homePasteInviteHint;
 
+  /// 粘贴邀请链接对话框里可选的口令输入框标签。邀请链接刻意不带口令,朋友通常会另外发一份
+  ///
+  /// In zh, this message translates to:
+  /// **'圈子口令(朋友给了就填)'**
+  String get homePasteInvitePasscode;
+
+  /// 口令输入框的占位提示。强调可以不填,别让人卡在这一步
+  ///
+  /// In zh, this message translates to:
+  /// **'没有就空着,进不去的时候还能补'**
+  String get homePasteInvitePasscodeHint;
+
   /// 粘贴邀请链接对话框的标题
   ///
   /// In zh, this message translates to:
@@ -1129,6 +1141,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在进去…'**
   String get roomJoining;
+
+  /// 进房被拒后,房内那个补填口令输入框的标签
+  ///
+  /// In zh, this message translates to:
+  /// **'口令'**
+  String get roomPasscodeHint;
+
+  /// 填完口令后重新进房的按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'再试一次'**
+  String get roomPasscodeRetry;
+
+  /// 服务器档案是 token 模式时的提示:口令存下了但不会立刻生效,不要假装成功
+  ///
+  /// In zh, this message translates to:
+  /// **'口令记下了。这台服务器当前用的是共享令牌,得去设置里改成按圈口令才会生效。'**
+  String get roomPasscodeSavedElsewhere;
 
   /// 房间头部延迟数字的悬浮提示
   ///
