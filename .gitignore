@@ -51,3 +51,7 @@ app/tool/capture_out/
 
 # gen-l10n 每次构建重写的缺翻译清单,属构建产物
 app/lib/l10n/untranslated.json
+
+# subagent 本地化施工时的中间草稿,非交付物
+app/.l10nwork/
+app/.l10n_verify_moderation/

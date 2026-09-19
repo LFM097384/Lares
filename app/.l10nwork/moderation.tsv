@@ -1,8 +1,0 @@
-moderationBlock	GETTER	lib\src\ui\moderation_menus.dart
-moderationBlockHint	GETTER	lib\src\ui\moderation_menus.dart
-moderationBlockShort	GETTER	lib\src\ui\moderation_menus.dart
-moderationNoUserId	GETTER	lib\src\ui\moderation_menus.dart
-moderationSuggestBlockBody	GETTER	lib\src\ui\moderation_menus.dart
-moderationSuggestBlockTitle	GETTER	lib\src\ui\moderation_menus.dart
-moderationUnblock	GETTER	lib\src\ui\moderation_menus.dart
-moderationUnblockHint	GETTER	lib\src\ui\moderation_menus.dart
