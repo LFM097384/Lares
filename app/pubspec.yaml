@@ -1,7 +1,17 @@
 name: lares_app
-description: "Lares 炉灵 — 宅火的守护神，随人而动;小圈子常驻语音空间"
+description: "Lares Circle 炉灵 — 小圈子常驻语音空间"
 publish_to: "none"
-version: 0.1.1+2
+# ⚠️ 这个版本号必须 **等于或高于** App Store Connect 里那个
+# appStoreVersion 的 versionString。
+#
+# 2026-09-19 踩过:ASC 建 App 时自动创建了 1.0 的版本容器,
+# 而这里是 0.1.1。上传 altool 报 "No errors"、有 delivery-uuid、
+# 32MB 确实传到了 Apple —— 但构建**从未出现**在 TestFlight,
+# API 查 /builds 返回空,没有任何报错或邮件。
+# 0.1.1 < 1.0 属于版本回退,ASC 静默丢弃。
+#
+# 改版本号前先查一眼 ASC 现有的 versionString。
+version: 1.0.0+2
 
 environment:
   sdk: ">=3.8.0 <4.0.0"
