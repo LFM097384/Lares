@@ -44,9 +44,14 @@ String humanizeJoinError(Object error) {
   final text = error.toString();
 
   // 鉴权失败。服务端用 4401 关闭连接(见 server/src/index.js)
+  //
+  // 文案刻意说「要口令」而不是「口令不对」:最常见的触发场景是
+  // 刚通过邀请链接加了个圈子 —— 链接里**不带口令**(那是有意的,
+  // 口令进链接等于把 E2EE 密钥也发出去),所以本地压根没存过口令。
+  // 这时候说「口令不对」会让用户去改一个根本不存在的东西。
   if (text.contains('4401') || text.contains('auth_failed') ||
       text.contains('auth_required')) {
-    return '口令不对,进不去。到设置里检查一下这个圈子的口令。';
+    return '这个圈子要口令才能进。问一下拉你进来的人,然后在设置里填上。';
   }
 
   // 限流:连续输错口令会被临时封

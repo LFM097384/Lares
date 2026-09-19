@@ -666,8 +666,40 @@ class RoomController extends ChangeNotifier {
         if (phase == RoomPhase.inRoom) {
           phase = RoomPhase.joining; // 信令重连后会自动 hello;房间态待恢复
           notifyListeners();
+          return;
+        }
+        // ⚠️ 正在进房时断开 —— 这里以前什么都不做,于是卡死在「正在进去…」。
+        //
+        // 鉴权失败(4401)时服务端直接关连接,**不会**发任何消息,
+        // 所以 'room' / 'token' 分支永远不会执行,_joinCompleter 永远挂着,
+        // 界面就停在 joining 转圈,连「算了」都退不出来。
+        // 2026-09-19 真机实测撞到:用没配口令的圈子进房,必然卡死。
+        //
+        // 只有 4401 / 4429 这类**确定性失败**才落到 error ——
+        // 普通网络抖动仍交给信令层自动重连,不打断用户。
+        final int? code = msg['closeCode'] as int?;
+        if (phase == RoomPhase.joining && (code == 4401 || code == 4429)) {
+          // 传字符串而非自定义异常类:humanizeJoinError 本来就靠
+          // toString() 里的关键码分派,新加类型反而要改两处。
+          _failJoin(StateError(code == 4401 ? 'auth_failed' : 'rate_limited'));
         }
     }
+  }
+
+  /// 进房失败的统一出口:把 phase 落到 error、给出人话、解开 completer。
+  ///
+  /// 单独抽出来是因为失败路径有好几条(鉴权被拒、限流、RTC 未配置、
+  /// 敲门超时),以前各写各的,`_joinCompleter` 很容易漏掉一条 ——
+  /// 漏了就是界面永久卡在「正在进去…」,连「算了」都退不出来。
+  void _failJoin(Object error) {
+    phase = RoomPhase.error;
+    errorMessage = humanizeJoinError(error);
+    _joinStopwatch?.stop();
+    // completeError 必须有人接,否则会变成未捕获异步错误。
+    // join() 的调用方(home_screen)已经 catch 了。
+    _joinCompleter?.completeError(error);
+    _joinCompleter = null;
+    notifyListeners();
   }
 
   /// 测试注入:模拟收到服务器 token 事件(与 'token' 分支行为一致)

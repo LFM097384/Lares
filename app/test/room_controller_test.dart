@@ -314,6 +314,69 @@ void main() {
       controller.dispose();
     });
   });
+
+  group('进房时被服务器拒绝', () {
+    // 2026-09-19 真机实测:通过邀请链接加的圈子本地没有口令,
+    // 进房时服务端直接 4401 关连接、**不发任何消息**,
+    // 于是 'room'/'token' 分支永不执行、_joinCompleter 永不完成,
+    // 界面死在「正在进去…」,连「算了」都退不出来。
+    RoomController makeController(FakeSignalingClient s) => RoomController(
+      signaling: s,
+      rtc: FakeRtcService(),
+      userId: 'u_me',
+      deviceId: 'd_1',
+      userName: '我',
+    );
+
+    test('4401 让进房落到 error,而不是卡在 joining', () async {
+      final signaling = FakeSignalingClient();
+      final controller = makeController(signaling);
+      addTearDown(controller.dispose);
+
+      // 先挂上错误监听再注入 —— completeError 若无人接会变成未捕获异常,
+      // 测试会以 "Bad state" 失败,而那是测试的问题不是代码的问题。
+      final joined = controller.join('review');
+      final expectation = expectLater(joined, throwsA(isA<StateError>()));
+      expect(controller.phase, RoomPhase.joining);
+
+      signaling.testInject({'t': '_disconnected', 'closeCode': 4401});
+      await pumpEventQueue();
+
+      expect(controller.phase, RoomPhase.error, reason: '必须给用户一个出路');
+      // 文案说「要口令」而不是「口令不对」—— 邀请链接不带口令是有意设计,
+      // 本地压根没存过,说「不对」会让用户去改一个不存在的东西。
+      expect(controller.errorMessage, contains('口令'));
+      await expectation;
+    });
+
+    test('4429 同样不卡住', () async {
+      final signaling = FakeSignalingClient();
+      final controller = makeController(signaling);
+      addTearDown(controller.dispose);
+
+      final joined = controller.join('review');
+      final expectation = expectLater(joined, throwsA(isA<StateError>()));
+      signaling.testInject({'t': '_disconnected', 'closeCode': 4429});
+      await pumpEventQueue();
+
+      expect(controller.phase, RoomPhase.error);
+      await expectation;
+    });
+
+    test('普通断开仍然交给自动重连,不打断用户', () async {
+      // 关键边界:网络抖动不该弹错误。只有 4401/4429 这类
+      // **确定性失败**才落 error,其余仍由信令层重连。
+      final signaling = FakeSignalingClient();
+      final controller = makeController(signaling);
+      addTearDown(controller.dispose);
+
+      controller.join('review');
+      signaling.testInject({'t': '_disconnected'}); // 无 closeCode
+      await pumpEventQueue();
+
+      expect(controller.phase, RoomPhase.joining, reason: '抖动不该变成错误');
+    });
+  });
 }
 
 extension on FakeRtcService {
