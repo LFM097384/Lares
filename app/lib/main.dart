@@ -82,18 +82,29 @@ Future<void> main() async {
   //
   // `_credentialNow()` 里那个「circleId 为 null 才补 authCircleId」的兜底
   // 救不了这条:credentialFor() 返回的 circleId 是非空的主圈 id。
-  // 用 late + 自引用,让凭据回调直接读 signaling.authCircleId ——
-  // 那是「当前要证明哪个圈」的**唯一事实源**,由 join / retryJoin /
-  // 换主圈三条路径共同维护。另设一个镜像变量必然漏同步。
-  late final SignalingClient signaling;
+  //
+  // ⚠️ 不要写成 `late final SignalingClient signaling` + 回调里自引用。
+  // 试过,**会白屏**:级联 `..authCircleId = ...` 在 signaling 赋值
+  // **完成之前**执行,setter 内部调 _credentialNow() → 回调读 signaling
+  // → LateInitializationError → 启动即崩。
+  // 而 `flutter test` 抓不到 —— 没有测试覆盖 main() 的初始化顺序。
+  //
+  // 改用可空引用:回调触发时它必然已经赋好值(第一次触发最早也在
+  // 下面那行 setter 里,那时构造已经返回),而空值有明确的回落。
+  SignalingClient? signalingRef;
 
-  // 凭据现取现用:每条 challenge 到达时回调一次,用户改完口令下次重连自然生效
-  signaling = SignalingClient(
+  // 凭据现取现用:每条 challenge 到达时回调一次,用户改完口令下次重连自然生效。
+  // 圈子取自 signaling.authCircleId —— 那是「当前要证明哪个圈」的唯一事实源,
+  // 由 RoomController.join / retryJoin 与下面「换主圈」共同维护。
+  final signaling = SignalingClient(
     url: signalingUrl,
     userId: identity.userId,
-    credentials: () =>
-        settings.credentialFor(signaling.authCircleId ?? primaryCircleId()),
-  )..authCircleId = primaryCircleId();
+    credentials: () => settings
+        .credentialFor(signalingRef?.authCircleId ?? primaryCircleId()),
+  );
+  signalingRef = signaling;
+  // 分开写,不用级联:级联会在变量赋值前触发 setter(见上面的白屏教训)。
+  signaling.authCircleId = primaryCircleId();
   // 单独持有引用:聊天传输层要从它拿底层 Room(见 rtc.room 的注释)
   final rtc = LiveKitRtcService(hostOnlyIce: LaresConfig.hostOnlyIce);
   final controller = RoomController(
