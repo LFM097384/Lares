@@ -70,11 +70,29 @@ Future<void> main() async {
   // (真机联调局域网 IP 常变,免重打包)
   final signalingUrl =
       settings.effectiveSignalingUrl ?? LaresConfig.signalingUrl;
+  // 正在向服务器证明哪个圈子。**凭据必须跟着它走,不能跟着主圈走。**
+  //
+  // ⚠️ 2026-09-19 真机实测撞到的 bug:这里原本写的是
+  //   credentials: () => settings.credentialFor(primaryCircleId())
+  // 于是无论 authCircleId 指向哪个圈,拿去算证明的**永远是主圈的口令**。
+  //
+  // 症状极具迷惑性:用户从邀请链接加了 review 圈、填对了 review 的口令,
+  // 客户端却拿 home 的口令去证明 review —— 服务端 4401,界面再次要口令,
+  // 用户以为自己输错了,反复重输仍然进不去,而口令其实一直是对的。
+  //
+  // `_credentialNow()` 里那个「circleId 为 null 才补 authCircleId」的兜底
+  // 救不了这条:credentialFor() 返回的 circleId 是非空的主圈 id。
+  // 用 late + 自引用,让凭据回调直接读 signaling.authCircleId ——
+  // 那是「当前要证明哪个圈」的**唯一事实源**,由 join / retryJoin /
+  // 换主圈三条路径共同维护。另设一个镜像变量必然漏同步。
+  late final SignalingClient signaling;
+
   // 凭据现取现用:每条 challenge 到达时回调一次,用户改完口令下次重连自然生效
-  final signaling = SignalingClient(
+  signaling = SignalingClient(
     url: signalingUrl,
     userId: identity.userId,
-    credentials: () => settings.credentialFor(primaryCircleId()),
+    credentials: () =>
+        settings.credentialFor(signaling.authCircleId ?? primaryCircleId()),
   )..authCircleId = primaryCircleId();
   // 单独持有引用:聊天传输层要从它拿底层 Room(见 rtc.room 的注释)
   final rtc = LiveKitRtcService(hostOnlyIce: LaresConfig.hostOnlyIce);

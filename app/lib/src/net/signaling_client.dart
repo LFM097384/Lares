@@ -233,7 +233,14 @@ class SignalingClient {
   AuthCredential _credentialNow() {
     final src = _credentials;
     final base = src == null ? AuthCredential.none : src();
-    return base.mode == AuthMode.circle && base.circleId == null
+    if (base.mode != AuthMode.circle) return base;
+
+    // 只在调用方没指定圈子时兜底补上 authCircleId。
+    //
+    // ⚠️ 不要在这里「强制改成 authCircleId」—— copyWith 只换 id 不换口令,
+    // 结果会是「拿 A 圈的口令声称要进 B 圈」,比原来更糟。
+    // 凭据与圈子必须**成对**取,那是凭据来源(main.dart 的回调)的职责。
+    return base.circleId == null
         ? base.copyWith(circleId: _authCircleId)
         : base;
   }

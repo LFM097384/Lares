@@ -297,6 +297,15 @@ class RoomController extends ChangeNotifier {
     _joinCompleter = Completer<void>();
     notifyListeners();
 
+    // ⚠️ 必须在 join 之前摆正「要证明哪个圈」。
+    //
+    // 2026-09-19 真机实测:这一行原本不存在,于是进任何**非主圈**的圈子,
+    // 客户端都拿主圈的口令去算证明 —— 服务端 4401、界面反复要口令,
+    // 而用户输的口令其实一直是对的。不只影响新加的圈子,
+    // 已有的第二、第三个圈同样进不去。
+    //
+    // 值没变时这个 setter 什么都不做,所以这里不会引起多余的重连。
+    _signaling.authCircleId = targetCircleId;
     _signaling.join(targetCircleId);
     knocking = false;
     knockRequests.clear();

@@ -439,6 +439,26 @@ void main() {
     });
   });
 
+  group('证明的必须是要进的那个圈', () {
+    test('join 非主圈时,authCircleId 跟着走', () async {
+      // 2026-09-19 真机实测的根因:join() 从不设 authCircleId,
+      // 而 main.dart 的凭据回调按 authCircleId 取口令 ——
+      // 于是进任何非主圈的圈子,用的都是主圈的口令。
+      // 症状:口令明明填对了,服务端仍然 4401,界面反复要口令。
+      final signaling = _FakeSignaling();
+      final controller = _makeController(signaling);
+      addTearDown(controller.dispose);
+
+      signaling.authCircleId = 'home'; // 主圈
+      // 不 await:join 的 future 要等服务端回应,这里只验副作用。
+      unawaited(controller.join('review').catchError((Object _) {}));
+      await pumpEventQueue();
+
+      expect(signaling.authCircleId, 'review',
+          reason: '不摆正就会拿 home 的口令去证明 review');
+    });
+  });
+
   group('E2EE 要跟着口令一起刷新', () {
     test('刚填的口令能立刻被 E2EE 读到(派生密钥用的就是它)', () async {
       // 口令变化 = E2EE 密钥变化。这里守的是「新填的口令真的走到了
