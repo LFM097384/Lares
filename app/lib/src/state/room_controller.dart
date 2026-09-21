@@ -793,6 +793,26 @@ class RoomController extends ChangeNotifier {
         if (msg['circleId'] != circleId) return;
         locations.remove(msg['userId']);
         notifyListeners();
+      // ⚠️ 信令层**放弃重连**时发的终局消息。必须处理,否则永久卡死。
+      //
+      // 2026-09-19 真机实测报告的「再次进入卡在正在进去…」就是这条:
+      // 第一次 4401 时信令层给一次重试机会(nonce 可能只是正常过期),
+      // 第二次仍 4401 就发 _auth_failed 并**彻底停止重连**
+      // (见 signaling_client.dart 的 _onAuthRejected —— 不停会撞 4429 封 IP)。
+      //
+      // 此后不会再有任何 _disconnected 到来,上面那条分支等不到,
+      // phase 永远停在 joining。
+      //
+      // 为什么之前的测试没抓到:FakeSignalingClient 从不走真实的
+      // 4401 重试逻辑,fake 环境下「退出再进入」一直是好的。
+      case '_auth_failed':
+        if (phase == RoomPhase.joining || phase == RoomPhase.inRoom) {
+          _failJoin(StateError('auth_failed'));
+        }
+      case '_rate_limited':
+        if (phase == RoomPhase.joining || phase == RoomPhase.inRoom) {
+          _failJoin(StateError('rate_limited'));
+        }
       case '_disconnected':
         if (phase == RoomPhase.inRoom) {
           phase = RoomPhase.joining; // 信令重连后会自动 hello;房间态待恢复

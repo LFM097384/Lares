@@ -377,6 +377,134 @@ void main() {
       expect(controller.phase, RoomPhase.joining, reason: '抖动不该变成错误');
     });
   });
+
+  group('退出后再进入(真机实测 2026-09-19)', () {
+    // 用户报告:第一次能进,退出后再进就卡在「正在进去…」。
+    // 此前没有任何测试走过 join → leave → join 这条序列。
+    test('leave 之后能再次 join 并真的进到房间', () async {
+      final signaling = FakeSignalingClient();
+      final rtc = FakeRtcService();
+      final controller = RoomController(
+        signaling: signaling,
+        rtc: rtc,
+        userId: 'u_me',
+        deviceId: 'd_1',
+        userName: '我',
+      );
+      addTearDown(controller.dispose);
+
+      final first = controller.join('review');
+      await controller.testInjectToken('wss://fake', 'tok');
+      await first;
+      expect(controller.phase, RoomPhase.inRoom);
+
+      await controller.leave();
+      expect(controller.phase, RoomPhase.idle);
+
+      final second = controller.join('review');
+      expect(controller.phase, RoomPhase.joining);
+      await controller.testInjectToken('wss://fake', 'tok');
+      await second.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => fail('第二次 join 永不完成 —— 即「卡在正在进去…」'),
+      );
+      expect(controller.phase, RoomPhase.inRoom, reason: '再次进入必须成功');
+    });
+
+    test('joining 期间重复点击不该卡死', () async {
+      final signaling = FakeSignalingClient();
+      final rtc = FakeRtcService();
+      final controller = RoomController(
+        signaling: signaling,
+        rtc: rtc,
+        userId: 'u_me',
+        deviceId: 'd_1',
+        userName: '我',
+      );
+      addTearDown(controller.dispose);
+
+      final a = controller.join('review');
+      final b = controller.join('review'); // 守卫应当直接返回
+      await controller.testInjectToken('wss://fake', 'tok');
+      await a;
+      await b;
+      expect(controller.phase, RoomPhase.inRoom);
+    });
+  });
+
+  group('信令层放弃重连之后(真机实测 2026-09-19)', () {
+    // 第二次 4401 时信令层发 _auth_failed 并**彻底停止重连**,
+    // 此后不会再有 _disconnected。不处理这条就永久卡在 joining ——
+    // 这正是用户报告的「再次进入卡住」。
+    //
+    // FakeSignalingClient 不走真实的 4401 重试逻辑,所以之前
+    // 「退出再进入」的测试全绿却掩盖了这个 bug。
+    test('_auth_failed 必须终结 joining', () async {
+      final signaling = FakeSignalingClient();
+      final controller = RoomController(
+        signaling: signaling,
+        rtc: FakeRtcService(),
+        userId: 'u_me',
+        deviceId: 'd_1',
+        userName: '我',
+      );
+      addTearDown(controller.dispose);
+
+      final joined = controller.join('review');
+      final expectation = expectLater(joined, throwsA(isA<StateError>()));
+      expect(controller.phase, RoomPhase.joining);
+
+      // 信令层重试一次仍失败,放弃重连
+      signaling.testInject({'t': '_auth_failed', 'message': 'auth_failed'});
+      await pumpEventQueue();
+
+      expect(controller.phase, RoomPhase.error, reason: '不能停在 joining');
+      expect(controller.errorMessage, contains('口令'));
+      await expectation;
+    });
+
+    test('_rate_limited 同样终结 joining', () async {
+      final signaling = FakeSignalingClient();
+      final controller = RoomController(
+        signaling: signaling,
+        rtc: FakeRtcService(),
+        userId: 'u_me',
+        deviceId: 'd_1',
+        userName: '我',
+      );
+      addTearDown(controller.dispose);
+
+      final joined = controller.join('review');
+      final expectation = expectLater(joined, throwsA(isA<StateError>()));
+      signaling.testInject({'t': '_rate_limited'});
+      await pumpEventQueue();
+
+      expect(controller.phase, RoomPhase.error);
+      await expectation;
+    });
+
+    test('已在房间里时收到 _auth_failed 也要给出路', () async {
+      // 长时间挂机后 token 过期重连被拒,不能静默停在 inRoom 假装还在。
+      final signaling = FakeSignalingClient();
+      final controller = RoomController(
+        signaling: signaling,
+        rtc: FakeRtcService(),
+        userId: 'u_me',
+        deviceId: 'd_1',
+        userName: '我',
+      );
+      addTearDown(controller.dispose);
+
+      final first = controller.join('review');
+      await controller.testInjectToken('wss://fake', 'tok');
+      await first;
+      expect(controller.phase, RoomPhase.inRoom);
+
+      signaling.testInject({'t': '_auth_failed', 'message': 'auth_failed'});
+      await pumpEventQueue();
+      expect(controller.phase, RoomPhase.error);
+    });
+  });
 }
 
 extension on FakeRtcService {
