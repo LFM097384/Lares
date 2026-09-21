@@ -131,6 +131,32 @@ jobs:
             | grep -q 'BEGIN PRIVATE KEY' \
             || { echo "::error::.p8 格式不对:应以 -----BEGIN PRIVATE KEY----- 开头。检查 Secret 是否粘贴完整(含首尾两行)。"; exit 1; }
 
+      # ⚠️ 必须在签名之前跑。
+      #
+      # `-allowProvisioningUpdates` 每次找不到可用证书就**新建一个**,
+      # 而 Apple 的开发证书有数量上限(实测 12)。攒满之后构建直接失败:
+      #   error: Choose a certificate to revoke. Your account has reached
+      #          the maximum number of certificates.
+      #   error: No profiles for 'com.lfm097384.lares' were found
+      # 第二条极具误导性 —— 看着是描述文件问题,根因却是第一条。
+      # 2026-09-21 实测撞到:12 个全是 CI 造的 "Created via API"。
+      #
+      # 脚本只吊销 CI 自己造的**开发**证书,不碰分发证书,
+      # 也不影响任何已上传/已发布的构建(它们归档时就签好了)。
+      - name: 清理陈旧的 CI 开发证书
+        continue-on-error: true # 清理失败不该挡住构建;真满了下一步会报出来
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          WORK=$(mktemp -d)
+          cd "$WORK"
+          echo '{"type":"module"}' > package.json
+          npm install jsonwebtoken --silent
+          cp "$GITHUB_WORKSPACE/scripts/asc-prune-certs.mjs" .
+          node asc-prune-certs.mjs
+
       # 自动签名:xcodebuild 拿 API 密钥自己去 ASC 创建/下载证书和描述文件。
       # 这样就不必在 Windows 上折腾 CSR → p12 → mobileprovision,
       # 证书过期也不用管。
