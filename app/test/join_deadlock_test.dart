@@ -333,7 +333,7 @@ void main() {
       });
     });
 
-    test('媒体掉线会自动用缓存 token 接回来', () async {
+    test('媒体掉线会重新要 token 并接回来', () async {
       final signaling = FakeSignalingClient();
       final rtc = FakeRtcService();
       final controller = _make(signaling, rtc);
@@ -346,9 +346,20 @@ void main() {
 
       // 以前这里只是 `phase = joining` 然后「等上层重进」——
       // 可从来没有哪个上层会重进,界面就永久停在「正在进去…」。
+      signaling.sent.clear();
       rtc.testEmitDrop();
       await pumpEventQueue();
 
+      // 现在不再复用缓存 token(TTL 2h,挂机久了必然过期),
+      // 而是向服务端重新要一张 —— 先看有没有把 join 发出去。
+      expect(
+        signaling.sent.any((m) => m['t'] == 'join' && m['circleId'] == 'work'),
+        isTrue,
+        reason: '恢复必须重新要 token,旧的可能已过期',
+      );
+
+      // 服务端回了新 token,这才真的接回来。
+      await controller.testInjectToken('wss://fake', 'tok2');
       expect(controller.phase, RoomPhase.inRoom, reason: '应当自动接回来');
       expect(rtc.joinCount, 2);
     });
@@ -366,6 +377,8 @@ void main() {
       rtc.throwOnJoin = StateError('接不回来');
       rtc.testEmitDrop();
       await pumpEventQueue();
+      // 恢复现在要先问服务端要 token,拿到之后才轮到 RTC 去连(并抛错)。
+      await controller.testInjectToken('wss://fake', 'tok2');
 
       expect(controller.phase, RoomPhase.error);
       expect(controller.errorMessage, isNotNull);

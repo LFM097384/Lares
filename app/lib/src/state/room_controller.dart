@@ -1064,17 +1064,30 @@ class RoomController extends ChangeNotifier {
   /// 在它之上再叠一轮退避重试,只会让用户对着「正在进去…」多等一倍时间 ——
   /// 而这正是要消灭的那个症状。
   Future<void> _recoverMedia() async {
-    final url = _lastRtcUrl;
-    final token = _lastRtcToken;
-    // 连 token 都没有就别装作能恢复。落 error,让用户自己决定要不要再进。
-    if (url == null || token == null) {
+    final id = circleId;
+    // 连在哪个圈都不知道就别装作能恢复。落 error,让用户自己决定要不要再进。
+    if (id == null) {
       _failJoin(StateError('rtc_dropped'));
       return;
     }
+
     _joinEpoch++;
     _joinStopwatch = Stopwatch()..start();
     _armJoinWatchdog();
-    await _connectRtc(url, token);
+
+    // ⚠️ 向服务端**重新要一张 token**,不复用 `_lastRtcToken`。
+    //
+    // token TTL 是 2 小时,而这个产品的核心用法恰恰是长时间挂着。
+    // 挂机超过 2h 后掉线,拿旧 token 去连必然失败 —— 症状是
+    // 「自动恢复」看起来试了一下就报错,用户完全不知道为什么。
+    //
+    // 信令连接此时通常还活着(掉的是媒体),一条 join 就够;
+    // 若信令也断了,消息会进 outbox,握手完成后自动补发。
+    // 两种情况都由上面刚挂的 watchdog 兜底,不会无声无息地悬着。
+    //
+    // 用 join 而不是 token_prefetch:后者的回包带 `prefetch: true`,
+    // 只进缓存不进房(见 'token' 分支),而恢复要的是真的连回去。
+    _signaling.join(id);
   }
 
   /// 测试注入:模拟收到服务器 token 事件(与 'token' 分支行为一致)

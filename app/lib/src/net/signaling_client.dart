@@ -263,6 +263,36 @@ class SignalingClient {
     reconnectWithNewCredential();
   }
 
+  /// App 回到前台时主动探活。
+  ///
+  /// ## 为什么不能只靠心跳
+  ///
+  /// 20 秒心跳在后台会被系统挂起(iOS 尤其激进),而 socket 很可能
+  /// 在这期间已被静默回收 —— **不报 close,只是再也不通**。
+  /// 回前台后如果干等下一个心跳周期,用户会对着一个「显示在房里、
+  /// 实际已断」的界面操作最多 40 秒才发现不对。
+  ///
+  /// ## 为什么不直接重连
+  ///
+  /// 大多数情况下连接是好的(短暂切出去看一眼消息就回来),
+  /// 无条件重连要重新握手、重新算 Argon2 证明,既慢又浪费,
+  /// 还会让服务端看到一次无谓的断开/重连。
+  ///
+  /// 所以:立刻发一个 ping,把探活周期从「最多 40 秒」压到一个往返。
+  /// 没连接时才真的去连。
+  void pokeAlive() {
+    if (_disposed) return;
+    if (!_connected) {
+      connect();
+      return;
+    }
+    // 上一轮的 ping 还没回音,说明已经在可疑状态里 —— 计入欠账,
+    // 别用新 ping 把它盖掉(盖掉就永远攒不到 2 次,探活形同虚设)。
+    if (_pingSentAt != null) _missedPongs++;
+    _pingSentAt = DateTime.now();
+    _rawSend({'t': 'ping'});
+  }
+
   /// 凭据变了:干净地断开重连,用新凭据重新握手。
   ///
   /// 注意要清掉退避与 4401 抑制 —— 用户刚改了口令,这是一次全新的尝试,
@@ -443,7 +473,28 @@ class SignalingClient {
     // 握手完成才放行排队消息:提前发会撞 say_hello_first / auth_scope
     _flushOutbox();
     _pingTimer?.cancel();
+    _missedPongs = 0;
     _pingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      // ⚠️ 发新 ping 之前先结算上一轮。
+      //
+      // 这里原本只发不收 —— ping 照发,却从不检查 pong 有没有回来。
+      // 后果:socket 被系统静默回收时(iOS 切后台、WiFi→蜂窝 切换),
+      // 对端已经没了,本地却一直显示「在房里」,直到用户主动做点什么
+      // 才发现。审计报告里那条「inRoom 时 phase 会一直说谎」就是这个。
+      //
+      // 容忍 2 次:一次丢包不该断线,但连续 2 次(40 秒)没回音,
+      // 这条链路基本可以判死。
+      if (_pingSentAt != null) {
+        _missedPongs++;
+        if (_missedPongs >= 2) {
+          // 主动断开会走 onDone → _onDisconnected → 正常的重连/上报链路,
+          // 不必另写一套。close 前置空 sink 引用,免得 onDone 里再关一次。
+          _pingTimer?.cancel();
+          _pingTimer = null;
+          _channel?.sink.close();
+          return;
+        }
+      }
       _pingSentAt = DateTime.now();
       _rawSend({'t': 'ping'});
     });
@@ -452,6 +503,9 @@ class SignalingClient {
     _pingSentAt = DateTime.now();
     _rawSend({'t': 'ping'});
   }
+
+  /// 连续几次 ping 没等到 pong。收到 pong 即归零。
+  int _missedPongs = 0;
 
   DateTime? _pingSentAt;
 
@@ -466,6 +520,9 @@ class SignalingClient {
   int latencyMs = -1;
 
   void _onPong() {
+    // 先归零:哪怕这个 pong 因为迟到而不计入延迟统计,
+    // 它也证明了链路还活着 —— 那正是探活要的答案。
+    _missedPongs = 0;
     final sent = _pingSentAt;
     if (sent == null) return;
     _pingSentAt = null;
@@ -522,6 +579,9 @@ class SignalingClient {
     _nonce = null;
     _challengeSettled = false;
     _pingTimer?.cancel();
+    // 归零探活状态,否则重连后第一个 20 秒周期会带着旧账误判。
+    _missedPongs = 0;
+    _pingSentAt = null;
     _challengeTimer?.cancel();
     _sub?.cancel();
 

@@ -379,6 +379,21 @@ Future<void> main() async {
       : null;
   controller.recordingConsent = recordingConsent;
 
+  // 回到前台立刻探活。
+  //
+  // 心跳周期是 20 秒,而后台期间它会被系统挂起(iOS 尤其激进)。
+  // socket 很可能已被静默回收 —— **不报 close,只是再也不通**。
+  // 不主动戳一下的话,用户会对着一个「显示在房里、实际已断」的界面
+  // 操作最长 40 秒才发现。
+  //
+  // pokeAlive 只发一个 ping(连接还在时),不粗暴重连 ——
+  // 大多数情况是短暂切出去又回来,重连要重算 Argon2 证明,既慢又浪费。
+  //
+  // 这个监听器与 App 同生命周期,不需要 dispose。
+  AppLifecycleListener(
+    onResume: signaling.pokeAlive,
+  );
+
   runApp(LaresApp(
     controller: controller,
     voiceNotes: voiceNotes,
