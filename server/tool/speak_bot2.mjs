@@ -1,7 +1,11 @@
+// ⚠️ 已过时(2026-09-19):与 speak_bot.mjs 同样**不做鉴权握手**,
+// 打真实服务器会报 `token timeout`。要双实例验证请用
+// `tool/bot_selftest.mjs` —— 它本身就是说话者 + 听众两个实例。
+//
 // SPIKE ONLY — second speaking bot, distinct identity + 880 Hz tone.
 // Copy of speak_bot.mjs with userId/deviceId/name/frequency changed so that two
 // bots can coexist in presence (presence is keyed by userId).
-// 用法: node tool/spike_bot2.mjs [circleId] [seconds]
+// 用法: node tool/speak_bot2.mjs [circleId] [seconds]
 import WebSocket from 'ws';
 import {
   Room,

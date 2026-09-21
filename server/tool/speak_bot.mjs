@@ -1,3 +1,13 @@
+// ⚠️ 已过时(2026-09-19):本脚本**不做鉴权握手**,打开了
+// LARES_AUTH_MODE=circle/token 的服务器一律报 `token timeout` ——
+// 症状看着像服务端坏了,其实是这个工具停留在鉴权上线之前。
+//
+// 要打真实服务器请用 `tool/bot_selftest.mjs`:它基于
+// `tool/lares_bot.mjs`,带完整的 challenge/response,
+// 而且本身就是双实例(说话者 + 听众),顺带验证音频真的传到了。
+//
+// 保留本文件仅供无鉴权的本地服务器做最小链路验证。
+//
 // 说话机器人:通过信令服务拿 token,进 LiveKit 房间发布正弦波音频,
 // 用于验证「正在说话」指示的端到端链路。
 // 用法:node tool/speak_bot.mjs [circleId] [seconds]
