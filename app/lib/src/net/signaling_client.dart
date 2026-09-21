@@ -167,6 +167,18 @@ class SignalingClient {
   /// 本连接收到的 nonce。每次新连接清零,杜绝跨连接复用。
   String? _nonce;
 
+  /// 本连接是否已经因「算不出证明」报过一次 `_credential_required`。
+  ///
+  /// 只防**同一条连接内**的重复,因此与 [_nonce]/[_challengeSettled] 同生命周期:
+  /// 一条连接上可能来多帧 challenge(服务端重发),`send(hello)` 在
+  /// `_challengeSettled` 之后也会再走一次 [_sendHelloWithProof],
+  /// 每次都喊一嗓子就成了刷屏。
+  ///
+  /// 反过来,**绝不做成跨连接常驻**(不学 [_retriedAfterAuthFailure])。
+  /// 那样会让下一次真正的新连接哑火 —— 而「该喊的时候没喊」正是这个 bug
+  /// 本身,重犯一次的代价远大于多喊几声。
+  bool _credentialRequiredReported = false;
+
   /// 本连接的 challenge 是否已有结论(收到了 / 或等超时判定为老服务器)。
   /// 在此之前**任何** hello 都不许发出去 —— 抢跑就没有 nonce 可用。
   bool _challengeSettled = false;
@@ -279,6 +291,16 @@ class SignalingClient {
         phase: AuthPhase.credentialRequired,
         message: 'auth_required',
       ));
+      // ⚠️ 必须**说出来**。这条路径不建连接,因此永远不会有 _disconnected、
+      // 不会有 4401、不会有任何事件 —— 上层若正在进房,就会永久停在
+      // 「正在进去…」。它同时也是重连链的终点:_scheduleReconnect 排的
+      // 定时器最终调到这里,然后无声地什么都不做。
+      //
+      // RoomController.join() 有一道凭据前置检查,但它读的是 SettingsStore,
+      // 与这里的 CredentialSource 是两个来源,完全可能各说各话
+      // (典型:圈子有口令但服务器档案改成了共享令牌模式)。
+      // 那道检查挡不住的,由这条消息兜住。
+      _emitCredentialRequired();
       return;
     }
     final WebSocketChannel channel;
@@ -302,6 +324,8 @@ class SignalingClient {
     _handshakeDone = false;
     _nonce = null;
     _challengeSettled = false;
+    // 新连接 = 新的一次机会,上一条连接喊没喊过不算数。
+    _credentialRequiredReported = false;
     _setAuth(auth.copyWith(phase: AuthPhase.awaitingChallenge, message: null));
 
     // 关键:**什么都先不发**。等 challenge 到了,用当次 nonce 算证明再 hello。
@@ -385,6 +409,21 @@ class SignalingClient {
           phase: AuthPhase.credentialRequired,
           message: 'auth_required',
         ));
+        // ⚠️ 这条比上面那条更阴:连接**开着**,只是 hello 永远不发。
+        // 服务端不会主动关一条刚连上的连接,于是既没有 welcome 也没有
+        // _disconnected —— 彻底的静默。不喊一声,上层只能靠总超时兜。
+        //
+        // 为什么 connect() 那道检查拦不住这里:它在**拨号时**看 isComplete,
+        // 而证明是等 challenge 到了才现算的(nonce 一次性,必须现算)。
+        // 这中间隔着一整个网络往返,凭据完全可能变了 —— 用户正在改设置、
+        // 安全存储这一次读失败、或者 authCircleId 被换成了另一个圈子。
+        //
+        // 同一条连接上只报一次:challenge 可能重发,send(hello) 也会
+        // 再走一遍这里,每次都喊就成了刷屏(见 _credentialRequiredReported)。
+        if (!_credentialRequiredReported) {
+          _credentialRequiredReported = true;
+          _emitCredentialRequired();
+        }
         return;
       }
       msg['auth'] = authObj;
@@ -456,6 +495,14 @@ class SignalingClient {
       case 'say_hello_first':
         // 连接还活着,什么都不做:交给上层按业务处理
         break;
+      default:
+        // 认不出来的 error 照样原样放行(调用方回去就 _messages.add),
+        // 这里**只留个脚印**:不改状态、不改控制流、不吞消息。
+        //
+        // 加它的理由很实在:这一类 bug(服务端说了话、客户端没人听见)
+        // 已经出过几次,而每次都是等用户报「卡住了」才发现。
+        // 服务端加一个新 error 码时,至少让它在日志里露一面。
+        debugPrint('[lares] 信令层收到未识别的 error: ${msg['message']}');
     }
   }
 
@@ -518,6 +565,19 @@ class SignalingClient {
     _setAuth(auth.copyWith(phase: AuthPhase.failed, message: 'auth_failed'));
     _messages.add({'t': '_auth_failed', 'message': 'auth_failed'});
     // 到此为止:不排重连定时器。等用户改口令后 reconnectWithNewCredential() 再来。
+  }
+
+  /// 告诉上层「我不会再连了,除非有人给我口令」。
+  ///
+  /// 与 `_auth_failed` 的分工:那条是「试过了,被拒」,这条是
+  /// 「压根没去试」。对 RoomController 来说两者都意味着这次进房到此为止,
+  /// 但只有说出来它才知道 —— 不说就是永久的「正在进去…」。
+  ///
+  /// 做成单独一个方法是因为触发点有两处(拒绝建连接、拒绝发 hello),
+  /// 而它们很容易在后续改动中再冒出第三处。
+  void _emitCredentialRequired() {
+    if (_disposed) return;
+    _messages.add({'t': '_credential_required', 'message': 'auth_required'});
   }
 
   void _scheduleReconnect() {

@@ -504,6 +504,204 @@ void main() {
     });
   });
 
+  // ⚠️ 这一组盯的是「静默卡死」那一类 bug 里最阴的一条。
+  //
+  // connect() 在**拨号时**检查凭据齐不齐,而证明要等 challenge 到了才现算
+  // (nonce 一次性、60s 过期,只能现算)。两者之间隔着一整个网络往返,
+  // 凭据完全可能在这中间变掉:用户正在设置页改口令、安全存储这一次读失败、
+  // 或者 authCircleId 被换成了另一个圈子。
+  //
+  // 于是出现一种谁都接不住的状态:socket **开着**,服务端发完 challenge
+  // 就在那儿等 hello,而客户端算不出证明、一声不吭地 return 了。
+  // 没有 welcome(服务端在等我们),没有 _disconnected(连接根本没断),
+  // 没有 4401(压根没提交过证明)。上层的 _joinCompleter 永远挂着,
+  // 界面永远停在「正在进去…」,连「算了」都退不出来。
+  group('拨号后凭据失效:算不出证明时必须喊出来', () {
+    /// 造一个「拨号时齐、算证明时不齐」的凭据源。
+    (SignalingClient, List<Map<String, dynamic>>) clientWithVanishingCred(
+      FakeTransport t, {
+      required AuthCredential atDial,
+      required AuthCredential atProof,
+    }) {
+      var cred = atDial;
+      final c = SignalingClient(
+        url: 'wss://rtc.example.com:8444/ws',
+        connector: t.connect,
+        credentials: () => cred,
+        userId: _userId,
+      );
+      c.connect();
+      sayHello(c);
+      // 连接已建立(拨号那关过了),此刻把凭据抽走
+      cred = atProof;
+      final events = <Map<String, dynamic>>[];
+      c.messages.listen(events.add);
+      return (c, events);
+    }
+
+    test('凭据在 challenge 到达前失效:发出 _credential_required,而不是静默', () {
+      fakeAsync((async) {
+        final t = FakeTransport();
+        final (c, events) = clientWithVanishingCred(
+          t,
+          atDial: const AuthCredential(mode: AuthMode.token, token: 'ok'),
+          atProof: const AuthCredential(mode: AuthMode.token, token: ''),
+        );
+
+        t.last.serverSend(challenge(_nonceA));
+        async.flushMicrotasks();
+
+        final emitted =
+            events.where((e) => e['t'] == '_credential_required').toList();
+        expect(emitted, hasLength(1),
+            reason: '不发这条,上层就永久停在「正在进去…」');
+        expect(emitted.single['message'], 'auth_required');
+        c.dispose();
+      });
+    });
+
+    test('喊归喊,authStatus 仍要落到 credentialRequired(既有契约不许回退)', () {
+      fakeAsync((async) {
+        final t = FakeTransport();
+        final (c, _) = clientWithVanishingCred(
+          t,
+          atDial: const AuthCredential(mode: AuthMode.token, token: 'ok'),
+          atProof: const AuthCredential(mode: AuthMode.token, token: ''),
+        );
+
+        t.last.serverSend(challenge(_nonceA));
+        async.flushMicrotasks();
+
+        expect(c.auth.phase, AuthPhase.credentialRequired);
+        expect(c.auth.needsUserAction, isTrue);
+        c.dispose();
+      });
+    });
+
+    test('绝不发一个注定失败的 hello —— 原来那层保护必须留着', () {
+      fakeAsync((async) {
+        final t = FakeTransport();
+        final (c, _) = clientWithVanishingCred(
+          t,
+          atDial: const AuthCredential(mode: AuthMode.token, token: 'ok'),
+          atProof: const AuthCredential(mode: AuthMode.token, token: ''),
+        );
+
+        t.last.serverSend(challenge(_nonceA));
+        async.flushMicrotasks();
+
+        expect(t.last.sentOfType('hello'), isEmpty,
+            reason: '裸 hello 会被服务端判 auth_failed,白推高失败计数');
+        expect(t.last.sent, isEmpty);
+        c.dispose();
+      });
+    });
+
+    test('circle 模式换圈换掉了口令,同样喊得出来', () {
+      fakeAsync((async) {
+        final t = FakeTransport();
+        final (c, events) = clientWithVanishingCred(
+          t,
+          atDial: const AuthCredential(
+              mode: AuthMode.circle, passcode: 'p', circleId: 'home'),
+          // 换到一个本地没存口令的圈子:isComplete 为假,build 返回 null
+          atProof: const AuthCredential(
+              mode: AuthMode.circle, passcode: '', circleId: 'work'),
+        );
+
+        t.last.serverSend(challenge(_nonceA));
+        async.flushMicrotasks();
+
+        expect(events.any((e) => e['t'] == '_credential_required'), isTrue);
+        expect(t.last.sentOfType('hello'), isEmpty);
+        c.dispose();
+      });
+    });
+
+    test('凭据好端端的:照常发 hello,一条 _credential_required 都不许冒出来', () {
+      fakeAsync((async) {
+        final t = FakeTransport();
+        final c = makeClient(t);
+        final events = <Map<String, dynamic>>[];
+        c.messages.listen(events.add);
+
+        c.connect();
+        sayHello(c);
+        t.last.serverSend(challenge(_nonceA));
+        async.flushMicrotasks();
+        t.last.serverSend(
+            {'t': 'welcome', 'userId': _userId, 'authMode': 'token'});
+        async.flushMicrotasks();
+
+        expect(events.any((e) => e['t'] == '_credential_required'), isFalse,
+            reason: '误报会让能进的房间进不去');
+        expect(t.last.sentOfType('hello'), hasLength(1));
+        expect(c.isReady, isTrue);
+        c.dispose();
+      });
+    });
+
+    test('同一条连接上 challenge 重发:只喊一次,不刷屏', () {
+      fakeAsync((async) {
+        final t = FakeTransport();
+        final (c, events) = clientWithVanishingCred(
+          t,
+          atDial: const AuthCredential(mode: AuthMode.token, token: 'ok'),
+          atProof: const AuthCredential(mode: AuthMode.token, token: ''),
+        );
+
+        // 服务端重发 challenge,外加上层又调了一次 hello ——
+        // 两条路都会再走一遍 _sendHelloWithProof
+        t.last.serverSend(challenge(_nonceA));
+        async.flushMicrotasks();
+        t.last.serverSend(challenge(_nonceB));
+        async.flushMicrotasks();
+        sayHello(c);
+        async.flushMicrotasks();
+
+        expect(events.where((e) => e['t'] == '_credential_required'),
+            hasLength(1));
+        c.dispose();
+      });
+    });
+
+    test('但换一条新连接就是新的一次机会,不能被上一条的抑制标记哑掉', () {
+      fakeAsync((async) {
+        final t = FakeTransport();
+        var cred = const AuthCredential(mode: AuthMode.token, token: 'ok');
+        final c = SignalingClient(
+          url: 'wss://rtc.example.com:8444/ws',
+          connector: t.connect,
+          credentials: () => cred,
+          userId: _userId,
+        );
+        final events = <Map<String, dynamic>>[];
+        c.messages.listen(events.add);
+
+        c.connect();
+        sayHello(c);
+        cred = const AuthCredential(mode: AuthMode.token, token: '');
+        t.last.serverSend(challenge(_nonceA));
+        async.flushMicrotasks();
+        expect(
+            events.where((e) => e['t'] == '_credential_required'), hasLength(1));
+
+        // 用户把口令填回去 -> 干净重连;然后在路上又被抽走一次
+        cred = const AuthCredential(mode: AuthMode.token, token: 'ok');
+        c.reconnectWithNewCredential();
+        async.flushMicrotasks();
+        cred = const AuthCredential(mode: AuthMode.token, token: '');
+        t.last.serverSend(challenge(_nonceB));
+        async.flushMicrotasks();
+
+        // 第二次必须照喊:抑制标记若跨连接常驻,这一次进房就又是永久转圈
+        expect(
+            events.where((e) => e['t'] == '_credential_required'), hasLength(2));
+        c.dispose();
+      });
+    });
+  });
+
   group('换凭据', () {
     test('改口令后干净重连,并用新口令重新推导证明', () {
       fakeAsync((async) {

@@ -139,8 +139,11 @@ class PresencePool extends ChangeNotifier {
       (msg) => _onMessage(serverId, msg),
       onError: (Object e) {
         debugPrint('[lares] presence 链路 $serverId 出错: $e');
-        _states[serverId] = PresenceLinkState.failed;
-        notifyListeners();
+        // ⚠️ 这里以前只改状态、**不清人**,是和 _disconnected 一模一样的幽灵条目:
+        // 链路都报错了,那台服务器上看到的「有空」全都联系不上,
+        // UI 却还照常画出来,点下去 reach 发进一条死流,什么都不会发生。
+        // 走 _linkDown 一并收尾,别让两条失败路径各清各的、其中一条忘了清。
+        _linkDown(serverId, PresenceLinkState.failed);
       },
     );
     client.connect();
@@ -153,6 +156,29 @@ class PresencePool extends ChangeNotifier {
     _mine.remove(serverId);
     // 这台机器上看到的人一并清掉,否则会留下永远点不动的幽灵
     remote.removeWhere((_, r) => r.serverId == serverId);
+  }
+
+  /// 链路掉了、但对象还得留着(它自己会重连)时的收尾。
+  ///
+  /// 和 [_drop] 的分工:_drop 是「不再需要这台服务器」,退订 + dispose;
+  /// 这里链路要原样留着等它爬回来,所以只清**从服务器观测来的事实**。
+  /// 拿 _drop 来对付一次抖动会把客户端销毁掉,自动重连也就没了。
+  ///
+  /// ⚠️ 不碰 `_mine[serverId]`:那是我**自己的意图**(想在哪几个圈子里挂着),
+  /// 不是观测来的事实。断线时它发不出去没关系,welcome 会补发;
+  /// 在这里顺手清掉,用户就会在一次网络抖动之后悄无声息地不再挂着 ——
+  /// 那是拿一个 bug 换另一个更难发现的 bug。
+  ///
+  /// 也不碰 `reached`:「某时刻有人来找过我」是一次性事实,不是链路状态;
+  /// 何况赴约走的是**主连接**(见 main.dart),不是这条 presence 轻连接,
+  /// 轻连接断了并不表示这个约不该赴。为它清掉只会凭空吞掉一次邀请。
+  void _linkDown(String serverId, PresenceLinkState state) {
+    final before = remote.length;
+    remote.removeWhere((_, r) => r.serverId == serverId);
+    final changed = remote.length != before || _states[serverId] != state;
+    _states[serverId] = state;
+    // 沿用本文件的约定:真变了才通知,不为一次无变化的抖动触发重建
+    if (changed) notifyListeners();
   }
 
   void _onMessage(String serverId, Map<String, dynamic> msg) {
@@ -197,6 +223,35 @@ class PresencePool extends ChangeNotifier {
         );
         _mine.remove(serverId);
         notifyListeners();
+      // ↓ 以下三条是信令层自己合成的内部消息(见 signaling_client.dart),
+      //   不是服务端报文。它们和真报文走同一条 messages 流。
+      //
+      //   订阅上的 onError 盖不住这些:onError 只在流真出错时才响,
+      //   socket 正常关闭、以及这三条合成消息,都不会走到那里。
+      case '_disconnected':
+        // 一次抖动。链路会自己指数退避重连,重连后服务端重发
+        // member_available、welcome 补发我的挂起 —— 名单会自愈。
+        //
+        // 那为什么还要立刻清:名单自愈要等几秒,这几秒里 UI 会把
+        // 连不上的人显示成「有空」,点下去 reach 发进一个死 socket,
+        // 什么都不会发生 —— 一个看着能按、其实是死的按钮。
+        // 宁可闪一下也不撒谎:这个功能问的就是「此刻找得着这个人吗」。
+        // 状态给 connecting 而不是 failed,UI 才能如实画「正在重连」。
+        _linkDown(serverId, PresenceLinkState.connecting);
+      case '_rate_limited':
+        // 4429:被限流。信令层从 60s 起步硬退避,虽然最终还会再试,
+        // 但用户这几分钟看到的事实就是「这台服务器现在不好使」。
+        // 给 failed 而不是 connecting:前一条 _disconnected 已经写过
+        // connecting 了,再写一遍等于什么都没说,UI 会把一次数分钟的
+        // 封禁画成转圈圈,让人一直等一个不会马上回来的东西。
+        _linkDown(serverId, PresenceLinkState.failed);
+      case '_auth_failed':
+        // 终局:第二次 4401,信令层**彻底不再重连**了
+        // (见 _onAuthRejected —— 继续重试必然撞 4429 封 IP)。
+        // 所以此后一条 _disconnected 都不会再来,上面那条分支等不到,
+        // 不在这里收尾的话,这台服务器会永远停在 online 并挂着
+        // 一整屏永远联系不上的人。口令得用户去改,我们只负责别撒谎。
+        _linkDown(serverId, PresenceLinkState.failed);
     }
   }
 

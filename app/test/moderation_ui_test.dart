@@ -177,6 +177,14 @@ Future<void> _pumpSheet(WidgetTester tester) async {
 }
 
 /// 造一个带两名成员(我 + 阿蛮)的房间控制器
+/// ⚠️ 返回的 controller 必须由用例在**体内**调 [_disposeRoom] 收掉,
+/// 不能用 addTearDown。
+///
+/// 理由与上面 [_settleAndUnmount] 同源但更隐蔽:`join()` 会挂一个 25 秒的
+/// 进房总超时(room_controller.dart 的 joinTimeout),而本助手刻意把
+/// controller 停在 joining —— 它只注入 'room' 不注入 token。于是用例结束时
+/// 那个计时器还活着,框架报「A Timer is still pending after the widget tree
+/// was disposed」。addTearDown 救不了:它排在框架这项检查**之后**才跑。
 RoomController _roomWithMembers(WidgetTester tester) {
   final FakeSignalingClient signaling = FakeSignalingClient();
   final RoomController controller = RoomController(
@@ -186,9 +194,9 @@ RoomController _roomWithMembers(WidgetTester tester) {
     deviceId: 'd_1',
     userName: '我',
   );
-  addTearDown(controller.dispose);
   // join 只为把 circleId 定下来;它的 Future 要等 token 才完成,这里不等。
-  unawaited(controller.join('home'));
+  // catchError 接住 dispose 时的 completeError,否则变成未捕获异步错误。
+  unawaited(controller.join('home').catchError((Object _) {}));
   signaling.testInject(<String, dynamic>{
     't': 'room',
     'circleId': 'home',
@@ -198,6 +206,12 @@ RoomController _roomWithMembers(WidgetTester tester) {
     ],
   });
   return controller;
+}
+
+/// 拆掉房间页并收掉 controller。必须在用例**体内**调,理由见 [_roomWithMembers]。
+Future<void> _disposeRoom(WidgetTester tester, RoomController controller) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  controller.dispose();
 }
 
 void main() {
@@ -234,6 +248,7 @@ void main() {
       expect(find.text('请出房间'), findsOneWidget);
       // 头部露出稳定 id:屏蔽认的是它,不是随时能改的昵称
       expect(find.text('u_other'), findsOneWidget);
+      await _disposeRoom(tester, controller);
     });
 
     testWidgets('轻点别人的头像也能开菜单(长按太隐蔽)', (WidgetTester tester) async {
@@ -257,6 +272,7 @@ void main() {
 
       expect(find.text('屏蔽这个人'), findsOneWidget);
       expect(find.text('举报'), findsOneWidget);
+      await _disposeRoom(tester, controller);
     });
 
     testWidgets('点「屏蔽这个人」:名单真的记下了,网格里也看得出来', (WidgetTester tester) async {
@@ -304,6 +320,7 @@ void main() {
       await _pumpSheet(tester);
       expect(find.text('解除屏蔽'), findsOneWidget);
       expect(find.text('屏蔽这个人'), findsNothing);
+      await _disposeRoom(tester, controller);
     });
 
     testWidgets('自己的头像点不出处置菜单', (WidgetTester tester) async {
@@ -337,6 +354,7 @@ void main() {
       await tester.tap(myOrb);
       await _pumpSheet(tester);
       expect(find.text('屏蔽这个人'), findsNothing);
+      await _disposeRoom(tester, controller);
     });
 
     testWidgets('不给 blocks 时一切照旧:长按仍是踢人确认', (WidgetTester tester) async {
@@ -355,6 +373,7 @@ void main() {
 
       expect(find.text('屏蔽这个人'), findsNothing);
       expect(find.text('把「阿蛮」请出房间?'), findsOneWidget);
+      await _disposeRoom(tester, controller);
     });
   });
 

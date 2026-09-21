@@ -37,11 +37,16 @@ class RoomController extends ChangeNotifier {
       notifyListeners();
     });
     _rtcDropSub = _rtc.onDisconnected.listen((_) {
-      // RTC 掉了但信令还在:标为 joining 并等待上层重进
-      if (phase == RoomPhase.inRoom) {
-        phase = RoomPhase.joining;
-        notifyListeners();
-      }
+      // ⚠️ 这里以前只是 `phase = joining` 然后「等上层重进」——
+      // 可从来没有哪个上层会重进。媒体掉线之后界面就永久停在「正在进去…」,
+      // 和前三次卡死是同一个病:进了 joining 却没有任何出口。
+      //
+      // leave() 现在会先把 phase 落到 idle 再 await _rtc.leave(),
+      // 所以正常退房触发的这条事件会被下面这个守卫挡掉,不会误判成掉线。
+      if (phase != RoomPhase.inRoom) return;
+      phase = RoomPhase.joining;
+      notifyListeners();
+      _recoverMedia();
     });
   }
 
@@ -230,6 +235,52 @@ class RoomController extends ChangeNotifier {
 
   static const knockTimeout = Duration(seconds: 30);
 
+  /// 进房总超时:兜住「服务器收了 join 却永远不回话」这类静默失败。
+  ///
+  /// ## 为什么必须有
+  ///
+  /// 前三次「卡在正在进去…」都是某条具体路径漏了出口,一条条补。但漏的
+  /// 方式是**无穷**的:信令层在凭据不全时会拒发 hello 而**不关连接**
+  /// (signaling_client.dart 的 `_sendHelloWithProof`),服务端也可能
+  /// 收下 join 之后因为任何原因不回 room/token。这些路径不产生任何事件,
+  /// 因此不可能靠「多处理一条消息」修好 —— 只有时间能把它们兜住。
+  ///
+  /// ## 为什么是 25 秒
+  ///
+  /// 下界由最慢的**正常**路径定:信令断开后指数退避重连(1+2+4+8s)再
+  /// 重新握手,最坏约 15-18s 仍属正常。20s 会误伤这一条,25s 留了余量。
+  /// 上界由人的耐心定:超过半分钟干等,用户早已认定「又卡死了」。
+  ///
+  /// ## 敲门期间由谁管:交接,而不是放手
+  ///
+  /// 敲门是**有人在等另一个人**,30 秒完全正常,这段时间的超时由
+  /// [knockTimeout] 那条计时器负责。所以 `knock_waiting` 到达时本计时器
+  /// 会被撤掉 —— 两个计时器同时管一件事,必然是短的那个先开枪、把话说错
+  /// (它会说「服务器没回话」,而实情是「对方还没来应门」)。
+  ///
+  /// ⚠️ 但**撤掉不等于从此不管**。被放行时 `case 'room'` 会把 `_knockTimer`
+  /// 撤掉,而那时 token 还没到 —— 所以 `case 'room'` 必须把本计时器重新挂上。
+  /// 交接链完整是这样的:join 挂表 → knock_waiting 交给敲门 30s →
+  /// room 交回本计时器 → token + RTC 成功后 `_connectRtc` 撤表。
+  /// 任何一环只撤不挂,那一段窗口就又变成「永久转圈」。
+  static const joinTimeout = Duration(seconds: 25);
+
+  Timer? _joinTimer;
+
+  /// 第几次进房。用来识别「过期的那一次」。
+  ///
+  /// ## 为什么 `phase != joining` 这个判据不够
+  ///
+  /// `_connectRtc` 里 await 的是真实的媒体连接,可能要好几秒。这期间用户
+  /// 完全可能按「算了」(leave)然后再进一次 —— 此时 phase 又回到了
+  /// joining,旧那次的 await 一返回就会把 `inRoom` 和新那次的 completer
+  /// 一起「提交」掉,而它连的是**上一次**的房间。表现是退了房又自己回去,
+  /// 或者进到刚才那个圈子里。
+  ///
+  /// 单调递增的代次能分清这件事:进入时记下代次,提交前比对,不是自己
+  /// 那一代就默默收手。比 phase 多一个维度,也只多这一个 int。
+  int _joinEpoch = 0;
+
   StreamSubscription<Map<String, dynamic>>? _msgSub;
   StreamSubscription<Set<String>>? _speakingSub;
   StreamSubscription<void>? _rtcDropSub;
@@ -290,11 +341,21 @@ class RoomController extends ChangeNotifier {
       return;
     }
 
+    // ⚠️ 换代**之前**先把上一次的 completer 了结掉。
+    //
+    // force 路径(retryJoin)会直接盖掉 `_joinCompleter`,被盖掉的那个
+    // 从此没有任何人会去 complete —— 谁 await 了它谁就永远挂着。UI 读的是
+    // phase 不是这个 future,所以界面看着正常,但 `await join()` 的调用方
+    // (以及测试)会静默卡死。这是「卡在正在进去…」的一种隐身变体。
+    _abandonJoinCompleter(StateError('join_superseded'));
+
+    _joinEpoch++;
     phase = RoomPhase.joining;
     errorMessage = null;
     circleId = targetCircleId;
     _joinStopwatch = Stopwatch()..start();
     _joinCompleter = Completer<void>();
+    _armJoinWatchdog();
     notifyListeners();
 
     // ⚠️ 必须在 join 之前摆正「要证明哪个圈」。
@@ -371,10 +432,9 @@ class RoomController extends ChangeNotifier {
     final ok = await _signaling.waitHandshake(const Duration(seconds: 10));
     if (!ok) {
       // 没握上手的原因通常仍是鉴权(口令又错了),也可能是网络。
-      // 统一走 humanize,措辞与其它失败路径保持一致。
-      phase = RoomPhase.error;
-      errorMessage = humanizeJoinError(StateError('auth_failed'));
-      notifyListeners();
+      // 走 _failJoin 而不是手写两行:本方法进来就把 phase 摆成了 joining,
+      // 只落 error 而不解 completer / 不换代,就是又留一条半开的路。
+      _failJoin(StateError('auth_failed'));
       return;
     }
 
@@ -415,16 +475,40 @@ class RoomController extends ChangeNotifier {
     _idleTimer?.cancel();
     _idleTimer = null;
     _knockTimer?.cancel();
+    _knockTimer = null;
+    _joinTimer?.cancel();
+    _joinTimer = null;
     knocking = false;
     knockRequests.clear();
     _lastRtcUrl = null;
     _lastRtcToken = null;
     mediaDowngraded = false;
     locations.clear();
+
+    // ⚠️ 以下四样以前一样都没清,下一次 join 会带着上一次的残留开工:
+    //
+    // - `_joinCompleter`:上一次 await join() 的人永远吊着(隐身的卡死);
+    // - `_joinStopwatch`:不归零的话,下次进房的「耗时」会把用户在房里
+    //    待的整段时间算进去,性能数字直接失真;
+    // - `_joinEpoch`:退房就得换代,否则在途的 _rtc.join() 回来照样提交;
+    // - 预热 token 缓存:留着不删,下次进房会拿一张属于上一段会话的
+    //    token 去先行连媒体。退房往往正是因为口令/权限出了问题,
+    //    那张旧 token 多半已经不作数,却会让 RTC 先连上去再失败。
+    _abandonJoinCompleter(StateError('join_cancelled'));
+    _joinStopwatch = null;
+    _joinEpoch++;
+    _prefetchedCircle = null;
+    _prefetchedUrl = null;
+    _prefetchedToken = null;
+    _prefetchedAt = null;
+
     _signaling.leave();
-    await _rtc.leave();
+    // 先落 idle 再拆媒体:_rtc.leave() 会触发 onDisconnected,
+    // 而那个监听器看到 inRoom 就会当成掉线去自动恢复 ——
+    // 结果是用户按了「算了」,App 却自己又连了回去。
     phase = RoomPhase.idle;
     circleId = null;
+    await _rtc.leave();
     _members.clear();
     _speakingIds.clear();
     muted = true;
@@ -554,12 +638,19 @@ class RoomController extends ChangeNotifier {
     final ok =
         await _signaling.waitHandshake(const Duration(seconds: 10));
     if (!ok) {
+      // 这条路径上 phase 还是 idle(上面 leave() 刚落的),不存在半开的
+      // joining,所以直接落 error 即可。文案是自定义的:humanize 认不出
+      // 「换服务器失败」,而这件事值得说清楚是哪一步没成。
       phase = RoomPhase.error;
       errorMessage = '连不上那台服务器,没能过去';
+      _joinEpoch++;
       notifyListeners();
       return;
     }
-    join(circleId);
+    // 接住 completeError:join() 失败时会 completeError,没人接就变成
+    // 未捕获异步错误。本方法不 await 它,理由同 retryJoin ——
+    // 界面读的是 phase,不是这个要等好几秒才落地的 future。
+    unawaited(join(circleId).catchError((Object _) {}));
   }
 
   /// UI 提示过之后调用,免得重复弹。
@@ -630,6 +721,11 @@ class RoomController extends ChangeNotifier {
         final wanted = circleId;
         if (wanted != null && phase != RoomPhase.idle) {
           phase = RoomPhase.joining;
+          // 这是一次**新的**进房尝试:重新计时。不重新挂表的话,恢复房间态
+          // 这条路上服务端若不回 room,又是一次无声的永久 joining ——
+          // 它绕开了 join(),此前从来没有任何东西兜着它。
+          _joinEpoch++;
+          _armJoinWatchdog();
           _signaling.join(wanted);
           _signaling.prefetchToken(wanted); // 重连后重备预热 token
           notifyListeners();
@@ -638,6 +734,26 @@ class RoomController extends ChangeNotifier {
         if (msg['circleId'] != circleId) return;
         knocking = false; // 进房成功(直接进或敲门被放行)
         _knockTimer?.cancel();
+        _knockTimer = null;
+        // ⚠️ 收到 room 不等于进房结束 —— 能听到声音还差一个 token。
+        //
+        // 服务端 joinCircle 是**先发 room 快照、再去 mint LiveKit token**
+        // (server/src/index.js:867-878)。中间那一段是真会出事的:mint 要
+        // 访问 LiveKit,可能卡在握手上,进程也可能正好在这儿被杀;而 TCP
+        // 半开时连 error 都不会有 —— 只有沉默。
+        //
+        // 沉默恰好躲得过上面 case 'error' 的白名单:白名单只能接住「服务端
+        // 明确说了失败」,接不住「服务端什么都不说」。
+        //
+        // 敲门那条路尤其危险:knock_waiting 到达时把总超时交接给了敲门那
+        // 30 秒,被放行后上面一行又把 _knockTimer 撤掉 —— 若此处不重新挂表,
+        // 从 room 到 token 这段就一个计时器都不剩,正是「卡在正在进去…」
+        // 的第四种形状(前三次都是漏了某条具体出口,这次是漏了一段时间)。
+        //
+        // 重新挂而不是沿用 join() 那只:room 已经证明服务端活着、这次 join
+        // 是有效的,该给后面的 token + RTC 一段完整预算,而不是剩下的残值。
+        // 成功进房时 _connectRtc 会撤掉它,失败时 _failJoin 会撤掉它。
+        if (phase == RoomPhase.joining) _armJoinWatchdog();
         final wireMembers = (msg['members'] as List? ?? [])
             .whereType<Map<String, dynamic>>()
             .toList();
@@ -701,14 +817,44 @@ class RoomController extends ChangeNotifier {
         _lastRtcToken = token;
         mediaDowngraded = false;
         _connectRtc(url, token);
+      // 服务端的错误报文。以前**只**认 rtc_not_configured,其余一律落地无声 ——
+      // 而服务端在 join 这条路上还会发 token_failed / auth_scope /
+      // already_in_room / rate_limited(见 server/src/index.js)。
+      // 每一条都意味着「这次进房不会有 room/token 了」,不接住就是永久 joining。
       case 'error':
-        if (msg['message'] == 'rtc_not_configured') {
-          // presence 已通但 RTC 未配置:进入房间但标注错误,方便联调
-          phase = RoomPhase.error;
-          errorMessage = 'RTC 未配置(服务器缺少 LIVEKIT_* 环境变量)';
-          _joinCompleter?.completeError(StateError('rtc_not_configured'));
-          _joinCompleter = null;
-          notifyListeners();
+        final String? reason = msg['message'] as String?;
+        if (reason == 'rtc_not_configured') {
+          // presence 已通但 RTC 未配置:标注错误,方便联调
+          _failJoin(StateError('rtc_not_configured'));
+          return;
+        }
+        // 只在**正在进房**时才当成进房失败。同一条 socket 上还跑着聊天和
+        // 图片,它们被拒(too_large / bad_json)与这次进房毫无关系,
+        // 拿来打断用户是另一种形式的误伤 —— 所以这里是白名单,不是黑名单。
+        if (phase != RoomPhase.joining) return;
+        switch (reason) {
+          // 服务端签发 RTC token 失败:媒体服务那边的问题,填口令没用。
+          case 'token_failed':
+            _failJoin(StateError('rtc_not_configured'));
+          // 本连接证明的不是这个圈子。口令对不上号,该让用户去填。
+          case 'auth_scope':
+          case 'auth_required':
+          case 'auth_failed':
+            _failJoin(StateError('auth_failed'));
+          case 'rate_limited':
+            _failJoin(StateError('rate_limited'));
+          // 服务端认为这个会话已经在某个房间里了(上一次退房没走干净)。
+          // 重连一次比让用户干等强:新连接上没有这个陈旧会话。
+          case 'already_in_room':
+            _failJoin(StateError('already_in_room'));
+          // 服务端没收到 hello 就收到了 join。信令层的排队本该杜绝这件事,
+          // 真发生了说明握手掉了 —— 等不到 room,得给出路。
+          case 'say_hello_first':
+            _failJoin(StateError('handshake_lost'));
+          default:
+            // 其余(bad_json / too_large / payload_too_large / userId_required)
+            // 基本可以断定不是 join 引起的,交给总超时兜底,不误伤用户。
+            break;
         }
       case 'circle_summary':
         final id = msg['circleId'] as String?;
@@ -753,16 +899,24 @@ class RoomController extends ChangeNotifier {
       case 'knock_waiting':
         if (msg['circleId'] != circleId) return;
         knocking = true;
+        // 交接计时器:从这一刻起这次进房由敲门那 30 秒负责,
+        // 总超时必须撤掉。两个计时器同时管一件事,短的那个会先开枪 ——
+        // 而它说的是「服务器没回话」,与实情(对方还没来应门)不符。
+        _joinTimer?.cancel();
+        _joinTimer = null;
         notifyListeners();
         _knockTimer?.cancel();
         _knockTimer = Timer(knockTimeout, () {
           if (!knocking) return;
           knocking = false;
-          phase = RoomPhase.error;
-          errorMessage = '没人应门,稍后再敲';
           _signaling.leave();
-          _joinCompleter?.completeError(StateError('knock_timeout'));
-          _joinCompleter = null;
+          // 走 _failJoin:它统一负责落 error、换代、撤计时器、解 completer。
+          // 以前这里是手写的一份,于是每次给失败路径加清理动作都要记得
+          // 来改这一处 —— 漏一次就是一条新的卡死路径。
+          // 文案仍由这里定(humanize 认不出 knock_timeout,会落到泛泛的
+          // 「没能进去」),所以紧接着覆盖一次。
+          _failJoin(StateError('knock_timeout'));
+          errorMessage = '没人应门,稍后再敲';
           notifyListeners();
         });
       case 'knock':
@@ -813,9 +967,24 @@ class RoomController extends ChangeNotifier {
         if (phase == RoomPhase.joining || phase == RoomPhase.inRoom) {
           _failJoin(StateError('rate_limited'));
         }
+      // ⚠️ 信令层「压根没去连」时发的消息(凭据不全,见 signaling_client.dart
+      // 的 _emitCredentialRequired)。与 _auth_failed 的区别是「没试」而非
+      // 「试了被拒」,但对这次进房而言结局一样:不会有 room、不会有 token、
+      // 也不会有 _disconnected —— 不接住就是第四次「卡在正在进去…」。
+      //
+      // join() 里那道凭据前置检查覆盖不到这条:它读 SettingsStore,
+      // 信令层读的是自己的 CredentialSource,两者可以不一致。
+      case '_credential_required':
+        if (phase == RoomPhase.joining || phase == RoomPhase.inRoom) {
+          _failJoin(StateError('auth_required'));
+        }
       case '_disconnected':
         if (phase == RoomPhase.inRoom) {
           phase = RoomPhase.joining; // 信令重连后会自动 hello;房间态待恢复
+          // 掉出房间也要挂表:若重连始终不成(信令层的重连链可能在
+          // 凭据不全时静默断掉 —— connect() 会直接 return 不建连接),
+          // 这里没有任何东西会再来,界面就永久停在「正在进去…」。
+          _armJoinWatchdog();
           notifyListeners();
           return;
         }
@@ -846,11 +1015,66 @@ class RoomController extends ChangeNotifier {
     phase = RoomPhase.error;
     errorMessage = humanizeJoinError(error);
     _joinStopwatch?.stop();
+    _joinStopwatch = null;
+    _joinTimer?.cancel();
+    _joinTimer = null;
+    // 失败也要换代:此后任何在途的 _rtc.join() 回来都不许再提交状态。
+    _joinEpoch++;
     // completeError 必须有人接,否则会变成未捕获异步错误。
     // join() 的调用方(home_screen)已经 catch 了。
     _joinCompleter?.completeError(error);
     _joinCompleter = null;
     notifyListeners();
+  }
+
+  /// 了结一个即将被丢弃的 completer,**不动** phase。
+  ///
+  /// 与 [_failJoin] 的分工:那个是「这次进房失败了,告诉用户」,
+  /// 这个是「这次进房不算数了,别让 await 它的人吊着」——
+  /// 后者发生在 leave() 和 retryJoin() 里,那时界面该走的路已经另有安排。
+  void _abandonJoinCompleter(Object reason) {
+    final pending = _joinCompleter;
+    _joinCompleter = null;
+    if (pending == null || pending.isCompleted) return;
+    // completeError 必须有人接。join() 的直接调用方都 catch 了,
+    // 但 leave() 是 UI 主动调的,此处再兜一层以防万一。
+    pending.future.catchError((Object _) {});
+    pending.completeError(reason);
+  }
+
+  /// 挂上总超时。已有的先撤 —— 两个计时器管同一次进房必然打架。
+  void _armJoinWatchdog() {
+    _joinTimer?.cancel();
+    _joinTimer = Timer(joinTimeout, () {
+      // 到点还停在 joining 才算数。正常进房/失败路径都会撤掉它,
+      // 这里再核一次是为了容忍「撤销与触发赛跑」那一瞬。
+      if (phase != RoomPhase.joining) return;
+      // 敲门自有 30s 计时器,不该被这里抢先开枪(措辞会说错)。
+      if (knocking) return;
+      // 走 leave 而不是只落 error:服务端可能已经把我们记成在房里了
+      // (join 收到了、只是回包没来),不打招呼就走会在那边留一个幽灵成员。
+      _signaling.leave();
+      _failJoin(TimeoutException('join_timeout', joinTimeout));
+    });
+  }
+
+  /// 媒体掉线后的自动恢复:用缓存 token 重连,连不上就给用户一条出路。
+  ///
+  /// 只试一次。LiveKit 自己已经做过重连努力才会发 RoomDisconnectedEvent,
+  /// 在它之上再叠一轮退避重试,只会让用户对着「正在进去…」多等一倍时间 ——
+  /// 而这正是要消灭的那个症状。
+  Future<void> _recoverMedia() async {
+    final url = _lastRtcUrl;
+    final token = _lastRtcToken;
+    // 连 token 都没有就别装作能恢复。落 error,让用户自己决定要不要再进。
+    if (url == null || token == null) {
+      _failJoin(StateError('rtc_dropped'));
+      return;
+    }
+    _joinEpoch++;
+    _joinStopwatch = Stopwatch()..start();
+    _armJoinWatchdog();
+    await _connectRtc(url, token);
   }
 
   /// 测试注入:模拟收到服务器 token 事件(与 'token' 分支行为一致)
@@ -867,6 +1091,9 @@ class RoomController extends ChangeNotifier {
     _lastRtcToken = token;
     // 预热路径与服务器 token 事件可能同时触发,只连一次
     if (_rtcConnecting || phase == RoomPhase.inRoom) return;
+    // 这次连接属于哪一代。下面每个提交点都要比对它 ——
+    // 中途若用户退了房又进了别的圈,这次的结果就不该再落地。
+    final epoch = _joinEpoch;
     _rtcConnecting = true;
     try {
       final highQuality = await _currentHighQuality();
@@ -879,10 +1106,19 @@ class RoomController extends ChangeNotifier {
           startMuted: true,
           highQuality: highQuality,
           tuning: settings?.audioTuning ?? AudioTuning.standard);
+      // 连上了,但这已经是上一代的事了(用户中途退了房 / 又进了别的圈)。
+      // 把连好的媒体拆掉再走 —— 否则会留下一条没人管的音频流,
+      // 而用户明明已经离开,却还在被别人听见。
+      if (epoch != _joinEpoch) {
+        await _rtc.leave();
+        return;
+      }
       lastJoinLatency = _joinStopwatch?.elapsed ?? elapsed;
       debugPrint('[lares] 进房分段: 总=${lastJoinLatency!.inMilliseconds}ms '
           'RTC=${elapsed.inMilliseconds}ms');
       _joinStopwatch = null;
+      _joinTimer?.cancel();
+      _joinTimer = null;
       phase = RoomPhase.inRoom;
       muted = true;
       _joinCompleter?.complete();
@@ -890,16 +1126,18 @@ class RoomController extends ChangeNotifier {
       _resetIdleTimer();
       notifyListeners();
     } catch (e) {
-      phase = RoomPhase.error;
       // 给用户看人话,原始异常进日志。
       // 曾经这里是 `'进房失败:$e'`,于是屏幕上出现过
       // 「ClientException with SocketException: Connection...」:
       // 用户看不懂,且长度不可控把标题行撑爆(2014px 溢出)。
       debugPrint('[lares] 进房失败(原始异常): $e');
-      errorMessage = humanizeJoinError(e);
-      _joinCompleter?.completeError(e);
-      _joinCompleter = null;
-      notifyListeners();
+      // 过期那一代的失败不该弹给用户:他早就不在等这次进房了,
+      // 冒出来的错误只会盖掉当前这次的真实状态。
+      if (epoch != _joinEpoch) return;
+      // 走 _failJoin 而不是手写四行:超时计时器的撤销、代次推进、
+      // stopwatch 的收尾都在那里。这里曾经是各写各的,于是每加一样
+      // 要清的东西就得记得来改这一处 —— 而漏掉一次就是一个新的卡死。
+      _failJoin(e);
     } finally {
       _rtcConnecting = false;
     }
@@ -942,6 +1180,9 @@ class RoomController extends ChangeNotifier {
   void dispose() {
     _idleTimer?.cancel();
     _knockTimer?.cancel();
+    _joinTimer?.cancel();
+    // 控制器都要没了,还吊着一个永不完成的 future 就纯属遗留垃圾。
+    _abandonJoinCompleter(StateError('disposed'));
     _msgSub?.cancel();
     _speakingSub?.cancel();
     _rtcDropSub?.cancel();

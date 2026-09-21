@@ -92,6 +92,18 @@ JoinErrorKind classifyJoinError(Object error) => _classify(error).$1;
     return (JoinErrorKind.rateLimited, null);
   }
 
+  // 媒体流在房间里断了,且用缓存 token 也没能接回来。
+  //
+  // 归到 network/refused 而不是新造一种:对用户而言这就是「连不上了」,
+  // 而那句现成的文案(网络断了 / 对方暂时不在线)说的正是这件事。
+  // 少一条文案就少一次翻译,也少一个会与分类漂移的地方。
+  //
+  // ⚠️ 必须排在下面 rtc_not_configured 那条之前 —— 那条用 contains
+  // 匹配,'rtc_dropped' 不含它,但顺序写反了以后加规则就容易互相吃掉。
+  if (text.contains('rtc_dropped')) {
+    return (JoinErrorKind.network, _NetworkFlavor.refused);
+  }
+
   // 服务端没配 LiveKit,或者媒体服务没起来
   if (text.contains('rtc_not_configured') || text.contains('token')) {
     return (JoinErrorKind.serverNotReady, null);

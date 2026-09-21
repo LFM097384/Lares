@@ -505,7 +505,10 @@ void main() {
       final signaling = _FakeSignaling();
       final settings = await SettingsStore.load(vault: InMemorySecretVault());
       final controller = _makeController(signaling, settings: settings);
-      addTearDown(controller.dispose);
+      // ⚠️ 这里**不能**用 addTearDown:点完「再试一次」之后 controller 停在
+      // joining,身上挂着 25 秒的进房总超时(room_controller 的 joinTimeout)。
+      // 框架检查「有没有计时器没收」排在 addTearDown **之前**,
+      // 所以必须在用例体内显式收尾。
 
       await _failWith4401(signaling, controller, 'work',
           pump: () => tester.pump());
@@ -541,6 +544,10 @@ void main() {
         signaling.sent.any((m) => m['t'] == 'join' && m['circleId'] == 'work'),
         isTrue,
       );
+
+      // 收尾:先拆树再收 controller(撤掉那个 25 秒的总超时)。
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
     });
 
     testWidgets('非鉴权错误不显示口令框', (tester) async {
