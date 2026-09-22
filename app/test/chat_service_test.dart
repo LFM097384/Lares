@@ -71,7 +71,7 @@ void main() {
     final ChatService s = ChatService(
       transport: t,
       userId: userId,
-      userName: userName,
+      userNameGetter: () => userName,
       circleIdGetter: () => circleId,
       idGenerator: seqIds(idPrefix),
       now: () => ts,

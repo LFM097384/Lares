@@ -1,3 +1,13 @@
 /* 「添加小组件」选择器里显示的名字与说明(中文)。 */
 "widget.displayName" = "炉灵";
 "widget.description" = "显示主圈子在线状态,点一下一键加入主圈子";
+
+/* 小组件内部的兜底文案:App Group 读不到共享数据时用这两条。
+   与 Android 的 widget_title_default / widget_presence_default 同一类东西。 */
+"widget.fallbackTitle" = "炉灵";
+"widget.fallbackPresence" = "点一下,进你的主圈子";
+
+/* 主操作文案。与 Android 的 widget_action_join / widget_action_open 一一对应,
+   两端措辞必须一致,否则同一个产品在两个平台上像两种口气。 */
+"widget.actionJoin" = "点一下,进圈 →";
+"widget.actionCreate" = "点一下,建个圈 →";

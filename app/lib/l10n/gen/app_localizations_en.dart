@@ -73,7 +73,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonCancel => 'Never mind';
 
   @override
+  String get commonClose => 'Close';
+
+  @override
   String get commonConfirm => 'OK';
+
+  @override
+  String get commonCopied => 'Copied';
 
   @override
   String get commonCopy => 'Copy';
@@ -91,8 +97,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonNoThanks => 'No thanks';
 
   @override
+  String get commonSave => 'Save';
+
+  @override
+  String get e2eeConfirmBody =>
+      'Encryption only works when **everyone in the circle turns it on**. If you are the only one, they will not be able to hear you and you will not be able to hear them — your voices never reach the same lock. Talk to the circle first and turn it on together.';
+
+  @override
+  String get e2eeConfirmTitle => 'Everyone in the circle has to turn this on';
+
+  @override
+  String get e2eeConfirmYes => 'We agreed — turn it on';
+
+  @override
   String get e2eeCostNotice =>
       'Once on: the server sees nothing, so **transcription is off**, and the **AI Lares** is **unavailable** in this circle (it only works in circles without encryption).';
+
+  @override
+  String get e2eeEveryoneNotice =>
+      'Everyone in the circle has to turn this on, or you will not be able to hear each other.';
 
   @override
   String get e2eeKeyLocalNotice =>
@@ -199,6 +222,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeInviteFriendsDesc => 'Copy the invite link and send it over';
 
   @override
+  String get homeInviteIncludePasscode => 'Put the passphrase in the link';
+
+  @override
+  String get homeInviteIncludePasscodeE2ee =>
+      '⚠️ This circle is end-to-end encrypted — the passphrase is the key. If the link gets forwarded or screenshotted, the conversations are no longer private.';
+
+  @override
+  String get homeInviteIncludePasscodeHint =>
+      'They will not have to ask you for it separately';
+
+  @override
   String homeInviteTitle(String circleName) {
     return 'Invite friends to “$circleName”';
   }
@@ -215,8 +249,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeKickedByAdmin => 'An admin';
 
   @override
+  String get homeKnockModeConfirmBody =>
+      'This is a setting for the whole circle, not just for you — change it and it changes for everyone. Anyone in the circle can change it back, too.';
+
+  @override
+  String get homeKnockModeConfirmTitle => 'This changes it for everyone';
+
+  @override
+  String get homeKnockModeConfirmYes => 'Change it';
+
+  @override
   String get homeKnockModeDesc =>
       'When on, people outside the circle need someone inside to let them in';
+
+  @override
+  String get homeKnockModeEveryoneNotice =>
+      'The whole circle shares this one setting — if you change it, you change it for everyone.';
 
   @override
   String get homeKnockModeOff => 'Knock mode: off (tap to turn on)';
@@ -857,6 +905,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsGroupCircle => 'This circle';
 
   @override
+  String get settingsGroupMe => 'You';
+
+  @override
   String get settingsGroupSafety => 'Somewhere you can stay';
 
   @override
@@ -866,12 +917,86 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsHomeWidget => 'Put a circle on the home screen';
 
   @override
+  String get settingsHomeWidgetAndroidStep1 =>
+      'Press and hold an empty spot on the home screen';
+
+  @override
+  String get settingsHomeWidgetAndroidStep2 => 'Tap Widgets';
+
+  @override
+  String get settingsHomeWidgetAndroidStep3 => 'Find Lares Circle';
+
+  @override
+  String get settingsHomeWidgetAndroidStep4 => 'Drag it onto the home screen';
+
+  @override
+  String get settingsHomeWidgetGuideTitle => 'Adding it to the home screen';
+
+  @override
+  String get settingsHomeWidgetIosStep1 =>
+      'Press and hold an empty spot on the home screen until the icons jiggle';
+
+  @override
+  String get settingsHomeWidgetIosStep2 => 'Tap the + in the top left corner';
+
+  @override
+  String get settingsHomeWidgetIosStep3 => 'Search for \"Lares Circle\"';
+
+  @override
+  String get settingsHomeWidgetIosStep4 =>
+      'Pick a size — swipe left or right to see the others';
+
+  @override
+  String get settingsHomeWidgetIosStep5 =>
+      'Tap Add Widget, then Done in the top right';
+
+  @override
+  String get settingsHomeWidgetPhoneOnly =>
+      'Home screen widgets are a phone thing. This device doesn\'t have them.';
+
+  @override
   String get settingsHomeWidgetSub =>
       'One tap from the home screen into your main circle';
 
   @override
-  String get settingsHomeWidgetUnsupported =>
-      'This device doesn\'t support that. Long-press the home screen to add it by hand.';
+  String get settingsIdentityExportBody =>
+      'Open the same place over there and paste it into the box below. It only holds your identity and name — no circle passphrases.';
+
+  @override
+  String get settingsIdentityExportTitle =>
+      'Give this string to the other device';
+
+  @override
+  String get settingsIdentityImportAction => 'Use this identity';
+
+  @override
+  String get settingsIdentityImportBad =>
+      'That does not look like an identity string. Try copying it again.';
+
+  @override
+  String get settingsIdentityImportHint => 'lares-id-v1:…';
+
+  @override
+  String get settingsIdentityImportRestart =>
+      'Saved — but restart Lares before it counts. This connection is still online under the old identity.';
+
+  @override
+  String get settingsIdentityImportTitle => 'Or paste one in';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSystem => 'Follow system';
+
+  @override
+  String get settingsMyName => 'Your name';
+
+  @override
+  String get settingsMyNameHint => 'Nickname';
+
+  @override
+  String get settingsMyNameTitle => 'What should everyone call you?';
 
   @override
   String get settingsNoiseEnhanced => 'Enhanced';
@@ -918,6 +1043,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsRecordingStop => 'Stop recording';
+
+  @override
+  String get settingsSameIdentity => 'Use this identity on another device';
+
+  @override
+  String get settingsSameIdentitySub =>
+      'Your computer and phone count as one person, and will not knock each other offline';
 
   @override
   String get settingsServer => 'Server and passcode';
@@ -1260,13 +1392,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'Quitting to finish the update, Lares comes back in a few seconds.';
 
   @override
-  String get homeInviteIncludePasscode => 'Put the passphrase in the link';
+  String get widgetNoCircle => 'No circle yet';
 
   @override
-  String get homeInviteIncludePasscodeHint =>
-      'They will not have to ask you for it separately';
+  String get widgetNoCircleHint => 'Open the app and make one';
 
   @override
-  String get homeInviteIncludePasscodeE2ee =>
-      '⚠️ This circle is end-to-end encrypted — the passphrase is the key. If the link gets forwarded or screenshotted, the conversations are no longer private.';
+  String get widgetNobodyHere => 'Nobody here. Go in and wait a bit?';
+
+  @override
+  String widgetPeopleHere(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people here',
+      one: '1 person here',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String widgetPeopleHereWithNames(int count, String names) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people here · $names',
+      one: '1 person here · $names',
+    );
+    return '$_temp0';
+  }
 }

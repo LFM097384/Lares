@@ -78,9 +78,17 @@
   "@commonCancel": {
     "description": "取消按钮。刻意不用「取消」—— 口语化一点,和产品语气一致。"
   },
+  "commonClose": "关掉",
+  "@commonClose": {
+    "description": "关闭按钮。也用作设置页头部那个关闭图标的 tooltip —— iOS 没有系统返回键,这个图标是唯一可靠的出口。"
+  },
   "commonConfirm": "好",
   "@commonConfirm": {
     "description": "确认按钮"
+  },
+  "commonCopied": "复制好了",
+  "@commonCopied": {
+    "description": "复制成功后的 SnackBar 提示"
   },
   "commonCopy": "复制",
   "@commonCopy": {
@@ -102,9 +110,29 @@
   "@commonNoThanks": {
     "description": "婉拒建议的按钮,比如系统建议顺手屏蔽某人时选择不做"
   },
+  "commonSave": "存下",
+  "@commonSave": {
+    "description": "保存按钮"
+  },
+  "e2eeConfirmBody": "加密只在**圈里每个人都打开**时才管用。只有你开着,别人听不见你说话,你也听不见他们的 —— 声音进不了同一把锁。先和圈里的人说一声,大家一起开。",
+  "@e2eeConfirmBody": {
+    "description": "开启端到端加密前的确认对话框正文:必须全圈一致,否则互相听不见"
+  },
+  "e2eeConfirmTitle": "圈里每个人都要开",
+  "@e2eeConfirmTitle": {
+    "description": "开启端到端加密前的确认对话框标题"
+  },
+  "e2eeConfirmYes": "都说好了,开吧",
+  "@e2eeConfirmYes": {
+    "description": "开启端到端加密的确认按钮。语气上要求用户先确认过全圈都同意"
+  },
   "e2eeCostNotice": "开启后:服务器看不到任何内容,因此**无法转录**,「AI 炉灵」在这个圈子里也**不可用**(炉灵只在不开加密的圈子工作)。",
   "@e2eeCostNotice": {
     "description": "开启端到端加密的代价说明,开关旁常驻展示;文案与 e2ee_status.dart 里的 kE2EECostNotice 常量逐字一致"
+  },
+  "e2eeEveryoneNotice": "圈里每个人都得打开,否则你和他们互相听不见。",
+  "@e2eeEveryoneNotice": {
+    "description": "端到端加密开关副标题里最要紧的那一句:这个开关是单机的,不开的人听不到开了的人"
   },
   "e2eeKeyLocalNotice": "密钥从你的圈口令派生,只在设备本地,绝不上传服务器。",
   "@e2eeKeyLocalNotice": {
@@ -225,6 +253,18 @@
   "@homeInviteFriendsDesc": {
     "description": "长按菜单里邀请项的副标题"
   },
+  "homeInviteIncludePasscode": "把口令也放进链接",
+  "@homeInviteIncludePasscode": {
+    "description": "邀请对话框里的开关:把圈口令一并写进邀请链接"
+  },
+  "homeInviteIncludePasscodeE2ee": "⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。",
+  "@homeInviteIncludePasscodeE2ee": {
+    "description": "开了端到端加密的圈子把口令放进链接时的额外警告:口令等于密钥"
+  },
+  "homeInviteIncludePasscodeHint": "对方不用再单独问你要口令了",
+  "@homeInviteIncludePasscodeHint": {
+    "description": "把口令放进链接这个开关的副标题"
+  },
   "homeInviteTitle": "邀请朋友进「{circleName}」",
   "@homeInviteTitle": {
     "description": "邀请对话框标题,circleName 是圈子名",
@@ -251,9 +291,25 @@
   "@homeKickedByAdmin": {
     "description": "踢人者名字为空时的兜底称呼"
   },
+  "homeKnockModeConfirmBody": "这是整个圈子的设置,不是只对你 —— 改完圈里每个人都跟着变。圈里任何人也都能再改回去。",
+  "@homeKnockModeConfirmBody": {
+    "description": "改敲门模式前的确认对话框正文:它是全圈共享的设置,且谁都能改"
+  },
+  "homeKnockModeConfirmTitle": "这会改掉所有人的",
+  "@homeKnockModeConfirmTitle": {
+    "description": "改敲门模式前的确认对话框标题"
+  },
+  "homeKnockModeConfirmYes": "就这么改",
+  "@homeKnockModeConfirmYes": {
+    "description": "改敲门模式的确认按钮"
+  },
   "homeKnockModeDesc": "开启后,圈外人进来需要里面的人放行",
   "@homeKnockModeDesc": {
     "description": "长按菜单里敲门模式项的副标题"
+  },
+  "homeKnockModeEveryoneNotice": "整个圈子共用这一个设置 —— 你改了,所有人都改了。",
+  "@homeKnockModeEveryoneNotice": {
+    "description": "敲门模式项副标题里的第二句:强调它是共享设置而不是个人偏好"
   },
   "homeKnockModeOff": "敲门模式:关(点一下开启)",
   "@homeKnockModeOff": {
@@ -987,6 +1043,10 @@
   "@settingsGroupCircle": {
     "description": "设置页分组标题:主圈子、小组件、后台运行"
   },
+  "settingsGroupMe": "我",
+  "@settingsGroupMe": {
+    "description": "设置页分组标题:昵称与界面语言"
+  },
   "settingsGroupSafety": "待得住",
   "@settingsGroupSafety": {
     "description": "设置页分组标题:屏蔽名单与内容规范"
@@ -999,13 +1059,101 @@
   "@settingsHomeWidget": {
     "description": "添加主屏幕小组件的设置项标题"
   },
+  "settingsHomeWidgetAndroidStep1": "长按主屏幕空白处",
+  "@settingsHomeWidgetAndroidStep1": {
+    "description": "Launcher 不支持一键固定时,手动添加小组件的第 1 步"
+  },
+  "settingsHomeWidgetAndroidStep2": "点「小组件」",
+  "@settingsHomeWidgetAndroidStep2": {
+    "description": "Android 手动添加小组件的第 2 步:打开小组件面板"
+  },
+  "settingsHomeWidgetAndroidStep3": "找到「炉灵」",
+  "@settingsHomeWidgetAndroidStep3": {
+    "description": "Android 手动添加小组件的第 3 步。这里写的是 Launcher 里实际显示的名字(app_name),英文版显示 Lares Circle"
+  },
+  "settingsHomeWidgetAndroidStep4": "拖到主屏幕上",
+  "@settingsHomeWidgetAndroidStep4": {
+    "description": "Android 手动添加小组件的第 4 步:拖放到桌面"
+  },
+  "settingsHomeWidgetGuideTitle": "怎么加到主屏幕",
+  "@settingsHomeWidgetGuideTitle": {
+    "description": "手动添加小组件的分步说明对话框标题"
+  },
+  "settingsHomeWidgetIosStep1": "长按主屏幕空白处,等图标开始抖",
+  "@settingsHomeWidgetIosStep1": {
+    "description": "iOS 手动添加小组件的第 1 步:进入主屏编辑态"
+  },
+  "settingsHomeWidgetIosStep2": "点左上角的「+」",
+  "@settingsHomeWidgetIosStep2": {
+    "description": "iOS 手动添加小组件的第 2 步:打开小组件库"
+  },
+  "settingsHomeWidgetIosStep3": "搜「炉灵」",
+  "@settingsHomeWidgetIosStep3": {
+    "description": "iOS 手动添加小组件的第 3 步。这里写的是小组件库里实际显示的名字(configurationDisplayName),英文版显示 Lares Circle"
+  },
+  "settingsHomeWidgetIosStep4": "选个尺寸,左右滑能换",
+  "@settingsHomeWidgetIosStep4": {
+    "description": "iOS 手动添加小组件的第 4 步:挑尺寸"
+  },
+  "settingsHomeWidgetIosStep5": "点「添加小组件」,再点右上角「完成」",
+  "@settingsHomeWidgetIosStep5": {
+    "description": "iOS 手动添加小组件的第 5 步:确认添加并退出编辑态"
+  },
+  "settingsHomeWidgetPhoneOnly": "主屏幕小组件是手机上的功能,这台设备上没有",
+  "@settingsHomeWidgetPhoneOnly": {
+    "description": "桌面端与 Web 点这一行时的提示:不是设备不支持,是这个平台根本没有主屏小组件"
+  },
   "settingsHomeWidgetSub": "主屏幕点一下,直接进主圈子",
   "@settingsHomeWidgetSub": {
     "description": "主屏幕小组件设置项的副标题"
   },
-  "settingsHomeWidgetUnsupported": "当前设备不支持,请长按桌面手动添加",
-  "@settingsHomeWidgetUnsupported": {
-    "description": "系统不支持一键固定小组件时的提示"
+  "settingsIdentityExportBody": "在那台设备上打开同一个地方,粘进下面的框里。里面只有你的身份和名字,没有任何圈子口令。",
+  "@settingsIdentityExportBody": {
+    "description": "跨设备身份对话框的导出段说明:身份码里有什么、没有什么"
+  },
+  "settingsIdentityExportTitle": "把这串给另一台设备",
+  "@settingsIdentityExportTitle": {
+    "description": "跨设备身份对话框的导出段小标题"
+  },
+  "settingsIdentityImportAction": "用这个身份",
+  "@settingsIdentityImportAction": {
+    "description": "导入身份码的确认按钮"
+  },
+  "settingsIdentityImportBad": "这串东西看着不像身份码,再复制一次试试",
+  "@settingsIdentityImportBad": {
+    "description": "身份码解析失败的提示。不区分具体原因 —— 用户能做的事都一样(重新复制一份)"
+  },
+  "settingsIdentityImportHint": "lares-id-v1:…",
+  "@settingsIdentityImportHint": {
+    "description": "导入身份码输入框的占位文字,展示身份码的前缀格式"
+  },
+  "settingsIdentityImportRestart": "身份存下了,但要重开一次 Lares 才算数 —— 现在这条连接还挂在旧身份上。",
+  "@settingsIdentityImportRestart": {
+    "description": "导入身份码成功后的诚实告知:新 userId 必须重启才生效。刻意不假装已经切换 —— userId 在启动时就分发给了信令、房间、直连、跨服在线等多个长生命周期对象,并已算进这条连接的鉴权证明"
+  },
+  "settingsIdentityImportTitle": "或者,粘一串过来",
+  "@settingsIdentityImportTitle": {
+    "description": "跨设备身份对话框的导入段小标题"
+  },
+  "settingsLanguage": "语言",
+  "@settingsLanguage": {
+    "description": "界面语言设置项的标题"
+  },
+  "settingsLanguageSystem": "跟随系统",
+  "@settingsLanguageSystem": {
+    "description": "语言下拉选项:跟随系统语言。另两个选项是语言自称(中文 / English),刻意不进 ARB"
+  },
+  "settingsMyName": "我的名字",
+  "@settingsMyName": {
+    "description": "设置页改昵称那一行的标题"
+  },
+  "settingsMyNameHint": "昵称",
+  "@settingsMyNameHint": {
+    "description": "改昵称输入框的占位提示"
+  },
+  "settingsMyNameTitle": "想让大家怎么称呼你?",
+  "@settingsMyNameTitle": {
+    "description": "改昵称对话框的标题"
   },
   "settingsNoiseEnhanced": "增强",
   "@settingsNoiseEnhanced": {
@@ -1067,6 +1215,14 @@
   "settingsRecordingStop": "停止录音",
   "@settingsRecordingStop": {
     "description": "停止录音的按钮"
+  },
+  "settingsSameIdentity": "另一台设备也用这个身份",
+  "@settingsSameIdentity": {
+    "description": "跨设备身份那一行的标题,也用作它打开的对话框标题"
+  },
+  "settingsSameIdentitySub": "电脑和手机算同一个人,不会互相挤掉",
+  "@settingsSameIdentitySub": {
+    "description": "跨设备身份那一行的副标题:说明共享 userId 的好处(服务端按一人多端合并)"
   },
   "settingsServer": "服务器与口令",
   "@settingsServer": {
@@ -1507,7 +1663,37 @@
   "@updateWinRestarting": {
     "description": "Windows 安装已就绪：应用即将退出并自动重启"
   },
-  "homeInviteIncludePasscode": "把口令也放进链接",
-  "homeInviteIncludePasscodeHint": "对方不用再单独问你要口令了",
-  "homeInviteIncludePasscodeE2ee": "⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。"
+  "widgetNoCircle": "还没有圈子",
+  "@widgetNoCircle": {
+    "description": "主屏幕小组件的标题位:一个圈子都还没有时显示"
+  },
+  "widgetNoCircleHint": "打开 App 建一个圈",
+  "@widgetNoCircleHint": {
+    "description": "主屏幕小组件的副标题位:没有圈子时告诉用户下一步去哪"
+  },
+  "widgetNobodyHere": "暂无人在,进去等等看?",
+  "@widgetNobodyHere": {
+    "description": "主屏幕小组件的副标题位:主圈子里一个人都没有。英文版与 Android 的 widget_presence_default 逐字一致"
+  },
+  "widgetPeopleHere": "{count, plural, other{{count} 个人在}}",
+  "@widgetPeopleHere": {
+    "description": "主屏幕小组件的副标题位:只知道主圈子里在线几个人,不知道是谁",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "widgetPeopleHereWithNames": "{count, plural, other{{count} 个人在 · {names}}}",
+  "@widgetPeopleHereWithNames": {
+    "description": "主屏幕小组件的副标题位:知道主圈子里是谁在,names 是已用本地化分隔符拼好的名字串",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  }
 }

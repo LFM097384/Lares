@@ -1,3 +1,9 @@
+// Locale 来自 dart:ui,而 foundation.dart 并**没有**把它再导出
+// (只导出了 PlatformDispatcher / VoidCallback / Brightness 这几个)。
+// 只 show Locale 是能编译的最窄写法 —— 不为一个类型把整个
+// package:flutter/widgets.dart 拉进存储层。
+import 'dart:ui' show Locale;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,6 +26,19 @@ import '../rtc/rtc_service.dart' show NoiseSuppressionMode, AudioTuning;
 @visibleForTesting
 bool debugUseInMemoryVault = false;
 
+/// 界面语言。
+///
+/// ⚠️ **顺序永远不许调整,新值只许往后加。**
+/// 它是按 `.index`(序数)持久化的 —— 跟 `NoiseSuppressionMode` 同一套做法。
+/// 把 zh 和 en 换个位置,不会有任何编译错误、任何测试失败,
+/// 但**所有已经手动选过语言的老用户下次启动会变成另一种语言**,
+/// 而他们什么都没做。这类事故没有任何征兆,只能靠这条注释拦住。
+///
+/// 刻意**不带任何显示用的字符串**:本项目的 l10n 规约是「模型只存语义键,
+/// 翻译发生在 UI 层」。真在这里挂一个 `label`,它要么写死中文、
+/// 要么逼着存储层去拿 BuildContext,两条都是错的。
+enum AppLanguage { system, zh, en }
+
 class SettingsStore extends ChangeNotifier {
   SettingsStore._();
 
@@ -29,6 +48,7 @@ class SettingsStore extends ChangeNotifier {
   static const _kSignalingOverride = 'lares.signalingOverride';
   static const _kNoiseMode = 'lares.noiseMode';
   static const _kServerProfiles = 'lares.serverProfiles';
+  static const _kAppLanguage = 'lares.appLanguage';
 
   /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
   bool wifiOnlyHq = true;
@@ -42,6 +62,9 @@ class SettingsStore extends ChangeNotifier {
 
   /// 降噪档位:off / standard(WebRTC APM)/ enhanced(Krisp,平台不支持时自动回落)
   NoiseSuppressionMode noiseMode = NoiseSuppressionMode.standard;
+
+  /// 界面语言。默认跟随系统 —— 绝大多数人装上就该是对的,不该先去设置里挑一次。
+  AppLanguage appLanguage = AppLanguage.system;
 
   /// 具名服务器档案(标签 + 地址 + 鉴权配置,选一个生效)。
   ///
@@ -100,6 +123,11 @@ class SettingsStore extends ChangeNotifier {
     final modeIndex = prefs.getInt(_kNoiseMode) ?? NoiseSuppressionMode.standard.index;
     s.noiseMode = NoiseSuppressionMode
         .values[modeIndex.clamp(0, NoiseSuppressionMode.values.length - 1)];
+    // 同样 clamp:老版本若存过越界序号(或枚举将来缩短过),
+    // 直接取下标会 RangeError 崩在启动路径上 —— 比语言不对严重得多。
+    final langIndex = prefs.getInt(_kAppLanguage) ?? AppLanguage.system.index;
+    s.appLanguage =
+        AppLanguage.values[langIndex.clamp(0, AppLanguage.values.length - 1)];
     // 服务器档案:没存过就从老的 signalingOverride 迁移一份过来,别让人丢设置
     final rawProfiles = prefs.getString(_kServerProfiles);
     if (rawProfiles == null) {
@@ -463,6 +491,30 @@ class SettingsStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kNoiseMode, value.index);
   }
+
+  Future<void> setAppLanguage(AppLanguage value) async {
+    appLanguage = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kAppLanguage, value.index);
+  }
+
+  /// 传给 `MaterialApp.locale` 的值。
+  ///
+  /// ⚠️ `system` 必须映射成 **null**,而不是「去读一下设备语言再传进来」。
+  /// 传 null 时 Flutter 用的是 `_resolvedLocale` —— 它由
+  /// `platformDispatcher.locales`(**整个列表**,不是第一项)经同一个
+  /// `localeResolutionCallback` 算出来的,于是系统语言不受支持时会命中
+  /// 我们那条 `return const Locale('en')` 兜底。
+  ///
+  /// 若改成传设备 locale,就等于把「跟随系统」降级成「跟随系统语言的第一项」:
+  /// 用户系统里排第二的中文会被无视,而 App Store 主语言回落英文这条规矩
+  /// 也会绕过 Flutter 自己的多语言协商。两者都是静默的行为退化。
+  Locale? get preferredLocale => switch (appLanguage) {
+        AppLanguage.system => null,
+        AppLanguage.zh => const Locale('zh'),
+        AppLanguage.en => const Locale('en'),
+      };
 
   /// 供 RoomController 传给 rtc.join()
   AudioTuning get audioTuning => AudioTuning(mode: noiseMode);

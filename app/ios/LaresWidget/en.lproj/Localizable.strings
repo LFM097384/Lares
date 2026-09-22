@@ -1,3 +1,13 @@
 /* 「添加小组件」选择器里显示的名字与说明(英文)。 */
 "widget.displayName" = "Lares Circle";
 "widget.description" = "See who's in your main circle, and tap to join.";
+
+/* 小组件内部的兜底文案:App Group 读不到共享数据时用这两条。
+   标题与 widget.displayName 保持一致 —— 商店里叫 Lares Circle。 */
+"widget.fallbackTitle" = "Lares Circle";
+"widget.fallbackPresence" = "Tap to go to your main circle";
+
+/* 主操作文案。照抄 Android values/strings.xml 的 widget_action_join /
+   widget_action_open,两端一字不差,避免同一产品两种口气。 */
+"widget.actionJoin" = "Tap to join →";
+"widget.actionCreate" = "Tap to make a circle →";

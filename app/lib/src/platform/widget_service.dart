@@ -4,11 +4,29 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
 
+import '../../l10n/gen/app_localizations.dart';
 import '../state/circle_store.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import 'platform_info.dart'
     if (dart.library.io) 'platform_info_io.dart';
+
+/// `requestPin` 的结果。返回 bool 的时候三种失败被压成了一种,
+/// UI 只能一律说「当前设备不支持」—— 在 iOS 上那是假话。
+enum PinWidgetOutcome {
+  /// Android 且 Launcher 支持:系统确认弹窗已弹出,不必再打扰用户
+  pinned,
+
+  /// Android,但 Launcher 不支持一键固定 -> 给手动添加步骤
+  androidManual,
+
+  /// iOS:系统根本不开放程序化添加(home_widget 的 iOS 实现硬编码返回 false),
+  /// 所以**不去尝试**,直接给手动步骤
+  iosManual,
+
+  /// 桌面 / Web:没有主屏幕小组件这回事
+  unavailable,
+}
 
 /// 主屏幕 Widget + 深链服务(Android/iOS):
 /// - 主圈子的 presence 推送到主屏 Widget(未开 App 也可见「X 人在」);
@@ -19,9 +37,46 @@ import 'platform_info.dart'
 /// 深链本身不带圈子 id。好处:Widget 侧共享存储哪怕过期、丢失、或在 iOS 免费
 /// 签名下根本读不到,也只会让**显示**退化,绝不会把人送进错误的房间。
 class WidgetService {
-  static const _androidProvider = 'com.example.lares_app.LaresWidgetProvider';
-  static const _iosWidgetName = 'LaresWidget';
-  static const _iosAppGroup = 'group.com.lfm097384.lares';
+  // ── 跨语言桥接的规范常量 ──────────────────────────────────────────
+  //
+  // 下面这几个字面量是 Dart / Swift / Kotlin 三侧唯一的共同约定:
+  // 共享存储的键名、App Group、Widget kind、Provider 类名、深链。
+  // 三者之间没有任何编译期联系 —— 改了一侧而忘了另一侧,不会报错、
+  // 不会抛异常、日志里也什么都看不到,只会表现为「小组件永远不更新」
+  // 这种最难查的症状。所以把它们**公开**出来,让
+  // `test/widget_bridge_contract_test.dart` 能直接读原生源码比对,
+  // 让漂移在 CI 上就炸掉,而不是等用户装到手机上才发现。
+
+  /// 推给 Widget 共享存储的全部键名。顺序稳定,契约测试按这份清单去比对。
+  static const List<String> dataKeys = <String>[
+    'circle_name',
+    'presence_text',
+    'primary_circle_id',
+    'has_primary',
+  ];
+
+  /// iOS App Group:Runner 与 LaresWidget 靠它共享 UserDefaults。
+  /// 必须与两个 .entitlements 及 add_widget_target.rb 逐字一致。
+  static const String iosAppGroup = 'group.com.lfm097384.lares';
+
+  /// iOS Widget 的 kind。必须与 Swift 侧 `StaticConfiguration(kind:)` 一致,
+  /// 否则 `reloadTimelines` 静默失效(找不到这个 kind 就什么也不做)。
+  static const String iosWidgetName = 'LaresWidget';
+
+  /// Android AppWidgetProvider 的全限定类名,固定/刷新 Widget 都要用它。
+  static const String androidProviderClass =
+      'com.example.lares_app.LaresWidgetProvider';
+
+  /// 主屏小组件点按后打开的深链。原生侧(Swift `.widgetURL` /
+  /// Kotlin `Uri.parse`)与 Info.plist 的 `lares` scheme 都得对得上。
+  /// 注意:到了 Dart 侧 [_handleLink] 拿到的是被平台通道剥掉 scheme 的
+  /// 裸字符串 `'join'`,不是这里的完整 URL。
+  static const String joinDeepLink = 'lares://join';
+
+  // 私有别名:保留原有调用点的可读性,值以上面的公开常量为准
+  static const _androidProvider = androidProviderClass;
+  static const _iosWidgetName = iosWidgetName;
+  static const _iosAppGroup = iosAppGroup;
   static const _deepLink = MethodChannel('lares/deeplink');
   static const _deepLinkEvents = EventChannel('lares/deeplink/events');
 
@@ -35,14 +90,43 @@ class WidgetService {
   String? _lastPushedPresence;
   String? _lastPushedId;
 
-  /// 请求把 Widget 固定到主屏幕(Android 部分 Launcher 支持,API 26+)
-  static Future<bool> requestPin() async {
-    if (PlatformInfo.current != 'android') return false;
-    final supported =
-        await HomeWidget.isRequestPinWidgetSupported() ?? false;
-    if (!supported) return false;
-    await HomeWidget.requestPinWidget(qualifiedAndroidName: _androidProvider);
-    return true;
+  /// 请求把 Widget 固定到主屏幕(Android 部分 Launcher 支持,API 26+)。
+  /// 三种「没弹窗」的原因天差地别,所以返回 [PinWidgetOutcome] 而不是 bool:
+  /// 只有 Android 能程序化固定,iOS 得手动去小组件库加,桌面压根没这回事。
+  static Future<PinWidgetOutcome> requestPin() async {
+    switch (PlatformInfo.current) {
+      case 'android':
+        final supported =
+            await HomeWidget.isRequestPinWidgetSupported() ?? false;
+        if (!supported) return PinWidgetOutcome.androidManual;
+        await HomeWidget.requestPinWidget(
+          qualifiedAndroidName: _androidProvider,
+        );
+        return PinWidgetOutcome.pinned;
+      case 'ios':
+        // 不调 home_widget 的固定接口:它的 iOS 实现是硬编码返回 false 的,
+        // 调了只是白等一个注定失败的异步,还可能在 Widget 未装时抛。
+        return PinWidgetOutcome.iosManual;
+      default:
+        return PinWidgetOutcome.unavailable;
+    }
+  }
+
+  /// 拿不到 `BuildContext` 时(本类是纯逻辑层)按系统语言取一份文案。
+  ///
+  /// [lookupAppLocalizations] 对不支持的 locale 会抛 FlutterError,所以先拿
+  /// languageCode 去 supportedLocales 里比对,比不上就回落英文 —— 与
+  /// `main.dart` 的 localeResolutionCallback 是同一套规则:App Store 主语言
+  /// 是 English,系统语言不认识时给英文而不是中文,否则一个西班牙语用户
+  /// 会在主屏上看到中文,那比看到英文更莫名其妙。
+  static AppLocalizations _l10n() {
+    final system = WidgetsBinding.instance.platformDispatcher.locale;
+    for (final supported in AppLocalizations.supportedLocales) {
+      if (supported.languageCode == system.languageCode) {
+        return lookupAppLocalizations(supported);
+      }
+    }
+    return lookupAppLocalizations(const Locale('en'));
   }
 
   Future<void> init(RoomController controller,
@@ -123,14 +207,17 @@ class WidgetService {
     final controller = _controller;
     if (controller == null || !_pushPresence) return;
     final primary = _circleStore?.primaryCircle;
+    // 这些字都会出现在主屏幕上,必须跟着系统语言走:写死中文会把原生侧
+    // 已经本地化好的默认文案覆盖掉,英文用户主屏上就凭空多出一块中文。
+    final t = _l10n();
 
     final String id;
     final String name;
     final String text;
     if (primary == null) {
       id = '';
-      name = '还没有圈子';
-      text = '打开 App 建一个圈';
+      name = t.widgetNoCircle;
+      text = t.widgetNoCircleHint;
     } else {
       id = primary.id;
       name = primary.name;
@@ -141,9 +228,17 @@ class WidgetService {
       final count =
           summary?.count ?? (inThisRoom ? controller.members.length : 0);
       final names = summary?.names ?? const <String>[];
-      text = count > 0
-          ? '$count 个人在${names.isNotEmpty ? ' · ${names.join('、')}' : ''}'
-          : '暂无人在,进去等等看?';
+      if (count <= 0) {
+        text = t.widgetNobodyHere;
+      } else if (names.isEmpty) {
+        text = t.widgetPeopleHere(count);
+      } else {
+        // 分隔符本身也是语言相关的:中文顿号、英文逗号加空格
+        text = t.widgetPeopleHereWithNames(
+          count,
+          names.join(t.commonListSeparator),
+        );
+      }
     }
 
     if (!force &&

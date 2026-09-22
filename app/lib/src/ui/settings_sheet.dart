@@ -20,6 +20,8 @@ import '../p2p/ice_store.dart';
 import 'blocked_users_section.dart';
 import 'content_policy_screen.dart';
 import 'developer_section.dart';
+import 'identity_section.dart';
+import 'nickname.dart';
 import 'settings_group.dart';
 import 'server_settings_section.dart';
 import 'update_panel.dart';
@@ -49,6 +51,15 @@ Future<void> showSettingsSheet(
     // 这一屏的行数会随功能增长,矮屏(横屏手机)上放不下 ——
     // 交给 SingleChildScrollView 滚,不让它溢出。
     isScrollControlled: true,
+    // ⚠️ 必须给一个上界。`isScrollControlled: true` 允许弹层长到整屏高,
+    // 而一旦长到整屏,可点的遮罩就只剩顶上那几个像素 ——
+    // iOS 没有系统返回键,拖拽下滑又会被里面的 SingleChildScrollView
+    // 吃掉(滚动区先拿到手势),于是这一屏**关不掉**。
+    // 留出一成高度,遮罩才重新是个能点中的东西。
+    // 这只是第二道保险:真正可靠的出口是下面那个常驻的关闭按钮。
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.9,
+    ),
     builder: (ctx) => ListenableBuilder(
       listenable: Listenable.merge([
         settings,
@@ -63,13 +74,91 @@ Future<void> showSettingsSheet(
       builder: (context, _) {
         final t = AppLocalizations.of(context);
         return SafeArea(
-        child: SingleChildScrollView(
+        // 固定头 + 可滚身体。
+        //
+        // 从前整屏是一个 SingleChildScrollView,没有任何常驻的关闭控件,
+        // 于是 iOS 上这一屏事实上关不掉(没有返回键;遮罩被撑到几乎为零;
+        // 下滑手势被内层滚动区吃掉)。现在标题栏是 Column 的固定子项,
+        // 滚动只发生在它**下面** —— 一个滚到底部的人和刚打开的人,
+        // 看到的出口是同一个。
+        //
+        // ⚠️ `mainAxisSize: MainAxisSize.min` 与 `Expanded` 不能共存
+        // (Expanded 要求父级在主轴上有确定尺寸,min 恰恰意味着没有),
+        // 会直接抛 "RenderFlex ... unbounded"。所以这里用
+        // `Flexible(fit: FlexFit.loose)`:内容少时按内容高度收起来
+        // (弹层不会凭空变成整屏),内容多时才顶到上面那个 maxHeight。
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SheetHeader(title: t.settingsTitle),
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: LaresSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // ── 我 ────────────────────────────────────────────────
+              // 名字、身份、语言都是「关于我 / 关于这个 App」,既不属于声音,
+              // 也不属于某个圈子。它们也是新用户最先想确认的两件事
+              // (我叫什么、界面说什么话),所以排在最前面。
+              //
+              // ⚠️ 这里曾经有**两个**同名分组(settingsGroupMe 与
+              // settingsGroupIdentity,两边中文都叫「我」),各带一行改昵称。
+              // 两行、两套上限、两条保存路径 —— 已合并成现在这一组:
+              // 昵称 → 跨设备身份 → 语言。别再拆回去。
+              SettingsGroup(
+                title: t.settingsGroupMe,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.badge_outlined),
+                    title: Text(t.settingsMyName),
+                    // 直接把当前昵称摆出来:改名这件事最需要的信息
+                    // 就是「我现在叫什么」,不该逼人点进去才看得到。
+                    subtitle: Text(controller.userName),
+                    onTap: () => _editMyName(context, controller),
+                  ),
+                  // 跨设备身份:导出 / 导入身份码。身份三要素从 controller
+                  // 现取,所以不必再把 main.dart 里的 Identity 穿进来。
+                  IdentityCodeTile(controller: controller),
+                  ListTile(
+                    leading: const Icon(Icons.translate_rounded),
+                    title: Text(t.settingsLanguage),
+                    trailing: DropdownButton<AppLanguage>(
+                      value: settings.appLanguage,
+                      underline: const SizedBox.shrink(),
+                      items: [
+                        DropdownMenuItem(
+                          value: AppLanguage.system,
+                          child: Text(t.settingsLanguageSystem),
+                        ),
+                        // ⚠️ 「中文」和「English」是**故意**写死的字面量,
+                        // 不是漏进 ARB 的疏忽 —— 别「顺手修好」它。
+                        //
+                        // 这两个是语言的自称(endonym),必须在**任何**界面
+                        // 语言下都长一个样。理由很实际:一个人之所以会点开这一行,
+                        // 多半正是因为当前界面他读不懂 —— 这时若把选项也按界面语言
+                        // 翻译掉(英文界面下把中文写成 "Chinese"),等于让他
+                        // 在一个读不懂的列表里猜哪个是自己的母语。
+                        // 自称永远认得出,这也是各家系统设置页的通行做法。
+                        const DropdownMenuItem(
+                          value: AppLanguage.zh,
+                          child: Text('中文'),
+                        ),
+                        const DropdownMenuItem(
+                          value: AppLanguage.en,
+                          child: Text('English'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) settings.setAppLanguage(v);
+                      },
+                    ),
+                  ),
+                ],
+              ),
               // ── 声音与打扰 ────────────────────────────────────────
-              // 日常最常调的:音质、降噪、什么时候别来烦我。放最上面。
+              // 日常最常调的:音质、降噪、什么时候别来烦我。
               SettingsGroup(
                 title: t.settingsGroupSound,
                 children: [
@@ -219,13 +308,35 @@ Future<void> showSettingsSheet(
                     title: Text(t.settingsHomeWidget),
                     subtitle: Text(t.settingsHomeWidgetSub),
                     onTap: () async {
-                      final ok = await WidgetService.requestPin();
-                      if (ctx.mounted && !ok) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          SnackBar(
-                            content: Text(t.settingsHomeWidgetUnsupported),
-                          ),
-                        );
+                      final outcome = await WidgetService.requestPin();
+                      if (!ctx.mounted) return;
+                      switch (outcome) {
+                        // 系统确认弹窗已经在用户眼前了,再叠一层是打扰
+                        case PinWidgetOutcome.pinned:
+                          break;
+                        case PinWidgetOutcome.iosManual:
+                          await _showHomeWidgetGuide(ctx, [
+                            t.settingsHomeWidgetIosStep1,
+                            t.settingsHomeWidgetIosStep2,
+                            t.settingsHomeWidgetIosStep3,
+                            t.settingsHomeWidgetIosStep4,
+                            t.settingsHomeWidgetIosStep5,
+                          ]);
+                        case PinWidgetOutcome.androidManual:
+                          await _showHomeWidgetGuide(ctx, [
+                            t.settingsHomeWidgetAndroidStep1,
+                            t.settingsHomeWidgetAndroidStep2,
+                            t.settingsHomeWidgetAndroidStep3,
+                            t.settingsHomeWidgetAndroidStep4,
+                          ]);
+                        // 桌面/Web 没有主屏小组件这回事,没有可照做的步骤,
+                        // 一条 SnackBar 说清楚就够,别摆一个空对话框
+                        case PinWidgetOutcome.unavailable:
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(t.settingsHomeWidgetPhoneOnly),
+                            ),
+                          );
                       }
                     },
                   ),
@@ -322,10 +433,91 @@ Future<void> showSettingsSheet(
               VersionFooter(devMode: devMode, versionReader: versionReader),
             ],
           ),
+              ),
+            ),
+          ],
         ),
         );
       },
     ),
+  );
+}
+
+/// 设置页顶部的常驻标题栏:左边标题,右边一个关闭按钮。
+///
+/// 它**不跟着滚**。一个滚到最底下的人,和刚打开的人一样需要这个出口 ——
+/// 把出口放进滚动区,等于让「能不能退出去」取决于当前滚到了哪里。
+///
+/// 用 `maybePop()` 而不是 `pop()`:弹层内部若还压着一个对话框/子路由,
+/// maybePop 会先让那一层处理,不会一下把整栈掀掉。
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: LaresSpacing.md,
+        right: LaresSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          IconButton(
+            tooltip: t.commonClose,
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 手动添加主屏小组件的分步说明。
+///
+/// 用对话框而不是 SnackBar:照着做要离开 App 去主屏幕,SnackBar 几秒就没了,
+/// 人还没走到第二步就忘了第三步是什么。对话框关掉后再点这一行还能再看一遍。
+/// iOS 与 Android 步骤不同但版式一样,共用这一份实现。
+Future<void> _showHomeWidgetGuide(
+  BuildContext context,
+  List<String> steps,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) {
+      final t = AppLocalizations.of(ctx);
+      return AlertDialog(
+        title: Text(t.settingsHomeWidgetGuideTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (i, step) in steps.indexed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: LaresSpacing.xs),
+                // 序号写死成阿拉伯数字:这是「第几步」的顺序标记,
+                // 两种语言的列表都这么编号
+                child: Text('${i + 1}. $step'),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(t.commonGotIt),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -356,6 +548,55 @@ Future<void> _pickPrimaryCircle(
     ),
   );
   if (chosen != null) await circleStore.setPrimaryCircle(chosen);
+}
+
+/// 改昵称对话框。保存走 [saveMyNickname] —— 与主屏那个入口是同一条路。
+Future<void> _editMyName(
+  BuildContext context,
+  RoomController controller,
+) async {
+  final field = TextEditingController(text: controller.userName);
+  final name = await showDialog<String>(
+    context: context,
+    // StatefulBuilder:确认按钮要随输入实时亮灭,而这个对话框本身
+    // 没有 State 可用。与本文件里 _pickDnd 用的是同一套写法。
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        final t = AppLocalizations.of(ctx);
+        // 空名字不许提交 —— 一个没有名字的人在成员列表里就是一行空白,
+        // 别人无从称呼。拦在按钮上(而不是提交后弹错)是因为
+        // 「按钮是灰的」本身就说明了原因,不必再写一句话去解释。
+        final canSave = field.text.trim().isNotEmpty;
+        return AlertDialog(
+          title: Text(t.settingsMyNameTitle),
+          // ⚠️ 不用 maxLength:它按 UTF-16 code unit 数,
+          // 一个 emoji 会被算成 2 个,还可能在代理对中间截断,
+          // 渲染成乱码方块。上限由 saveMyNickname() 按**字素簇**执行。
+          content: TextField(
+            controller: field,
+            autofocus: true,
+            decoration: InputDecoration(hintText: t.settingsMyNameHint),
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (v) {
+              if (v.trim().isNotEmpty) Navigator.pop(ctx, v);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(t.commonCancel),
+            ),
+            FilledButton(
+              onPressed: canSave ? () => Navigator.pop(ctx, field.text) : null,
+              child: Text(t.homeRenameConfirm),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+  // 再兜一次空:回车路径和将来可能新增的关闭方式都从这里过。
+  if (name != null) await saveMyNickname(controller, name);
 }
 
 Future<void> _pickDnd(BuildContext context, SettingsStore settings) async {

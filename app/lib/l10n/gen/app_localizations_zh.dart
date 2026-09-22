@@ -70,7 +70,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonCancel => '算了';
 
   @override
+  String get commonClose => '关掉';
+
+  @override
   String get commonConfirm => '好';
+
+  @override
+  String get commonCopied => '复制好了';
 
   @override
   String get commonCopy => '复制';
@@ -88,8 +94,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonNoThanks => '不用了';
 
   @override
+  String get commonSave => '存下';
+
+  @override
+  String get e2eeConfirmBody =>
+      '加密只在**圈里每个人都打开**时才管用。只有你开着,别人听不见你说话,你也听不见他们的 —— 声音进不了同一把锁。先和圈里的人说一声,大家一起开。';
+
+  @override
+  String get e2eeConfirmTitle => '圈里每个人都要开';
+
+  @override
+  String get e2eeConfirmYes => '都说好了,开吧';
+
+  @override
   String get e2eeCostNotice =>
       '开启后:服务器看不到任何内容,因此**无法转录**,「AI 炉灵」在这个圈子里也**不可用**(炉灵只在不开加密的圈子工作)。';
+
+  @override
+  String get e2eeEveryoneNotice => '圈里每个人都得打开,否则你和他们互相听不见。';
 
   @override
   String get e2eeKeyLocalNotice => '密钥从你的圈口令派生,只在设备本地,绝不上传服务器。';
@@ -189,6 +211,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeInviteFriendsDesc => '复制邀请链接发给朋友';
 
   @override
+  String get homeInviteIncludePasscode => '把口令也放进链接';
+
+  @override
+  String get homeInviteIncludePasscodeE2ee =>
+      '⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。';
+
+  @override
+  String get homeInviteIncludePasscodeHint => '对方不用再单独问你要口令了';
+
+  @override
   String homeInviteTitle(String circleName) {
     return '邀请朋友进「$circleName」';
   }
@@ -205,7 +237,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeKickedByAdmin => '管理员';
 
   @override
+  String get homeKnockModeConfirmBody =>
+      '这是整个圈子的设置,不是只对你 —— 改完圈里每个人都跟着变。圈里任何人也都能再改回去。';
+
+  @override
+  String get homeKnockModeConfirmTitle => '这会改掉所有人的';
+
+  @override
+  String get homeKnockModeConfirmYes => '就这么改';
+
+  @override
   String get homeKnockModeDesc => '开启后,圈外人进来需要里面的人放行';
+
+  @override
+  String get homeKnockModeEveryoneNotice => '整个圈子共用这一个设置 —— 你改了,所有人都改了。';
 
   @override
   String get homeKnockModeOff => '敲门模式:关(点一下开启)';
@@ -796,6 +841,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsGroupCircle => '这个圈子';
 
   @override
+  String get settingsGroupMe => '我';
+
+  @override
   String get settingsGroupSafety => '待得住';
 
   @override
@@ -805,10 +853,78 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsHomeWidget => '把圈子放到主屏幕';
 
   @override
+  String get settingsHomeWidgetAndroidStep1 => '长按主屏幕空白处';
+
+  @override
+  String get settingsHomeWidgetAndroidStep2 => '点「小组件」';
+
+  @override
+  String get settingsHomeWidgetAndroidStep3 => '找到「炉灵」';
+
+  @override
+  String get settingsHomeWidgetAndroidStep4 => '拖到主屏幕上';
+
+  @override
+  String get settingsHomeWidgetGuideTitle => '怎么加到主屏幕';
+
+  @override
+  String get settingsHomeWidgetIosStep1 => '长按主屏幕空白处,等图标开始抖';
+
+  @override
+  String get settingsHomeWidgetIosStep2 => '点左上角的「+」';
+
+  @override
+  String get settingsHomeWidgetIosStep3 => '搜「炉灵」';
+
+  @override
+  String get settingsHomeWidgetIosStep4 => '选个尺寸,左右滑能换';
+
+  @override
+  String get settingsHomeWidgetIosStep5 => '点「添加小组件」,再点右上角「完成」';
+
+  @override
+  String get settingsHomeWidgetPhoneOnly => '主屏幕小组件是手机上的功能,这台设备上没有';
+
+  @override
   String get settingsHomeWidgetSub => '主屏幕点一下,直接进主圈子';
 
   @override
-  String get settingsHomeWidgetUnsupported => '当前设备不支持,请长按桌面手动添加';
+  String get settingsIdentityExportBody =>
+      '在那台设备上打开同一个地方,粘进下面的框里。里面只有你的身份和名字,没有任何圈子口令。';
+
+  @override
+  String get settingsIdentityExportTitle => '把这串给另一台设备';
+
+  @override
+  String get settingsIdentityImportAction => '用这个身份';
+
+  @override
+  String get settingsIdentityImportBad => '这串东西看着不像身份码,再复制一次试试';
+
+  @override
+  String get settingsIdentityImportHint => 'lares-id-v1:…';
+
+  @override
+  String get settingsIdentityImportRestart =>
+      '身份存下了,但要重开一次 Lares 才算数 —— 现在这条连接还挂在旧身份上。';
+
+  @override
+  String get settingsIdentityImportTitle => '或者,粘一串过来';
+
+  @override
+  String get settingsLanguage => '语言';
+
+  @override
+  String get settingsLanguageSystem => '跟随系统';
+
+  @override
+  String get settingsMyName => '我的名字';
+
+  @override
+  String get settingsMyNameHint => '昵称';
+
+  @override
+  String get settingsMyNameTitle => '想让大家怎么称呼你?';
 
   @override
   String get settingsNoiseEnhanced => '增强';
@@ -853,6 +969,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsRecordingStop => '停止录音';
+
+  @override
+  String get settingsSameIdentity => '另一台设备也用这个身份';
+
+  @override
+  String get settingsSameIdentitySub => '电脑和手机算同一个人,不会互相挤掉';
 
   @override
   String get settingsServer => '服务器与口令';
@@ -1173,12 +1295,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get updateWinRestarting => '即将退出并完成更新，几秒后会自动重新启动。';
 
   @override
-  String get homeInviteIncludePasscode => '把口令也放进链接';
+  String get widgetNoCircle => '还没有圈子';
 
   @override
-  String get homeInviteIncludePasscodeHint => '对方不用再单独问你要口令了';
+  String get widgetNoCircleHint => '打开 App 建一个圈';
 
   @override
-  String get homeInviteIncludePasscodeE2ee =>
-      '⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。';
+  String get widgetNobodyHere => '暂无人在,进去等等看?';
+
+  @override
+  String widgetPeopleHere(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个人在',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String widgetPeopleHereWithNames(int count, String names) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个人在 · $names',
+    );
+    return '$_temp0';
+  }
 }

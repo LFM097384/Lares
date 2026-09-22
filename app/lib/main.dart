@@ -339,7 +339,10 @@ Future<void> main() async {
   final chat = ChatService(
     transport: SessionChatTransport(rtc: rtc, controller: controller),
     userId: identity.userId,
-    userName: identity.name,
+    // 现取 controller 的昵称,不拿 identity.name 的快照 ——
+    // 后者是启动那一刻的值,用户改完名之后聊天里还会顶着旧名字发。
+    // controller.userName 是改名的落点,跟着它走才不会有第二份真相。
+    userNameGetter: () => controller.userName,
     circleIdGetter: () => controller.circleId ?? primaryCircleId(),
     // 屏蔽名单的**文字侧**执行:被屏蔽的人发的消息不进这条流(指南 1.2)
     isBlocked: blocks.isBlocked,
@@ -471,31 +474,59 @@ class LaresApp extends StatelessWidget {
       onStartMesh: onStartMesh,
     );
     final consentStore = consent;
-    return MaterialApp(
-      // onGenerateTitle 而非 title:后者取不到本地化上下文。
-      // 这个标题会出现在 Android 的任务切换器里。
-      onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
-      debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      // 跟随系统语言;系统语言不在 supportedLocales 里时回落到英文
-      // (而不是中文 —— App Store 主语言是 English)。
-      localeResolutionCallback: (locale, supported) {
-        if (locale != null) {
-          for (final l in supported) {
-            if (l.languageCode == locale.languageCode) return l;
+    // 语言改了要**整棵树**重建,所以监听点必须在 MaterialApp 之外。
+    //
+    // `locale` 是 MaterialApp 的构造参数:光让 settings 通知到设置页那一层
+    // 没有用 —— 设置页在 MaterialApp **里面**,重建它不会重建它的祖先,
+    // 于是表现是「选了英文,设置页关掉重开才变」。
+    //
+    // 用 ListenableBuilder 而不是把 LaresApp 改成 StatefulWidget:
+    // 它本身就是「监听一个 Listenable 并重建子树」的标准写法,
+    // 不必手写 initState/dispose 里的 add/removeListener ——
+    // 也就不会漏掉后者(那是这类改造最常见的泄漏)。
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) => MaterialApp(
+        // onGenerateTitle 而非 title:后者取不到本地化上下文。
+        // 这个标题会出现在 Android 的任务切换器里。
+        onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
+        debugShowCheckedModeBanner: false,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        // 用户手选的语言;跟随系统时为 null。
+        //
+        // ⚠️ 加这一行**不需要**改下面的 localeResolutionCallback,根据在 SDK 里:
+        // `LocalizationsResolver.locale` 在 `_locale != null` 时走
+        // `_resolveLocales([_locale!], supportedLocales)`,而那个函数
+        // **照样先调 localeResolutionCallback**(widgets/localizations.dart)。
+        // 所以显式传 zh/en 也是穿过这条回调出去的,回调里的 languageCode
+        // 匹配循环会原样命中并返回它 —— 回调一个字都不用动。
+        //
+        // 而 locale 为 null 时用的是 `_resolvedLocale`,它由
+        // platformDispatcher.locales 经**同一条**回调算出,于是系统语言
+        // 不受支持时依旧落到下面那句 `return const Locale('en')`。
+        // 这正是 system 必须映射成 null、不能映射成设备 locale 的原因:
+        // 只有 null 才把协商整个交还给 Flutter,英文兜底那条规矩才不被绕过。
+        locale: settings.preferredLocale,
+        // 跟随系统语言;系统语言不在 supportedLocales 里时回落到英文
+        // (而不是中文 —— App Store 主语言是 English)。
+        localeResolutionCallback: (locale, supported) {
+          if (locale != null) {
+            for (final l in supported) {
+              if (l.languageCode == locale.languageCode) return l;
+            }
           }
-        }
-        return const Locale('en');
-      },
-      // 暗色优先(§8.2-2):默认暗色,跟随系统切亮色
-      theme: LaresTheme.light(),
-      darkTheme: LaresTheme.dark(),
-      themeMode: ThemeMode.dark,
-      // 同意内容规范之前不放行到主界面(指南 1.2)
-      home: consentStore == null
-          ? home
-          : ContentPolicyGate(consent: consentStore, child: home),
+          return const Locale('en');
+        },
+        // 暗色优先(§8.2-2):默认暗色,跟随系统切亮色
+        theme: LaresTheme.light(),
+        darkTheme: LaresTheme.dark(),
+        themeMode: ThemeMode.dark,
+        // 同意内容规范之前不放行到主界面(指南 1.2)
+        home: consentStore == null
+            ? home
+            : ContentPolicyGate(consent: consentStore, child: home),
+      ),
     );
   }
 }

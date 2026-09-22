@@ -7,6 +7,7 @@ import '../net/signaling_client.dart';
 import '../recording/recording_consent.dart';
 import '../p2p/host_election.dart';
 import '../rtc/rtc_service.dart';
+import 'identity.dart' show capNickname;
 import 'join_error.dart';
 import 'models.dart';
 import 'settings_store.dart';
@@ -696,12 +697,26 @@ class RoomController extends ChangeNotifier {
     });
   }
 
-  /// 改名:本地立即生效,广播给同房成员与大厅
+  /// 改名:本地立即生效,广播给同房成员与大厅。
+  ///
+  /// 长度上限在**这里**兜,不只在 UI 里兜:这是所有改名入口的必经之路
+  /// (主屏的改名按钮、设置页的改名行,以及将来任何一个新入口),
+  /// 放在这里才绕不过去。UI 那边用的是同一个 [capNickname],
+  /// 所以「界面里看到的」与「真正生效的」不会各说各话。
   void rename(String name) {
-    final trimmed = name.trim();
+    // 先截断再比较。顺序反了的话,一个「前 24 字与当前名字相同、
+    // 只在第 25 字之后才有差别」的输入会被判成「改了」,
+    // 截完却和原来一模一样 —— 白发一轮广播。
+    final trimmed = capNickname(name);
     if (trimmed.isEmpty || trimmed == userName) return;
     userName = trimmed;
+    // 这两步缺一不可,它们修的是**两个不同时刻**的名字:
+    //   profile 帧      → 当前这条连接上的人,立刻看到;
+    //   updateIdentityName → 下次**重连**时自报家门用的那份快照。
+    // 只发 profile 的话,一次掉线重连就会拿启动时的旧名字重新 hello,
+    // 所有人看到的名字悄悄变回去,而用户什么都没做 —— 这正是原来的 bug。
     _signaling.send({'t': 'profile', 'name': trimmed});
+    _signaling.updateIdentityName(trimmed);
     _upsertMember(
       userId,
       member: Member(userId: userId, name: trimmed, status: myStatus),

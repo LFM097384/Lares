@@ -1,3 +1,7 @@
+// 显式 import Foundation:下面用到的 NSLocalizedString 是 Foundation 的**全局函数**,
+// 不是类型。SwiftUI 顺带带进来的 Date/URL/UserDefaults 能用,不代表全局函数也一定在作用域内;
+// 这一行是零成本的保险,少了它编译期才会报错,而本项目没有 Mac 可以提前验证。
+import Foundation
 import SwiftUI
 import WidgetKit
 
@@ -35,8 +39,12 @@ struct LaresProvider: TimelineProvider {
     return LaresEntry(
       date: Date(),
       // 读不到共享数据:用中性占位,不冒用任何具体圈名(避免显示陈旧信息)
-      circleName: name ?? "炉灵",
-      presenceText: presence ?? "点一下,进你的主圈子",
+      //
+      // 这里必须显式 NSLocalizedString:兜底值最终交给 `Text(entry.circleName)`,
+      // 而 `Text(变量)` 走的是非本地化重载(只有 `Text("字面量")` 才当 LocalizedStringKey),
+      // 写死中文的话英文机上会直接看到中文 —— Android 侧早就按语言分了 values/values-zh。
+      circleName: name ?? NSLocalizedString("widget.fallbackTitle", comment: "读不到共享数据时的圈子名占位"),
+      presenceText: presence ?? NSLocalizedString("widget.fallbackPresence", comment: "读不到共享数据时的在线状态占位"),
       hasPrimary: hasPrimary
     )
   }
@@ -65,8 +73,14 @@ struct LaresWidgetView: View {
   private let textSecondary = Color(red: 0x9A / 255, green: 0x93 / 255, blue: 0xA3 / 255)
 
   /// 主操作文案:确知没有圈子时引导建圈,其余一律「进圈」
+  ///
+  /// 同样得显式 NSLocalizedString —— 结果经 `Text(actionText)` 渲染,
+  /// 传的是 String 变量而非字面量,SwiftUI 不会替我们查表。
+  /// 键与 Android 的 widget_action_open / widget_action_join 一一对应。
   private var actionText: String {
-    entry.hasPrimary == false ? "点一下,建个圈 →" : "点一下,进圈 →"
+    entry.hasPrimary == false
+      ? NSLocalizedString("widget.actionCreate", comment: "没有主圈子时的主操作:引导建圈")
+      : NSLocalizedString("widget.actionJoin", comment: "主操作:进入主圈子")
   }
 
   var body: some View {

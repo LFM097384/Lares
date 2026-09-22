@@ -384,7 +384,7 @@ void main() {
       final ChatService chat = ChatService(
         transport: transport,
         userId: 'u_me',
-        userName: '我',
+        userNameGetter: () => '我',
         circleIdGetter: () => 'home',
         isBlocked: blocks.isBlocked,
       );
@@ -422,7 +422,7 @@ void main() {
       final ChatService chat = ChatService(
         transport: transport,
         userId: 'u_me',
-        userName: '我',
+        userNameGetter: () => '我',
         circleIdGetter: () => 'home',
         isBlocked: blocks.isBlocked,
       );
@@ -463,7 +463,7 @@ void main() {
       final ChatService chat = ChatService(
         transport: transport,
         userId: 'u_me',
-        userName: '我',
+        userNameGetter: () => '我',
         circleIdGetter: () => 'home',
         isBlocked: blocks.isBlocked,
       );
@@ -492,7 +492,7 @@ void main() {
       final ChatService chat = ChatService(
         transport: transport,
         userId: 'u_me',
-        userName: '我',
+        userNameGetter: () => '我',
         circleIdGetter: () => 'home',
       );
       addTearDown(() async {

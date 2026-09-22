@@ -206,11 +206,23 @@ abstract class AppLocalizations {
   /// **'算了'**
   String get commonCancel;
 
+  /// 关闭按钮。也用作设置页头部那个关闭图标的 tooltip —— iOS 没有系统返回键,这个图标是唯一可靠的出口。
+  ///
+  /// In zh, this message translates to:
+  /// **'关掉'**
+  String get commonClose;
+
   /// 确认按钮
   ///
   /// In zh, this message translates to:
   /// **'好'**
   String get commonConfirm;
+
+  /// 复制成功后的 SnackBar 提示
+  ///
+  /// In zh, this message translates to:
+  /// **'复制好了'**
+  String get commonCopied;
 
   /// 复制按钮,用在复制邀请链接的地方
   ///
@@ -242,11 +254,41 @@ abstract class AppLocalizations {
   /// **'不用了'**
   String get commonNoThanks;
 
+  /// 保存按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'存下'**
+  String get commonSave;
+
+  /// 开启端到端加密前的确认对话框正文:必须全圈一致,否则互相听不见
+  ///
+  /// In zh, this message translates to:
+  /// **'加密只在**圈里每个人都打开**时才管用。只有你开着,别人听不见你说话,你也听不见他们的 —— 声音进不了同一把锁。先和圈里的人说一声,大家一起开。'**
+  String get e2eeConfirmBody;
+
+  /// 开启端到端加密前的确认对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'圈里每个人都要开'**
+  String get e2eeConfirmTitle;
+
+  /// 开启端到端加密的确认按钮。语气上要求用户先确认过全圈都同意
+  ///
+  /// In zh, this message translates to:
+  /// **'都说好了,开吧'**
+  String get e2eeConfirmYes;
+
   /// 开启端到端加密的代价说明,开关旁常驻展示;文案与 e2ee_status.dart 里的 kE2EECostNotice 常量逐字一致
   ///
   /// In zh, this message translates to:
   /// **'开启后:服务器看不到任何内容,因此**无法转录**,「AI 炉灵」在这个圈子里也**不可用**(炉灵只在不开加密的圈子工作)。'**
   String get e2eeCostNotice;
+
+  /// 端到端加密开关副标题里最要紧的那一句:这个开关是单机的,不开的人听不到开了的人
+  ///
+  /// In zh, this message translates to:
+  /// **'圈里每个人都得打开,否则你和他们互相听不见。'**
+  String get e2eeEveryoneNotice;
 
   /// 端到端加密开关下方的第二句说明:密钥只存在本地
   ///
@@ -380,6 +422,24 @@ abstract class AppLocalizations {
   /// **'复制邀请链接发给朋友'**
   String get homeInviteFriendsDesc;
 
+  /// 邀请对话框里的开关:把圈口令一并写进邀请链接
+  ///
+  /// In zh, this message translates to:
+  /// **'把口令也放进链接'**
+  String get homeInviteIncludePasscode;
+
+  /// 开了端到端加密的圈子把口令放进链接时的额外警告:口令等于密钥
+  ///
+  /// In zh, this message translates to:
+  /// **'⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。'**
+  String get homeInviteIncludePasscodeE2ee;
+
+  /// 把口令放进链接这个开关的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'对方不用再单独问你要口令了'**
+  String get homeInviteIncludePasscodeHint;
+
   /// 邀请对话框标题,circleName 是圈子名
   ///
   /// In zh, this message translates to:
@@ -404,11 +464,35 @@ abstract class AppLocalizations {
   /// **'管理员'**
   String get homeKickedByAdmin;
 
+  /// 改敲门模式前的确认对话框正文:它是全圈共享的设置,且谁都能改
+  ///
+  /// In zh, this message translates to:
+  /// **'这是整个圈子的设置,不是只对你 —— 改完圈里每个人都跟着变。圈里任何人也都能再改回去。'**
+  String get homeKnockModeConfirmBody;
+
+  /// 改敲门模式前的确认对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'这会改掉所有人的'**
+  String get homeKnockModeConfirmTitle;
+
+  /// 改敲门模式的确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'就这么改'**
+  String get homeKnockModeConfirmYes;
+
   /// 长按菜单里敲门模式项的副标题
   ///
   /// In zh, this message translates to:
   /// **'开启后,圈外人进来需要里面的人放行'**
   String get homeKnockModeDesc;
+
+  /// 敲门模式项副标题里的第二句:强调它是共享设置而不是个人偏好
+  ///
+  /// In zh, this message translates to:
+  /// **'整个圈子共用这一个设置 —— 你改了,所有人都改了。'**
+  String get homeKnockModeEveryoneNotice;
 
   /// 长按菜单里敲门模式项的标题,当前是关闭状态
   ///
@@ -1370,6 +1454,12 @@ abstract class AppLocalizations {
   /// **'这个圈子'**
   String get settingsGroupCircle;
 
+  /// 设置页分组标题:昵称与界面语言
+  ///
+  /// In zh, this message translates to:
+  /// **'我'**
+  String get settingsGroupMe;
+
   /// 设置页分组标题:屏蔽名单与内容规范
   ///
   /// In zh, this message translates to:
@@ -1388,17 +1478,149 @@ abstract class AppLocalizations {
   /// **'把圈子放到主屏幕'**
   String get settingsHomeWidget;
 
+  /// Launcher 不支持一键固定时,手动添加小组件的第 1 步
+  ///
+  /// In zh, this message translates to:
+  /// **'长按主屏幕空白处'**
+  String get settingsHomeWidgetAndroidStep1;
+
+  /// Android 手动添加小组件的第 2 步:打开小组件面板
+  ///
+  /// In zh, this message translates to:
+  /// **'点「小组件」'**
+  String get settingsHomeWidgetAndroidStep2;
+
+  /// Android 手动添加小组件的第 3 步。这里写的是 Launcher 里实际显示的名字(app_name),英文版显示 Lares Circle
+  ///
+  /// In zh, this message translates to:
+  /// **'找到「炉灵」'**
+  String get settingsHomeWidgetAndroidStep3;
+
+  /// Android 手动添加小组件的第 4 步:拖放到桌面
+  ///
+  /// In zh, this message translates to:
+  /// **'拖到主屏幕上'**
+  String get settingsHomeWidgetAndroidStep4;
+
+  /// 手动添加小组件的分步说明对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'怎么加到主屏幕'**
+  String get settingsHomeWidgetGuideTitle;
+
+  /// iOS 手动添加小组件的第 1 步:进入主屏编辑态
+  ///
+  /// In zh, this message translates to:
+  /// **'长按主屏幕空白处,等图标开始抖'**
+  String get settingsHomeWidgetIosStep1;
+
+  /// iOS 手动添加小组件的第 2 步:打开小组件库
+  ///
+  /// In zh, this message translates to:
+  /// **'点左上角的「+」'**
+  String get settingsHomeWidgetIosStep2;
+
+  /// iOS 手动添加小组件的第 3 步。这里写的是小组件库里实际显示的名字(configurationDisplayName),英文版显示 Lares Circle
+  ///
+  /// In zh, this message translates to:
+  /// **'搜「炉灵」'**
+  String get settingsHomeWidgetIosStep3;
+
+  /// iOS 手动添加小组件的第 4 步:挑尺寸
+  ///
+  /// In zh, this message translates to:
+  /// **'选个尺寸,左右滑能换'**
+  String get settingsHomeWidgetIosStep4;
+
+  /// iOS 手动添加小组件的第 5 步:确认添加并退出编辑态
+  ///
+  /// In zh, this message translates to:
+  /// **'点「添加小组件」,再点右上角「完成」'**
+  String get settingsHomeWidgetIosStep5;
+
+  /// 桌面端与 Web 点这一行时的提示:不是设备不支持,是这个平台根本没有主屏小组件
+  ///
+  /// In zh, this message translates to:
+  /// **'主屏幕小组件是手机上的功能,这台设备上没有'**
+  String get settingsHomeWidgetPhoneOnly;
+
   /// 主屏幕小组件设置项的副标题
   ///
   /// In zh, this message translates to:
   /// **'主屏幕点一下,直接进主圈子'**
   String get settingsHomeWidgetSub;
 
-  /// 系统不支持一键固定小组件时的提示
+  /// 跨设备身份对话框的导出段说明:身份码里有什么、没有什么
   ///
   /// In zh, this message translates to:
-  /// **'当前设备不支持,请长按桌面手动添加'**
-  String get settingsHomeWidgetUnsupported;
+  /// **'在那台设备上打开同一个地方,粘进下面的框里。里面只有你的身份和名字,没有任何圈子口令。'**
+  String get settingsIdentityExportBody;
+
+  /// 跨设备身份对话框的导出段小标题
+  ///
+  /// In zh, this message translates to:
+  /// **'把这串给另一台设备'**
+  String get settingsIdentityExportTitle;
+
+  /// 导入身份码的确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'用这个身份'**
+  String get settingsIdentityImportAction;
+
+  /// 身份码解析失败的提示。不区分具体原因 —— 用户能做的事都一样(重新复制一份)
+  ///
+  /// In zh, this message translates to:
+  /// **'这串东西看着不像身份码,再复制一次试试'**
+  String get settingsIdentityImportBad;
+
+  /// 导入身份码输入框的占位文字,展示身份码的前缀格式
+  ///
+  /// In zh, this message translates to:
+  /// **'lares-id-v1:…'**
+  String get settingsIdentityImportHint;
+
+  /// 导入身份码成功后的诚实告知:新 userId 必须重启才生效。刻意不假装已经切换 —— userId 在启动时就分发给了信令、房间、直连、跨服在线等多个长生命周期对象,并已算进这条连接的鉴权证明
+  ///
+  /// In zh, this message translates to:
+  /// **'身份存下了,但要重开一次 Lares 才算数 —— 现在这条连接还挂在旧身份上。'**
+  String get settingsIdentityImportRestart;
+
+  /// 跨设备身份对话框的导入段小标题
+  ///
+  /// In zh, this message translates to:
+  /// **'或者,粘一串过来'**
+  String get settingsIdentityImportTitle;
+
+  /// 界面语言设置项的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'语言'**
+  String get settingsLanguage;
+
+  /// 语言下拉选项:跟随系统语言。另两个选项是语言自称(中文 / English),刻意不进 ARB
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get settingsLanguageSystem;
+
+  /// 设置页改昵称那一行的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'我的名字'**
+  String get settingsMyName;
+
+  /// 改昵称输入框的占位提示
+  ///
+  /// In zh, this message translates to:
+  /// **'昵称'**
+  String get settingsMyNameHint;
+
+  /// 改昵称对话框的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'想让大家怎么称呼你?'**
+  String get settingsMyNameTitle;
 
   /// 降噪下拉选项:增强强度
   ///
@@ -1483,6 +1705,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'停止录音'**
   String get settingsRecordingStop;
+
+  /// 跨设备身份那一行的标题,也用作它打开的对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'另一台设备也用这个身份'**
+  String get settingsSameIdentity;
+
+  /// 跨设备身份那一行的副标题:说明共享 userId 的好处(服务端按一人多端合并)
+  ///
+  /// In zh, this message translates to:
+  /// **'电脑和手机算同一个人,不会互相挤掉'**
+  String get settingsSameIdentitySub;
 
   /// 设置页里进入服务器配置的入口标题
   ///
@@ -2018,23 +2252,35 @@ abstract class AppLocalizations {
   /// **'即将退出并完成更新，几秒后会自动重新启动。'**
   String get updateWinRestarting;
 
-  /// No description provided for @homeInviteIncludePasscode.
+  /// 主屏幕小组件的标题位:一个圈子都还没有时显示
   ///
   /// In zh, this message translates to:
-  /// **'把口令也放进链接'**
-  String get homeInviteIncludePasscode;
+  /// **'还没有圈子'**
+  String get widgetNoCircle;
 
-  /// No description provided for @homeInviteIncludePasscodeHint.
+  /// 主屏幕小组件的副标题位:没有圈子时告诉用户下一步去哪
   ///
   /// In zh, this message translates to:
-  /// **'对方不用再单独问你要口令了'**
-  String get homeInviteIncludePasscodeHint;
+  /// **'打开 App 建一个圈'**
+  String get widgetNoCircleHint;
 
-  /// No description provided for @homeInviteIncludePasscodeE2ee.
+  /// 主屏幕小组件的副标题位:主圈子里一个人都没有。英文版与 Android 的 widget_presence_default 逐字一致
   ///
   /// In zh, this message translates to:
-  /// **'⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。'**
-  String get homeInviteIncludePasscodeE2ee;
+  /// **'暂无人在,进去等等看?'**
+  String get widgetNobodyHere;
+
+  /// 主屏幕小组件的副标题位:只知道主圈子里在线几个人,不知道是谁
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 个人在}}'**
+  String widgetPeopleHere(int count);
+
+  /// 主屏幕小组件的副标题位:知道主圈子里是谁在,names 是已用本地化分隔符拼好的名字串
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 个人在 · {names}}}'**
+  String widgetPeopleHereWithNames(int count, String names);
 }
 
 class _AppLocalizationsDelegate

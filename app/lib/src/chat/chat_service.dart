@@ -40,17 +40,19 @@ class ChatImageTooLargeError implements Exception {
 /// 解耦后本类可在无 LiveKit 的环境里完整单测。
 class ChatService extends ChangeNotifier {
   /// [circleIdGetter] 每次发送时现取当前圈子 id,避免缓存过期的圈子。
+  /// [userNameGetter] 同理现取昵称,**不要传值** —— 理由见 [_userNameGetter]。
   /// [idGenerator] 仅供单测注入确定性 id。
   /// [isBlocked] 屏蔽判定(通常传 `BlockStore.isBlocked`);不传即不过滤任何人。
   ChatService({
     required ChatTransport transport,
     required this.userId,
-    required this.userName,
+    required String Function() userNameGetter,
     required String Function() circleIdGetter,
     String Function()? idGenerator,
     DateTime Function()? now,
     bool Function(String senderId)? isBlocked,
   })  : _transport = transport,
+        _userNameGetter = userNameGetter,
         _circleIdGetter = circleIdGetter,
         _now = now ?? DateTime.now,
         _idGenerator = idGenerator,
@@ -81,8 +83,18 @@ class ChatService extends ChangeNotifier {
   /// 本端用户 id,用于「忽略自己的消息」与生成消息 id
   final String userId;
 
-  /// 本端昵称,随帧发出,接收端直接显示
-  final String userName;
+  /// 本端昵称的**取值器**,随帧发出,接收端直接显示。
+  ///
+  /// ⚠️ 这里曾经是 `final String userName` —— 一份在 `main()` 里从
+  /// `Identity.name` 拷过来的启动快照。后果是**改名对聊天完全不可见**:
+  /// `RoomController.rename()` 改的是它自己的 `userName`,与这份拷贝
+  /// 没有任何关系,于是用户改完名、成员列表里立刻变了,
+  /// 发出去的每一条消息却还顶着旧名字,而且一直到重启 App 都不会变。
+  ///
+  /// 做成取值器就是为了**不存在第二份真相**:和同类的 [_circleIdGetter]
+  /// 一样,发送时现取。上层传 `() => controller.userName`,
+  /// 谁改名都自动跟上。
+  final String Function() _userNameGetter;
 
   final String Function() _circleIdGetter;
   final DateTime Function() _now;
@@ -100,8 +112,9 @@ class ChatService extends ChangeNotifier {
   /// 32 簇 ≈ 800 字节,连同 id/圈子 id/固定键仍稳落在 2708 以内。
   static const int _maxSenderNameGraphemes = 32;
 
-  /// 截断后的昵称,发送路径统一用它
-  String get _wireName => capGraphemes(userName, _maxSenderNameGraphemes);
+  /// 截断后的昵称,发送路径统一用它。每次求值都现取,绝不缓存(见 [_userNameGetter])。
+  String get _wireName =>
+      capGraphemes(_userNameGetter(), _maxSenderNameGraphemes);
 
   late final ImageAssembler _assembler;
   StreamSubscription<ChatInboundFrame>? _sub;

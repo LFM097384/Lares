@@ -13,7 +13,6 @@ import '../recording/recording_consent.dart';
 import '../p2p/ice_store.dart';
 import '../state/circle_store.dart';
 import '../state/dev_mode_store.dart';
-import '../state/identity.dart';
 import '../state/location_share_stub.dart'
     if (dart.library.io) '../state/location_share.dart';
 import '../state/invite_link.dart';
@@ -22,6 +21,7 @@ import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
+import 'nickname.dart';
 import 'room_screen.dart';
 import 'settings_sheet.dart';
 import 'widgets/e2ee_badge.dart';
@@ -657,10 +657,17 @@ class _CircleTile extends StatelessWidget {
                     : Icons.door_front_door_outlined,
               ),
               title: Text(knockOn ? t.homeKnockModeOn : t.homeKnockModeOff),
-              subtitle: Text(t.homeKnockModeDesc),
-              onTap: () {
+              // 第二句是要紧的那句:这不是个人偏好,是全圈共享的一个值。
+              subtitle: Text(
+                '${t.homeKnockModeDesc}\n${t.homeKnockModeEveryoneNotice}',
+              ),
+              isThreeLine: true,
+              onTap: () async {
+                // 确认在**两个方向上都要**,与 E2EE 不同 ——
+                // 那个开关只影响自己,这个开关两个方向都改的是所有人的设置。
+                if (!await _confirmKnockMode(context)) return;
                 controller.setKnockMode(circle.id, !knockOn);
-                Navigator.pop(ctx);
+                if (ctx.mounted) Navigator.pop(ctx);
               },
             ),
             if (circle.id != CircleStore.defaultCircle.id)
@@ -680,17 +687,71 @@ class _CircleTile extends StatelessWidget {
       ),
     );
   }
+
+  /// 改敲门模式前的确认。
+  ///
+  /// ## 服务端到底校验了什么(2026-09 实测,别再凭印象猜)
+  ///
+  /// `server/src/index.js` 的 `case 'knock_mode_set'` 有三道检查:
+  /// 1. `session.userId` 必须存在 —— 没握过手的连接直接 `say_hello_first`;
+  /// 2. `circleAllowed(session, msg.circleId)` —— 不在授权范围内回 `auth_scope`;
+  /// 3. 圈子非空时,设置者必须是**在场成员**,且该 deviceId 确实在他的
+  ///    `devices` 里,否则静默丢弃。
+  ///
+  /// 所以**不存在未授权写入** —— 这一点上早先的怀疑是错的。
+  ///
+  /// ## 但也确实没有权限控制
+  ///
+  /// 在服务端全量 grep `owner|role|admin|isOwner`:**零命中**。
+  /// 根本没有 owner / 角色这个概念。因此结论是:
+  /// **圈里任何一个已握手的在场成员都能替所有人改掉这个设置**,
+  /// 而且谁都能再改回去。
+  ///
+  /// 「只让圈主改」今天做不到,而且不该在客户端假造一个 ——
+  /// 客户端拦一下只是装饰,绕过它的人照样能发出那一帧。
+  /// 这件事要等身份与角色那一摊做完。
+  /// 在此之前,唯一诚实的做法就是把「你改的是所有人的」说出来,
+  /// 并在动手之前问一句。
+  Future<bool> _confirmKnockMode(BuildContext context) async {
+    final t = AppLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: Text(t.homeKnockModeConfirmTitle),
+        content: Text(t.homeKnockModeConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dctx, false),
+            child: Text(t.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dctx, true),
+            child: Text(t.homeKnockModeConfirmYes),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
 }
 
 /// 圈子菜单里的端到端加密开关。
 ///
-/// 三条纪律,缺一条这个功能就是安全负资产:
+/// 四条纪律,缺一条这个功能就是安全负资产:
 /// 1. **代价前置** —— 开关的副标题里直接写明「服务器无法转录、炉灵不可用」,
 ///    而不是藏进某个说明页;
 /// 2. **诚实** —— 开了之后如果本平台/口令不支持,立刻在下面挂出红色说明,
 ///    绝不让开关的「已打开」状态独自代表「已加密」;
 /// 3. **不可静默** —— 平台不支持时**开关照常可开**(用户换台设备就生效),
 ///    但当下这台设备的真实状态一个字都不隐瞒。
+/// 4. **全圈一致是前提** —— 见下面 [_E2EETileState._confirmTurnOn]。
+///
+/// ## 为什么这个开关留在圈子菜单里,而不是收进开发者选项
+///
+/// 端到端加密是本 App 的卖点之一。把卖点藏进「连点版本号 7 次」后面,
+/// 等于让它对普通用户不存在。所以它留在原处 —— 代价是必须把
+/// 「一个人开了没用」这件事说到无法忽视的程度,这正是下面那句
+/// e2eeEveryoneNotice 和开启前那道确认在做的事。
 class _E2EETile extends StatefulWidget {
   const _E2EETile({required this.circle, required this.e2ee});
 
@@ -726,12 +787,24 @@ class _E2EETileState extends State<_E2EETile> {
             // 那个常量是顶层 const、拿不到 context,且 e2ee_degrade_test
             // 直接断言它的内容,故此处改为走本地化键 e2eeCostNotice
             // (文案与该常量逐字一致),常量本身保持原样不动。
-            '${t.e2eeCostNotice}\n${t.e2eeKeyLocalNotice}',
+            //
+            // e2eeEveryoneNotice 排在**最前面**,因为它是三句里唯一
+            // 会让人「听不到别人说话」的那一句 —— 后果最硬,位置最先。
+            '${t.e2eeEveryoneNotice}\n'
+            '${t.e2eeCostNotice}\n'
+            '${t.e2eeKeyLocalNotice}',
             style: theme.textTheme.bodyMedium,
           ),
           isThreeLine: true,
           value: on,
           onChanged: (v) async {
+            // 只在**开**的方向上确认。
+            //
+            // 关是永远安全的:它把互通性还回来,最坏的结果是「本来加密的
+            // 现在不加密了」,而副标题已经说明了加密意味着什么。
+            // 开则相反 —— 只有你开,你和圈里其他人就互相听不见,
+            // 而这个后果从开关的外观上完全看不出来,所以必须拦一道。
+            if (v && !await _confirmTurnOn()) return;
             await widget.e2ee.setEnabled(id, v);
             if (mounted) setState(() {});
           },
@@ -742,6 +815,45 @@ class _E2EETileState extends State<_E2EETile> {
         if (status.isBrokenPromise) const SizedBox(height: LaresSpacing.md),
       ],
     );
+  }
+
+  /// 开启加密前的确认。
+  ///
+  /// ## 为什么非要拦这一下
+  ///
+  /// `E2EEStore` 是纯本地的 —— 一个 `shared_preferences` 里的圈子 id 集合
+  /// (`lares.e2eeCircles`),`setEnabled` 只动这个本地集合。
+  /// 密钥由圈口令经 Argon2id 派生,**从不离开设备**,
+  /// 也**从不告诉服务器或其他成员**。
+  ///
+  /// 所以单方面打开的后果是:你的声音被加密发出去,而没开的人手里
+  /// 没有同一把锁 —— 他们听不见你,你也听不见他们。
+  /// 这不是「安全性提高了一点」,这是**通话直接断了**,
+  /// 而开关看上去只是变成了「开」。
+  ///
+  /// 对话框只解释后果、不代替用户做判断:圈子小到什么程度、
+  /// 能不能一个个说到,只有用户知道。
+  Future<bool> _confirmTurnOn() async {
+    final t = AppLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.e2eeConfirmTitle),
+        content: Text(t.e2eeConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(t.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(t.e2eeConfirmYes),
+          ),
+        ],
+      ),
+    );
+    // 点遮罩关掉 = 没答应。null 一律当否 —— 这个方向上「不确定」就是「不开」。
+    return ok == true;
   }
 }
 
@@ -970,10 +1082,13 @@ class _RenameAction extends StatelessWidget {
           context: context,
           builder: (ctx) => AlertDialog(
             title: Text(t.homeRenameTitle),
+            // 不用 maxLength:它按 UTF-16 code unit 数,会把一个 emoji
+            // 算成 2 个、还可能在代理对中间截断,留下乱码方块。
+            // 上限改由 saveMyNickname() 按字素簇执行 ——
+            // 那也是设置页那个入口走的同一条路,两边不会再各有一套上限。
             content: TextField(
               controller: field,
               autofocus: true,
-              maxLength: 12,
               decoration: InputDecoration(hintText: t.homeRenameHint),
               onSubmitted: (_) => Navigator.pop(ctx, field.text),
             ),
@@ -989,10 +1104,8 @@ class _RenameAction extends StatelessWidget {
             ],
           ),
         );
-        if (name != null && name.trim().isNotEmpty) {
-          controller.rename(name);
-          await Identity.saveName(name.trim());
-        }
+        // 截断、广播、落盘全在 saveMyNickname 里;空名字它自己会拒。
+        if (name != null) await saveMyNickname(controller, name);
       },
     );
   }

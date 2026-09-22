@@ -701,6 +701,25 @@ class SignalingClient {
         'platform': platform,
       });
 
+  /// 改名后刷新 hello 快照里的名字。
+  ///
+  /// ⚠️ **刻意不往线上发任何东西**,也刻意不去重新调 [hello]。
+  ///
+  /// [send] 对 `t == 'hello'` 是特殊对待的(见上面那个分支):它要么触发
+  /// `connect()`,要么触发 `_sendHelloWithProof()`。所以在一条活着的连接上
+  /// 重调 hello(),等于凭空多推一帧 hello 上去 —— 服务端本来就已经知道
+  /// 新名字了(`RoomController.rename()` 发的 `profile` 帧已经告诉过它),
+  /// 这一帧纯属冗余,还要白算一次 Argon2 证明。
+  ///
+  /// 这个方法修的是**另一件事**:`_identity` 是「下次重连时要重放什么」的
+  /// 唯一底本。不改它,一次掉线重连就会拿启动时的旧名字重新自报家门,
+  /// 于是所有人看到的名字**悄悄变回去了**,而用户什么都没做。
+  void updateIdentityName(String name) {
+    final identity = _identity;
+    if (identity == null) return; // 还没 hello 过,等上层调时自然带的就是新名字
+    identity['name'] = name;
+  }
+
   void join(String circleId) => send({'t': 'join', 'circleId': circleId});
 
   /// P0 预热:提前为圈子备好 RTC token
