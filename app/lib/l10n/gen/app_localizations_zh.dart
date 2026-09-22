@@ -1171,4 +1171,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updateWinRestarting => '即将退出并完成更新，几秒后会自动重新启动。';
+
+  @override
+  String get homeInviteIncludePasscode => '把口令也放进链接';
+
+  @override
+  String get homeInviteIncludePasscodeHint => '对方不用再单独问你要口令了';
+
+  @override
+  String get homeInviteIncludePasscodeE2ee =>
+      '⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。';
 }

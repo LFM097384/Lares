@@ -211,11 +211,15 @@ void main() {
 
       await _openSettings(tester, settings: settings, devMode: devMode);
 
-      // 开发者区的三样东西都不该存在 —— 不是灰掉、不是折叠,是根本没渲染
+      // 开发者区不该存在 —— 不是灰掉、不是折叠,是根本没渲染
       expect(find.text('开发者选项'), findsNothing);
-      expect(find.text('服务器与口令'), findsNothing);
       expect(find.text('状态'), findsNothing);
       expect(find.text('开发者模式'), findsNothing);
+
+      // ⚠️ 但「服务器与口令」**是常规设置**,未解锁也必须看得到。
+      // 自托管是产品的核心主张,藏在连点 7 次的彩蛋后面
+      // 等于对普通用户不存在。2026-09-22 从开发者区移出来。
+      expect(find.text('服务器与口令'), findsOneWidget);
 
       // 普通设置项照常在
       expect(find.text('仅 WiFi 下高音质'), findsOneWidget);
@@ -234,7 +238,8 @@ void main() {
       // 点 10 次也不该解锁出什么来(没有 store,连计数都无从记起)
       await _tapVersion(tester, 10);
       expect(find.text('开发者选项'), findsNothing);
-      expect(find.text('服务器与口令'), findsNothing);
+      // 服务器与口令是常规设置,不随开发者模式开关
+      expect(find.text('服务器与口令'), findsOneWidget);
     });
 
     testWidgets('版本号如实显示注入的版本', (tester) async {
@@ -257,7 +262,8 @@ void main() {
 
       expect(devMode.enabled, isFalse);
       expect(find.text('开发者选项'), findsNothing);
-      expect(find.text('服务器与口令'), findsNothing);
+      // 服务器与口令是常规设置,不随开发者模式开关
+      expect(find.text('服务器与口令'), findsOneWidget);
     });
 
     testWidgets('点满 7 次:弹「开发者模式已开启」,开发者区当场出现', (tester) async {
@@ -318,7 +324,8 @@ void main() {
 
       // 整块收起
       expect(find.text('开发者选项'), findsNothing);
-      expect(find.text('服务器与口令'), findsNothing);
+      // 服务器与口令是常规设置,不随开发者模式开关
+      expect(find.text('服务器与口令'), findsOneWidget);
       expect(find.text('状态'), findsNothing);
 
       // 普通设置一项都没少
@@ -341,6 +348,41 @@ void main() {
       await _tapVersion(tester, 7);
       expect(devMode.enabled, isTrue);
       expect(find.text('开发者选项'), findsOneWidget);
+    });
+  });
+
+  group('服务器设置属于常规设置(需求回归 2026-09-22)', () {
+    // 这一组存在的理由:「服务器与口令」曾被放进开发者选项,
+    // 理由是「不让默认用户误触」。那个判断是错的 ——
+    // 自托管是产品的核心主张(隐私政策、官网、商店描述都写着
+    // 「你可以跑在自己的机器上」),藏在连点 7 次的彩蛋后面
+    // 等于这个承诺对普通用户不成立。
+    //
+    // 误触的代价是改回来;找不到的代价是功能等于不存在。
+    testWidgets('全新用户(从未解锁开发者模式)就能看到并点开', (tester) async {
+      final settings = await SettingsStore.load();
+      final devMode = await DevModeStore.load();
+
+      await _openSettings(tester, settings: settings, devMode: devMode);
+
+      expect(devMode.enabled, isFalse, reason: '前提:没解锁过');
+      expect(find.text('开发者选项'), findsNothing);
+      expect(find.text('服务器与口令'), findsOneWidget,
+          reason: '自托管不能藏在彩蛋后面');
+    });
+
+    testWidgets('它只出现一次 —— 不能在两个地方各渲染一份', (tester) async {
+      // 从开发者区移出来时如果忘了删原处,解锁后会看到两个同名分组,
+      // 而它们各自持有状态,改一个不影响另一个。
+      final settings = await SettingsStore.load();
+      final devMode = await DevModeStore.load();
+      await devMode.setEnabled(true);
+
+      await _openSettings(tester, settings: settings, devMode: devMode);
+
+      expect(find.text('开发者选项'), findsOneWidget, reason: '前提:已解锁');
+      expect(find.text('服务器与口令'), findsOneWidget,
+          reason: '解锁后也只能有一份');
     });
   });
 

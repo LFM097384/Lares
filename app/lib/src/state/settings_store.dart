@@ -301,6 +301,51 @@ class SettingsStore extends ChangeNotifier {
   /// 不可用时,用户只会反复看到「口令不对」,永远不知道真正发生了什么。
   String? lastSecretError;
 
+  /// 切到某个信令地址 —— 已有该地址的档案就激活它,没有就建一个。
+  ///
+  /// 给邀请链接用:链接里带 `server=` 时,被邀请的人不该先手动去设置里
+  /// 换服务器(他根本不知道要做这一步)。朋友的圈子多半在朋友的服务器上,
+  /// 而地址不是秘密,所以链接带上它、这里自动切过去。
+  ///
+  /// **复用已有档案而不是每次新建**:否则每点一次邀请链接就多一条
+  /// 同地址的档案,而它们各自存着口令 —— 用户会看到一堆重复项,
+  /// 且不知道哪条才是在用的。
+  Future<void> switchToServer(String url) async {
+    final v = ServerProfile.validateUrl(url);
+    if (!v.isValid) return; // 链接里的地址不合法就当没带,别把好的配置换坏
+    final normalized = v.normalized!;
+
+    final existing = serverProfiles.profiles
+        .where((p) => p.url == normalized)
+        .firstOrNull;
+    if (existing != null) {
+      if (serverProfiles.activeId == existing.id) return; // 已经在用了
+      await setServerProfiles(ServerProfiles(
+        profiles: serverProfiles.profiles,
+        activeId: existing.id,
+      ));
+      return;
+    }
+
+    // 新建。鉴权模式给 circle —— 邀请链接指向的圈子几乎必然要口令,
+    // 而 none 模式下口令根本不会被读到(见 credentialFor 的 switch)。
+    final id = serverProfiles.newId();
+    await setServerProfiles(ServerProfiles(
+      profiles: [
+        ...serverProfiles.profiles,
+        ServerProfile(
+          id: id,
+          // 标签用地址本身:比一个翻译过的「朋友的服务器」更有信息量,
+          // 也不需要在存储层依赖 BuildContext。
+          label: normalized,
+          url: normalized,
+          authMode: AuthMode.circle,
+        ),
+      ],
+      activeId: id,
+    ));
+  }
+
   /// 给某个圈子记一个口令,并保证它**真的会被用上**。
   ///
   /// ## 为什么不能只写 `circlePasscodes[circleId] = pass`

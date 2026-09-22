@@ -2017,6 +2017,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'即将退出并完成更新，几秒后会自动重新启动。'**
   String get updateWinRestarting;
+
+  /// No description provided for @homeInviteIncludePasscode.
+  ///
+  /// In zh, this message translates to:
+  /// **'把口令也放进链接'**
+  String get homeInviteIncludePasscode;
+
+  /// No description provided for @homeInviteIncludePasscodeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方不用再单独问你要口令了'**
+  String get homeInviteIncludePasscodeHint;
+
+  /// No description provided for @homeInviteIncludePasscodeE2ee.
+  ///
+  /// In zh, this message translates to:
+  /// **'⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。'**
+  String get homeInviteIncludePasscodeE2ee;
 }
 
 class _AppLocalizationsDelegate

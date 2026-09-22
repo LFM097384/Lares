@@ -1258,4 +1258,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get updateWinRestarting =>
       'Quitting to finish the update, Lares comes back in a few seconds.';
+
+  @override
+  String get homeInviteIncludePasscode => 'Put the passphrase in the link';
+
+  @override
+  String get homeInviteIncludePasscodeHint =>
+      'They will not have to ask you for it separately';
+
+  @override
+  String get homeInviteIncludePasscodeE2ee =>
+      '⚠️ This circle is end-to-end encrypted — the passphrase is the key. If the link gets forwarded or screenshotted, the conversations are no longer private.';
 }

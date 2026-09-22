@@ -1506,5 +1506,8 @@
   "updateWinRestarting": "即将退出并完成更新，几秒后会自动重新启动。",
   "@updateWinRestarting": {
     "description": "Windows 安装已就绪：应用即将退出并自动重启"
-  }
+  },
+  "homeInviteIncludePasscode": "把口令也放进链接",
+  "homeInviteIncludePasscodeHint": "对方不用再单独问你要口令了",
+  "homeInviteIncludePasscodeE2ee": "⚠️ 这个圈开了端到端加密 —— 口令就是解密密钥。链接被转发或截图,通话内容就不再是私密的。"
 }

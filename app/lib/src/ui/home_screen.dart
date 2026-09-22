@@ -16,6 +16,7 @@ import '../state/dev_mode_store.dart';
 import '../state/identity.dart';
 import '../state/location_share_stub.dart'
     if (dart.library.io) '../state/location_share.dart';
+import '../state/invite_link.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
@@ -233,6 +234,7 @@ class _CircleList extends StatelessWidget {
                 controller: controller,
                 circleStore: circleStore,
                 joining: joining,
+                settings: settings,
                 e2ee: e2ee,
               ),
             const SizedBox(height: LaresSpacing.sm),
@@ -341,16 +343,32 @@ class _CircleList extends StatelessWidget {
       ),
     );
     if (ok != true) return;
-    // 兜底圈名在这里取(UI 层),不把 context 递进 _parseInvite ——
-    // 那是个纯函数,应当保持可单测。
-    final circle = _parseInvite(field.text.trim(), t.homeInvitedCircleFallback);
-    if (circle == null) return;
+
+    final invite = parseInviteLink(field.text);
+    if (invite == null) return;
+    final circle = Circle(
+      id: invite.circleId,
+      name: invite.name ?? t.homeInvitedCircleFallback,
+    );
     await circleStore.add(circle);
+
+    // 链接带了服务器地址就先切过去 —— 必须在存口令与进房**之前**。
+    //
+    // 朋友的圈子多半在朋友的服务器上。不切的话:口令会被存到当前
+    // 服务器的档案下(错的地方),而进房又会连当前服务器(那里没有
+    // 这个圈)。两者都错,表现却只是「进不去」,没人能看出为什么。
+    if (invite.hasServer) {
+      await settings.switchToServer(invite.serverUrl!);
+    }
 
     // 口令要在进房**之前**存好:进房路径上要拿它算鉴权证明,
     // 还要派生 E2EE 密钥(prepareEncryption 在 rtc.join 之前跑)。
     // 晚一步存就等于这次进房仍然没有口令。
-    final pass = passField.text;
+    //
+    // 链接里带的口令优先级低于用户手填 —— 手填是更明确的意图,
+    // 而且链接可能是转发来的旧版本。
+    final pass =
+        passField.text.isNotEmpty ? passField.text : (invite.passcode ?? '');
     if (pass.isNotEmpty) {
       await settings.setCirclePasscode(circle.id, pass);
     }
@@ -370,18 +388,8 @@ class _CircleList extends StatelessWidget {
     }
   }
 
-  /// [fallbackName] 由调用方从本地化取好再传进来,保持本函数不依赖 context。
-  Circle? _parseInvite(String input, String fallbackName) {
-    if (input.isEmpty) return null;
-    if (input.startsWith('lares://circle/')) {
-      final uri = Uri.parse(input);
-      final id = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : '';
-      if (id.isEmpty) return null;
-      return Circle(id: id, name: uri.queryParameters['name'] ?? fallbackName);
-    }
-    // 纯 id
-    return Circle(id: input, name: fallbackName);
-  }
+  // 解析已移到 `lib/src/state/invite_link.dart` —— 它现在还要读
+  // server / pass 两个字段,值得单独成文件并测透(见 invite_link_test.dart)。
 }
 
 class _CircleTile extends StatelessWidget {
@@ -391,6 +399,7 @@ class _CircleTile extends StatelessWidget {
     required this.controller,
     required this.circleStore,
     required this.joining,
+    required this.settings,
     this.e2ee,
   });
 
@@ -398,6 +407,9 @@ class _CircleTile extends StatelessWidget {
   final RoomController controller;
   final CircleStore circleStore;
   final bool joining;
+
+  /// 生成邀请链接要用:带上当前服务器地址,以及(用户勾选时)圈口令。
+  final SettingsStore settings;
   final E2EEController? e2ee;
 
   @override
@@ -514,39 +526,79 @@ class _CircleTile extends StatelessWidget {
     );
   }
 
-  /// 邀请对话框:展示 lares://circle 链接,一键复制
+  /// 邀请对话框:展示 lares://circle 链接,一键复制。
+  ///
+  /// 链接**总是带上当前服务器地址** —— 朋友的圈子多半在朋友的服务器上,
+  /// 不带的话对方要先自己去设置里换服务器,而他根本不知道要做这一步。
+  /// 地址不是秘密(域名本来就公开),带上没有代价。
+  ///
+  /// 口令**默认不带**,由分享者勾选。理由见 `invite_link.dart` 的文件头:
+  /// 口令经 Argon2id 派生出该圈的 E2EE 密钥,写进链接等于把密钥
+  /// 一起发出去,而链接会经微信/截图流转。
   Future<void> _showInviteDialog(BuildContext context) async {
     final t = AppLocalizations.of(context);
-    final link =
-        'lares://circle/${circle.id}?name=${Uri.encodeComponent(circle.name)}';
+    final serverUrl = settings.effectiveSignalingUrl;
+    final passcode = settings.passcodeFor(circle.id);
+    final e2eeOn = e2ee?.isEnabled(circle.id) ?? false;
+    var includePass = false;
+
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(t.homeInviteTitle(circle.name)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(t.homeInviteBody),
-            const SizedBox(height: LaresSpacing.md),
-            SelectableText(
-              link,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          final link = buildInviteLink(
+            circleId: circle.id,
+            name: circle.name,
+            serverUrl: serverUrl,
+            passcode: includePass ? passcode : null,
+          );
+          return AlertDialog(
+            title: Text(t.homeInviteTitle(circle.name)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t.homeInviteBody),
+                const SizedBox(height: LaresSpacing.md),
+                SelectableText(
+                  link,
+                  style: Theme.of(ctx)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontFamily: 'monospace'),
+                ),
+                // 没存过口令就不给这个选项 —— 勾了也带不出东西,
+                // 只会让人以为自己带上了。
+                if (passcode.isNotEmpty) ...[
+                  const SizedBox(height: LaresSpacing.sm),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: includePass,
+                    onChanged: (v) => setState(() => includePass = v ?? false),
+                    title: Text(t.homeInviteIncludePasscode),
+                    // 开了 E2EE 时把代价说清楚:那把口令就是解密密钥。
+                    subtitle: Text(
+                      e2eeOn
+                          ? t.homeInviteIncludePasscodeE2ee
+                          : t.homeInviteIncludePasscodeHint,
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
-        actions: [
-          FilledButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: link));
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            icon: const Icon(Icons.copy_rounded, size: 16),
-            label: Text(t.commonCopy),
-          ),
-        ],
+            actions: [
+              FilledButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: link));
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                icon: const Icon(Icons.copy_rounded, size: 16),
+                label: Text(t.commonCopy),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

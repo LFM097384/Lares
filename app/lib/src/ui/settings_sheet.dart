@@ -21,6 +21,7 @@ import 'blocked_users_section.dart';
 import 'content_policy_screen.dart';
 import 'developer_section.dart';
 import 'settings_group.dart';
+import 'server_settings_section.dart';
 import 'update_panel.dart';
 import 'version_footer.dart';
 
@@ -289,6 +290,22 @@ Future<void> showSettingsSheet(
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: LaresSpacing.md),
                 child: UpdatePanel(),
+              ),
+              // ── 服务器与口令 ──────────────────────────────────────
+              //
+              // ⚠️ 这一块**属于常规设置**,不要再挪回开发者选项。
+              //
+              // 自托管是本 App 的核心主张 —— 隐私政策、官网、商店描述
+              // 里都写着「你可以跑在自己的机器上」。把切换服务器藏在
+              // 「连点版本号 7 次」后面,等于让这个承诺对普通用户不成立。
+              //
+              // 2026-09-22 之前它确实埋在 DeveloperSection 里,理由写的是
+              // 「不让默认用户误触」。那个判断是错的:误触的代价是改回来,
+              // 找不到的代价是这个功能等于不存在。
+              ServerSettingsSection(
+                settings: settings,
+                userId: controller.userId,
+                defaultUrl: signalingUrl,
               ),
               // ── 开发者选项 ────────────────────────────────────────
               // 未解锁时**整块不渲染**:不是灰掉、不是折叠,是根本不存在。

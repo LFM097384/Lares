@@ -319,5 +319,8 @@
   "updateStatusUpToDate": "You're on the latest version.",
   "updateTitle": "Version and updates",
   "updateVersionUnknown": "Current version unknown",
-  "updateWinRestarting": "Quitting to finish the update, Lares comes back in a few seconds."
+  "updateWinRestarting": "Quitting to finish the update, Lares comes back in a few seconds.",
+  "homeInviteIncludePasscode": "Put the passphrase in the link",
+  "homeInviteIncludePasscodeHint": "They will not have to ask you for it separately",
+  "homeInviteIncludePasscodeE2ee": "⚠️ This circle is end-to-end encrypted — the passphrase is the key. If the link gets forwarded or screenshotted, the conversations are no longer private."
 }
