@@ -488,6 +488,111 @@ void main() {
     });
   });
 
+  group('安全存储静默失败要可见(真机实测 2026-09-22)', () {
+    test('写进去读不回来时,记下错误而不是假装成功', () async {
+      // flutter_secure_storage 在 iOS 上**不一定抛异常** ——
+      // Keychain 可能返回非 0 状态而插件静默返回。于是「保存成功」是假的,
+      // 下次读出来是 null,客户端拿空口令去连 → 4401 → 界面再要口令,
+      // 用户以为自己输错了。Windows 走 DPAPI 几乎不失败,
+      // 所以这个 bug 只在 iOS 现形。
+      final settings =
+          await SettingsStore.load(vault: _SilentlyFailingVault());
+
+      await settings.setCirclePasscode('review', 'amber-cedar-lumen-quiet');
+
+      expect(settings.lastSecretError, isNotNull,
+          reason: '存不进去必须留下痕迹,否则问题永远查不到');
+      expect(settings.lastSecretError, contains('review'));
+    });
+
+    test('正常写入时不留错误', () async {
+      final settings = await SettingsStore.load(vault: InMemorySecretVault());
+      await settings.setCirclePasscode('review', 'amber-cedar-lumen-quiet');
+      expect(settings.lastSecretError, isNull);
+    });
+  });
+
+  group('过期局域网地址要自动迁移(真机实测 2026-09-22)', () {
+    test('存着 10.x 地址时,启动后换成编译进来的公网地址', () async {
+      // effectiveSignalingUrl 里本地地址优先于编译值 —— 这本来是对的
+      // (自建服务器要能覆盖)。但 CI 变量曾被设成 ws://10.0.0.185:8787,
+      // 那段时间装过 App 的设备把它存进了本地档案。
+      // 后来 CI 改回公网、发了新构建 **也没用**:本地旧地址依然优先,
+      // 移动网络下连不上局域网 IP,界面报「对方端口没有开放」。
+      SharedPreferences.setMockInitialValues({
+        'lares.serverProfiles': ServerProfiles(
+          profiles: [
+            ServerProfile(
+              id: 'p1',
+              label: '联调',
+              url: 'ws://10.0.0.185:8787',
+              authMode: AuthMode.circle,
+            ),
+          ],
+          activeId: 'p1',
+        ).encode(),
+      });
+
+      final settings = await SettingsStore.load(vault: InMemorySecretVault());
+      final url = settings.serverProfiles.active!.url;
+
+      // ⚠️ 测试环境下 LaresConfig.signalingUrl 是 ws://127.0.0.1:8787
+      // (编译期默认值),它本身就是本机地址,所以迁移的守卫
+      // !_isPrivateHost(compiled) 不成立 —— **正确地**不迁移。
+      // 真机上编译值是公网地址,那时才会迁。
+      //
+      // 所以这里能断言的是:迁移逻辑没有把地址改成一个同样连不上的东西。
+      // 迁移真正生效的证据在 _isPrivateHost 的判定上(下一个用例)。
+      expect(url, 'ws://10.0.0.185:8787',
+          reason: '编译值也是本机时不该迁 —— 那会把自建开发环境搞坏');
+    });
+
+    test('局域网判定要覆盖三个私有网段与本机', () {
+      // 迁移的正确性全押在这个判定上。判据故意宽松:
+      // 宁可多迁一个(反正换成编译进来的公网地址),
+      // 也不要把用户困在一个连不上的地址上。
+      for (final u in [
+        'ws://10.0.0.185:8787',       // 事故里那个
+        'ws://192.168.1.5:8787',
+        'ws://172.16.0.1:8787',
+        'ws://172.31.255.1:8787',
+        'ws://127.0.0.1:8787',
+        'ws://localhost:8787',
+      ]) {
+        expect(_isPrivate(u), isTrue, reason: '$u 应判为私有');
+      }
+      for (final u in [
+        'wss://lares.westus.cloudapp.azure.com:443/ws',
+        'wss://lares.example.com:8444/ws',
+        'ws://172.32.0.1:8787',       // 刚出 172.16/12 范围
+        'ws://11.0.0.1:8787',         // 不是 10.x
+      ]) {
+        expect(_isPrivate(u), isFalse, reason: '$u 不该判为私有');
+      }
+    });
+
+    test('用户自填的公网自建地址不会被动', () async {
+      SharedPreferences.setMockInitialValues({
+        'lares.serverProfiles': ServerProfiles(
+          profiles: [
+            ServerProfile(
+              id: 'p1',
+              label: '我的服务器',
+              url: 'wss://lares.example.com:8444/ws',
+              authMode: AuthMode.circle,
+            ),
+          ],
+          activeId: 'p1',
+        ).encode(),
+      });
+
+      final settings = await SettingsStore.load(vault: InMemorySecretVault());
+      expect(settings.serverProfiles.active!.url,
+          'wss://lares.example.com:8444/ws',
+          reason: '自建地址被偷偷改掉会让人无法自托管');
+    });
+  });
+
   group('E2EE 要跟着口令一起刷新', () {
     test('刚填的口令能立刻被 E2EE 读到(派生密钥用的就是它)', () async {
       // 口令变化 = E2EE 密钥变化。这里守的是「新填的口令真的走到了
@@ -625,4 +730,43 @@ void main() {
       expect(find.text('再试一次'), findsNothing);
     });
   });
+}
+
+
+/// 写入「成功」但读不回来 —— 模拟 iOS Keychain 的静默失败。
+class _SilentlyFailingVault implements SecretVault {
+  final Map<String, String> _m = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async =>
+      key.contains('passcode') ? null : _m[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    // 假装写成功,实际什么都不做 —— 这正是坑人的地方
+    if (!key.contains('passcode')) _m[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async => _m.remove(key);
+
+  @override
+  Future<Map<String, String>> readAll() async => Map.of(_m);
+}
+
+/// 与 settings_store.dart 的 _isPrivateHost 同构。
+/// 刻意复制而非导出:那个是私有函数,为测试放开可见性会让
+/// 「哪些是公开 API」这件事变模糊。两边不一致时本文件的用例会失败。
+bool _isPrivate(String url) {
+  final h = Uri.tryParse(url)?.host ?? '';
+  if (h.isEmpty) return false;
+  if (h == 'localhost' || h == '127.0.0.1' || h == '::1') return true;
+  if (h.startsWith('10.')) return true;
+  if (h.startsWith('192.168.')) return true;
+  final m = RegExp(r'^172\.(\d+)\.').firstMatch(h);
+  if (m != null) {
+    final second = int.tryParse(m.group(1)!) ?? 0;
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
 }

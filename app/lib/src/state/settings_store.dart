@@ -112,6 +112,47 @@ class SettingsStore extends ChangeNotifier {
       s.serverProfiles = ServerProfiles.decode(rawProfiles);
     }
 
+    // ⚠️ 把过期的局域网地址迁到编译进来的那个。
+    //
+    // `effectiveSignalingUrl` 里**本地存的地址优先于编译值**,这本来是
+    // 对的(用户自建服务器就得能覆盖)。但它会让一类升级彻底失效:
+    //
+    // 2026-09-12 到 09-22,CI 变量被设成联调用的 `ws://10.0.0.185:8787`,
+    // 那段时间装过 App 的设备把这个地址存进了本地档案。后来 CI 改回
+    // 公网地址、发了新构建 —— 没用,**本地存的旧地址依然优先**,
+    // 移动网络下连不上局域网 IP,界面报「对方端口没有开放」。
+    //
+    // 只迁移明显失效的:局域网/本机地址,且编译值是公网。
+    // 用户自己填的公网自建地址不会被碰。
+    final compiled = LaresConfig.signalingUrl;
+    if (!_isPrivateHost(compiled)) {
+      var changed = false;
+      final fixed = <ServerProfile>[];
+      for (final p in s.serverProfiles.profiles) {
+        if (_isPrivateHost(p.url)) {
+          fixed.add(p.copyWith(url: compiled, label: compiled));
+          changed = true;
+        } else {
+          fixed.add(p);
+        }
+      }
+      if (s.signalingOverride != null &&
+          _isPrivateHost(s.signalingOverride!)) {
+        s.signalingOverride = null; // 让它回落到编译值
+        changed = true;
+      }
+      if (changed) {
+        s.serverProfiles = ServerProfiles(
+          profiles: fixed,
+          activeId: s.serverProfiles.activeId,
+        );
+        await prefs.setString(_kServerProfiles, s.serverProfiles.encode());
+        if (s.signalingOverride == null) {
+          await prefs.remove(_kSignalingOverride);
+        }
+      }
+    }
+
     // ── 敏感值:迁移 + 从 vault 取回 ──
     //
     // 测试环境下不碰真实 vault:`flutter test` 里没有平台通道,
@@ -220,12 +261,45 @@ class SettingsStore extends ChangeNotifier {
           await _vault.delete(key);
         }
       }
+      // 写完立刻读回验证。
+      //
+      // ⚠️ 这一步不是多余的。`flutter_secure_storage` 在 iOS 上
+      // **不一定抛异常** —— Keychain 可能返回非 0 状态码而插件只是
+      // 静默返回。于是「写成功」是假的,下次读出来是 null,
+      // 客户端拿空口令去连 → 4401 → 界面再要口令 → 用户以为自己输错了。
+      //
+      // Windows 走 DPAPI 几乎不会失败,所以这个 bug 只在 iOS 上现形 ——
+      // 「Windows 能进、iOS 不能」的真正来源。
+      for (final e in active.circlePasscodes.entries) {
+        if (e.value.isEmpty) continue;
+        final back = await _vault.read(vaultKeyForPasscode(e.key));
+        if (back != e.value) {
+          lastSecretError = 'keychain_verify_failed:${e.key}';
+          debugPrint('[lares] 口令写入后读回不一致(圈 ${e.key}) —— '
+              '安全存储可能不可用');
+          notifyListeners();
+          return;
+        }
+      }
+      lastSecretError = null;
     } catch (err) {
       // 写不进去是真问题,但不该让保存整体失败(URL、鉴权模式这些还是该存下)。
-      // 说出来,别假装成功。
+      //
+      // ⚠️ 只 debugPrint 等于没说 —— release 构建里它什么都不做。
+      // 记成状态让 UI 能读到,否则用户只会看到「口令不对」,
+      // 而真相是「口令根本没存进去」。
+      lastSecretError = err.toString();
       debugPrint('[lares] 凭据写入安全存储失败: $err');
+      notifyListeners();
     }
   }
+
+  /// 最近一次凭据落盘失败的原因;正常时为 null。
+  ///
+  /// 存在的意义是让「存不进去」这件事**可见**。它曾经只进 debugPrint,
+  /// 而 release 版里 debugPrint 是空操作 —— 于是 iOS 上 Keychain
+  /// 不可用时,用户只会反复看到「口令不对」,永远不知道真正发生了什么。
+  String? lastSecretError;
 
   /// 给某个圈子记一个口令,并保证它**真的会被用上**。
   ///
@@ -386,4 +460,23 @@ class SettingsStore extends ChangeNotifier {
     await prefs.setInt(_kDndStart, startHour);
     await prefs.setInt(_kDndEnd, endHour);
   }
+}
+
+/// 这个地址是不是局域网/本机 —— 发布构建里出现就是配置事故的残留。
+///
+/// 判据故意宽松:宁可多迁一个(反正会换成编译进来的公网地址),
+/// 也不要把用户困在一个连不上的地址上。
+bool _isPrivateHost(String url) {
+  final host = Uri.tryParse(url)?.host ?? '';
+  if (host.isEmpty) return false;
+  if (host == 'localhost' || host == '127.0.0.1' || host == '::1') return true;
+  if (host.startsWith('10.')) return true;
+  if (host.startsWith('192.168.')) return true;
+  // 172.16.0.0/12
+  final m = RegExp(r'^172\.(\d+)\.').firstMatch(host);
+  if (m != null) {
+    final second = int.tryParse(m.group(1)!) ?? 0;
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
 }
