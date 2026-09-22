@@ -459,6 +459,35 @@ void main() {
     });
   });
 
+  group('多圈口令不能互相覆盖(真机实测 2026-09-22)', () {
+    test('保存服务器档案时,其它圈的口令必须保留', () async {
+      // server_settings_section 的对话框只显示 .firstOrNull 一个圈,
+      // 保存时却用它构造整个 circlePasscodes —— 其它圈的口令全丢。
+      // 症状:从邀请链接加了 review、在房内填好口令进去了;
+      // 之后打开设置页(显示的是另一个圈)按保存,review 的口令当场消失,
+      // 再进就 4401,界面反复要口令,而用户以为自己填过了。
+      final settings = await SettingsStore.load(vault: InMemorySecretVault());
+
+      await settings.setCirclePasscode('home', 'fengming');
+      await settings.setCirclePasscode('review', 'amber-cedar-lumen-quiet');
+      expect(settings.passcodeFor('home'), 'fengming');
+      expect(settings.passcodeFor('review'), 'amber-cedar-lumen-quiet');
+
+      // 模拟设置页保存:只带上 home 这一条(对话框里显示的那个)
+      final active = settings.serverProfiles.active!;
+      await settings.upsertProfile(active.copyWith(
+        circlePasscodes: {
+          ...active.circlePasscodes, // ← 修复的关键:合并而非替换
+          'home': 'fengming-changed',
+        },
+      ));
+
+      expect(settings.passcodeFor('home'), 'fengming-changed');
+      expect(settings.passcodeFor('review'), 'amber-cedar-lumen-quiet',
+          reason: '改 home 的口令不该抹掉 review 的');
+    });
+  });
+
   group('E2EE 要跟着口令一起刷新', () {
     test('刚填的口令能立刻被 E2EE 读到(派生密钥用的就是它)', () async {
       // 口令变化 = E2EE 密钥变化。这里守的是「新填的口令真的走到了

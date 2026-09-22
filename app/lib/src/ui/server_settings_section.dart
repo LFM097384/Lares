@@ -230,7 +230,20 @@ Future<void> _editProfile(
         url: url,
         authMode: mode,
         token: tokenField.text,
+        // ⚠️ 必须**合并**,不能整体替换。
+        //
+        // 这个对话框只显示 `.firstOrNull` —— 一个圈的 id + 口令。
+        // 原来保存时直接用这一条构造整个 circlePasscodes,于是
+        // **其它圈子的口令全被抹掉**。
+        //
+        // 2026-09-22 真机实测撞到:用户从邀请链接加了 review 圈、
+        // 在房内口令框填好并进去了;之后打开这个设置页(它显示的是
+        // 另一个圈)、按了保存 —— review 的口令当场消失,再进就被
+        // 4401 拒,界面反复要口令,而用户以为自己填过了。
+        //
+        // 只有用户确实在输入框里写了圈 id 时才覆盖那一条。
         circlePasscodes: {
+          ...?existing?.circlePasscodes,
           if (circleIdField.text.trim().isNotEmpty)
             circleIdField.text.trim(): passField.text,
         },
