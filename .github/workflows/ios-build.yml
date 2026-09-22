@@ -14,7 +14,52 @@ on:
     tags: ['v*']
 
 jobs:
+  # ⚠️ 这个 job 存在的理由,是一次真实事故。
+  #
+  # 2026-09-12 联调时把仓库变量 LARES_SIGNALING 设成了局域网地址
+  # `ws://10.0.0.185:8787`,之后**所有**构建(包括发给 TestFlight 的)
+  # 都被编译成连那个地址。手机上永远连不通,界面停在「正在进去…」,
+  # 而服务端日志里干干净净 —— 因为请求根本没到过服务器。
+  #
+  # 整整十天、十几个构建、三轮状态机重构都没找到原因,因为那些代码
+  # **根本没机会执行**:连接压根没建立。
+  #
+  # 教训:发布构建里出现 127.0.0.1 / 局域网 IP / ws:// 明文,
+  # 都是配置错误而不是「本地调试的默认值」。在编译前就拦下来。
+  guard-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 校验信令地址
+        env:
+          URL: ${{ vars.LARES_SIGNALING }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ]; then
+            echo "::warning::未设 vars.LARES_SIGNALING,将使用 workflow 里的生产回落值"
+            exit 0
+          fi
+          echo "vars.LARES_SIGNALING = $URL"
+
+          # 局域网 / 本机地址:发布构建里出现就是事故
+          case "$URL" in
+            *127.0.0.1*|*localhost*|*10.*|*192.168.*|*172.1[6-9].*|*172.2[0-9].*|*172.3[01].*)
+              echo "::error::信令地址是局域网/本机地址($URL)。发布构建连不上它,界面会永久停在「正在进去…」,而服务端日志里看不到任何痕迹。请把 vars.LARES_SIGNALING 改回生产地址。"
+              exit 1
+              ;;
+          esac
+
+          # 明文 ws:// 在 iOS 上会被 ATS 拦掉(除非是本地网络)
+          case "$URL" in
+            ws://*)
+              echo "::error::信令地址用了明文 ws://($URL)。iOS 的 App Transport Security 会拦截,必须用 wss://。"
+              exit 1
+              ;;
+          esac
+
+          echo "✓ 信令地址看起来是生产地址"
+
   build-ios:
+    needs: guard-config
     runs-on: macos-26
     defaults:
       run:
@@ -41,7 +86,7 @@ jobs:
       - name: Build iOS (unsigned)
         run: |
           flutter build ios --release --no-codesign \
-            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
+            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://lares.westus.cloudapp.azure.com:443/ws' }}
 
       - name: Package .ipa
         run: |
@@ -71,6 +116,7 @@ jobs:
   #   APPLE_TEAM_ID     10 位 Team ID
   # 配置步骤见 deploy/ios-ci.md。
   testflight:
+    needs: guard-config
     if: github.event_name == 'workflow_dispatch' && inputs.upload_testflight
     runs-on: macos-26
     defaults:
@@ -348,6 +394,7 @@ jobs:
 
   # macOS 桌面端顺带构建(同一 runner,产物 .app)
   build-macos:
+    needs: guard-config
     runs-on: macos-26
     defaults:
       run:
@@ -366,7 +413,7 @@ jobs:
       - name: Build macOS
         run: |
           flutter build macos --release \
-            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
+            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://lares.westus.cloudapp.azure.com:443/ws' }}
       - name: Package .app
         run: |
           cd build/macos/Build/Products/Release
@@ -378,6 +425,7 @@ jobs:
           retention-days: 14
 
   build-android:
+    needs: guard-config
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -398,7 +446,7 @@ jobs:
       - name: Build APK (split per ABI)
         run: |
           flutter build apk --release --split-per-abi \
-            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
+            --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://lares.westus.cloudapp.azure.com:443/ws' }}
       - uses: actions/upload-artifact@v4
         with:
           name: lares-android-apk
@@ -406,6 +454,7 @@ jobs:
           retention-days: 14
 
   build-windows:
+    needs: guard-config
     runs-on: windows-latest
     defaults:
       run:
@@ -420,7 +469,7 @@ jobs:
       - name: Pub get
         run: flutter pub get
       - name: Build Windows
-        run: flutter build windows --release --verbose --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://127.0.0.1:8787' }}
+        run: flutter build windows --release --verbose --dart-define=LARES_SIGNALING=${{ vars.LARES_SIGNALING || 'wss://lares.westus.cloudapp.azure.com:443/ws' }}
       - name: Package
         shell: pwsh
         run: |
