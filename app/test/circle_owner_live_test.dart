@@ -25,11 +25,14 @@ void main() {
       File('${serverDir.path}${sep}src${sep}index.js').existsSync() &&
           Directory('${serverDir.path}${sep}node_modules').existsSync();
 
+  // LARES_OWNER_LIVE_URL=wss://…/ws 时直接打该服务器(生产验收),不起本地进程。
+  final remoteUrl = Platform.environment['LARES_OWNER_LIVE_URL'];
   Process? proc;
   Directory? dataDir;
   const port = 18971; // 避开 signaling_live_auth_test 用的 18941–18953
 
   setUp(() async {
+    if (remoteUrl != null) return;
     dataDir = await Directory.systemTemp.createTemp('lares-owner-live-');
     proc = await Process.start(
       'node',
@@ -90,7 +93,7 @@ void main() {
     var pending = true;
     final String storedKey = generateOwnerKey();
     final owner = SignalingClient(
-      url: 'ws://127.0.0.1:$port/ws',
+      url: remoteUrl ?? 'ws://127.0.0.1:$port/ws',
       userId: 'u_owner',
       credentials: () => AuthCredential(
           mode: AuthMode.circle, passcode: passcode, circleId: cid),
@@ -118,7 +121,7 @@ void main() {
     // ── 第二人:凭口令进圈 ──
     Future<SignalingClient> member(String pass) async {
       final m = SignalingClient(
-        url: 'ws://127.0.0.1:$port/ws',
+        url: remoteUrl ?? 'ws://127.0.0.1:$port/ws',
         userId: 'u_member',
         credentials: () =>
             AuthCredential(mode: AuthMode.circle, passcode: pass, circleId: cid),
@@ -191,7 +194,7 @@ void main() {
     expect((await gone)['t'], 'circle_deleted');
     await m4.dispose();
     await owner.dispose();
-  }, skip: hasServer ? null : '未找到 server/ 或其 node_modules',
+  }, skip: (hasServer || remoteUrl != null) ? null : '未找到 server/ 或其 node_modules',
       timeout: const Timeout(Duration(seconds: 60)));
 
   test('welcome 丢了:重试撞 4409 → 带本机钥匙登录 → isOwner=true,不成无主圈', () async {
@@ -202,7 +205,7 @@ void main() {
     // 第一个客户端完成登记后立刻消失(模拟 welcome 在路上丢了):
     // 不挂 onRegistrationSettled,待登记标记原样保持。
     final lost = SignalingClient(
-      url: 'ws://127.0.0.1:$port/ws',
+      url: remoteUrl ?? 'ws://127.0.0.1:$port/ws',
       userId: 'u_owner',
       credentials: () => AuthCredential(
           mode: AuthMode.circle, passcode: passcode, circleId: cid),
@@ -220,7 +223,7 @@ void main() {
     var pending = true;
     final codes = <Object?>[];
     final retry = SignalingClient(
-      url: 'ws://127.0.0.1:$port/ws',
+      url: remoteUrl ?? 'ws://127.0.0.1:$port/ws',
       userId: 'u_owner',
       credentials: () => AuthCredential(
           mode: AuthMode.circle, passcode: passcode, circleId: cid),
@@ -256,6 +259,6 @@ void main() {
     expect((await ok)['t'], 'owner_ok');
     await sub.cancel();
     await retry.dispose();
-  }, skip: hasServer ? null : '未找到 server/ 或其 node_modules',
+  }, skip: (hasServer || remoteUrl != null) ? null : '未找到 server/ 或其 node_modules',
       timeout: const Timeout(Duration(seconds: 60)));
 }
