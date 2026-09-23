@@ -51,6 +51,9 @@ class SettingsStore extends ChangeNotifier {
   static const _kNoiseMode = 'lares.noiseMode';
   static const _kServerProfiles = 'lares.serverProfiles';
   static const _kAppLanguage = 'lares.appLanguage';
+  static const _kPushEnabled = 'lares.pushEnabled';
+  static const _kPushMutedCircles = 'lares.pushMutedCircles';
+  static const _kPushPermissionAsked = 'lares.pushPermissionAsked';
 
   /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
   bool wifiOnlyHq = true;
@@ -74,6 +77,23 @@ class SettingsStore extends ChangeNotifier {
 
   /// 界面语言。默认跟随系统 —— 绝大多数人装上就该是对的,不该先去设置里挑一次。
   AppLanguage appLanguage = AppLanguage.system;
+
+  /// 「有人进圈时通知我」总开关(目前只有 iOS 有推送)。
+  ///
+  /// 默认开:这是常驻圈子的核心用法 —— 朋友来了你却不知道,圈子就只是个空房间。
+  /// 但开关开着**并不等于**会弹系统权限框:权限只在第一次真正进过房之后才问
+  /// (见 PushService),而那时用户已经知道这个 App 是干什么的了。
+  bool pushEnabled = true;
+
+  /// 单独静音了通知的圈子 id。存「静音的」而不是「开着的」:
+  /// 新加的圈子默认有通知,不必每加一个圈再去打开一次。
+  Set<String> pushMutedCircles = <String>{};
+
+  /// 系统通知权限是否已经问过(不论答应与否)。
+  ///
+  /// iOS 的权限框一辈子只弹一次,被拒之后只能去系统设置里改;
+  /// 所以自己的「说明 + 请求」也只做一次,被拒了就不再纠缠。
+  bool pushPermissionAsked = false;
 
   /// 具名服务器档案(标签 + 地址 + 鉴权配置,选一个生效)。
   ///
@@ -138,6 +158,11 @@ class SettingsStore extends ChangeNotifier {
     final langIndex = prefs.getInt(_kAppLanguage) ?? AppLanguage.system.index;
     s.appLanguage =
         AppLanguage.values[langIndex.clamp(0, AppLanguage.values.length - 1)];
+    s.pushEnabled = prefs.getBool(_kPushEnabled) ?? true;
+    s.pushMutedCircles = {
+      ...prefs.getStringList(_kPushMutedCircles) ?? const <String>[],
+    };
+    s.pushPermissionAsked = prefs.getBool(_kPushPermissionAsked) ?? false;
     // 服务器档案:没存过就从老的 signalingOverride 迁移一份过来,别让人丢设置
     final rawProfiles = prefs.getString(_kServerProfiles);
     if (rawProfiles == null) {
@@ -655,6 +680,35 @@ class SettingsStore extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kJoinWithMicOn, value);
+  }
+
+  Future<void> setPushEnabled(bool value) async {
+    if (pushEnabled == value) return;
+    pushEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kPushEnabled, value);
+  }
+
+  bool isCirclePushMuted(String circleId) => pushMutedCircles.contains(circleId);
+
+  Future<void> setCirclePushMuted(String circleId, bool muted) async {
+    final changed =
+        muted ? pushMutedCircles.add(circleId) : pushMutedCircles.remove(circleId);
+    if (!changed) return;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kPushMutedCircles, pushMutedCircles.toList());
+  }
+
+  /// 记下「权限已经问过」。调用方要在**弹框之前** await 它:
+  /// App 若恰好死在系统权限框上,下次启动也不会再问第二遍。
+  Future<void> markPushPermissionAsked() async {
+    if (pushPermissionAsked) return;
+    pushPermissionAsked = true;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kPushPermissionAsked, true);
   }
 
   Future<void> setDnd(int startHour, int endHour) async {

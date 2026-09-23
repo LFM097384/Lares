@@ -10,6 +10,8 @@ import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
 import '../moderation/block_store.dart';
 import '../moderation/consent_store.dart';
+import '../platform/platform_info.dart'
+    if (dart.library.io) '../platform/platform_info_io.dart';
 import '../recording/recording_consent.dart';
 import '../p2p/ice_store.dart';
 import '../state/circle_store.dart';
@@ -919,6 +921,10 @@ class _CircleTile extends StatelessWidget {
                 if (ctx.mounted) Navigator.pop(ctx);
               },
             ),
+            // 按圈关通知:只在 iOS(推送只有它有)且总开关开着时出现 ——
+            // 总开关关了,这里的开也不会有通知,显示出来就是误导。
+            if (PlatformInfo.current == 'ios' && settings.pushEnabled)
+              _pushMuteTile(ctx, t),
             if (circle.id != CircleStore.defaultCircle.id)
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded),
@@ -934,6 +940,21 @@ class _CircleTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _pushMuteTile(BuildContext ctx, AppLocalizations t) {
+    final muted = settings.isCirclePushMuted(circle.id);
+    return ListTile(
+      leading: Icon(
+        muted ? Icons.notifications_off_outlined : Icons.notifications_rounded,
+      ),
+      title: Text(muted ? t.homeCirclePushOff : t.homeCirclePushOn),
+      onTap: () {
+        // 只改本机设置;PushService 监听到变化会把新名单发给服务器
+        unawaited(settings.setCirclePushMuted(circle.id, !muted));
+        Navigator.pop(ctx);
+      },
     );
   }
 

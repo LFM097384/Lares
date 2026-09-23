@@ -99,8 +99,25 @@ services:
       LARES_MAX_CIRCLES: ${LARES_MAX_CIRCLES:-500}
       # 真实客户端 IP:auto = 对端是内网/回环(即 Caddy)时取 X-Forwarded-For 最右一项
       LARES_TRUST_PROXY: ${LARES_TRUST_PROXY:-auto}
+
+      # ── iOS 推送(APNs)。全部留空 = 推送禁用,服务照常运行 ─────────────────
+      # 客户端连信令用的 wss 地址,会放进推送 payload 让 App 从通知直连对服务器
+      LARES_PUBLIC_URL: ${LARES_PUBLIC_URL:-}
+      # .p8 钥匙二选一:
+      #   a) LARES_APNS_KEY = PEM 全文的 base64(.env 放不了多行值):base64 -w0 AuthKey_XXXX.p8
+      #   b) LARES_APNS_KEY_FILE = 容器内路径,并在下方 volumes 里把 .p8 只读挂进来
+      # ⚠️ 真钥匙只放 .env(chmod 600)或宿主文件,绝不提交进仓库。
+      LARES_APNS_KEY: ${LARES_APNS_KEY:-}
+      LARES_APNS_KEY_FILE: ${LARES_APNS_KEY_FILE:-}
+      LARES_APNS_KEY_ID: ${LARES_APNS_KEY_ID:-}
+      # Lares 的 Team ID 是 7CH28564U7
+      LARES_APNS_TEAM_ID: ${LARES_APNS_TEAM_ID:-}
+      LARES_APNS_TOPIC: ${LARES_APNS_TOPIC:-com.lfm097384.lares}
     volumes:
       - lares-data:/app/data
+      # 用钥匙文件时取消注释(容器内以 node 用户运行,文件需对其可读):
+      # - /etc/lares/AuthKey_XXXXXXXXXX.p8:/run/secrets/apns.p8:ro
+      # 并在 .env 设 LARES_APNS_KEY_FILE=/run/secrets/apns.p8
     # 不发布到宿主:只经 Caddy 从 docker 内网反代,少一个对公网暴露面
     expose:
       - "8787"

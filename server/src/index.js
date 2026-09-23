@@ -12,6 +12,7 @@ import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 // 纯 WASM 的 Argon2(无原生编译):node:22-alpine 镜像里没有 crypto.argon2(那是 Node 24.7+ 才有),
 // 而原生 argon2 包在 alpine/musl 上要现编,镜像构建会变脆。
 import { argon2id } from 'hash-wasm';
+import { createApnsSender, isInvalidTokenResponse } from './apns.js';
 
 const PORT = Number(process.env.LARES_PORT ?? 8787);
 const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
@@ -749,6 +750,287 @@ async function mintLiveKitToken(circleId, userId, name) {
   return at.toJwt();
 }
 
+// ── iOS 推送(APNs)──────────────────────────────────────────────────────
+//
+// 两种事件会推:
+//   active —— 一个空圈子来了第一个人(「X 在圈里」)。只在「空 → 有人」那一刻推,
+//             房里已经有人时再进人不推:那时想来的人早就被第一条叫过了。
+//   reach  —— 有人点了「去找 ta」,推给被找的那个人自己的设备。
+//
+// 订阅表按设备 token 存:{ [token]: { userId, deviceId, env, lang, circles:{[id]:{name,muted}}, updatedAt } }
+// 圈名为什么由客户端上报并存下来:服务器不知道圈子叫什么(圈名只在客户端),
+// 而通知标题要显示圈名。E2EE 圈则一个名字都不放(见 pushContent)。
+//
+// 纪律:推送永远是「顺手做一下」—— 消息处理路径里绝不 await APNs,任何异常就地吞掉。
+// 推送失败的代价是少一条通知;把信令卡住或进程崩掉的代价是所有人断线。
+const apns = createApnsSender({ env: process.env, log: console });
+// 客户端用来连信令的 wss 地址,放进推送里让 App 从通知直接连对服务器(邀请链接由客户端拼,服务端没有可复用的)
+const PUBLIC_URL = String(process.env.LARES_PUBLIC_URL ?? '').trim();
+const PUSH_FILE = path.join(DATA_DIR, 'push_subscriptions.json');
+const PUSH_TOKEN_RE = /^[0-9a-f]{64,200}$/i;
+const PUSH_MAX_CIRCLES = 200;
+// 订阅表是「握过手就能写盘」的入口:给总量一个顶,防止有人用随机 token 灌满磁盘
+const PUSH_MAX_TOKENS = Number(process.env.LARES_PUSH_MAX_TOKENS ?? 5000);
+// 节流窗口:active 同一 (圈, 设备) 10 分钟一条 —— 有人进进出出时不能每次都响;
+// reach 同一 (被找者, 找人者) 60 秒一条 —— 防连点轰炸。测试用 env 调小。
+const PUSH_ACTIVE_THROTTLE_MS = Number(process.env.LARES_PUSH_ACTIVE_THROTTLE_MS ?? 10 * 60_000);
+const PUSH_REACH_THROTTLE_MS = Number(process.env.LARES_PUSH_REACH_THROTTLE_MS ?? 60_000);
+let pushSubs = {};
+const pushActiveSent = new Map(); // `${circleId}\0${token}` -> 上次推送时间
+const pushReachSent = new Map(); // `${targetUserId}\0${callerUserId}` -> 上次推送时间
+
+// 与注册表同理:hello 前先把订阅表读进来,否则重启后头几个 push_register
+// 会在空表上登记,随后写盘把磁盘上的其它订阅全盖掉。
+let pushReady = null;
+function ensurePushLoaded() {
+  pushReady ??= loadPushSubs();
+  return pushReady;
+}
+
+async function loadPushSubs() {
+  let raw;
+  try {
+    raw = await readFile(PUSH_FILE, 'utf8');
+  } catch (e) {
+    if (e?.code !== 'ENOENT') console.error('[push] push_subscriptions.json 读取失败,本次以空表启动:', e);
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('不是 JSON 对象');
+    const clean = {};
+    for (const [token, e] of Object.entries(parsed)) {
+      if (!PUSH_TOKEN_RE.test(token) || !e || typeof e !== 'object' || typeof e.userId !== 'string') continue;
+      clean[token] = {
+        userId: e.userId,
+        deviceId: typeof e.deviceId === 'string' ? e.deviceId : '',
+        env: e.env === 'sandbox' ? 'sandbox' : 'production',
+        lang: e.lang === 'zh' ? 'zh' : 'en',
+        circles: e.circles && typeof e.circles === 'object' ? e.circles : {},
+        updatedAt: Number(e.updatedAt) || 0,
+      };
+    }
+    pushSubs = clean;
+  } catch (e) {
+    // 与 circles.json 不同,这里**不拒绝启动**:订阅表丢了的代价只是少几条通知,
+    // 而且客户端每次 welcome 后都会重新 push_register,几分钟内就自愈。
+    // 但也不能默默用空表覆盖 —— 把坏文件挪到一边留作排查,再从空表开始。
+    const aside = `${PUSH_FILE}.corrupt-${Date.now()}`;
+    console.error(`[push] push_subscriptions.json 解析失败,已改名为 ${path.basename(aside)} 并以空表启动:`, e);
+    try { await rename(PUSH_FILE, aside); } catch (e2) { console.error('[push] 坏文件改名失败:', e2); }
+  }
+}
+
+// 串行化 + 原子写,与 saveRegistry 同一套理由(见那边的注释)
+let pushWriteChain = Promise.resolve();
+function savePushSubs() {
+  const snapshot = JSON.stringify(pushSubs);
+  const job = pushWriteChain.then(async () => {
+    await mkdir(DATA_DIR, { recursive: true });
+    const tmp = `${PUSH_FILE}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+    await writeFile(tmp, snapshot, { mode: 0o600 });
+    await rename(tmp, PUSH_FILE);
+  });
+  pushWriteChain = job.catch(() => {});
+  // 调用方都不 await:写盘失败只记日志,内存里的订阅照常生效
+  job.catch((e) => console.error('[push] 订阅表写盘失败:', e));
+  return job;
+}
+
+function isTombstoned(circleId) {
+  return Object.prototype.hasOwnProperty.call(circleRegistry, circleId) && Boolean(circleRegistry[circleId]?.deletedAt);
+}
+
+/// 从所有订阅里摘掉某个圈子(换口令 / 解散之后)。
+/// 换口令:旧订阅是凭旧口令攒下的,新口令没证明过就不该再收这个圈的动静;
+/// 客户端拿到新口令重连后会自己再登记回来。
+function dropCircleFromPush(circleId) {
+  let changed = false;
+  for (const entry of Object.values(pushSubs)) {
+    if (Object.prototype.hasOwnProperty.call(entry.circles, circleId)) {
+      delete entry.circles[circleId];
+      changed = true;
+    }
+  }
+  for (const k of pushActiveSent.keys()) if (k.startsWith(`${circleId}\0`)) pushActiveSent.delete(k);
+  if (changed) savePushSubs();
+}
+
+function sweepPushThrottles() {
+  const now = Date.now();
+  for (const [k, t] of pushActiveSent) if (now - t >= PUSH_ACTIVE_THROTTLE_MS) pushActiveSent.delete(k);
+  for (const [k, t] of pushReachSent) if (now - t >= PUSH_REACH_THROTTLE_MS) pushReachSent.delete(k);
+}
+
+function pushRegisteredMsg(entry, rejected = []) {
+  return { t: 'push_registered', circles: Object.keys(entry?.circles ?? {}), rejected };
+}
+
+/// push_register 的核心。返回要回给客户端的消息。
+///
+/// 授权论证:circle 模式的连接只证明了**一个**圈子的口令,所以一条连接只能往订阅里
+/// **新增**它证明过的那个圈。但同一台设备会在不同时刻、凭不同口令连上不同的圈 ——
+/// 订阅是按 token 攒起来的。已经在订阅里的圈子,之前某次连接已经证明过口令,
+/// 这次允许改名/改静音(持有 token = 就是那台设备);不在订阅里、这条连接又没证明过的,拒绝。
+/// 客户端的列表是它本机的**完整**圈子清单:订阅里有、清单里没有的 = 用户删了,摘掉。
+function handlePushRegister(session, msg) {
+  if (msg.provider !== 'apns') return { t: 'push_error', reason: 'bad_provider' };
+  if (typeof msg.token !== 'string' || !PUSH_TOKEN_RE.test(msg.token)) return { t: 'push_error', reason: 'bad_token' };
+  if (msg.env !== 'sandbox' && msg.env !== 'production') return { t: 'push_error', reason: 'bad_env' };
+  const token = msg.token.toLowerCase();
+  const lang = msg.lang === 'zh' ? 'zh' : 'en';
+  const list = Array.isArray(msg.circles) ? msg.circles.slice(0, PUSH_MAX_CIRCLES) : [];
+
+  const existing = pushSubs[token];
+  if (!existing && Object.keys(pushSubs).length >= PUSH_MAX_TOKENS) {
+    console.error(`[push] 订阅表已满(${PUSH_MAX_TOKENS}),拒绝新 token`);
+    return { t: 'push_error', reason: 'capacity' };
+  }
+  // token 换了主人(同一台设备换了身份):旧身份攒下的圈子不能继承
+  const prev = existing && existing.userId === session.userId ? existing.circles : {};
+  const next = {};
+  const rejected = [];
+  for (const c of list) {
+    if (!c || typeof c !== 'object') continue;
+    const id = c.circleId;
+    if (typeof id !== 'string' || !id || id.length > 128) continue;
+    if (Object.prototype.hasOwnProperty.call(next, id)) continue;
+    const already = Object.prototype.hasOwnProperty.call(prev, id);
+    if (isTombstoned(id) || (!already && !circleAllowed(session, id))) {
+      if (!rejected.includes(id)) rejected.push(id);
+      continue;
+    }
+    next[id] = {
+      name: typeof c.name === 'string' ? c.name.trim().slice(0, 64) : '',
+      muted: c.muted === true,
+    };
+  }
+  // 同一台设备(userId + deviceId)的 token 轮换了:删掉旧 token,否则一台手机收两条
+  if (session.deviceId) {
+    for (const [t, e] of Object.entries(pushSubs)) {
+      if (t !== token && e.userId === session.userId && e.deviceId === session.deviceId) delete pushSubs[t];
+    }
+  }
+  const entry = {
+    userId: session.userId,
+    deviceId: session.deviceId ?? '',
+    env: msg.env,
+    lang,
+    circles: next,
+    updatedAt: Date.now(),
+  };
+  pushSubs[token] = entry;
+  session.pushToken = token;
+  savePushSubs();
+  return pushRegisteredMsg(entry, rejected);
+}
+
+/// 推送文案。E2EE 圈:人名、圈名一个都不放 —— 通知内容会经过 Apple 的服务器、
+/// 显示在锁屏上;用户选了端到端加密,就不该让「谁在哪个圈」从这条旁路漏出去。
+function pushContent(entry, circleId, kind, causerName) {
+  const zh = entry.lang === 'zh';
+  if (circleSettings[circleId]?.e2ee === true) {
+    return { title: 'Lares', body: zh ? '有人在你的圈子里' : 'Someone is in your circle' };
+  }
+  const title = entry.circles[circleId]?.name || 'Lares';
+  const who = (typeof causerName === 'string' && causerName.trim()) || (zh ? '有人' : 'Someone');
+  const body = kind === 'reach'
+    ? (zh ? `${who} 在叫你` : `${who} is calling you`)
+    : (zh ? `${who} 在圈里` : `${who} is in the circle`);
+  return { title, body };
+}
+
+function sendPush(token, entry, circleId, kind, causerName) {
+  const { title, body } = pushContent(entry, circleId, kind, causerName);
+  const payload = {
+    aps: {
+      alert: { title, body },
+      sound: 'default',
+      category: 'LARES_JOIN',
+      'thread-id': circleId,
+      // 「有人在圈里」过几分钟就没意义了,值得打断专注模式
+      'interruption-level': 'time-sensitive',
+    },
+    lares: { circleId, ...(PUBLIC_URL ? { server: PUBLIC_URL } : {}), kind },
+  };
+  const headers = {
+    'apns-push-type': 'alert',
+    'apns-priority': '10',
+    // 同一个圈的通知互相覆盖,锁屏上不堆一串
+    'apns-collapse-id': circleId,
+    // 一小时后还没送到就别送了:过时的「X 在圈里」只会骗人白跑一趟
+    'apns-expiration': String(Math.floor(Date.now() / 1000) + 3600),
+  };
+  apns.send(token, entry.env, payload, headers).then((r) => {
+    if (r.status === 200) return;
+    if (isInvalidTokenResponse(r)) {
+      // App 卸载了 / token 作废:删订阅,不然每次都白推一次
+      if (pushSubs[token] === entry) {
+        delete pushSubs[token];
+        savePushSubs();
+      }
+      console.log(`[push] token 失效(${r.status} ${r.reason ?? ''}),已删除订阅`);
+      return;
+    }
+    console.error(`[push] 推送失败:${r.status} ${r.reason ?? ''}`);
+  }).catch((e) => console.error('[push] 推送异常:', e));
+}
+
+/// 候选接收者:订阅了该圈、没静音、不是触发者本人、此刻不在这个房间里。
+function pushRecipients(circleId, causerUserId) {
+  const room = circles.get(circleId);
+  const out = [];
+  for (const [token, entry] of Object.entries(pushSubs)) {
+    const sub = entry.circles[circleId];
+    if (!sub || sub.muted) continue;
+    if (entry.userId === causerUserId) continue;
+    if (room?.has(entry.userId)) continue; // 人就在房里,不用叫
+    out.push([token, entry]);
+  }
+  return out;
+}
+
+/// 空圈来了第一个人。调用方已经把他放进房间了(所以「在房里」过滤天然排除他自己)。
+function pushRoomActive(circleId, session) {
+  try {
+    if (!apns.enabled) return;
+    const now = Date.now();
+    for (const [token, entry] of pushRecipients(circleId, session.userId)) {
+      const k = `${circleId}\0${token}`;
+      const last = pushActiveSent.get(k);
+      if (last !== undefined && now - last < PUSH_ACTIVE_THROTTLE_MS) continue;
+      pushActiveSent.set(k, now);
+      sendPush(token, entry, circleId, 'active', session.name);
+    }
+  } catch (e) {
+    console.error('[push] active 推送出错:', e);
+  }
+}
+
+/// 「去找 ta」:只推被找者自己的设备。在 joinCircle 之前调用,
+/// 此时被找者还不在房里,不需要「在房里」过滤。
+function pushReach(circleId, targetUserId, caller) {
+  try {
+    if (!apns.enabled) return;
+    if (targetUserId === caller.userId) return;
+    const k = `${targetUserId}\0${caller.userId}`;
+    const now = Date.now();
+    const last = pushReachSent.get(k);
+    if (last !== undefined && now - last < PUSH_REACH_THROTTLE_MS) return;
+    let sent = false;
+    for (const [token, entry] of Object.entries(pushSubs)) {
+      if (entry.userId !== targetUserId) continue;
+      const sub = entry.circles[circleId];
+      if (!sub || sub.muted) continue;
+      sendPush(token, entry, circleId, 'reach', caller.name);
+      sent = true;
+    }
+    if (sent) pushReachSent.set(k, now);
+  } catch (e) {
+    console.error('[push] reach 推送出错:', e);
+  }
+}
+
 // ── 连接会话 ──────────────────────────────────────────────────────────────
 function handleConnection(ws, req) {
   // 每条连接绑定 (userId, deviceId);一个用户可多端在线
@@ -781,6 +1063,8 @@ function handleConnection(ws, req) {
     switch (msg.t) {
       case 'hello': {
         if (typeof msg.userId !== 'string' || !msg.userId) return send(ws, { t: 'error', message: 'userId_required' });
+        // 订阅表先读进来(通常早已就绪,只是重启后头几个连接要等一下)
+        await ensurePushLoaded();
         // 鉴权闸门:先验证再落任何会话状态,失败即断,用 4401 让客户端能区分
         // 「口令错」(该弹输入框)与「网络抖动」(该静默重连)
         if (AUTH_REQUIRED) {
@@ -1002,6 +1286,9 @@ function handleConnection(ws, req) {
         const targetWs = entry.ws;
         const targetSession = targetWs?._laresSession;
         clearAvailable(targetId);
+        // 推给被找者的设备:App 在后台/锁屏时,光靠 WS 上的 reached 他根本看不到。
+        // 放在 joinCircle 之前 —— 进房之后他就「在房里」了。不 await。
+        pushReach(circleId, targetId, session);
         // 被找的人先进房,再让发起者进 —— 这样发起者进去时房里已经有人,
         // 拿到的 room 快照是完整的。
         if (targetWs && targetWs.readyState === targetWs.OPEN && targetSession) {
@@ -1191,6 +1478,8 @@ function handleConnection(ws, req) {
           return fail('save_failed');
         }
         send(ws, { t: 'owner_ok', op: 'circle_passcode_set', circleId });
+        // 旧口令攒下的推送订阅一并作废:被请走的人不该还收到「X 在圈里」
+        dropCircleFromPush(circleId);
         // 这才是真正的「请人离开」:userId 是自报的,踢人挡不住换个 id 再进;
         // 换口令后,没拿到新口令的人重连必然 4401,走既有的「请输入口令」流程。
         // 圈主自己的其他设备也会被断开 —— 它们手里也是旧口令,理应重输。
@@ -1238,6 +1527,7 @@ function handleConnection(ws, req) {
         delete circleSettings[circleId];
         saveSettings();
         pendingKnocks.delete(circleId);
+        dropCircleFromPush(circleId);
         send(ws, { t: 'owner_ok', op: 'circle_delete', circleId });
         for (const other of sessionsOfCircle(circleId)) {
           send(other, { t: 'circle_deleted', circleId });
@@ -1250,6 +1540,45 @@ function handleConnection(ws, req) {
 
       case 'leave': {
         leaveCircle(ws, session);
+        break;
+      }
+
+      // ── 推送订阅(iOS)──────────────────────────────────────────────
+      // APNs 没配时照样收下订阅:客户端每次 welcome 后都会重新登记,
+      // 存着不费事,运维哪天配上钥匙,已有订阅立即生效,不用等所有人重连。
+      case 'push_register': {
+        if (!session.userId || !session.authed) return send(ws, { t: 'push_error', reason: 'say_hello_first' });
+        send(ws, handlePushRegister(session, msg));
+        break;
+      }
+
+      case 'push_unregister': {
+        if (!session.userId || !session.authed) return send(ws, { t: 'push_error', reason: 'say_hello_first' });
+        const token = typeof msg.token === 'string' ? msg.token.toLowerCase() : '';
+        // 只能注销自己的:否则拿到别人 token 的人能静默掉他的通知
+        if (token && pushSubs[token]?.userId === session.userId) {
+          delete pushSubs[token];
+          savePushSubs();
+        }
+        if (session.pushToken === token) session.pushToken = null;
+        send(ws, { t: 'push_unregistered' });
+        break;
+      }
+
+      case 'push_mute': {
+        if (!session.userId || !session.authed) return send(ws, { t: 'push_error', reason: 'say_hello_first' });
+        const token = typeof msg.token === 'string' && msg.token ? msg.token.toLowerCase() : session.pushToken;
+        const circleId = typeof msg.circleId === 'string' ? msg.circleId : '';
+        const entry = token ? pushSubs[token] : null;
+        // 只能改自己 token 上、已订阅的圈:静音不是新增订阅,但也不能借它探测别人的订阅
+        if (!entry || entry.userId !== session.userId || !circleId
+          || !Object.prototype.hasOwnProperty.call(entry.circles, circleId)) {
+          return send(ws, { t: 'push_error', reason: 'not_subscribed' });
+        }
+        entry.circles[circleId].muted = msg.muted === true;
+        entry.updatedAt = Date.now();
+        savePushSubs();
+        send(ws, pushRegisteredMsg(entry));
         break;
       }
 
@@ -1342,6 +1671,9 @@ async function joinCircle(ws, session, circleId) {
     existing.platform = session.platform;
     send(ws, roomSnapshot(circleId));
   } else {
+    // 空圈来了第一个人 = 「房间亮了」,要推给不在线的圈友。先记下,等人真进了房再推,
+    // 这样「在房里不推」的过滤天然把他自己排除掉。
+    const becameActive = circle.size === 0;
     const member = {
       userId: session.userId,
       name: session.name,
@@ -1354,6 +1686,7 @@ async function joinCircle(ws, session, circleId) {
     broadcast(circleId, { t: 'member_joined', circleId, member: memberSnapshot(member) }, ws);
     send(ws, roomSnapshot(circleId));
     broadcastLobbySummary(circleId);
+    if (becameActive) pushRoomActive(circleId, session);
   }
   // 签发 RTC token
   if (RTC_CONFIGURED) {
@@ -1579,6 +1912,7 @@ const heartbeat = setInterval(() => {
   sweepRateLimits();
   sweepCreateLog();
   sweepStaleRecordings();
+  sweepPushThrottles();
 }, 30_000);
 wss.on('connection', (ws) => {
   ws._laresAlive = true;
@@ -1589,8 +1923,17 @@ wss.on('close', () => clearInterval(heartbeat));
 server.listen(PORT, async () => {
   await loadSettings();
   await ensureRegistryLoaded();
+  await ensurePushLoaded();
   console.log(`[lares] 信令服务已启动  ws://0.0.0.0:${PORT}`);
   console.log(`[lares] RTC: ${RTC_CONFIGURED ? `LiveKit 已配置 (${LIVEKIT_URL})` : '未配置(仅 presence,设置 LIVEKIT_URL/API_KEY/API_SECRET 启用)'}`);
+  if (apns.enabled) {
+    console.log(`[push] APNs 已启用 (topic ${apns.topic}${process.env.LARES_APNS_HOST_OVERRIDE ? `,主机覆盖 ${process.env.LARES_APNS_HOST_OVERRIDE}` : ''}),订阅 ${Object.keys(pushSubs).length} 台设备`);
+    if (!PUBLIC_URL) console.log('[push] 提示:未设 LARES_PUBLIC_URL,推送里不带服务器地址');
+  } else if (apns.reason === 'not_configured') {
+    console.log('[push] APNs 未配置,推送已禁用 (push disabled)');
+  } else {
+    console.log('[push] APNs 配置有误(见上方错误),推送已禁用 (push disabled)');
+  }
   if (AUTH_REQUIRED) {
     console.log(`[auth] 鉴权已启用,模式:${AUTH_MODE_LIST.join(',')}`);
     if (AUTH_MODES.has('circle')) {

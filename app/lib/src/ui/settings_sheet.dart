@@ -178,6 +178,15 @@ Future<void> showSettingsSheet(
                     value: settings.joinWithMicOn,
                     onChanged: settings.setJoinWithMicOn,
                   ),
+                  // 推送目前只有 iOS 有实现;别的平台放一个按了没用的开关是在撒谎。
+                  if (PlatformInfo.current == 'ios')
+                    SwitchListTile(
+                      secondary: const Icon(Icons.notifications_rounded),
+                      title: Text(t.settingsPushNotify),
+                      subtitle: Text(t.settingsPushNotifySub),
+                      value: settings.pushEnabled,
+                      onChanged: settings.setPushEnabled,
+                    ),
                   ListTile(
                     leading: const Icon(Icons.noise_control_off_rounded),
                     title: Text(t.settingsNoiseSuppression),

@@ -2294,6 +2294,48 @@ abstract class AppLocalizations {
   /// **'只在你自己点进圈时生效,断线重连不会替你开麦'**
   String get settingsJoinWithMicOnSub;
 
+  /// 设置页开关(仅 iOS):朋友进了我所在的圈子时发系统通知
+  ///
+  /// In zh, this message translates to:
+  /// **'有人进圈时通知我'**
+  String get settingsPushNotify;
+
+  /// 通知开关的说明:通知带一键加入,且可在圈子长按菜单里按圈关闭
+  ///
+  /// In zh, this message translates to:
+  /// **'点通知里的「加入」直接进圈。每个圈可以单独关掉'**
+  String get settingsPushNotifySub;
+
+  /// 圈子长按菜单(仅 iOS):当前这个圈会发进圈通知,点一下关掉
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈的通知:开'**
+  String get homeCirclePushOn;
+
+  /// 圈子长按菜单(仅 iOS):当前这个圈的进圈通知已关,点一下打开
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈的通知:关'**
+  String get homeCirclePushOff;
+
+  /// 第一次进房后、弹系统通知权限框之前的一句说明
+  ///
+  /// In zh, this message translates to:
+  /// **'朋友进圈时给你发个通知,点一下就能加入。'**
+  String get pushPermissionExplain;
+
+  /// 通知权限说明的拒绝按钮。用「算了」而不是「取消」:这不是在撤销操作
+  ///
+  /// In zh, this message translates to:
+  /// **'算了'**
+  String get pushPermissionNotNow;
+
+  /// 通知权限说明的确认按钮,点了才会弹系统权限框
+  ///
+  /// In zh, this message translates to:
+  /// **'开启'**
+  String get pushPermissionTurnOn;
+
   /// 开麦失败(权限被拒)时的提示,告诉用户去系统设置
   ///
   /// In zh, this message translates to:

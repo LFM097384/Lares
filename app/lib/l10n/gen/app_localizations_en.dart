@@ -1430,6 +1430,29 @@ class AppLocalizationsEn extends AppLocalizations {
       'Only when you join yourself. Reconnects never turn your mic on';
 
   @override
+  String get settingsPushNotify => 'Notify me when someone joins';
+
+  @override
+  String get settingsPushNotifySub =>
+      'Tap Join in the notification to go straight in. Each circle can be turned off separately';
+
+  @override
+  String get homeCirclePushOn => 'Notifications for this circle: on';
+
+  @override
+  String get homeCirclePushOff => 'Notifications for this circle: off';
+
+  @override
+  String get pushPermissionExplain =>
+      'Get a notification when a friend joins a circle, and join with one tap.';
+
+  @override
+  String get pushPermissionNotNow => 'Not now';
+
+  @override
+  String get pushPermissionTurnOn => 'Turn on';
+
+  @override
   String get roomMicPermissionDenied =>
       'Mic is still off: no permission. Allow microphone access in system settings';
 

@@ -899,6 +899,22 @@ class RoomController extends ChangeNotifier {
     _signaling.reach(targetUserId, circleId: circleId);
   }
 
+  /// 进目标圈;已在别的房间则先退(§2.2 多圈子互不干扰)。已经在这个圈里就什么都不做。
+  ///
+  /// 小组件深链与推送通知「加入」共用这一条,免得两处各写一份「先退再进」,
+  /// 日后改一处漏一处。[micOn] 原样传给 [join]:默认 null = 用户主动进圈,
+  /// 按设置「进圈时打开麦克风」。
+  ///
+  /// 不 await join 本身:它要等服务器回 room/token 才完成,界面读的是 phase。
+  /// 接住 completeError,理由同 [retryJoin]。
+  Future<void> switchToCircle(String targetCircleId, {bool? micOn}) async {
+    if (phase != RoomPhase.idle) {
+      if (circleId == targetCircleId) return;
+      await leave();
+    }
+    unawaited(join(targetCircleId, micOn: micOn).catchError((Object _) {}));
+  }
+
   /// 有人在**另一台服务器**上来找我:把主连接切过去,再进那个圈子。
   ///
   /// 三步的顺序都不能换:
@@ -909,9 +925,15 @@ class RoomController extends ChangeNotifier {
   ///
   /// [url] 由调用方给:controller 不认识 ServerProfile,
   /// 不该为了查一个地址把整个设置层拖进来。
+  ///
+  /// [micOn] 原样传给 [join]。默认 `false`:这个方法最早只服务于
+  /// presence reach(别人来找我),那不是用户按下的。推送通知里点「加入」
+  /// 才是用户主动的,它**显式传 null** = 按设置「进圈时打开麦克风」。
+  /// (Dart 里显式传 null 会盖掉默认值,不会回落成 false。)
   Future<void> switchServerAndJoin({
     required String circleId,
     String? url,
+    bool? micOn = false,
   }) async {
     if (phase != RoomPhase.idle) await leave();
     if (url != null) _signaling.url = url;
@@ -932,9 +954,9 @@ class RoomController extends ChangeNotifier {
     // 未捕获异步错误。本方法不 await 它,理由同 retryJoin ——
     // 界面读的是 phase,不是这个要等好几秒才落地的 future。
     //
-    // micOn: false —— 这条路是**别人**来找我(presence reach),不是我点的。
+    // micOn 默认 false —— reach 是**别人**来找我,不是我点的。
     // 被人拉进房间可以,被人拉进房间还顺手开了我的麦,不行。
-    unawaited(join(circleId, micOn: false).catchError((Object _) {}));
+    unawaited(join(circleId, micOn: micOn).catchError((Object _) {}));
   }
 
   /// UI 提示过之后调用,免得重复弹。

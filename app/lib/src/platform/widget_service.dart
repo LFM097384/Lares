@@ -408,15 +408,12 @@ class WidgetService {
     _switchTo(target);
   }
 
-  /// 进目标圈;已在别的房间则先退(§2.2 多圈子互不干扰)
+  /// 进目标圈;已在别的房间则先退(§2.2 多圈子互不干扰)。
+  /// 逻辑本体在 [RoomController.switchToCircle],推送通知的「加入」也走它。
   void _switchTo(String circleId) {
     final controller = _controller;
     if (controller == null) return;
-    if (controller.phase == RoomPhase.idle) {
-      controller.join(circleId);
-    } else if (controller.circleId != circleId) {
-      controller.leave().then((_) => controller.join(circleId));
-    }
+    unawaited(controller.switchToCircle(circleId));
   }
 
   /// 把**主圈子**的名字与在线状态推到 Widget 共享存储。

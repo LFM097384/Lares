@@ -1330,6 +1330,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsJoinWithMicOnSub => '只在你自己点进圈时生效,断线重连不会替你开麦';
 
   @override
+  String get settingsPushNotify => '有人进圈时通知我';
+
+  @override
+  String get settingsPushNotifySub => '点通知里的「加入」直接进圈。每个圈可以单独关掉';
+
+  @override
+  String get homeCirclePushOn => '这个圈的通知:开';
+
+  @override
+  String get homeCirclePushOff => '这个圈的通知:关';
+
+  @override
+  String get pushPermissionExplain => '朋友进圈时给你发个通知,点一下就能加入。';
+
+  @override
+  String get pushPermissionNotNow => '算了';
+
+  @override
+  String get pushPermissionTurnOn => '开启';
+
+  @override
   String get roomMicPermissionDenied => '麦克风没打开:没有权限。去系统设置里允许炉灵使用麦克风';
 
   @override

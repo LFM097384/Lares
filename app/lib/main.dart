@@ -18,6 +18,7 @@ import 'src/net/signaling_client.dart';
 import 'src/p2p/ice_store.dart';
 import 'src/p2p/p2p_mesh.dart';
 import 'src/platform/foreground_service.dart';
+import 'src/platform/push_service.dart';
 import 'src/platform/widget_service.dart';
 import 'src/platform/tray_service_stub.dart'
     if (dart.library.io) 'src/platform/tray_service.dart';
@@ -322,6 +323,30 @@ Future<void> main() async {
     });
   }
 
+  // 推送通知(目前只有 iOS):朋友进圈时通知我,点「加入」直接进圈。
+  //
+  // init 同样推迟到同意内容规范之后,理由与上面的 widgetService 完全一样:
+  // init 会消费冷启动时点的那条通知并直接进圈。原生侧留着缓冲,同意后照样取得到。
+  // 非 iOS 上 init 什么都不做。
+  final push = PushService(
+    controller: controller,
+    settings: settings,
+    circleStore: circleStore,
+    messages: signaling.messages,
+    send: signaling.send,
+    explain: () => _explainPushPermission(_navigatorKey),
+  );
+  if (consent.accepted) {
+    await push.init();
+  } else {
+    var pushInited = false;
+    consent.addListener(() {
+      if (pushInited || !consent.accepted) return;
+      pushInited = true;
+      unawaited(push.init());
+    });
+  }
+
   // 圈子被圈主解散:从本机列表拿掉、清掉钥匙与 verifier 缓存。
   // 这里只做数据清理(幂等);提示「圈子已被圈主解散」由主页读 dissolvedCircleId 弹。
   final handledDissolved = <String>{};
@@ -445,7 +470,38 @@ Future<void> main() async {
     devMode: devMode,
     ice: ice,
     onStartMesh: startMesh,
+    navigatorKey: _navigatorKey,
   ));
+}
+
+/// 给没有 BuildContext 的逻辑层(PushService)弹对话框用。
+final _navigatorKey = GlobalKey<NavigatorState>();
+
+/// 弹系统通知权限框之前的一句说明。只有点「开启」才会真的去要权限:
+/// iOS 的权限框一辈子只弹一次,先让人知道要它做什么,被拒的概率小得多。
+Future<bool> _explainPushPermission(GlobalKey<NavigatorState> key) async {
+  final context = key.currentContext;
+  if (context == null) return false;
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (ctx) {
+      final t = AppLocalizations.of(ctx);
+      return AlertDialog(
+        content: Text(t.pushPermissionExplain),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(t.pushPermissionNotNow),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(t.pushPermissionTurnOn),
+          ),
+        ],
+      );
+    },
+  );
+  return yes ?? false;
 }
 
 class LaresApp extends StatelessWidget {
@@ -464,6 +520,7 @@ class LaresApp extends StatelessWidget {
     this.devMode,
     this.ice,
     this.onStartMesh,
+    this.navigatorKey,
   });
 
   final RoomController controller;
@@ -489,6 +546,9 @@ class LaresApp extends StatelessWidget {
   final DevModeStore? devMode;
   final IceStore? ice;
   final VoidCallback? onStartMesh;
+
+  /// 推送权限说明对话框要用;测试里不传。
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
   Widget build(BuildContext context) {
@@ -523,6 +583,7 @@ class LaresApp extends StatelessWidget {
       builder: (context, _) => MaterialApp(
         // onGenerateTitle 而非 title:后者取不到本地化上下文。
         // 这个标题会出现在 Android 的任务切换器里。
+        navigatorKey: navigatorKey,
         onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
         debugShowCheckedModeBanner: false,
         localizationsDelegates: AppLocalizations.localizationsDelegates,

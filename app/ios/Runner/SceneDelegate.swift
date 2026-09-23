@@ -49,6 +49,8 @@ class SceneDelegate: FlutterSceneDelegate, FlutterStreamHandler {
     let ec = FlutterEventChannel(name: eventsName, binaryMessenger: engine.binaryMessenger)
     ec.setStreamHandler(self)
     setupWidgetAction(messenger: engine.binaryMessenger)
+    // 推送通知的 Dart 桥(token、权限、点通知进圈)。状态在单例里,活得比 scene 久。
+    LaresPushBridge.shared.attach(messenger: engine.binaryMessenger)
   }
 
   /// 小组件麦克风按钮(ToggleMuteIntent)-> Dart 的桥。
