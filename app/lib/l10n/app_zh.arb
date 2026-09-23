@@ -1695,5 +1695,141 @@
         "type": "String"
       }
     }
+  },
+  "settingsJoinWithMicOn": "进圈时打开麦克风",
+  "@settingsJoinWithMicOn": {
+    "description": "设置页开关:用户主动进圈时麦克风是否直接打开"
+  },
+  "settingsJoinWithMicOnSub": "只在你自己点进圈时生效,断线重连不会替你开麦",
+  "@settingsJoinWithMicOnSub": {
+    "description": "进圈开麦开关的说明:强调自动重连不会开麦"
+  },
+  "roomMicPermissionDenied": "麦克风没打开:没有权限。去系统设置里允许炉灵使用麦克风",
+  "@roomMicPermissionDenied": {
+    "description": "开麦失败(权限被拒)时的提示,告诉用户去系统设置"
+  },
+  "roomMicUnmuteFailed": "麦克风没打开,再点一下试试",
+  "@roomMicUnmuteFailed": {
+    "description": "开麦失败(非权限原因)时的提示"
+  },
+  "roomMicMuteFailed": "没能静音,麦克风还开着",
+  "@roomMicMuteFailed": {
+    "description": "静音失败时的提示:必须如实告诉用户麦克风仍在工作"
+  },
+  "homeAddCircleNameLabel": "圈名",
+  "@homeAddCircleNameLabel": {
+    "description": "新建圈子对话框里圈名输入框的标签"
+  },
+  "homeAddCirclePasscodeLabel": "口令",
+  "@homeAddCirclePasscodeLabel": {
+    "description": "新建圈子对话框里口令输入框的标签"
+  },
+  "homeAddCirclePasscodeHelper": "已经帮你想好一个,也可以自己改。至少 8 个字符",
+  "@homeAddCirclePasscodeHelper": {
+    "description": "口令输入框下方说明:预填的是随机口令,可改"
+  },
+  "homeAddCirclePasscodeTooShort": "口令至少要 8 个字符",
+  "@homeAddCirclePasscodeTooShort": {
+    "description": "口令太短时的提示"
+  },
+  "homeAddCircleShuffle": "换一个",
+  "@homeAddCircleShuffle": {
+    "description": "重新随机生成口令的按钮提示"
+  },
+  "homeCircleCreatedShare": "圈子建好了,把链接发给要进来的人吧",
+  "@homeCircleCreatedShare": {
+    "description": "新建圈子后提示分享时的说明"
+  },
+  "homeOwnerKeyNote": "圈主钥匙只在这台设备上",
+  "@homeOwnerKeyNote": {
+    "description": "圈主菜单里的说明标题:圈主身份只存在本机"
+  },
+  "homeOwnerKeyNoteDesc": "换手机或删掉 App,就没法再管这个圈子了",
+  "@homeOwnerKeyNoteDesc": {
+    "description": "圈主钥匙说明的副标题:讲清丢失的后果"
+  },
+  "homeOwnerPending": "还在向服务器登记这个圈子",
+  "@homeOwnerPending": {
+    "description": "新圈子尚未拿到圈主钥匙时的状态说明"
+  },
+  "homeChangePasscode": "换口令",
+  "@homeChangePasscode": {
+    "description": "圈主菜单项:更换圈子口令"
+  },
+  "homeChangePasscodeDesc": "旧口令马上作废,除了你所有人都会被请出去",
+  "@homeChangePasscodeDesc": {
+    "description": "换口令菜单项的副标题"
+  },
+  "homeChangePasscodeConfirmTitle": "换成这个新口令?",
+  "@homeChangePasscodeConfirmTitle": {
+    "description": "换口令确认对话框标题"
+  },
+  "homeChangePasscodeConfirmBody": "新口令:{passcode}\n\n旧口令马上作废。除了你,圈里的人都会被请出去,拿到新链接的人才进得来。",
+  "@homeChangePasscodeConfirmBody": {
+    "description": "换口令确认对话框正文",
+    "placeholders": {
+      "passcode": {
+        "type": "String",
+        "example": "river-maple-quiet-lamp"
+      }
+    }
+  },
+  "homeChangePasscodeConfirmYes": "就换它",
+  "@homeChangePasscodeConfirmYes": {
+    "description": "换口令确认按钮"
+  },
+  "homeChangePasscodeDone": "换好了。把新链接发给还要留下的人",
+  "@homeChangePasscodeDone": {
+    "description": "换口令成功后的提示"
+  },
+  "homeDissolveCircle": "解散圈子",
+  "@homeDissolveCircle": {
+    "description": "圈主菜单项:解散圈子"
+  },
+  "homeDissolveCircleDesc": "所有人都会被请出去,这个圈子从此没有了",
+  "@homeDissolveCircleDesc": {
+    "description": "解散圈子菜单项的副标题"
+  },
+  "homeDissolveConfirmTitle": "解散「{name}」?",
+  "@homeDissolveConfirmTitle": {
+    "description": "解散确认对话框标题",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "家人"
+      }
+    }
+  },
+  "homeDissolveConfirmBody": "这一步撤不回来:所有人马上被请出去,以后谁也进不来,这个圈子也没法再建回来。\n\n确定的话,在下面输入圈名。",
+  "@homeDissolveConfirmBody": {
+    "description": "解散确认对话框正文:要求输入圈名才能确认"
+  },
+  "homeDissolveConfirmYes": "解散",
+  "@homeDissolveConfirmYes": {
+    "description": "解散确认按钮"
+  },
+  "homeCircleDissolved": "圈子已被圈主解散",
+  "@homeCircleDissolved": {
+    "description": "圈子被圈主解散后给成员的提示"
+  },
+  "homeOwnerErrNotOwner": "这台设备上的圈主钥匙对不上,没办成",
+  "@homeOwnerErrNotOwner": {
+    "description": "圈主操作被服务器拒绝(不是圈主)"
+  },
+  "homeOwnerErrTimeout": "服务器没回话,稍后再试",
+  "@homeOwnerErrTimeout": {
+    "description": "圈主操作超时"
+  },
+  "homeOwnerErrGeneric": "没办成,稍后再试",
+  "@homeOwnerErrGeneric": {
+    "description": "圈主操作失败的通用提示"
+  },
+  "e2eeOwnerSwitchDesc": "给全圈一起开关:每个人进圈时自动跟着变,不会出现一半人听不见。",
+  "@e2eeOwnerSwitchDesc": {
+    "description": "圈主的全圈加密开关说明"
+  },
+  "e2eeManagedOn": "圈主开了端到端加密",
+  "@e2eeManagedOn": {
+    "description": "非圈主看到的圈级加密状态(已开)"
   }
 }

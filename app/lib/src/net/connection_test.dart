@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../auth/auth_credential.dart';
+import '../auth/auth_verifier.dart';
 import 'server_profile.dart';
 import 'signaling_client.dart';
 
@@ -288,7 +289,7 @@ class ConnectionTester {
     });
 
     sub = channel.stream.listen(
-      (data) {
+      (data) async {
         if (data is! String) return;
         final Object? json;
         try {
@@ -322,10 +323,25 @@ class ConnectionTester {
               return;
             }
             if (nonce != null && credential.mode != AuthMode.none) {
+              // circle 模式发 v2:先在后台算 verifier(Argon2,不卡 UI),
+              // 与正式连接共用同一份缓存 —— 测完连接后真进圈不必再算一遍。
+              String? verifier;
+              final cid = credential.circleId ?? '';
+              if (credential.mode == AuthMode.circle &&
+                  cid.isNotEmpty &&
+                  credential.passcode.isNotEmpty) {
+                final cache = SignalingClient.defaultVerifierCache;
+                verifier = cache != null
+                    ? await cache.get(cid, credential.passcode)
+                    : await deriveAuthVerifierAsync(
+                        passcode: credential.passcode, circleId: cid);
+                if (done.isCompleted) return;
+              }
               final authObj = AuthProof.build(
                 credential: credential,
                 nonce: nonce,
                 userId: userId,
+                verifier: verifier,
               );
               if (authObj == null) {
                 finish(const ConnectionTestResult(

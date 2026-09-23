@@ -1421,4 +1421,115 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsJoinWithMicOn => 'Mic on when joining';
+
+  @override
+  String get settingsJoinWithMicOnSub =>
+      'Only when you join yourself. Reconnects never turn your mic on';
+
+  @override
+  String get roomMicPermissionDenied =>
+      'Mic is still off: no permission. Allow microphone access in system settings';
+
+  @override
+  String get roomMicUnmuteFailed => 'Mic didn\'t turn on. Try again';
+
+  @override
+  String get roomMicMuteFailed => 'Couldn\'t mute. Your mic is still on';
+
+  @override
+  String get homeAddCircleNameLabel => 'Name';
+
+  @override
+  String get homeAddCirclePasscodeLabel => 'Passcode';
+
+  @override
+  String get homeAddCirclePasscodeHelper =>
+      'We picked one for you. Change it if you like. At least 8 characters';
+
+  @override
+  String get homeAddCirclePasscodeTooShort =>
+      'Passcode needs at least 8 characters';
+
+  @override
+  String get homeAddCircleShuffle => 'Pick another';
+
+  @override
+  String get homeCircleCreatedShare =>
+      'Your circle is ready. Send the link to whoever should join';
+
+  @override
+  String get homeOwnerKeyNote => 'The owner key lives only on this device';
+
+  @override
+  String get homeOwnerKeyNoteDesc =>
+      'If you switch phones or delete the app, you can\'t manage this circle anymore';
+
+  @override
+  String get homeOwnerPending =>
+      'Still registering this circle with the server';
+
+  @override
+  String get homeChangePasscode => 'Change passcode';
+
+  @override
+  String get homeChangePasscodeDesc =>
+      'The old passcode stops working now, and everyone but you is let out';
+
+  @override
+  String get homeChangePasscodeConfirmTitle => 'Switch to this new passcode?';
+
+  @override
+  String homeChangePasscodeConfirmBody(String passcode) {
+    return 'New passcode: $passcode\n\nThe old passcode stops working right away. Everyone except you is let out, and only people with the new link can get back in.';
+  }
+
+  @override
+  String get homeChangePasscodeConfirmYes => 'Switch';
+
+  @override
+  String get homeChangePasscodeDone =>
+      'Done. Send the new link to everyone who should stay';
+
+  @override
+  String get homeDissolveCircle => 'Dissolve circle';
+
+  @override
+  String get homeDissolveCircleDesc =>
+      'Everyone is let out, and this circle is gone for good';
+
+  @override
+  String homeDissolveConfirmTitle(String name) {
+    return 'Dissolve \"$name\"?';
+  }
+
+  @override
+  String get homeDissolveConfirmBody =>
+      'This can\'t be undone: everyone is let out right away, nobody can get back in, and this circle can\'t be recreated.\n\nIf you\'re sure, type the circle\'s name below.';
+
+  @override
+  String get homeDissolveConfirmYes => 'Dissolve';
+
+  @override
+  String get homeCircleDissolved => 'The owner dissolved this circle';
+
+  @override
+  String get homeOwnerErrNotOwner =>
+      'The owner key on this device doesn\'t match. Nothing changed';
+
+  @override
+  String get homeOwnerErrTimeout =>
+      'The server didn\'t answer. Try again later';
+
+  @override
+  String get homeOwnerErrGeneric => 'That didn\'t work. Try again later';
+
+  @override
+  String get e2eeOwnerSwitchDesc =>
+      'Turns it on or off for the whole circle. Everyone follows automatically when they join, so nobody ends up unable to hear.';
+
+  @override
+  String get e2eeManagedOn => 'The owner turned on end-to-end encryption';
 }

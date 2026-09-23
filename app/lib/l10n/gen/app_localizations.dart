@@ -2281,6 +2281,192 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count, plural, other{{count} 个人在 · {names}}}'**
   String widgetPeopleHereWithNames(int count, String names);
+
+  /// 设置页开关:用户主动进圈时麦克风是否直接打开
+  ///
+  /// In zh, this message translates to:
+  /// **'进圈时打开麦克风'**
+  String get settingsJoinWithMicOn;
+
+  /// 进圈开麦开关的说明:强调自动重连不会开麦
+  ///
+  /// In zh, this message translates to:
+  /// **'只在你自己点进圈时生效,断线重连不会替你开麦'**
+  String get settingsJoinWithMicOnSub;
+
+  /// 开麦失败(权限被拒)时的提示,告诉用户去系统设置
+  ///
+  /// In zh, this message translates to:
+  /// **'麦克风没打开:没有权限。去系统设置里允许炉灵使用麦克风'**
+  String get roomMicPermissionDenied;
+
+  /// 开麦失败(非权限原因)时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'麦克风没打开,再点一下试试'**
+  String get roomMicUnmuteFailed;
+
+  /// 静音失败时的提示:必须如实告诉用户麦克风仍在工作
+  ///
+  /// In zh, this message translates to:
+  /// **'没能静音,麦克风还开着'**
+  String get roomMicMuteFailed;
+
+  /// 新建圈子对话框里圈名输入框的标签
+  ///
+  /// In zh, this message translates to:
+  /// **'圈名'**
+  String get homeAddCircleNameLabel;
+
+  /// 新建圈子对话框里口令输入框的标签
+  ///
+  /// In zh, this message translates to:
+  /// **'口令'**
+  String get homeAddCirclePasscodeLabel;
+
+  /// 口令输入框下方说明:预填的是随机口令,可改
+  ///
+  /// In zh, this message translates to:
+  /// **'已经帮你想好一个,也可以自己改。至少 8 个字符'**
+  String get homeAddCirclePasscodeHelper;
+
+  /// 口令太短时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'口令至少要 8 个字符'**
+  String get homeAddCirclePasscodeTooShort;
+
+  /// 重新随机生成口令的按钮提示
+  ///
+  /// In zh, this message translates to:
+  /// **'换一个'**
+  String get homeAddCircleShuffle;
+
+  /// 新建圈子后提示分享时的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'圈子建好了,把链接发给要进来的人吧'**
+  String get homeCircleCreatedShare;
+
+  /// 圈主菜单里的说明标题:圈主身份只存在本机
+  ///
+  /// In zh, this message translates to:
+  /// **'圈主钥匙只在这台设备上'**
+  String get homeOwnerKeyNote;
+
+  /// 圈主钥匙说明的副标题:讲清丢失的后果
+  ///
+  /// In zh, this message translates to:
+  /// **'换手机或删掉 App,就没法再管这个圈子了'**
+  String get homeOwnerKeyNoteDesc;
+
+  /// 新圈子尚未拿到圈主钥匙时的状态说明
+  ///
+  /// In zh, this message translates to:
+  /// **'还在向服务器登记这个圈子'**
+  String get homeOwnerPending;
+
+  /// 圈主菜单项:更换圈子口令
+  ///
+  /// In zh, this message translates to:
+  /// **'换口令'**
+  String get homeChangePasscode;
+
+  /// 换口令菜单项的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'旧口令马上作废,除了你所有人都会被请出去'**
+  String get homeChangePasscodeDesc;
+
+  /// 换口令确认对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'换成这个新口令?'**
+  String get homeChangePasscodeConfirmTitle;
+
+  /// 换口令确认对话框正文
+  ///
+  /// In zh, this message translates to:
+  /// **'新口令:{passcode}\n\n旧口令马上作废。除了你,圈里的人都会被请出去,拿到新链接的人才进得来。'**
+  String homeChangePasscodeConfirmBody(String passcode);
+
+  /// 换口令确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'就换它'**
+  String get homeChangePasscodeConfirmYes;
+
+  /// 换口令成功后的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'换好了。把新链接发给还要留下的人'**
+  String get homeChangePasscodeDone;
+
+  /// 圈主菜单项:解散圈子
+  ///
+  /// In zh, this message translates to:
+  /// **'解散圈子'**
+  String get homeDissolveCircle;
+
+  /// 解散圈子菜单项的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'所有人都会被请出去,这个圈子从此没有了'**
+  String get homeDissolveCircleDesc;
+
+  /// 解散确认对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'解散「{name}」?'**
+  String homeDissolveConfirmTitle(String name);
+
+  /// 解散确认对话框正文:要求输入圈名才能确认
+  ///
+  /// In zh, this message translates to:
+  /// **'这一步撤不回来:所有人马上被请出去,以后谁也进不来,这个圈子也没法再建回来。\n\n确定的话,在下面输入圈名。'**
+  String get homeDissolveConfirmBody;
+
+  /// 解散确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'解散'**
+  String get homeDissolveConfirmYes;
+
+  /// 圈子被圈主解散后给成员的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'圈子已被圈主解散'**
+  String get homeCircleDissolved;
+
+  /// 圈主操作被服务器拒绝(不是圈主)
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备上的圈主钥匙对不上,没办成'**
+  String get homeOwnerErrNotOwner;
+
+  /// 圈主操作超时
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器没回话,稍后再试'**
+  String get homeOwnerErrTimeout;
+
+  /// 圈主操作失败的通用提示
+  ///
+  /// In zh, this message translates to:
+  /// **'没办成,稍后再试'**
+  String get homeOwnerErrGeneric;
+
+  /// 圈主的全圈加密开关说明
+  ///
+  /// In zh, this message translates to:
+  /// **'给全圈一起开关:每个人进圈时自动跟着变,不会出现一半人听不见。'**
+  String get e2eeOwnerSwitchDesc;
+
+  /// 非圈主看到的圈级加密状态(已开)
+  ///
+  /// In zh, this message translates to:
+  /// **'圈主开了端到端加密'**
+  String get e2eeManagedOn;
 }
 
 class _AppLocalizationsDelegate

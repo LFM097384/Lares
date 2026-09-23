@@ -320,4 +320,162 @@ void main() {
       );
     });
   });
+
+  // ── 小组件麦克风按钮 ─────────────────────────────────────────────
+  //
+  // 在房状态有**两个写者**:Dart(WidgetService.syncRoomState)与原生
+  // (iOS ToggleMuteIntent / Android WidgetActionReceiver 把 Dart 的回包写回去、
+  // 或在 App 不在时写「不在房」)。所以这几个键不但要被读,还要被原生**以同样的键名写**。
+  // 写错一侧的结果是:按钮点了之后回到一个陈旧状态 —— 在这个功能里那就是「显示说谎」。
+  group('主屏小组件跨语言契约:麦克风按钮', () {
+    const roomKeys = <String>['in_room', 'muted', 'room_circle_id', 'state_updated_at'];
+    const intentPath = 'ios/LaresWidget/ToggleMuteIntent.swift';
+    const receiverPath =
+        'android/app/src/main/kotlin/com/example/lares_app/WidgetActionReceiver.kt';
+
+    test('在房的四个键都在 dataKeys 里(清单是所有校验的源头)', () {
+      for (final key in roomKeys) {
+        expect(WidgetService.dataKeys, contains(key),
+            reason: '`$key` 不在 WidgetService.dataKeys 里 —— 下面的双侧校验会漏掉它。');
+      }
+    });
+
+    test('iOS 写回路径(ToggleMuteIntent)用同样的键名写', () {
+      final swift = readSource(intentPath);
+      for (final key in roomKeys) {
+        expect(swift.contains('forKey: "$key"'), isTrue,
+            reason: '$intentPath 没有写 `$key` —— 点按钮后小组件读到的是 Dart 写的旧值,'
+                '或者根本读不到,按钮状态会与真实麦克风状态不符。');
+      }
+    });
+
+    test('Android 写回路径(WidgetActionReceiver)用同样的键名写', () {
+      final kotlin = readSource(receiverPath);
+      for (final key in roomKeys) {
+        final written = kotlin.contains('putString("$key"') ||
+            kotlin.contains('putBoolean("$key"');
+        expect(written, isTrue,
+            reason: '$receiverPath 没有写 `$key` —— 点按钮后回写的不是同一个键。');
+      }
+    });
+
+    test('Dart 对这几个键的写入类型与原生读取类型一致', () {
+      // 类型错位不会报错:iOS `as? Bool` 读到字符串得 nil、Android getBoolean
+      // 读到字符串直接抛 ClassCastException(整个小组件变成「无法加载」)。
+      final dart = readSource('lib/src/platform/widget_service.dart');
+      final swift = readSource('ios/LaresWidget/LaresWidget.swift');
+      final kotlin = readSource(
+          'android/app/src/main/kotlin/com/example/lares_app/LaresWidgetProvider.kt');
+      const boolKeys = ['in_room', 'muted'];
+      const stringKeys = ['room_circle_id', 'state_updated_at'];
+      for (final key in boolKeys) {
+        expect(dart.contains("saveWidgetData<bool>('$key'"), isTrue,
+            reason: 'Dart 应以 bool 写 `$key`');
+        expect(swift.contains('object(forKey: "$key") as? Bool'), isTrue,
+            reason: 'Swift 应以 Bool 读 `$key`');
+        expect(kotlin.contains('getBoolean("$key"'), isTrue,
+            reason: 'Kotlin 应以 getBoolean 读 `$key`');
+      }
+      for (final key in stringKeys) {
+        expect(dart.contains("saveWidgetData<String>('$key'"), isTrue,
+            reason: 'Dart 应以 String 写 `$key`');
+        expect(swift.contains('string(forKey: "$key")'), isTrue,
+            reason: 'Swift 应以 string(forKey:) 读 `$key`');
+        expect(kotlin.contains('getString("$key"'), isTrue,
+            reason: 'Kotlin 应以 getString 读 `$key`');
+      }
+    });
+
+    test('心跳过期阈值三侧一致', () {
+      final n = WidgetService.staleAfterSeconds;
+      final swift = readSource(intentPath);
+      final kotlin = readSource(
+          'android/app/src/main/kotlin/com/example/lares_app/LaresWidgetProvider.kt');
+      expect(swift.contains('staleAfterSeconds: TimeInterval = $n'), isTrue,
+          reason: 'iOS 的过期阈值与 Dart($n 秒)不一致 —— App 被杀后按钮消失的时间两端不同。');
+      expect(kotlin.contains('STALE_AFTER_SECONDS = ${n}L'), isTrue,
+          reason: 'Android 的过期阈值与 Dart($n 秒)不一致。');
+      // 阈值必须比心跳周期长,否则心跳正常时按钮也会闪没。
+      expect(n, greaterThan(WidgetService.heartbeatEvery.inSeconds),
+          reason: '过期阈值不长于心跳周期,在房时按钮会周期性消失。');
+    });
+
+    test('切换通道名三侧一致', () {
+      const name = WidgetService.widgetActionChannel;
+      expect(readSource('ios/Runner/SceneDelegate.swift').contains('"$name"'), isTrue,
+          reason: 'iOS SceneDelegate 的通道名与 Dart 不一致 —— intent 永远等到超时。');
+      expect(readSource(receiverPath).contains('CHANNEL = "$name"'), isTrue,
+          reason: 'Android 接收器的通道名与 Dart 不一致 —— 点按钮永远等到超时。');
+    });
+
+    test('iOS:intent 必须同时编进 Runner 与 LaresWidget(系统在 App 进程里执行它)', () {
+      final ruby = readSource('ios/add_widget_target.rb');
+      expect(ruby.contains("INTENT_FILE = 'ToggleMuteIntent.swift'"), isTrue,
+          reason: 'add_widget_target.rb 没有登记 ToggleMuteIntent.swift。');
+      expect(ruby.contains('runner.add_file_references([intent_ref])'), isTrue,
+          reason: 'ToggleMuteIntent.swift 没有加进 Runner —— LiveActivityIntent 在 App '
+              '进程执行,App 里没有这个类型时点按钮毫无反应,也不报错。');
+      expect(ruby.contains('widget.add_file_references([swift, intent_ref])'), isTrue,
+          reason: 'ToggleMuteIntent.swift 没有加进 LaresWidget —— 小组件构造不了按钮,编译失败。');
+      // Runner 部署目标 15.0,AppIntents 是 16.0 的框架:必须弱链接,否则旧系统启动即崩。
+      expect(ruby.contains("'-weak_framework', 'AppIntents'"), isTrue,
+          reason: 'Runner 没有弱链接 AppIntents —— iOS 15 设备启动即崩。');
+    });
+
+    test('iOS:按钮只在 iOS 17+ 出现,intent 类型标了 @available', () {
+      final view = readSource('ios/LaresWidget/LaresWidget.swift');
+      final intent = readSource(intentPath);
+      expect(view.contains('#available(iOS 17.0, *)'), isTrue,
+          reason: '小组件视图没有用 #available 包住 Button(intent:) —— '
+              'iOS 16 及以下没有交互式小组件。');
+      expect(intent.contains('@available(iOS 17.0, *)\nstruct ToggleMuteIntent') ||
+              intent.contains('@available(iOS 17.0, *)\r\nstruct ToggleMuteIntent'),
+          isTrue,
+          reason: 'ToggleMuteIntent 没标 @available(iOS 17.0, *) —— Runner 部署目标是 15.0,编不过。');
+      expect(intent.contains('LiveActivityIntent'), isTrue,
+          reason: 'ToggleMuteIntent 必须遵循 LiveActivityIntent 才会在 App 进程里执行'
+              '(普通 AppIntent 在小组件进程里跑,够不着 Flutter 引擎)。');
+    });
+
+    test('Android:麦克风按钮走显式广播到 exported=false 的接收器', () {
+      final provider = readSource(
+          'android/app/src/main/kotlin/com/example/lares_app/LaresWidgetProvider.kt');
+      expect(provider.contains('PendingIntent.getBroadcast'), isTrue);
+      expect(provider.contains('Intent(context, WidgetActionReceiver::class.java)'), isTrue,
+          reason: '麦克风按钮必须用显式 Intent 指向本 App 的接收器。');
+      final manifest = readSource('android/app/src/main/AndroidManifest.xml');
+      expect(
+        manifest.contains(
+            '<receiver android:name=".WidgetActionReceiver" android:exported="false"'),
+        isTrue,
+        reason: 'WidgetActionReceiver 没在清单里声明为 exported=false —— '
+            '要么点了没反应(没声明),要么别的 App 能伪造开麦广播(exported=true)。',
+      );
+      final layout = readSource('android/app/src/main/res/layout/lares_widget.xml');
+      expect(layout.contains('@+id/widget_mic'), isTrue,
+          reason: 'RemoteViews 布局里没有 widget_mic —— Provider 会在 setTextViewText 时崩。');
+    });
+
+    test('Android 麦克风文案中英都在,且与 iOS 同键', () {
+      for (final path in [
+        'android/app/src/main/res/values/strings.xml',
+        'android/app/src/main/res/values-zh/strings.xml',
+      ]) {
+        final xml = readSource(path);
+        for (final name in ['widget_mic_on', 'widget_mic_muted', 'widget_mic_no_app']) {
+          expect(xml.contains('<string name="$name">'), isTrue,
+              reason: '$path 缺少 $name');
+        }
+      }
+      for (final path in [
+        'ios/LaresWidget/en.lproj/Localizable.strings',
+        'ios/LaresWidget/zh-Hans.lproj/Localizable.strings',
+      ]) {
+        final strings = readSource(path);
+        for (final key in ['widget.micOn', 'widget.micMuted']) {
+          expect(strings.contains('"$key" ='), isTrue, reason: '$path 缺少 $key');
+        }
+      }
+    });
+  });
 }

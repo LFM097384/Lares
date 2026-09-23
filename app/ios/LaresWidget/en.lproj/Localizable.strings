@@ -11,3 +11,7 @@
    widget_action_open,两端一字不差,避免同一产品两种口气。 */
 "widget.actionJoin" = "Tap to join →";
 "widget.actionCreate" = "Tap to make a circle →";
+
+/* 在房时的麦克风按钮:只描述真实状态。与 Android widget_mic_on / widget_mic_muted 一致。 */
+"widget.micOn" = "Mic on";
+"widget.micMuted" = "Muted";

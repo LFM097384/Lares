@@ -1322,4 +1322,102 @@ class AppLocalizationsZh extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsJoinWithMicOn => '进圈时打开麦克风';
+
+  @override
+  String get settingsJoinWithMicOnSub => '只在你自己点进圈时生效,断线重连不会替你开麦';
+
+  @override
+  String get roomMicPermissionDenied => '麦克风没打开:没有权限。去系统设置里允许炉灵使用麦克风';
+
+  @override
+  String get roomMicUnmuteFailed => '麦克风没打开,再点一下试试';
+
+  @override
+  String get roomMicMuteFailed => '没能静音,麦克风还开着';
+
+  @override
+  String get homeAddCircleNameLabel => '圈名';
+
+  @override
+  String get homeAddCirclePasscodeLabel => '口令';
+
+  @override
+  String get homeAddCirclePasscodeHelper => '已经帮你想好一个,也可以自己改。至少 8 个字符';
+
+  @override
+  String get homeAddCirclePasscodeTooShort => '口令至少要 8 个字符';
+
+  @override
+  String get homeAddCircleShuffle => '换一个';
+
+  @override
+  String get homeCircleCreatedShare => '圈子建好了,把链接发给要进来的人吧';
+
+  @override
+  String get homeOwnerKeyNote => '圈主钥匙只在这台设备上';
+
+  @override
+  String get homeOwnerKeyNoteDesc => '换手机或删掉 App,就没法再管这个圈子了';
+
+  @override
+  String get homeOwnerPending => '还在向服务器登记这个圈子';
+
+  @override
+  String get homeChangePasscode => '换口令';
+
+  @override
+  String get homeChangePasscodeDesc => '旧口令马上作废,除了你所有人都会被请出去';
+
+  @override
+  String get homeChangePasscodeConfirmTitle => '换成这个新口令?';
+
+  @override
+  String homeChangePasscodeConfirmBody(String passcode) {
+    return '新口令:$passcode\n\n旧口令马上作废。除了你,圈里的人都会被请出去,拿到新链接的人才进得来。';
+  }
+
+  @override
+  String get homeChangePasscodeConfirmYes => '就换它';
+
+  @override
+  String get homeChangePasscodeDone => '换好了。把新链接发给还要留下的人';
+
+  @override
+  String get homeDissolveCircle => '解散圈子';
+
+  @override
+  String get homeDissolveCircleDesc => '所有人都会被请出去,这个圈子从此没有了';
+
+  @override
+  String homeDissolveConfirmTitle(String name) {
+    return '解散「$name」?';
+  }
+
+  @override
+  String get homeDissolveConfirmBody =>
+      '这一步撤不回来:所有人马上被请出去,以后谁也进不来,这个圈子也没法再建回来。\n\n确定的话,在下面输入圈名。';
+
+  @override
+  String get homeDissolveConfirmYes => '解散';
+
+  @override
+  String get homeCircleDissolved => '圈子已被圈主解散';
+
+  @override
+  String get homeOwnerErrNotOwner => '这台设备上的圈主钥匙对不上,没办成';
+
+  @override
+  String get homeOwnerErrTimeout => '服务器没回话,稍后再试';
+
+  @override
+  String get homeOwnerErrGeneric => '没办成,稍后再试';
+
+  @override
+  String get e2eeOwnerSwitchDesc => '给全圈一起开关:每个人进圈时自动跟着变,不会出现一半人听不见。';
+
+  @override
+  String get e2eeManagedOn => '圈主开了端到端加密';
 }

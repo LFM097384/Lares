@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lares_app/src/auth/auth_credential.dart';
+import 'package:lares_app/src/auth/auth_verifier.dart';
 import 'package:lares_app/src/net/signaling_client.dart';
 // stream_channel 是 web_socket_channel 的传递依赖,这里只为实现假通道用它的 mixin;
 // 不动 pubspec(该文件由他人维护)。
@@ -797,10 +798,14 @@ void main() {
 
         final auth = t.last.sentOfType('hello').first['auth'];
         expect(auth['circleId'], 'work');
+        expect(auth['v'], 2);
         expect(
           auth['proof'],
-          AuthProof.circle(
-              nonce: _nonceB, userId: _userId, circleId: 'work', passcode: 'p'),
+          AuthProof.circleV2(
+              nonce: _nonceB,
+              userId: _userId,
+              circleId: 'work',
+              verifier: deriveAuthVerifier(passcode: 'p', circleId: 'work')),
         );
         c.dispose();
       });

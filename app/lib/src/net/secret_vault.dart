@@ -97,6 +97,15 @@ const String kVaultPrefix = 'lares.secret.';
 String vaultKeyForPasscode(String circleId) =>
     '${kVaultPrefix}passcode.$circleId';
 
+/// 圈主钥匙的 key。注册时服务器只下发一次明文,丢了就再也要不回来 ——
+/// 所以只能放在这里(不进 shared_preferences,不进 iCloud 备份)。
+String vaultKeyForOwnerKey(String circleId) =>
+    '${kVaultPrefix}owner.$circleId';
+
+/// v2 verifier 缓存的 key。值形如 `口令指纹:verifier`(见 auth_verifier.dart)。
+String vaultKeyForVerifier(String circleId) =>
+    '${kVaultPrefix}verifier.$circleId';
+
 /// 全局鉴权令牌的 key。
 const String kVaultKeyToken = '${kVaultPrefix}token';
 

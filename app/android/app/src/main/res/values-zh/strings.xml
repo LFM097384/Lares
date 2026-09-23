@@ -14,4 +14,9 @@
     <string name="widget_presence_default">暂无人在,进去等等看?</string>
     <string name="widget_action_join">点一下,进圈 →</string>
     <string name="widget_action_open">点一下,建个圈 →</string>
+    <!-- 在房时的麦克风按钮:只描述真实状态。与 iOS widget.micOn / widget.micMuted 一致。 -->
+    <string name="widget_mic_on">麦克风开着</string>
+    <string name="widget_mic_muted">静音中</string>
+    <!-- 点了麦克风按钮但 App 没在运行:如实说,不假装切换了 -->
+    <string name="widget_mic_no_app">炉灵没在运行,打开它再用麦克风</string>
 </resources>

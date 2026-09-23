@@ -96,13 +96,26 @@ Future<void> main() async {
   // 凭据现取现用:每条 challenge 到达时回调一次,用户改完口令下次重连自然生效。
   // 圈子取自 signaling.authCircleId —— 那是「当前要证明哪个圈」的唯一事实源,
   // 由 RoomController.join / retryJoin 与下面「换主圈」共同维护。
+  // v2 鉴权的 verifier(Argon2)全 App 共用一份缓存:isolate 里算、vault 里存。
+  // 必须在建任何 SignalingClient(含 PresencePool 的)之前设好。
+  SignalingClient.defaultVerifierCache = settings.verifiers;
   final signaling = SignalingClient(
     url: signalingUrl,
     userId: identity.userId,
     credentials: () => settings
         .credentialFor(signalingRef?.authCircleId ?? primaryCircleId()),
+    circleHints: (id) => (
+      register: settings.isPendingRegistration(id),
+      ownerKey: settings.ownerKeyFor(id),
+    ),
   );
   signalingRef = signaling;
+  // 新圈子的圈主钥匙:先进 vault(读回确认),再清「待登记」。
+  // 保存失败时 saveOwnerKey 抛出 → 信令层不会调 onRegistrationSettled,标记保留,
+  // 而本进程内信令层已记住「别再带 register」,不会撞 circle_exists。
+  signaling.onOwnerKeyIssued = settings.saveOwnerKey;
+  signaling.onRegistrationSettled =
+      (id) => unawaited(settings.clearPendingRegistration(id));
   // 分开写,不用级联:级联会在变量赋值前触发 setter(见上面的白屏教训)。
   signaling.authCircleId = primaryCircleId();
   // 单独持有引用:聊天传输层要从它拿底层 Room(见 rtc.room 的注释)
@@ -130,6 +143,9 @@ Future<void> main() async {
   );
   // 每一条走到 rtc.join() 的路径都会先过这个钩子(含闲时降级后的媒体唤醒)
   controller.prepareEncryption = e2ee.prepareFor;
+  // 注册圈的圈级加密规定(服务器推送)→ 覆盖本机开关。
+  // 在 prepareFor 之前就已落定:welcome / circle_settings 先于 room/token 到达。
+  controller.onCirclePolicy = e2ee.setCirclePolicy;
 
   // 多人点对点(星形):选一个人当主机转发,其他人只上行 1 路。
   //
@@ -261,7 +277,9 @@ Future<void> main() async {
       // App Store 审核指南 1.2 明确禁止的情形,所以在这里硬挡一次。
       if (!consent.accepted) return;
       if (controller.phase == RoomPhase.idle) {
-        controller.join(primaryCircleId());
+        // 自动进圈不是用户主动的:没有人按下任何东西,一律静音进。
+        // 「进圈时打开麦克风」只管用户亲手点的那一下。
+        controller.join(primaryCircleId(), micOn: false);
       }
     });
   }
@@ -303,6 +321,22 @@ Future<void> main() async {
       unawaited(widgetService.init(controller, circleStore: circleStore));
     });
   }
+
+  // 圈子被圈主解散:从本机列表拿掉、清掉钥匙与 verifier 缓存。
+  // 这里只做数据清理(幂等);提示「圈子已被圈主解散」由主页读 dissolvedCircleId 弹。
+  final handledDissolved = <String>{};
+  controller.addListener(() {
+    final id = controller.dissolvedCircleId;
+    if (id == null || !handledDissolved.add(id)) return;
+    unawaited(circleStore.remove(id));
+    unawaited(settings.forgetCircleSecrets(id));
+    // 连接还钉在已解散的圈上:换回主圈(若主圈正是它,remove 会重选主圈)
+    if (signaling.authCircleId == id) {
+      Timer(const Duration(milliseconds: 300), () {
+        signaling.authCircleId = primaryCircleId();
+      });
+    }
+  });
 
   // 房间状态同步到托盘菜单
   var lastPhase = controller.phase;

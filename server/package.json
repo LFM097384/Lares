@@ -7,11 +7,12 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node test/smoke.mjs",
+    "test": "node test/smoke.mjs && node test/auth_interop.mjs && node test/circle_registry.mjs",
     "//tool": "说话机器人等验证工具在 tool/,有独立的 package.json(依赖 @livekit/rtc-node);先 cd tool && npm install",
     "tool:install": "npm --prefix tool install"
   },
   "dependencies": {
+    "hash-wasm": "^4.12.0",
     "livekit-server-sdk": "^2.13.0",
     "ws": "^8.18.0"
   }

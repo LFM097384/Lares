@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+import 'auth_verifier.dart';
+
 /// 鉴权模式(与服务端 LARES_AUTH_MODE 一一对应)。
 ///
 /// 服务端 `challenge.modes` 会广播它接受哪几种;UI 据此裁剪可选项,
@@ -105,6 +107,9 @@ class AuthCredential {
 /// 分隔符是严格的半角冒号,一个字节都不能差(服务端用 timingSafeEqual 逐字节比)。
 /// 纯 Dart、无插件通道,可直接单测。
 abstract final class AuthProof {
+  /// SHA-256(UTF-8) → 小写 hex。圈主钥匙登记时只报这个,与服务端 sha256Hex 一致。
+  static String sha256Hex(String s) => sha256.convert(utf8.encode(s)).toString();
+
   /// 通用 HMAC-SHA256 → 小写 hex
   static String hmacHex(String key, String message) {
     final mac = Hmac(sha256, utf8.encode(key));
@@ -128,14 +133,42 @@ abstract final class AuthProof {
   }) =>
       hmacHex(passcode, '$nonce:$userId:$circleId');
 
+  /// v2 的 verifier = `hex(Argon2id(口令, "lares-auth-v2:"+circleId))`(同步、约 250ms)。
+  ///
+  /// 为什么要多这一层:注册圈的服务器**只存 verifier、不存口令**。
+  /// 它用 Argon2 而不是一次 HMAC:服务器磁盘泄露时,离线猜口令每次都要付 64 MiB 的代价。
+  /// 盐与 E2EE 密钥的盐不同,verifier 推不出媒体密钥。详见 auth_verifier.dart。
+  ///
+  /// ⚠️ 慢。信令层走 [AuthVerifierCache](isolate + 安全存储缓存),别在 UI 线程上直接调。
+  static String verifierHex({required String passcode, required String circleId}) =>
+      deriveAuthVerifier(passcode: passcode, circleId: circleId);
+
+  /// circle 模式 v2 证明:`HMAC(verifier, "${nonce}:${userId}:${circleId}")`
+  static String circleV2({
+    required String nonce,
+    required String userId,
+    required String circleId,
+    required String verifier,
+  }) =>
+      hmacHex(verifier, '$nonce:$userId:$circleId');
+
   /// 按凭据推导出 hello.auth 对象;none 模式返回 null(不带 auth 字段)。
   ///
   /// 每次连接都要用**当次** challenge 的 nonce 重算:nonce 一次性、60s 过期,
   /// 缓存证明去重连必然 auth_failed(服务端 interop 测试已实证)。
+  ///
+  /// circle 模式一律发 v2(`v:2`)。服务端对 env 圈(home/review)v1/v2 都收,
+  /// 对注册圈只收 v2 —— 所以新客户端没理由再发 v1。
+  /// [register]:这是本机新建、尚未在服务器登记的圈子 → 带上 verifier 与
+  /// `ownerHash = sha256hex(ownerKey)` 请求登记(需同时给 [ownerKey])。
+  /// [ownerKey]:本机持有圈主钥匙(本机生成)→ 带上,服务器回显 isOwner。
   static Map<String, dynamic>? build({
     required AuthCredential credential,
     required String nonce,
     required String userId,
+    bool register = false,
+    String? ownerKey,
+    String? verifier,
   }) {
     switch (credential.mode) {
       case AuthMode.none:
@@ -154,16 +187,26 @@ abstract final class AuthProof {
       case AuthMode.circle:
         final circleId = credential.circleId ?? '';
         if (circleId.isEmpty || credential.passcode.isEmpty) return null;
+        // 调用方通常已从缓存拿到 verifier;没给就当场算(慢,仅一次性路径如「测试连接」)。
+        final v = verifier ??
+            verifierHex(passcode: credential.passcode, circleId: circleId);
         return {
           'mode': 'circle',
+          'v': 2,
           'circleId': circleId,
           'nonce': nonce,
-          'proof': circle(
+          'proof': circleV2(
             nonce: nonce,
             userId: userId,
             circleId: circleId,
-            passcode: credential.passcode,
+            verifier: v,
           ),
+          // 登记只报钥匙的 sha256:明文从不离开本机。没钥匙就不登记 ——
+          // 缺 ownerHash 的 register 服务器会回 register_invalid(终局 4400)。
+          if (register && ownerKey != null && ownerKey.isNotEmpty)
+            'register': {'verifier': v, 'ownerHash': sha256Hex(ownerKey)},
+          // 登记时也带明文钥匙:服务器据此回显 isOwner,与普通登录走同一条判定。
+          if (ownerKey != null && ownerKey.isNotEmpty) 'ownerKey': ownerKey,
         };
     }
   }

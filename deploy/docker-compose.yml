@@ -76,6 +76,9 @@ services:
       LIVEKIT_URL: ${LIVEKIT_PUBLIC_URL:?LIVEKIT_PUBLIC_URL 未设置:形如 wss://rtc.example.com:8444}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY 未设置:openssl rand -hex 16}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET 未设置:openssl rand -hex 32}
+      # 服务端调 LiveKit 管理 API(圈主踢人/换口令/解散时把人移出媒体房)走容器内网直连,
+      # 不绕公网 wss + Caddy。失败只记日志,不影响信令侧的驱逐。
+      LIVEKIT_API_URL: http://livekit:7880
       LARES_DATA_DIR: /app/data
 
       # ── 鉴权(公网部署绝不能是 none)────────────────────────────────────
@@ -91,6 +94,11 @@ services:
       # Web 客户端的同源限制。留空 = 回显 *(仅本地联调用)
       LARES_ALLOWED_ORIGIN: ${LARES_ALLOWED_ORIGIN:-}
       LARES_AUTH_NONCE_TTL_MS: ${LARES_AUTH_NONCE_TTL_MS:-60000}
+      # 客户端自建圈:每 IP 每小时最多注册几个(0 = 关闭自助注册),全站总量上限
+      LARES_CIRCLE_CREATE_PER_HOUR: ${LARES_CIRCLE_CREATE_PER_HOUR:-5}
+      LARES_MAX_CIRCLES: ${LARES_MAX_CIRCLES:-500}
+      # 真实客户端 IP:auto = 对端是内网/回环(即 Caddy)时取 X-Forwarded-For 最右一项
+      LARES_TRUST_PROXY: ${LARES_TRUST_PROXY:-auto}
     volumes:
       - lares-data:/app/data
     # 不发布到宿主:只经 Caddy 从 docker 内网反代,少一个对公网暴露面

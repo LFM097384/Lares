@@ -174,7 +174,7 @@ class LiveKitRtcService implements RtcService {
   }
 
   @override
-  Future<Duration> join({
+  Future<RtcJoinResult> join({
     required String url,
     required String token,
     required bool startMuted,
@@ -270,27 +270,84 @@ class LiveKitRtcService implements RtcService {
     );
 
     // LiveKit 默认不发布麦克风;只有明确要求开麦时才调用(省一次往返)
+    bool micOn = false;
+    MicFailure? micFailure;
     if (!startMuted) {
-      await room.localParticipant?.setMicrophoneEnabled(true);
-      // 处理器必须在轨道发布之后挂载。
-      // 常规路径是进房即静音,此时麦克风尚未发布,
-      // 处理器会推迟到 setMuted(false) 首次开麦时再 onPublish。
-      await _publishProcessorIfNeeded(room);
+      // ⚠️ 开麦失败**不能**让 join 失败:房间已经连上了,人照样能听。
+      // 以前这里一抛,整次进房就落到 error —— 用户只是没给麦克风权限,
+      // 结果连听都听不了。现在如实回报「麦没开成」,由上层提示用户。
+      try {
+        await room.localParticipant?.setMicrophoneEnabled(true);
+        // 处理器必须在轨道发布之后挂载。
+        // 进房即静音时麦克风尚未发布,处理器会推迟到 setMuted(false) 首次开麦时再 onPublish。
+        await _publishProcessorIfNeeded(room);
+      } catch (e) {
+        debugPrint('[lares] 进房开麦失败(原始异常): $e');
+        micFailure = classifyMicError(e);
+      }
+      // 结果以底层的真实状态为准,不以「有没有抛异常」推断。
+      micOn = room.localParticipant?.isMicrophoneEnabled() ?? false;
+      if (!micOn) micFailure ??= MicFailure.unavailable;
     }
 
     sw.stop();
-    return sw.elapsed;
+    return RtcJoinResult(
+      elapsed: sw.elapsed,
+      micOn: micOn,
+      micFailure: micOn ? null : micFailure,
+    );
   }
 
   @override
   Future<void> setMuted(bool muted) async {
     final room = _room;
-    await room?.localParticipant?.setMicrophoneEnabled(!muted);
-    if (!muted && room != null) {
-      // 进房默认静音的常规路径:首次开麦才真正发布麦克风轨道,
-      // 增强降噪处理器在这里补挂。
-      await _publishProcessorIfNeeded(room);
+    final local = room?.localParticipant;
+    if (room == null || local == null) {
+      // 不在房里却要开麦:没有任何东西可以开。不能静默成功 ——
+      // 调用方会据此把按钮画成「麦克风开着」。
+      if (!muted) {
+        throw MicException(MicFailure.unavailable, micOnNow: false);
+      }
+      return;
     }
+    try {
+      await local.setMicrophoneEnabled(!muted);
+      if (!muted) {
+        // 进房默认静音的常规路径:首次开麦才真正发布麦克风轨道,
+        // 增强降噪处理器在这里补挂。
+        await _publishProcessorIfNeeded(room);
+      }
+    } catch (e) {
+      debugPrint('[lares] 切换麦克风失败(原始异常): $e');
+      throw MicException(
+        classifyMicError(e),
+        micOnNow: local.isMicrophoneEnabled(),
+        cause: e,
+      );
+    }
+    // 不抛异常不等于成功:再对一次真实状态。
+    final nowOn = local.isMicrophoneEnabled();
+    if (nowOn == muted) {
+      throw MicException(MicFailure.unavailable, micOnNow: nowOn);
+    }
+  }
+
+  /// 把底层五花八门的异常归成两类。
+  ///
+  /// flutter_webrtc 在各平台抛的东西不一样:Web 是 `NotAllowedError`,
+  /// Android/iOS 是带 "Permission" 字样的 PlatformException。
+  /// 没有统一的错误码可用,只能按文字判断 —— 判不出来就归 unavailable,
+  /// 那条文案说的是「再试一次」,不会把用户往错误的方向指。
+  @visibleForTesting
+  static MicFailure classifyMicError(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('permission') ||
+        s.contains('notallowed') ||
+        s.contains('not allowed') ||
+        s.contains('denied')) {
+      return MicFailure.permissionDenied;
+    }
+    return MicFailure.unavailable;
   }
 
   @override

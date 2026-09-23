@@ -169,6 +169,15 @@ Future<void> showSettingsSheet(
                     value: settings.wifiOnlyHq,
                     onChanged: settings.setWifiOnlyHq,
                   ),
+                  // 只管用户亲手点的「进圈」;掉线恢复、自动进圈一律不开麦。
+                  // 副标题把这条边界说出来 —— 用户关心的正是「会不会被偷偷听见」。
+                  SwitchListTile(
+                    secondary: const Icon(Icons.mic_rounded),
+                    title: Text(t.settingsJoinWithMicOn),
+                    subtitle: Text(t.settingsJoinWithMicOnSub),
+                    value: settings.joinWithMicOn,
+                    onChanged: settings.setJoinWithMicOn,
+                  ),
                   ListTile(
                     leading: const Icon(Icons.noise_control_off_rounded),
                     title: Text(t.settingsNoiseSuppression),

@@ -68,6 +68,10 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/lares_widget_info"/>
         </receiver>
+        <!-- 小组件麦克风按钮:显式 Intent + exported=false,只有本 App 能发进来,
+             别的 App 伪造不了一条「替他开麦」的广播。不声明 intent-filter:
+             PendingIntent 是显式指定组件的,不需要它,加了反而扩大暴露面。 -->
+        <receiver android:name=".WidgetActionReceiver" android:exported="false" />
         <!-- 应用内更新:把缓存目录里的 APK 以 content:// URI 交给系统安装器。
              Android 7+ 直接传 file:// 会抛 FileUriExposedException,必须走 FileProvider。
              authority 用 ${applicationId} 派生(= com.example.lares_app.updateprovider),

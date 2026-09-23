@@ -58,4 +58,23 @@
         android:textColor="#F2EEE9"
         android:textSize="13sp"
         android:textStyle="bold" />
+
+    <!-- 在房时的麦克风按钮(不在房时 GONE,显示上面那行「进圈」)。
+         点它发广播给 App 内的 WidgetActionReceiver,不打开 App;
+         文案只写真实状态「麦克风开着 / 静音中」,背景色随状态变。 -->
+    <TextView
+        android:id="@+id/widget_mic"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:background="@drawable/widget_mic_muted_bg"
+        android:text="@string/widget_mic_muted"
+        android:textColor="#F2EEE9"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 </LinearLayout>

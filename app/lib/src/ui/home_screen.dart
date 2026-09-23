@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/gen/app_localizations.dart';
+import '../auth/circle_identity.dart';
 import '../chat/chat_service.dart';
 import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
@@ -101,6 +102,15 @@ class HomeScreen extends StatelessWidget {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(t.homeKickedBy(who))),
+                );
+              });
+            }
+            // 圈子被圈主解散(弹出一次即清;本地清理在 main.dart)
+            if (controller.dissolvedCircleId != null) {
+              controller.dissolvedCircleId = null;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(t.homeCircleDissolved)),
                 );
               });
             }
@@ -261,35 +271,105 @@ class _CircleList extends StatelessWidget {
     );
   }
 
+  /// 新建圈子:圈名 + 口令(预填 4 个随机英文词,可改,至少 8 字符)。
+  ///
+  /// 以前 id 用毫秒时间戳 —— 可猜,而服务器上「谁先登记谁是圈主」,
+  /// 可猜的 id 等于把圈主位置让给抢注的人。现在是 128 bit 随机数。
+  ///
+  /// 建好只在本机挂「待登记」,真正登记发生在下一次握手(hello 带 register),
+  /// 服务器回 welcome 时下发圈主钥匙。这里不做隐式建圈之外的任何网络操作。
   Future<void> _showAddCircleDialog(BuildContext context) async {
     final t = AppLocalizations.of(context);
     final field = TextEditingController();
-    final name = await showDialog<String>(
+    final passField = TextEditingController(text: generateCirclePasscode());
+    final result = await showDialog<({String name, String passcode})>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(t.homeAddCircle),
-        content: TextField(
-          controller: field,
-          autofocus: true,
-          maxLength: 16,
-          decoration: InputDecoration(hintText: t.homeAddCircleHint),
-          onSubmitted: (_) => Navigator.pop(ctx, field.text),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(t.commonCancel),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setState) {
+        final passOk = isAcceptableCirclePasscode(passField.text);
+        void submit() {
+          if (field.text.trim().isEmpty || !passOk) return;
+          Navigator.pop(ctx, (name: field.text.trim(), passcode: passField.text));
+        }
+
+        return AlertDialog(
+          title: Text(t.homeAddCircle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: field,
+                autofocus: true,
+                maxLength: 16,
+                decoration: InputDecoration(
+                  labelText: t.homeAddCircleNameLabel,
+                  hintText: t.homeAddCircleHint,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              TextField(
+                key: const ValueKey('add-circle-passcode'),
+                controller: passField,
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => submit(),
+                decoration: InputDecoration(
+                  labelText: t.homeAddCirclePasscodeLabel,
+                  helperText: t.homeAddCirclePasscodeHelper,
+                  helperMaxLines: 3,
+                  errorText: passOk ? null : t.homeAddCirclePasscodeTooShort,
+                  suffixIcon: IconButton(
+                    tooltip: t.homeAddCircleShuffle,
+                    icon: const Icon(Icons.casino_outlined),
+                    onPressed: () => setState(
+                        () => passField.text = generateCirclePasscode()),
+                  ),
+                ),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, field.text),
-            child: Text(t.homeAddCircleConfirm),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(t.commonCancel),
+            ),
+            FilledButton(
+              onPressed:
+                  field.text.trim().isNotEmpty && passOk ? submit : null,
+              child: Text(t.homeAddCircleConfirm),
+            ),
+          ],
+        );
+      }),
     );
-    if (name == null || name.trim().isEmpty) return;
-    final id = 'c_${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
-    await circleStore.add(Circle(id: id, name: name.trim()));
+    if (result == null) return;
+    final circle = Circle(id: generateCircleId(), name: result.name);
+    // 顺序:口令(vault)→ 圈主钥匙(本机生成,vault 读回确认)→ 待登记标记
+    // → 列表。钥匙存不进去就不建:否则登记上去就是一个本机不持钥匙的无主圈。
+    await settings.setCirclePasscode(circle.id, result.passcode);
+    try {
+      await settings.saveOwnerKey(circle.id, generateOwnerKey());
+    } catch (e) {
+      debugPrint('[lares] 圈主钥匙存不进安全存储,放弃建圈: $e');
+      await settings.forgetCircleSecrets(circle.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(t.homeOwnerErrGeneric)));
+      }
+      return;
+    }
+    await settings.markPendingRegistration(circle.id);
+    await circleStore.add(circle);
+    // 空闲时立刻去登记,好尽快拿到圈主钥匙(在别的房间里就等第一次进圈)
+    controller.ensureRegistered(circle.id);
+    if (!context.mounted) return;
+    // 建完就提示分享:一个人的圈子没有意义。复用邀请对话框。
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(t.homeCircleCreatedShare)));
+    await showCircleInviteDialog(
+      context,
+      circle: circle,
+      settings: settings,
+      e2ee: e2ee,
+    );
   }
 
   /// 粘贴邀请链接进圈:`lares://circle/<id>?name=X`,或直接粘贴圈子 id。
@@ -535,7 +615,162 @@ class _CircleTile extends StatelessWidget {
   /// 口令**默认不带**,由分享者勾选。理由见 `invite_link.dart` 的文件头:
   /// 口令经 Argon2id 派生出该圈的 E2EE 密钥,写进链接等于把密钥
   /// 一起发出去,而链接会经微信/截图流转。
-  Future<void> _showInviteDialog(BuildContext context) async {
+  Future<void> _showInviteDialog(BuildContext context) => _inviteDialog(
+        context,
+        circle: circle,
+        settings: settings,
+        e2ee: e2ee,
+      );
+
+  /// 圈主菜单项(只给本机持有圈主钥匙的注册圈)。
+  List<Widget> _ownerTiles(BuildContext context, BuildContext ctx) {
+    final t = AppLocalizations.of(context);
+    final registered = controller.isRegisteredCircle(circle.id);
+    // 钥匙是登记**之前**就在本机生成好的,所以「有钥匙」≠「已是圈主」:
+    // 登记还没被服务器确认时,圈主菜单先不给,只显示「还在登记」。
+    final pending = settings.isPendingRegistration(circle.id);
+    final owner = controller.isOwnerOf(circle.id) && !pending;
+    return [
+      if (pending)
+        ListTile(
+          leading: const Icon(Icons.hourglass_top_rounded),
+          title: Text(t.homeOwnerPending),
+        ),
+      if (owner) ...[
+        if (registered && e2ee != null)
+          _OwnerE2EETile(circle: circle, controller: controller, e2ee: e2ee!),
+        ListTile(
+          leading: const Icon(Icons.key_rounded),
+          title: Text(t.homeChangePasscode),
+          subtitle: Text(t.homeChangePasscodeDesc),
+          onTap: () async {
+            Navigator.pop(ctx);
+            await _changePasscode(context);
+          },
+        ),
+        ListTile(
+          leading: Icon(Icons.delete_forever_rounded,
+              color: Theme.of(context).colorScheme.error),
+          title: Text(t.homeDissolveCircle),
+          subtitle: Text(t.homeDissolveCircleDesc),
+          onTap: () async {
+            Navigator.pop(ctx);
+            await _dissolve(context);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.phone_android_rounded),
+          title: Text(t.homeOwnerKeyNote),
+          subtitle: Text(t.homeOwnerKeyNoteDesc),
+        ),
+      ],
+    ];
+  }
+
+  String _ownerErrorText(AppLocalizations t, String reason) => switch (reason) {
+        'not_owner' => t.homeOwnerErrNotOwner,
+        'timeout' => t.homeOwnerErrTimeout,
+        _ => t.homeOwnerErrGeneric,
+      };
+
+  /// 换口令 = 真正的「请人离开」(服务器断开除圈主外的所有连接)。
+  ///
+  /// 顺序是要点:先在后台算好新 verifier → 发给服务器 → **等 owner_ok**
+  /// 才改本地口令。本地先改而服务器没换成,本机会拿新口令去证明,
+  /// 把圈主自己锁在门外。
+  Future<void> _changePasscode(BuildContext context) async {
+    final t = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final next = generateCirclePasscode();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: Text(t.homeChangePasscodeConfirmTitle),
+        content: SelectableText(t.homeChangePasscodeConfirmBody(next)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dctx, false),
+            child: Text(t.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dctx, true),
+            child: Text(t.homeChangePasscodeConfirmYes),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final verifier = await settings.verifiers.get(circle.id, next);
+    final err = await controller.setCirclePasscodeAsOwner(circle.id, verifier);
+    if (err != null) {
+      messenger.showSnackBar(SnackBar(content: Text(_ownerErrorText(t, err))));
+      return;
+    }
+    await settings.setCirclePasscode(circle.id, next);
+    messenger
+        .showSnackBar(SnackBar(content: Text(t.homeChangePasscodeDone)));
+    if (context.mounted) await _showInviteDialog(context);
+  }
+
+  /// 解散:强确认 —— 要亲手输入圈名,按钮才亮。
+  Future<void> _dissolve(BuildContext context) async {
+    final t = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final typed = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => StatefulBuilder(
+        builder: (dctx, setState) => AlertDialog(
+          title: Text(t.homeDissolveConfirmTitle(circle.name)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(t.homeDissolveConfirmBody),
+              TextField(
+                key: const ValueKey('dissolve-confirm-name'),
+                controller: typed,
+                decoration: InputDecoration(hintText: circle.name),
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dctx, false),
+              child: Text(t.commonCancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(dctx).colorScheme.error,
+              ),
+              onPressed: typed.text.trim() == circle.name.trim()
+                  ? () => Navigator.pop(dctx, true)
+                  : null,
+              child: Text(t.homeDissolveConfirmYes),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final err = await controller.deleteCircleAsOwner(circle.id);
+    if (err != null) {
+      messenger.showSnackBar(SnackBar(content: Text(_ownerErrorText(t, err))));
+      return;
+    }
+    // 服务器会紧接着推 circle_deleted,main.dart 统一清理本地;这里只把列表先收掉
+    await circleStore.remove(circle.id);
+    e2ee?.forget(circle.id);
+    await settings.forgetCircleSecrets(circle.id);
+  }
+
+  /// 邀请对话框本体(静态:新建圈子时还没有 tile 实例,见 [showCircleInviteDialog])。
+  static Future<void> _inviteDialog(
+    BuildContext context, {
+    required Circle circle,
+    required SettingsStore settings,
+    E2EEController? e2ee,
+  }) async {
     final t = AppLocalizations.of(context);
     final serverUrl = settings.effectiveSignalingUrl;
     final passcode = settings.passcodeFor(circle.id);
@@ -608,6 +843,8 @@ class _CircleTile extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final knockOn = controller.circlePresence[circle.id]?.knockRequired == true;
     final isPrimary = circleStore.isPrimary(circle.id);
+    final registered = controller.isRegisteredCircle(circle.id);
+    final canModerate = controller.canModerate(circle.id);
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -647,10 +884,21 @@ class _CircleTile extends StatelessWidget {
                 await _showInviteDialog(context);
               },
             ),
-            // 端到端加密:按圈可选,默认关。
+            // 注册圈:加密/敲门/踢人归圈主。非圈主**看不到**这些控件 ——
+            // 服务器反正会拒,给一个按了没用的开关只会让人困惑。
+            // 圈主的全圈加密开关在 _ownerTiles 里。
+            if (registered && !canModerate &&
+                controller.circleInfo[circle.id]?.e2ee == true)
+              ListTile(
+                leading: const Icon(Icons.lock_rounded, color: LaresColors.ember),
+                title: Text(t.e2eeManagedOn),
+              ),
+            ..._ownerTiles(context, ctx),
+            // 端到端加密(老圈 / env 圈):按圈可选,默认关,只动本机。
             // 代价必须写在开关旁边(kE2EECostNotice),不能让人开完才困惑。
-            if (e2ee != null) _E2EETile(circle: circle, e2ee: e2ee!),
-            ListTile(
+            if (e2ee != null && !registered)
+              _E2EETile(circle: circle, e2ee: e2ee!),
+            if (canModerate) ListTile(
               leading: Icon(
                 knockOn
                     ? Icons.door_front_door_rounded
@@ -665,7 +913,8 @@ class _CircleTile extends StatelessWidget {
               onTap: () async {
                 // 确认在**两个方向上都要**,与 E2EE 不同 ——
                 // 那个开关只影响自己,这个开关两个方向都改的是所有人的设置。
-                if (!await _confirmKnockMode(context)) return;
+                // 注册圈的圈主例外:这本来就是圈主的职责,不必再问「你确定替大家改?」
+                if (!registered && !await _confirmKnockMode(context)) return;
                 controller.setKnockMode(circle.id, !knockOn);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -732,6 +981,82 @@ class _CircleTile extends StatelessWidget {
       ),
     );
     return ok == true;
+  }
+}
+
+/// 邀请对话框(圈子长按菜单、新建圈子后、换口令后共用)。
+Future<void> showCircleInviteDialog(
+  BuildContext context, {
+  required Circle circle,
+  required SettingsStore settings,
+  E2EEController? e2ee,
+}) =>
+    _CircleTile._inviteDialog(context,
+        circle: circle, settings: settings, e2ee: e2ee);
+
+/// 圈主的全圈加密开关(注册圈)。
+///
+/// 与 [_E2EETile] 的根本区别:那个只动本机登记表,一个人开了别人听不见;
+/// 这个由服务器记在圈上、推给每个成员,在任何人建 Room 之前生效 ——
+/// 所以不需要「全圈都要开」那道确认,只说清楚「给全圈一起开关」。
+class _OwnerE2EETile extends StatefulWidget {
+  const _OwnerE2EETile({
+    required this.circle,
+    required this.controller,
+    required this.e2ee,
+  });
+
+  final Circle circle;
+  final RoomController controller;
+  final E2EEController e2ee;
+
+  @override
+  State<_OwnerE2EETile> createState() => _OwnerE2EETileState();
+}
+
+class _OwnerE2EETileState extends State<_OwnerE2EETile> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final id = widget.circle.id;
+    final on = widget.controller.circleInfo[id]?.e2ee ?? false;
+    final status = widget.e2ee.previewStatusFor(id);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SwitchListTile(
+          key: const ValueKey('owner-e2ee-switch'),
+          secondary: Icon(
+            on ? Icons.lock_rounded : Icons.lock_open_rounded,
+            color: on && status.isEncrypted ? LaresColors.ember : null,
+          ),
+          title: Text(t.e2eeTitle),
+          subtitle: Text('${t.e2eeOwnerSwitchDesc}\n${t.e2eeCostNotice}'),
+          isThreeLine: true,
+          value: on,
+          onChanged: _busy
+              ? null
+              : (v) async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  setState(() => _busy = true);
+                  final err =
+                      await widget.controller.setCircleE2EEAsOwner(id, v);
+                  if (!mounted) return;
+                  setState(() => _busy = false);
+                  if (err != null) {
+                    messenger.showSnackBar(SnackBar(
+                      content: Text(err == 'not_owner'
+                          ? t.homeOwnerErrNotOwner
+                          : t.homeOwnerErrGeneric),
+                    ));
+                  }
+                },
+        ),
+        if (status.isBrokenPromise) E2EEWarningBanner(status: status),
+      ],
+    );
   }
 }
 

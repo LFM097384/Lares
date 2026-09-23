@@ -10,6 +10,7 @@ import '../recording/recording_consent.dart';
 import '../recording/recording_indicator.dart';
 import '../state/location_share_stub.dart'
     if (dart.library.io) '../state/location_share.dart';
+import '../state/mic_notice.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
@@ -460,8 +461,13 @@ class _RoomHeader extends StatelessWidget {
         final count = controller.members.length;
         // 只认「本次通话」的权威结论,且必须与当前圈子匹配 ——
         // 圈子对不上一律返回 null,绝不把上一个圈的状态显示给这一个圈。
-        final E2EEStatus? status =
-            e2ee?.statusForActiveCircle(controller.circleId);
+        // 注册圈的加密由圈主统一定:进房后照样以本次通话的权威结论为准;
+        // 还没连上媒体时(joining)用预测值,让人一进门就看到这把锁的真实情况。
+        final cid = controller.circleId;
+        final E2EEStatus? status = e2ee?.statusForActiveCircle(cid) ??
+            (cid != null && e2ee != null && e2ee!.isCircleManaged(cid)
+                ? e2ee!.previewStatusFor(cid)
+                : null);
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             LaresSpacing.lg,
@@ -681,6 +687,10 @@ class _MemberGrid extends StatelessWidget {
             final m = members[i];
             final isMe = m.userId == controller.userId;
             final bool blocked = blocks?.isBlocked(m.userId) ?? false;
+            // 注册圈里只有圈主能踢:非圈主连这一行都看不到(服务器反正会拒)。
+            // env 圈维持老行为,人人可踢。屏蔽是个人行为,不受影响。
+            final cid = controller.circleId;
+            final canKick = cid == null || controller.canModerate(cid);
 
             // 接了屏蔽名单就走处置菜单(踢人作为其中一行保留);
             // 没接就还是老样子:长按直接踢。
@@ -691,7 +701,9 @@ class _MemberGrid extends StatelessWidget {
                     controller: controller,
                     blocks: blocks,
                     member: m,
-                    onKick: () => _confirmKick(context, controller, m),
+                    onKick: canKick
+                        ? () => _confirmKick(context, controller, m)
+                        : null,
                   );
             }
 
@@ -707,7 +719,9 @@ class _MemberGrid extends StatelessWidget {
               // 而「能屏蔽」这件事必须让人找得到(审核指南 1.2)。
               onTap: openMenu,
               onLongPress: openMenu ??
-                  (isMe ? null : () => _confirmKick(context, controller, m)),
+                  (isMe || !canKick
+                      ? null
+                      : () => _confirmKick(context, controller, m)),
               child: blocked ? _BlockedOverlay(child: orb) : orb,
             );
           },
@@ -780,6 +794,24 @@ class _ControlBar extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        // 麦克风没开成 / 没关成:弹一次即清。
+        // 放在控制条这里,是因为它就是那个按钮的回音 —— 按了没反应的时候,
+        // 用户的眼睛正停在这一块。权限被拒要说清「去系统设置」,
+        // App 里再按多少次都没用。
+        final notice = controller.micNotice;
+        if (notice != null) {
+          controller.micNotice = null;
+          final text = switch (notice) {
+            MicNotice.permissionDenied => t.roomMicPermissionDenied,
+            MicNotice.unmuteFailed => t.roomMicUnmuteFailed,
+            MicNotice.muteFailed => t.roomMicMuteFailed,
+          };
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(text)));
+          });
+        }
         return Padding(
           padding: const EdgeInsets.all(LaresSpacing.lg),
           child: Column(

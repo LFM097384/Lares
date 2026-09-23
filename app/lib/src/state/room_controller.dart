@@ -9,6 +9,7 @@ import '../p2p/host_election.dart';
 import '../rtc/rtc_service.dart';
 import 'identity.dart' show capNickname;
 import 'join_error.dart';
+import 'mic_notice.dart';
 import 'models.dart';
 import 'settings_store.dart';
 
@@ -45,6 +46,12 @@ class RoomController extends ChangeNotifier {
       // leave() 现在会先把 phase 落到 idle 再 await _rtc.leave(),
       // 所以正常退房触发的这条事件会被下面这个守卫挡掉,不会误判成掉线。
       if (phase != RoomPhase.inRoom) return;
+      // 掉线恢复是自动路径:记下断线前的麦克风状态,恢复后原样还原。
+      // 静音的人回来仍是静音 —— 任何自动重连都不许把人变成开麦。
+      _micOnAfterConnect = !muted;
+      // 媒体已经断了,此刻麦克风确实没在发布:界面如实显示静音,
+      // 而不是在「正在重连」期间继续亮着一个并不存在的开麦状态。
+      muted = true;
       phase = RoomPhase.joining;
       notifyListeners();
       _recoverMedia();
@@ -124,7 +131,36 @@ class RoomController extends ChangeNotifier {
   /// 语音便签到达计数(note_added 广播,VoiceNotesController 监听)
   int noteBumpCounter = 0;
 
-  bool muted = true; // 进房默认静音
+  /// 麦克风是否静音。**只在 RTC 层回报了真实结果之后才改它**。
+  ///
+  /// 开麦状态是隐私相关的显示:界面(房间页按钮、主屏小组件)上画的
+  /// 必须是真实状态。以前 toggleMute 先翻转这个值再去开麦,开麦失败
+  /// (没权限 / 唤醒还没完成)时界面显示「开着」而麦克风其实是关的 ——
+  /// 反方向同样可能:以为关了其实开着。所以现在一律「先做,成了再改」。
+  bool muted = true;
+
+  /// 麦克风操作没成的一次性提示(UI 弹一次即 [consumeMicNotice])。
+  MicNotice? micNotice;
+
+  /// 下一次 `_connectRtc` 连上之后要不要开麦。
+  ///
+  /// 只有**用户主动**进圈(点圈子、邀请链接、小组件/快捷方式「进圈」、托盘)
+  /// 才按设置「进圈时打开麦克风」置为 true;自动路径(掉线恢复、信令重连、
+  /// 挂机自动进圈、被别人 reach 拉进来)要么保持断线前的状态,要么保持静音 ——
+  /// **任何自动重试都不许把一个静音的人变成开麦**。
+  ///
+  /// 放在字段上而不是作为 `_connectRtc` 的参数,是因为 `_connectRtc`
+  /// 有两个触发点(预热 token 直连、服务端 token 事件),它们都只知道
+  /// url/token,不知道这次进房是谁发起的。
+  bool _micOnAfterConnect = false;
+
+  /// 正在进行的媒体唤醒。toggleMute 要等它落地再开麦,
+  /// 否则开麦请求会打在一个还没连好的房间上,被静默吞掉(原 bug 1)。
+  Future<RtcJoinResult?>? _wakeInFlight;
+
+  /// 麦克风切换进行中:连点只认第一次,免得两次请求交错、
+  /// 最后落地的结果与界面显示对不上。
+  bool _micBusy = false;
   MemberStatus myStatus = MemberStatus.free;
 
   final List<Member> _members = [];
@@ -133,6 +169,123 @@ class RoomController extends ChangeNotifier {
   /// 大厅 presence 摘要(未进房也可见,circleId -> (人数, 名字, 是否需敲门))
   final Map<String, ({int count, List<String> names, bool knockRequired})>
       circlePresence = {};
+
+  /// 圈级设置(服务器权威):注册圈与否、端到端加密是否由圈主定死。
+  ///
+  /// 来源:welcome.circle(本连接证明的那个圈)、circle_summary、circle_settings。
+  /// e2ee 为 null = 圈子没有统一规定(老圈 / env 圈),沿用本机开关。
+  final Map<String, ({bool registered, bool? e2ee})> circleInfo = {};
+
+  /// 这个圈子是注册圈吗(有圈主,kick/敲门/加密只归圈主管)。
+  bool isRegisteredCircle(String id) => circleInfo[id]?.registered ?? false;
+
+  /// 本机是不是这个圈的圈主:只看本机有没有钥匙 —— 钥匙才是凭据。
+  /// (welcome.isOwner 只是服务器对那把钥匙的回执,不单独当真。)
+  bool isOwnerOf(String id) =>
+      (settings?.ownerKeyFor(id) ?? _signaling.issuedOwnerKey(id)) != null;
+
+  /// 能不能动踢人 / 敲门 / 加密这些管理控件:
+  /// env 圈人人可动(老行为),注册圈只有圈主。
+  bool canModerate(String id) => !isRegisteredCircle(id) || isOwnerOf(id);
+
+  String? _ownerKeyFor(String id) =>
+      settings?.ownerKeyFor(id) ?? _signaling.issuedOwnerKey(id);
+
+  /// 圈级 E2EE 规定变化时回调(main.dart 接到 E2EEController.setCirclePolicy)。
+  void Function(String circleId, bool? enabled)? onCirclePolicy;
+
+  /// 被解散的圈子(UI 弹一次「圈子已被圈主解散」,然后从列表拿掉)。
+  String? dissolvedCircleId;
+
+  /// 圈主操作的回执。UI 读一次即清空(见 [consumeOwnerResult])。
+  ({String op, String circleId, String? error})? ownerResult;
+
+  void consumeOwnerResult() {
+    if (ownerResult == null) return;
+    ownerResult = null;
+    notifyListeners();
+  }
+
+  void consumeDissolved() {
+    if (dissolvedCircleId == null) return;
+    dissolvedCircleId = null;
+    notifyListeners();
+  }
+
+  void _applyCircleInfo(Object? raw) {
+    if (raw is! Map) return;
+    final id = raw['id'];
+    if (id is! String || id.isEmpty) return;
+    final e2ee = raw['e2ee'];
+    circleInfo[id] = (
+      registered: raw['registered'] == true,
+      e2ee: e2ee is bool ? e2ee : null,
+    );
+    onCirclePolicy?.call(id, e2ee is bool ? e2ee : null);
+    final prev = circlePresence[id];
+    if (raw.containsKey('knockRequired')) {
+      circlePresence[id] = (
+        count: prev?.count ?? 0,
+        names: prev?.names ?? const <String>[],
+        knockRequired: raw['knockRequired'] == true,
+      );
+    }
+  }
+
+  // ── 圈主操作 ──────────────────────────────────────────────────────
+  // 全部返回 Future<String?>:null = 成功;否则是原因码
+  // (no_key / timeout / 服务器 owner_error 的 reason)。
+  // 为什么要等回执而不是发完就算:换口令成功之前绝不能改本地口令 ——
+  // 本地先改、服务器没换成,本机就用新口令去证明,自己把自己锁在门外。
+
+  final List<({String op, String circleId, Completer<String?> done})>
+      _ownerWaiters = [];
+
+  Future<String?> _ownerOp(
+      String op, String id, void Function(String key) sendIt) {
+    final key = _ownerKeyFor(id);
+    if (key == null) return Future<String?>.value('no_key');
+    final done = Completer<String?>();
+    final waiter = (op: op, circleId: id, done: done);
+    _ownerWaiters.add(waiter);
+    sendIt(key);
+    return done.future.timeout(const Duration(seconds: 15), onTimeout: () {
+      _ownerWaiters.remove(waiter);
+      return 'timeout';
+    });
+  }
+
+  void _settleOwnerWaiters(String op, String id, String? error) {
+    _ownerWaiters.removeWhere((w) {
+      if (w.op != op || w.circleId != id) return false;
+      if (!w.done.isCompleted) w.done.complete(error);
+      return true;
+    });
+  }
+
+  /// 刚建好的圈:让连接去证明(顺带登记)它,好尽快拿到圈主钥匙。
+  ///
+  /// 只在空闲时改 authCircleId —— 正在别的房间里时一改就会断掉那个房间;
+  /// 那种情况下等用户第一次进这个圈时自然会登记。
+  void ensureRegistered(String id) {
+    if (phase == RoomPhase.idle) _signaling.authCircleId = id;
+  }
+
+  /// 换口令:[newVerifier] 由调用方在后台算好(Argon2 不能在这里同步跑)。
+  Future<String?> setCirclePasscodeAsOwner(String id, String newVerifier) =>
+      _ownerOp(
+          'circle_passcode_set',
+          id,
+          (key) => _signaling.setCirclePasscode(id,
+              ownerKey: key, verifier: newVerifier));
+
+  Future<String?> setCircleE2EEAsOwner(String id, bool enabled) => _ownerOp(
+      'circle_e2ee_set',
+      id,
+      (key) => _signaling.setCircleE2EE(id, ownerKey: key, enabled: enabled));
+
+  Future<String?> deleteCircleAsOwner(String id) => _ownerOp('circle_delete',
+      id, (key) => _signaling.deleteCircle(id, ownerKey: key));
 
   /// 挂着「我有空」的人(userId -> 信息)。
   ///
@@ -323,8 +476,16 @@ class RoomController extends ChangeNotifier {
   ///
   /// [force] 仅供 [retryJoin] 内部使用:它已经把 phase 摆到 joining
   /// (为了不让界面跳回主页),此时那个「已经在进房了」的守卫会误伤。
-  Future<void> join(String targetCircleId, {bool force = false}) async {
+  ///
+  /// [micOn] 这次连上之后是否开麦。默认 null = 按设置「进圈时打开麦克风」,
+  /// 只适用于**用户主动**进圈。自动进圈的调用方(挂机自动进圈、被 reach
+  /// 拉过去)必须显式传 `false`:没有人按下任何东西,就不该有人被听见。
+  Future<void> join(String targetCircleId,
+      {bool force = false, bool? micOn}) async {
     if (!force && phase == RoomPhase.joining) return;
+    // 这次进房由谁发起,在最前面就定下来 —— 之后的预热直连与 token 事件
+    // 都只读它。凭据检查失败提前 return 时它也无害:下次 join 会重写。
+    _micOnAfterConnect = micOn ?? (settings?.joinWithMicOn ?? true);
 
     // ⚠️ 凭据不全就别进 joining —— 否则会**永远**停在「正在进去…」。
     //
@@ -498,6 +659,9 @@ class RoomController extends ChangeNotifier {
     _abandonJoinCompleter(StateError('join_cancelled'));
     _joinStopwatch = null;
     _joinEpoch++;
+    // 退房后任何残留的开麦意图都作废:下一次连上媒体的若是自动路径,
+    // 它不该继承上一次「用户点了进圈」的开麦决定。
+    _micOnAfterConnect = false;
     _prefetchedCircle = null;
     _prefetchedUrl = null;
     _prefetchedToken = null;
@@ -516,11 +680,92 @@ class RoomController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleMute() async {
-    if (mediaDowngraded) _wakeMedia();
-    muted = !muted;
+  /// 开麦 / 静音切换。**先让 RTC 层做,做成了才改 [muted]**。
+  ///
+  /// 以前是先翻 [muted] 再去开麦,带出两个真实的 bug:
+  ///
+  /// 1. 媒体闲时挂起时,唤醒是异步的,而 `setMuted` 紧跟着同步发出 ——
+  ///    打在一个还没连上的房间上被吞掉;唤醒随后又按静音进房。
+  ///    结果:按钮显示「麦克风开着」,麦克风其实是关的。
+  /// 2. 没有任何错误处理。没给麦克风权限时 [muted] 已经翻成 false,
+  ///    界面同样说谎,用户也不知道该去哪里改。
+  ///
+  /// 返回切换之后**真实的** [muted](小组件要把它写回去)。
+  Future<bool> toggleMute() async {
+    // 不在房里就没有麦克风可开:什么都不做,也不假装做了。
+    // (joining 期间房间页已经显示,按钮能按到;那时的开麦意图由
+    // 「进圈时打开麦克风」决定,这里不去改它,免得显示与意图各说各话。)
+    if (phase != RoomPhase.inRoom || _micBusy) return muted;
+    _micBusy = true;
+    final wantMuted = !muted;
+    try {
+      if (!wantMuted && (mediaDowngraded || _wakeInFlight != null)) {
+        // 媒体挂起中要开麦:等唤醒**真正落地**再看结果。
+        // 唤醒若是别人触发的(来人了)且正在路上,它按静音进房,
+        // 落地后再补一次开麦;没在路上就由我们发起一次「带着开麦」的唤醒。
+        final pending = _wakeInFlight;
+        if (pending != null) {
+          final r = await pending;
+          if (r == null || phase != RoomPhase.inRoom) {
+            _setMicNotice(MicNotice.unmuteFailed);
+            return muted;
+          }
+          await _applyMute(false);
+        } else {
+          final r = await _wakeMedia(micOn: true);
+          if (r == null) {
+            // 唤醒本身失败(没有可用 token / 连不上):麦克风当然没开。
+            _setMicNotice(MicNotice.unmuteFailed);
+            return muted;
+          }
+          // muted 已由 _wakeMedia 按真实结果落好,失败提示也在那里发。
+        }
+      } else {
+        await _applyMute(wantMuted);
+      }
+      return muted;
+    } finally {
+      _micBusy = false;
+    }
+  }
+
+  /// 让 RTC 层切换麦克风,并**按它回报的真实状态**落 [muted]。
+  Future<void> _applyMute(bool wantMuted) async {
+    // 开麦途中用户退了房:leave() 已经把 muted 落回 true,
+    // 迟到的结果不许再把它改回「开着」。
+    final epoch = _joinEpoch;
+    try {
+      await _rtc.setMuted(wantMuted);
+      if (epoch != _joinEpoch) return;
+      muted = wantMuted;
+      notifyListeners();
+    } on MicException catch (e) {
+      debugPrint('[lares] 麦克风切换失败: $e');
+      if (epoch != _joinEpoch) return;
+      muted = !e.micOnNow;
+      _setMicNotice(wantMuted
+          ? (e.micOnNow ? MicNotice.muteFailed : null)
+          : MicNotice.forUnmute(e.kind));
+    } catch (e) {
+      // 实现方没按约定抛 MicException:不知道真实状态,只能保守。
+      // 想开没开成 -> 仍当它关着(没有证据说它开了);
+      // 想关没关成 -> 仍当它开着 —— 宁可让人以为自己还能被听见,
+      // 也不能让一个其实开着的麦克风显示成静音。
+      debugPrint('[lares] 麦克风切换失败(未分类): $e');
+      _setMicNotice(wantMuted ? MicNotice.muteFailed : MicNotice.unmuteFailed);
+    }
+  }
+
+  void _setMicNotice(MicNotice? notice) {
+    micNotice = notice;
     notifyListeners();
-    await _rtc.setMuted(muted);
+  }
+
+  /// UI 弹过提示之后调用,免得重复弹。
+  void consumeMicNotice() {
+    if (micNotice == null) return;
+    micNotice = null;
+    notifyListeners();
   }
 
   /// 有说话活动时重置闲时计时;超时则断媒体留 presence
@@ -551,33 +796,61 @@ class RoomController extends ChangeNotifier {
     return true;
   }
 
-  /// 媒体唤醒:用保存的 token 重连(静默失败则等下次 token 事件)
-  void _wakeMedia() {
-    if (!mediaDowngraded) return;
+  /// 媒体唤醒:用保存的 token 重连(静默失败则等下次 token 事件)。
+  ///
+  /// 默认**静音**唤醒:自动唤醒(来人了)绝不能把人变成开麦。
+  /// 只有用户亲手按了开麦([toggleMute])才传 `micOn: true`。
+  ///
+  /// 返回 RTC 的真实结果;没有可唤醒的(未挂起 / 没 token)或失败则为 null。
+  /// 调用方可以 await 它 —— toggleMute 正是靠这一点修掉了「开麦被吞」。
+  Future<RtcJoinResult?> _wakeMedia({bool micOn = false}) {
+    final inFlight = _wakeInFlight;
+    if (inFlight != null) return inFlight;
+    if (!mediaDowngraded) return Future.value(null);
     final url = _lastRtcUrl;
     final token = _lastRtcToken;
-    if (url == null || token == null) return;
+    if (url == null || token == null) return Future.value(null);
     mediaDowngraded = false;
+    final epoch = _joinEpoch;
     notifyListeners();
-    () async {
-      final hq = await _currentHighQuality();
-      // 媒体唤醒也是一次真正的 join:加密准备必须重做一遍。
-      // 少了这一行,闲时降级后自动唤醒的那次通话就会悄悄变成明文。
-      await prepareEncryption?.call(circleId);
-      return _rtc.join(
-          url: url,
-          token: token,
-          startMuted: true,
-          highQuality: hq,
-          tuning: settings?.audioTuning ?? AudioTuning.standard);
-    }()
-        .then((_) {
-      _resetIdleTimer();
-      notifyListeners();
-    }).catchError((_) {
-      mediaDowngraded = true; // 唤醒失败,保持挂起
-      notifyListeners();
-    });
+    final future = () async {
+      try {
+        final hq = await _currentHighQuality();
+        // 媒体唤醒也是一次真正的 join:加密准备必须重做一遍。
+        // 少了这一行,闲时降级后自动唤醒的那次通话就会悄悄变成明文。
+        await prepareEncryption?.call(circleId);
+        final r = await _rtc.join(
+            url: url,
+            token: token,
+            startMuted: !micOn,
+            highQuality: hq,
+            tuning: settings?.audioTuning ?? AudioTuning.standard);
+        // 唤醒途中用户退了房:这次结果不作数,连好的媒体也拆掉。
+        if (epoch != _joinEpoch || phase != RoomPhase.inRoom) {
+          await _rtc.leave();
+          return null;
+        }
+        muted = !r.micOn;
+        if (micOn && !r.micOn) {
+          _setMicNotice(MicNotice.forUnmute(r.micFailure));
+        }
+        _resetIdleTimer();
+        notifyListeners();
+        return r;
+      } catch (e) {
+        debugPrint('[lares] 媒体唤醒失败: $e');
+        if (epoch == _joinEpoch) {
+          mediaDowngraded = true; // 唤醒失败,保持挂起
+          muted = true;
+          notifyListeners();
+        }
+        return null;
+      } finally {
+        _wakeInFlight = null;
+      }
+    }();
+    _wakeInFlight = future;
+    return future;
   }
 
   void setStatus(MemberStatus status) {
@@ -590,8 +863,15 @@ class RoomController extends ChangeNotifier {
 
   /// 踢人:把目标用户请出房间(服务端做圈内授权)
   void kick(String targetUserId) {
-    _signaling
-        .send({'t': 'kick', 'circleId': circleId, 'userId': targetUserId});
+    final id = circleId;
+    // 注册圈要带圈主钥匙(服务器不认自报的 userId);env 圈不带,老行为不变。
+    final key = id == null ? null : _ownerKeyFor(id);
+    _signaling.send({
+      't': 'kick',
+      'circleId': id,
+      'userId': targetUserId,
+      'ownerKey': ?key,
+    });
   }
 
   /// 挂起「我有空」,对这几个圈子可见。
@@ -651,7 +931,10 @@ class RoomController extends ChangeNotifier {
     // 接住 completeError:join() 失败时会 completeError,没人接就变成
     // 未捕获异步错误。本方法不 await 它,理由同 retryJoin ——
     // 界面读的是 phase,不是这个要等好几秒才落地的 future。
-    unawaited(join(circleId).catchError((Object _) {}));
+    //
+    // micOn: false —— 这条路是**别人**来找我(presence reach),不是我点的。
+    // 被人拉进房间可以,被人拉进房间还顺手开了我的麦,不行。
+    unawaited(join(circleId, micOn: false).catchError((Object _) {}));
   }
 
   /// UI 提示过之后调用,免得重复弹。
@@ -690,10 +973,12 @@ class RoomController extends ChangeNotifier {
 
   /// 设置圈子敲门模式(§3.3)
   void setKnockMode(String targetCircleId, bool enabled) {
+    final key = _ownerKeyFor(targetCircleId);
     _signaling.send({
       't': 'knock_mode_set',
       'circleId': targetCircleId,
       'enabled': enabled,
+      'ownerKey': ?key,
     });
   }
 
@@ -732,15 +1017,27 @@ class RoomController extends ChangeNotifier {
 
     switch (msg['t']) {
       case 'welcome':
+        _applyCircleInfo(msg['circle']);
         // 断线重连成功:自动恢复到之前所在的房间(README 待办:房间态恢复)
         final wanted = circleId;
         if (wanted != null && phase != RoomPhase.idle) {
-          phase = RoomPhase.joining;
+          // (phase 改成 joining 挪到了下面:开麦规则要先看断线前的 phase)
           // 这是一次**新的**进房尝试:重新计时。不重新挂表的话,恢复房间态
           // 这条路上服务端若不回 room,又是一次无声的永久 joining ——
           // 它绕开了 join(),此前从来没有任何东西兜着它。
           _joinEpoch++;
           _armJoinWatchdog();
+          // 自动恢复的开麦规则(绝不借机开麦):
+          // - 原本在房里:保持断线前的状态(静音的人回来仍是静音);
+          // - 原本在 joining(用户刚点的那次、或掉线恢复还没连上):
+          //   意图早已定好,不动它 —— 恢复路径在掉线那一刻就记下了断线前状态;
+          // - 原本已经失败(error):那次进圈已经结束了,这是自动重试,一律静音。
+          if (phase == RoomPhase.inRoom) {
+            _micOnAfterConnect = !muted;
+          } else if (phase == RoomPhase.error) {
+            _micOnAfterConnect = false;
+          }
+          phase = RoomPhase.joining;
           _signaling.join(wanted);
           _signaling.prefetchToken(wanted); // 重连后重备预热 token
           notifyListeners();
@@ -795,7 +1092,9 @@ class RoomController extends ChangeNotifier {
         final m = Member.fromWire((msg['member'] as Map).cast<String, dynamic>());
         _upsertMember(m.userId, member: m);
         notifyListeners();
-        _wakeMedia(); // 来人了:若媒体挂起则恢复,别错过第一句招呼
+        // 来人了:若媒体挂起则恢复,别错过第一句招呼。
+        // 静音唤醒 —— 别人进来不是你开麦的理由。
+        unawaited(_wakeMedia());
       case 'member_left':
         if (msg['circleId'] != circleId) return;
         _members.removeWhere((m) => m.userId == msg['userId']);
@@ -879,7 +1178,54 @@ class RoomController extends ChangeNotifier {
           names: (msg['names'] as List? ?? []).whereType<String>().toList(),
           knockRequired: msg['knockRequired'] == true,
         );
+        // 新字段(老服务器不发):没有 registered 就不动 circleInfo
+        if (msg.containsKey('registered')) {
+          _applyCircleInfo({
+            'id': id,
+            'registered': msg['registered'],
+            'e2ee': msg['e2ee'],
+          });
+        }
         notifyListeners();
+      case 'circle_settings':
+        _applyCircleInfo(msg['circle']);
+        notifyListeners();
+      case 'owner_ok':
+      case 'owner_error':
+        final result = (
+          op: msg['op'] as String? ?? '',
+          circleId: msg['circleId'] as String? ?? '',
+          error: msg['t'] == 'owner_error'
+              ? (msg['reason'] as String? ?? 'unknown')
+              : null,
+        );
+        ownerResult = result;
+        _settleOwnerWaiters(result.op, result.circleId, result.error);
+        notifyListeners();
+      case 'circle_deleted':
+      case '_circle_deleted':
+        final id = msg['circleId'] as String?;
+        if (id == null || id.isEmpty) return;
+        dissolvedCircleId = id;
+        circleInfo.remove(id);
+        circlePresence.remove(id);
+        if (circleId == id) {
+          // 在房里:真的退出(断媒体),提示由主页读 dissolvedCircleId 弹;
+          // 还在进:按失败收尾,错误文案就是「圈子已被圈主解散」。
+          if (phase == RoomPhase.inRoom) {
+            unawaited(leave());
+          } else if (phase == RoomPhase.joining) {
+            _failJoin(StateError('circle_deleted'));
+          }
+        }
+        notifyListeners();
+      case '_register_failed':
+        if (phase == RoomPhase.joining || phase == RoomPhase.inRoom) {
+          _failJoin(StateError(msg['reason'] as String? ?? 'register_failed'));
+        }
+      case 'circle_rekeyed':
+        // 圈主换了口令:服务器紧接着 4401 关连接,走既有的「请输入口令」流程。
+        break;
       case 'member_available':
         final uid = msg['userId'] as String?;
         if (uid == null) return;
@@ -995,6 +1341,11 @@ class RoomController extends ChangeNotifier {
         }
       case '_disconnected':
         if (phase == RoomPhase.inRoom) {
+          // 自动恢复:记下断线前的麦克风状态,welcome 之后按它还原 ——
+          // 静音的人回来仍是静音,绝不借机开麦。
+          // (不在这里把 muted 改成 true:信令断了,媒体可能还连着、还在发布,
+          // 那时显示「静音」就是在说谎。媒体真正重连时由 _connectRtc 按真实结果落。)
+          _micOnAfterConnect = !muted;
           phase = RoomPhase.joining; // 信令重连后会自动 hello;房间态待恢复
           // 掉出房间也要挂表:若重连始终不成(信令层的重连链可能在
           // 凭据不全时静默断掉 —— connect() 会直接 return 不建连接),
@@ -1128,12 +1479,16 @@ class RoomController extends ChangeNotifier {
       // 密钥必须在 Room 构造之前装好:RoomOptions.encryption 是构造期参数,
       // 进房之后再改一个字都不会生效。
       await prepareEncryption?.call(circleId);
-      final elapsed = await _rtc.join(
+      // 开麦与否在发起这次连接时就定下来(见 [_micOnAfterConnect] 的分类)。
+      // 快照一份:连接途中若有新的 join 改写了字段,那一代自有它的连接。
+      final wantMic = _micOnAfterConnect;
+      final result = await _rtc.join(
           url: url,
           token: token,
-          startMuted: true,
+          startMuted: !wantMic,
           highQuality: highQuality,
           tuning: settings?.audioTuning ?? AudioTuning.standard);
+      final elapsed = result.elapsed;
       // 连上了,但这已经是上一代的事了(用户中途退了房 / 又进了别的圈)。
       // 把连好的媒体拆掉再走 —— 否则会留下一条没人管的音频流,
       // 而用户明明已经离开,却还在被别人听见。
@@ -1148,7 +1503,12 @@ class RoomController extends ChangeNotifier {
       _joinTimer?.cancel();
       _joinTimer = null;
       phase = RoomPhase.inRoom;
-      muted = true;
+      // 以 RTC 层回报的真实状态为准,不以「要求的」状态为准。
+      muted = !result.micOn;
+      // 要开没开成(多半是没给麦克风权限):进房照常成功,但得告诉用户。
+      if (wantMic && !result.micOn) {
+        micNotice = MicNotice.forUnmute(result.micFailure);
+      }
       _joinCompleter?.complete();
       _joinCompleter = null;
       _resetIdleTimer();

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lares_app/src/auth/auth_credential.dart';
+import 'package:lares_app/src/auth/auth_verifier.dart';
 
 /// 独立实现一份 HMAC,不复用被测代码 —— 否则「自己跟自己对」证明不了任何事。
 /// 这份写法直接照抄服务端 server/src/index.js:84 的语义:
@@ -107,7 +108,7 @@ void main() {
       expect(obj.containsKey('circleId'), isFalse);
     });
 
-    test('circle 模式带上 circleId', () {
+    test('circle 模式带上 circleId,且一律发 v2(proof 以 verifier 为钥)', () {
       final obj = AuthProof.build(
         credential: const AuthCredential(
             mode: AuthMode.circle, passcode: 'p', circleId: 'home'),
@@ -116,10 +117,18 @@ void main() {
       );
       expect(obj!['mode'], 'circle');
       expect(obj['circleId'], 'home');
+      expect(obj['v'], 2);
+      final verifier = deriveAuthVerifier(passcode: 'p', circleId: 'home');
       expect(
         obj['proof'],
-        AuthProof.circle(
-            nonce: nonce, userId: 'u1', circleId: 'home', passcode: 'p'),
+        AuthProof.circleV2(
+            nonce: nonce, userId: 'u1', circleId: 'home', verifier: verifier),
+      );
+      // 新客户端不再发 v1:v1 的 proof 以口令本身为钥
+      expect(
+        obj['proof'],
+        isNot(AuthProof.circle(
+            nonce: nonce, userId: 'u1', circleId: 'home', passcode: 'p')),
       );
     });
 

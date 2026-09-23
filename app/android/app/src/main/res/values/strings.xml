@@ -19,4 +19,9 @@
     <string name="widget_presence_default">Nobody here. Go in and wait a bit?</string>
     <string name="widget_action_join">Tap to join →</string>
     <string name="widget_action_open">Tap to make a circle →</string>
+    <!-- 在房时的麦克风按钮:只描述真实状态。与 iOS widget.micOn / widget.micMuted 一致。 -->
+    <string name="widget_mic_on">Mic on</string>
+    <string name="widget_mic_muted">Muted</string>
+    <!-- 点了麦克风按钮但 App 没在运行:如实说,不假装切换了 -->
+    <string name="widget_mic_no_app">Lares Circle isn\'t running. Open it to use the mic</string>
 </resources>

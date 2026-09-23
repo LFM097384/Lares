@@ -96,7 +96,30 @@ class E2EEController extends ChangeNotifier {
   E2EEStatus? statusForActiveCircle(String? circleId) =>
       (circleId != null && circleId == _activeCircleId) ? _activeStatus : null;
 
-  bool isEnabled(String circleId) => _store.isEnabled(circleId);
+  /// 圈主定的圈级规定:circleId -> true/false。没有条目 = 圈子没统一规定(老圈 / env 圈),
+  /// 沿用本机开关。
+  ///
+  /// 为什么圈级规定压过本机开关:E2EE 是全圈同一把钥匙,一半人加密一半人不加密,
+  /// 结果是彼此都听不见。注册圈由圈主拍板,服务器在 welcome / circle_settings 里推下来,
+  /// 必须在 Room 构造之前(也就是 [prepareFor] 之前)就位。
+  final Map<String, bool> _circlePolicy = <String, bool>{};
+
+  /// 服务器推来的圈级规定。null = 撤销规定(回落本机开关)。
+  void setCirclePolicy(String circleId, bool? enabled) {
+    final before = _circlePolicy[circleId];
+    if (enabled == null) {
+      _circlePolicy.remove(circleId);
+    } else {
+      _circlePolicy[circleId] = enabled;
+    }
+    if (before != enabled) notifyListeners();
+  }
+
+  /// 这个圈子的加密是不是圈主统一定的(是 → 本机开关不该让人拨)。
+  bool isCircleManaged(String circleId) => _circlePolicy.containsKey(circleId);
+
+  bool isEnabled(String circleId) =>
+      _circlePolicy[circleId] ?? _store.isEnabled(circleId);
 
   /// 这个圈子有没有可用于派生的口令(鉴权模式为 circle 且填了口令)。
   bool hasPasscode(String circleId) =>
@@ -106,7 +129,7 @@ class E2EEController extends ChangeNotifier {
   /// 供设置页在用户按下开关**之前**如实展示,不承诺平台做不到的事。
   /// 权威结论仍然是进房后的 [activeStatus]。
   E2EEStatus previewStatusFor(String circleId) => resolveE2EEStatus(
-        enabled: _store.isEnabled(circleId),
+        enabled: isEnabled(circleId),
         platformSupported: platformSupported,
         hasPasscode: hasPasscode(circleId),
       );
@@ -133,7 +156,7 @@ class E2EEController extends ChangeNotifier {
     }
 
     E2EEStatus status = resolveE2EEStatus(
-      enabled: _store.isEnabled(id),
+      enabled: isEnabled(id),
       platformSupported: platformSupported,
       hasPasscode: hasPasscode(id),
     );

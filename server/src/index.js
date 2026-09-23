@@ -4,11 +4,14 @@
 
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile, unlink, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
+// 纯 WASM 的 Argon2(无原生编译):node:22-alpine 镜像里没有 crypto.argon2(那是 Node 24.7+ 才有),
+// 而原生 argon2 包在 alpine/musl 上要现编,镜像构建会变脆。
+import { argon2id } from 'hash-wasm';
 
 const PORT = Number(process.env.LARES_PORT ?? 8787);
 const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
@@ -31,6 +34,15 @@ let CIRCLE_PASSCODES = {};
 const ALLOWED_ORIGIN = process.env.LARES_ALLOWED_ORIGIN ?? '';
 // nonce 有效期,默认 60s;可覆盖以便测试快速验证「过期」分支
 const NONCE_TTL_MS = Number(process.env.LARES_AUTH_NONCE_TTL_MS ?? 60_000);
+// ── 圈子注册(客户端自建圈)的防滥用上限 ──
+// 注册是「未登录即可写盘」的入口,必须有闸:按 IP 每小时上限 + 全站总量上限。
+const CIRCLE_CREATE_PER_HOUR = Number(process.env.LARES_CIRCLE_CREATE_PER_HOUR ?? 5);
+const MAX_CIRCLES = Number(process.env.LARES_MAX_CIRCLES ?? 500);
+// 反代信任:auto(默认)= 对端是本机/内网地址时才信 X-Forwarded-For 最右一项;
+// 1 = 总是信;0 = 从不信。部署在 Caddy 后面时对端恒为 Caddy 的内网地址,
+// 不信 XFF 的话所有人共用一个 IP —— 一个人输错十次口令就把全家都封了,
+// 注册限流也会变成「全站每小时 5 个」。
+const TRUST_PROXY = String(process.env.LARES_TRUST_PROXY ?? 'auto').trim().toLowerCase();
 
 // 启动期配置校验:声明了模式却没给密钥 —— 必须「失败关闭」,绝不静默降级成裸奔
 function validateAuthConfig() {
@@ -57,6 +69,9 @@ function validateAuthConfig() {
     fatal('LARES_AUTH_MODE 含 circle,但 LARES_CIRCLE_PASSCODE 与 LARES_CIRCLE_PASSCODES 均为空');
   }
   if (!Number.isFinite(NONCE_TTL_MS) || NONCE_TTL_MS <= 0) fatal('LARES_AUTH_NONCE_TTL_MS 必须是正数毫秒');
+  if (!Number.isInteger(CIRCLE_CREATE_PER_HOUR) || CIRCLE_CREATE_PER_HOUR < 0) fatal('LARES_CIRCLE_CREATE_PER_HOUR 必须是非负整数(0 = 关闭注册)');
+  if (!Number.isInteger(MAX_CIRCLES) || MAX_CIRCLES < 0) fatal('LARES_MAX_CIRCLES 必须是非负整数');
+  if (!['auto', '0', '1', 'true', 'false'].includes(TRUST_PROXY)) fatal('LARES_TRUST_PROXY 只能是 auto / 0 / 1');
 }
 validateAuthConfig();
 
@@ -118,10 +133,37 @@ const RL_MAX_FAILS = 10; // 5 分钟内超过 10 次失败即封禁
 const RL_BLOCK_MS = 5 * 60_000;
 const authFailures = new Map(); // ip -> { count, first, blockedUntil }
 
+function normIp(raw) {
+  const s = String(raw ?? 'unknown').trim();
+  return s.startsWith('::ffff:') ? s.slice(7) : s; // 归一 IPv4-mapped
+}
+
+/// 对端是不是「本机 / 内网」:只有这类对端才可能是我们自己的反代(Caddy 在 docker 内网)。
+function isPrivatePeer(ip) {
+  if (ip === '::1' || ip.startsWith('127.')) return true;
+  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
+  const m = /^172\.(\d+)\./.exec(ip);
+  if (m && Number(m[1]) >= 16 && Number(m[1]) <= 31) return true;
+  const lower = ip.toLowerCase();
+  return lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:');
+}
+
 function clientIp(req) {
-  // 只认 socket 对端地址:X-Forwarded-For 可伪造。反代场景需在入口层收敛可信来源。
-  const raw = req?.socket?.remoteAddress ?? 'unknown';
-  return raw.startsWith('::ffff:') ? raw.slice(7) : raw; // 归一 IPv4-mapped
+  // 默认只认 socket 对端地址:X-Forwarded-For 可被客户端随手伪造。
+  // 但部署在 Caddy 后面时对端恒为 Caddy —— 不看 XFF 的话全站共用一个 IP,
+  // 失败封禁会连坐所有人、注册限流会变成全站共享。
+  // 所以:对端是内网(= 我们自己的反代)时,取 XFF **最右**一项。
+  // 最右一项是反代自己追加的真实对端;左边的都可能是客户端伪造的,一律不看。
+  const peer = normIp(req?.socket?.remoteAddress);
+  const trust = TRUST_PROXY === '1' || TRUST_PROXY === 'true'
+    || (TRUST_PROXY === 'auto' && isPrivatePeer(peer));
+  const xff = req?.headers?.['x-forwarded-for'];
+  if (trust && typeof xff === 'string' && xff) {
+    const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return normIp(last);
+  }
+  return peer;
 }
 
 function isRateLimited(ip) {
@@ -183,7 +225,7 @@ function sweepStaleRecordings() {
 /// token 模式:proof = HMAC_SHA256(LARES_AUTH_TOKEN, `${nonce}:${userId}`)
 /// circle 模式:proof = HMAC_SHA256(passcodeFor(circleId), `${nonce}:${userId}:${circleId}`)
 /// 返回 { ok:true, mode, circleId } 或 { ok:false, reason }
-function verifyAuth(auth, userId, sessionNonce) {
+async function verifyAuth(auth, userId, sessionNonce) {
   if (!auth || typeof auth !== 'object') return { ok: false, reason: 'auth_required' };
   const mode = typeof auth.mode === 'string' ? auth.mode : '';
   // 客户端可回显 nonce 便于自检;一旦回显就必须与本连接下发的那条一致,杜绝跨连接重放
@@ -202,13 +244,75 @@ function verifyAuth(auth, userId, sessionNonce) {
   }
   // circle 模式:证明的是「某个具体圈子」的口令,因此该连接只能进那个圈子
   const circleId = typeof auth.circleId === 'string' && auth.circleId ? auth.circleId : '';
-  if (!circleId) return { ok: false, reason: 'auth_failed' };
+  if (!circleId || circleId.length > 128) return { ok: false, reason: 'auth_failed' };
+  // v1:proof = HMAC(口令, msg)   —— 老客户端(TestFlight build 36)只会这个
+  // v2:proof = HMAC(verifier, msg),verifier = Argon2id(口令, "lares-auth-v2:"+circleId)
+  const v = auth.v === 2 ? 2 : 1;
+  const body = `${sessionNonce}:${userId}:${circleId}`;
+  const proof = auth.proof.toLowerCase();
+  const register = auth.register && typeof auth.register === 'object' ? auth.register : null;
+
+  // 1) env 圈(home/review 等):v1 / v2 都收 —— v2 的 verifier 从明文现算。
+  //    绝不允许用 register 覆盖它。
+  if (isEnvCircle(circleId)) {
+    if (register) return { ok: false, reason: 'circle_exists' };
+    const pass = CIRCLE_PASSCODES[circleId];
+    const key = v === 2 ? await verifierFromPasscode(pass, circleId) : pass;
+    return safeEqualStr(proof, hmacHex(key, body))
+      ? { ok: true, mode: 'circle', circleId, registered: false }
+      : { ok: false, reason: 'auth_failed' };
+  }
+
+  // 2) 注册圈(含墓碑):只收 v2。服务器手里只有 verifier,算不出 v1 证明 ——
+  //    这不是限制而是目标:不持有口令才保住 E2EE。
+  if (Object.prototype.hasOwnProperty.call(circleRegistry, circleId)) {
+    if (register) return { ok: false, reason: 'circle_exists' };
+    const rec = circleRegistry[circleId];
+    if (v !== 2 || !safeEqualStr(proof, hmacHex(rec.verifier, body))) return { ok: false, reason: 'auth_failed' };
+    // 墓碑:证明对得上才告诉你「解散了」,对不上照常说口令不对 —— 不向外人确认这个圈存在过
+    if (rec.deletedAt) return { ok: false, reason: 'circle_deleted' };
+    return { ok: true, mode: 'circle', circleId, registered: true };
+  }
+
+  // 3) 登记新圈:只有显式带 register 才会创建 —— 永不「撞上一个没见过的 id 就顺手建了」。
+  if (register) {
+    const verifier = typeof register.verifier === 'string' ? register.verifier.toLowerCase() : '';
+    // 圈主钥匙由**客户端**生成并先落进本机安全存储,这里只收它的 sha256。
+    // 为什么不再由服务器生成:服务器生成就得靠 welcome 把明文送回去,welcome 一丢
+    // (或落盘失败)圈子就永远没有圈主;客户端先存后报,重试时钥匙已在手。
+    const ownerHash = typeof register.ownerHash === 'string' ? register.ownerHash.toLowerCase() : '';
+    if (v !== 2 || !CIRCLE_ID_RE.test(circleId) || !HEX64_RE.test(verifier) || !HEX64_RE.test(ownerHash)) {
+      return { ok: false, reason: 'register_invalid' };
+    }
+    // 证明必须由它自己声明的 verifier 算出:挡掉瞎填/截断的请求,也保证客户端算法一致
+    if (!safeEqualStr(proof, hmacHex(verifier, body))) return { ok: false, reason: 'auth_failed' };
+    return { ok: true, mode: 'circle', circleId, registered: true, pendingRegister: { verifier, ownerHash } };
+  }
+
+  // 4) 老行为:全站兜底口令(仅开发/自建场景会配),只认 v1/v2 明文派生
   const pass = passcodeFor(circleId);
   if (!pass) return { ok: false, reason: 'auth_failed' };
-  const expect = hmacHex(pass, `${sessionNonce}:${userId}:${circleId}`);
-  return safeEqualStr(auth.proof.toLowerCase(), expect)
-    ? { ok: true, mode: 'circle', circleId }
+  // 全站兜底口令对任意 circleId 都成立,每个新 id 都要现算一次 Argon2 ——
+  // 只在自建/开发场景会配;失败照常计入 recordAuthFailure,10 次即封 IP。
+  const key = v === 2 ? await verifierFromPasscode(pass, circleId) : pass;
+  return safeEqualStr(proof, hmacHex(key, body))
+    ? { ok: true, mode: 'circle', circleId, registered: false }
     : { ok: false, reason: 'auth_failed' };
+}
+
+/// 鉴权失败的 close code。客户端靠它区分「该弹口令框」与「别再连了」。
+function closeCodeFor(reason) {
+  switch (reason) {
+    case 'circle_exists': return 4409;
+    case 'circle_deleted': return 4410;
+    case 'create_rate_limited':
+    case 'circle_cap_reached':
+    case 'register_disabled':
+    case 'register_failed':
+      return 4403;
+    case 'register_invalid': return 4400;
+    default: return 4401;
+  }
 }
 
 /// 连接是否有权操作该圈子。circle 模式钉死在证明过的那个圈子;token 模式不限。
@@ -250,6 +354,224 @@ function saveSettings() {
   mkdir(DATA_DIR, { recursive: true })
     .then(() => writeFile(SETTINGS_FILE, JSON.stringify(circleSettings)))
     .catch((e) => console.error('[settings] 保存失败:', e));
+}
+
+// ── 圈子注册表(客户端自建圈)─────────────────────────────────────────────
+//
+// 为什么要有它:env 里的 LARES_CIRCLE_PASSCODES 只能由运维改,客户端「新建圈子」
+// 生成的 id 服务器一概不认,于是新圈必然 4401。注册表让圈子由第一个人自助登记。
+//
+// 为什么只存 verifier 不存口令:E2EE 密钥 = Argon2id(口令, circleId)。
+// 服务器手里有明文口令,就等于手里有全圈的媒体密钥 —— 端到端加密形同虚设。
+// verifier = Argon2id(口令, "lares-auth-v2:"+circleId) 足以验证 v2 证明,却推不出口令。
+// 离线字典攻击仍然可能,但每猜一次要付一次 64 MiB 的 Argon2;
+// 所以口令最少 8 位,默认给 4 个 BIP39 词(≈44 位)。
+//
+// 为什么圈主钥匙只存 sha256:钥匙是 32 字节随机数,sha256 就够了(没有字典可打),
+// 磁盘泄露也拿不到可用的钥匙。
+//
+// 结构:{ [circleId]: { verifier, ownerHash, createdAt } }
+//      解散后留墓碑 { verifier, deletedAt }:让离线的圈友下次连上时能听到「圈子已解散」
+//      而不是一句莫名其妙的「口令不对」;也防止同一个 id 被别人抢注。
+const CIRCLES_FILE = path.join(DATA_DIR, 'circles.json');
+let circleRegistry = {};
+const CIRCLE_ID_RE = /^c_[a-z0-9]{16,64}$/; // 新客户端:c_ + 128 位随机(base32 小写 26 位)
+const HEX64_RE = /^[0-9a-f]{64}$/;
+
+// 启动即开始读盘;hello / /health 都先等它 —— 否则重启后的头几个连接
+// 会在注册表还没读进来时被当成「没见过的圈子」拒掉(或被允许重复注册)。
+let registryReady = null;
+function ensureRegistryLoaded() {
+  registryReady ??= loadRegistry();
+  return registryReady;
+}
+
+async function loadRegistry() {
+  try {
+    const parsed = JSON.parse(await readFile(CIRCLES_FILE, 'utf8'));
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) circleRegistry = parsed;
+  } catch (e) {
+    // 文件不存在 = 首次运行;存在却解析失败 = 盘坏了 —— 后者必须大声说,
+    // 否则下一次写盘会用空表把所有圈子覆盖掉
+    if (e?.code !== 'ENOENT') {
+      console.error('[circles] circles.json 读取失败,拒绝启动以免覆盖:', e);
+      process.exit(1);
+    }
+  }
+}
+
+// 串行化写盘:两次注册前后脚到达时,后一次的 rename 不能把前一次的内容盖回去。
+let registryWriteChain = Promise.resolve();
+function saveRegistry() {
+  const snapshot = JSON.stringify(circleRegistry);
+  const job = registryWriteChain.then(async () => {
+    await mkdir(DATA_DIR, { recursive: true });
+    // 原子写:先写临时文件再 rename。直接 writeFile 在写到一半时崩溃/断电,
+    // 留下的是半截 JSON —— 下次启动整张注册表读不出来,所有自建圈一起消失。
+    const tmp = `${CIRCLES_FILE}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+    await writeFile(tmp, snapshot, { mode: 0o600 });
+    await rename(tmp, CIRCLES_FILE);
+  });
+  registryWriteChain = job.catch(() => {}); // 一次失败不拖垮后面的写
+  return job;
+}
+
+function isEnvCircle(circleId) {
+  const specific = CIRCLE_PASSCODES[circleId];
+  return typeof specific === 'string' && specific.length > 0;
+}
+
+/// 活着的注册圈(墓碑不算)
+function registeredCircle(circleId) {
+  const rec = Object.prototype.hasOwnProperty.call(circleRegistry, circleId) ? circleRegistry[circleId] : null;
+  return rec && !rec.deletedAt ? rec : null;
+}
+
+function liveCircleCount() {
+  let n = 0;
+  for (const rec of Object.values(circleRegistry)) if (!rec.deletedAt) n++;
+  return n;
+}
+
+function sha256Hex(s) {
+  return crypto.createHash('sha256').update(s, 'utf8').digest('hex');
+}
+
+/// 圈主钥匙校验:只对注册圈成立;env 圈没有圈主。
+function ownerKeyOk(circleId, ownerKey) {
+  const rec = registeredCircle(circleId);
+  if (!rec || typeof ownerKey !== 'string' || !ownerKey || ownerKey.length > 256) return false;
+  return safeEqualStr(sha256Hex(ownerKey), rec.ownerHash);
+}
+
+/// v2 的 verifier = hex(Argon2id(口令, salt = UTF-8("lares-auth-v2:"+circleId)))。
+///
+/// 为什么是 Argon2 而不是一次 HMAC:注册圈的服务器只存 verifier。verifier 若算得飞快,
+/// 拿到 circles.json 的人(运维、备份、磁盘泄露)可以每秒上亿次离线猜口令,
+/// 猜中口令就等于拿到 E2EE 密钥 —— 「服务器不持有口令」只剩一句空话。
+/// 用和 E2EE 相同的代价(64 MiB / t=3 / p=1),每猜一次都得付一次 Argon2。
+///
+/// 盐前缀 `lares-auth-v2:` 刻意**不同于** E2EE 的盐(sha256("lares-e2ee-v2:"+id) 的前 16 字节):
+/// 两者若相同,verifier 本身就是 E2EE 密钥,把它交给服务器比存明文口令还糟。
+/// 参数与 app/lib/src/e2ee/e2ee_key.dart 的 kArgon2* 一致,改一个数所有注册圈都要重新登记。
+const AUTH_VERIFIER_SALT_PREFIX = 'lares-auth-v2:';
+const ARGON2_PARAMS = { parallelism: 1, iterations: 3, memorySize: 64 * 1024, hashLength: 32 };
+
+async function argon2Verifier(passcode, circleId) {
+  return argon2id({
+    password: passcode, // 字符串 -> UTF-8,与 Dart 端 utf8.encode 对齐
+    salt: `${AUTH_VERIFIER_SALT_PREFIX}${circleId}`,
+    ...ARGON2_PARAMS,
+    outputType: 'hex',
+  });
+}
+
+// 服务器只在「手里有明文口令」的圈子上才需要现算 verifier:env 圈(home/review)与全站兜底口令。
+// 每次握手算一次 = 每次 ~200ms + 64 MiB,所以缓存;env 圈启动时就预热好。
+// 计算串行化:并发的 Argon2 每个都要 64 MiB,几十个同时来就是几个 G。
+const verifierCache = new Map(); // `${circleId}\0${passcode}` -> hex
+const VERIFIER_CACHE_MAX = 1000;
+let verifierChain = Promise.resolve();
+function verifierFromPasscode(passcode, circleId) {
+  const k = `${circleId}\0${passcode}`;
+  const hit = verifierCache.get(k);
+  if (hit) return Promise.resolve(hit);
+  const job = verifierChain.then(async () => {
+    const again = verifierCache.get(k);
+    if (again) return again;
+    const v = await argon2Verifier(passcode, circleId);
+    if (verifierCache.size >= VERIFIER_CACHE_MAX) verifierCache.delete(verifierCache.keys().next().value);
+    verifierCache.set(k, v);
+    return v;
+  });
+  verifierChain = job.catch(() => {});
+  return job;
+}
+// 启动即预热 env 圈:第一个用新客户端连 home 的人不该多等那 200ms
+const envVerifiersReady = Promise.all(
+  Object.entries(CIRCLE_PASSCODES).map(([id, pass]) => verifierFromPasscode(pass, id)),
+).catch((e) => { console.error('[auth] env 圈 verifier 预热失败:', e); });
+
+// 注册限流:ip -> [成功注册的时间戳]。只数成功的 —— 失败的证明已经由
+// recordAuthFailure 计入暴力破解封禁,不重复惩罚。
+const CREATE_WINDOW_MS = 60 * 60_000;
+const createLog = new Map();
+
+function createAllowed(ip) {
+  const now = Date.now();
+  const list = (createLog.get(ip) ?? []).filter((t) => now - t < CREATE_WINDOW_MS);
+  if (list.length) createLog.set(ip, list); else createLog.delete(ip);
+  return list.length < CIRCLE_CREATE_PER_HOUR;
+}
+
+function recordCreate(ip) {
+  while (createLog.size >= MAP_CAP && !createLog.has(ip)) createLog.delete(createLog.keys().next().value);
+  const list = createLog.get(ip) ?? [];
+  list.push(Date.now());
+  createLog.set(ip, list);
+}
+
+function sweepCreateLog() {
+  const now = Date.now();
+  for (const [ip, list] of createLog) {
+    if (!list.some((t) => now - t < CREATE_WINDOW_MS)) createLog.delete(ip);
+  }
+}
+
+/// 该圈子的圈级设置(推给客户端的那份)。注册圈与 env 圈一视同仁地带出来,
+/// 客户端据 registered 决定要不要露圈主控件。
+function circleInfo(circleId) {
+  const s = circleSettings[circleId] ?? {};
+  return {
+    id: circleId,
+    registered: Boolean(registeredCircle(circleId)),
+    knockRequired: s.knockRequired === true,
+    // e2ee:null = 圈子没有统一规定(老圈 / env 圈),客户端沿用本机开关;
+    // true/false = 圈主定死了,所有人照此进房。
+    e2ee: typeof s.e2ee === 'boolean' ? s.e2ee : null,
+  };
+}
+
+/// 把连接到某圈子的所有会话找出来(被钉在这个圈上的,或此刻在这个圈房间里的)。
+function sessionsOfCircle(circleId) {
+  const out = [];
+  for (const ws of wss.clients) {
+    const s = ws._laresSession;
+    if (!s) continue;
+    if ((s.authMode === 'circle' && s.authCircleId === circleId) || s.circleId === circleId) out.push(ws);
+  }
+  return out;
+}
+
+// ── 媒体侧驱逐(尽力而为)──
+// 信令里的 kick 只是「请对方自己退」:对方手里的 LiveKit token 有效期 2 小时,
+// 一个不听话(或被改过)的客户端可以继续待在媒体房里听。换口令/解散是真驱逐,
+// 必须同时在 LiveKit 那边把人移出去。失败只记日志:信令侧的驱逐照样生效,
+// 且 E2EE 圈换口令后旧密钥解不开新媒体。
+const LIVEKIT_API_URL = process.env.LIVEKIT_API_URL || LIVEKIT_URL;
+let roomService = null;
+function roomSvc() {
+  if (!RTC_CONFIGURED) return null;
+  roomService ??= new RoomServiceClient(LIVEKIT_API_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
+  return roomService;
+}
+
+// 调用方一律不 await(fire-and-forget),信令侧的驱逐先完成;
+// 所以这里**任何**异常都必须就地吞掉 —— 包括构造客户端时的同步异常,
+// 否则就是一个未处理的 rejection,Node 默认会让整个进程退出。
+async function evictMedia(circleId, { keep = null, only = null } = {}) {
+  try {
+    const svc = roomSvc();
+    if (!svc) return;
+    const parts = await svc.listParticipants(circleId);
+    for (const p of parts) {
+      if (keep && p.identity === keep) continue;
+      if (only && p.identity !== only) continue;
+      await svc.removeParticipant(circleId, p.identity).catch(() => {});
+    }
+  } catch (e) {
+    console.error('[livekit] 媒体侧驱逐失败(信令侧已生效):', e?.message ?? e);
+  }
 }
 
 const VALID_STATUS = new Set(['free', 'busy', 'ears', 'away']);
@@ -381,7 +703,27 @@ function circleSummaryMsg(circleId) {
     count: members.length,
     names: members.map((m) => m.name),
     knockRequired: circleSettings[circleId]?.knockRequired === true,
+    // 新增字段,老客户端忽略
+    registered: Boolean(registeredCircle(circleId)),
+    e2ee: typeof circleSettings[circleId]?.e2ee === 'boolean' ? circleSettings[circleId].e2ee : null,
   };
+}
+
+/// 圈级设置变了:推给所有有权看这个圈的连接(不论在不在房里)。
+/// 为什么不只靠 circle_summary:摘要只对「有人在」的圈子下发,空圈改设置时没人收得到。
+function broadcastCircleSettings(circleId) {
+  const data = JSON.stringify({ t: 'circle_settings', circle: circleInfo(circleId) });
+  for (const ws of lobby) {
+    if (ws._laresSession && !circleAllowed(ws._laresSession, circleId)) continue;
+    if (ws.readyState === ws.OPEN) ws.send(data);
+  }
+}
+
+/// 该连接对这个圈有没有圈主权:握手时带过正确的钥匙,或本条消息带了。
+function isOwnerFor(session, circleId, ownerKey) {
+  if (!registeredCircle(circleId)) return false;
+  if (session.isOwner && session.authCircleId === circleId) return true;
+  return ownerKeyOk(circleId, ownerKey);
 }
 
 function broadcastLobbySummary(circleId) {
@@ -446,25 +788,73 @@ function handleConnection(ws, req) {
             send(ws, { t: 'error', message: 'rate_limited' });
             return ws.close(4429, 'rate_limited');
           }
-          const r = verifyAuth(msg.auth, msg.userId, session.nonce);
-          if (!r.ok) {
-            recordAuthFailure(ip);
+          await ensureRegistryLoaded();
+          const r = await verifyAuth(msg.auth, msg.userId, session.nonce);
+          if (r.ok && r.pendingRegister) {
+            // 登记新圈:证明已验过,再过两道闸 —— 按 IP 限流 + 全站总量。
+            let reason = null;
+            if (CIRCLE_CREATE_PER_HOUR === 0) reason = 'register_disabled';
+            else if (liveCircleCount() >= MAX_CIRCLES) reason = 'circle_cap_reached';
+            else if (!createAllowed(ip)) reason = 'create_rate_limited';
+            if (reason) {
+              send(ws, { t: 'error', message: reason });
+              return ws.close(closeCodeFor(reason), reason);
+            }
+            // 同一个 id 两条注册前后脚到达:await 之前再查一次,先到先得,绝不覆盖
+            if (Object.prototype.hasOwnProperty.call(circleRegistry, r.circleId) || isEnvCircle(r.circleId)) {
+              send(ws, { t: 'error', message: 'circle_exists' });
+              return ws.close(4409, 'circle_exists');
+            }
+            circleRegistry[r.circleId] = {
+              verifier: r.pendingRegister.verifier,
+              ownerHash: r.pendingRegister.ownerHash,
+              createdAt: Date.now(),
+            };
+            try {
+              await saveRegistry();
+            } catch (e) {
+              // 落不了盘就当没建:否则重启后这个圈凭空消失,而圈主以为建好了
+              delete circleRegistry[r.circleId];
+              console.error('[circles] 注册写盘失败:', e);
+              send(ws, { t: 'error', message: 'register_failed' });
+              return ws.close(4403, 'register_failed');
+            }
+            recordCreate(ip);
+            // 服务器从头到尾没见过钥匙明文;登记者就是圈主(register 里带着 ownerHash)
+            session.createdCircle = true;
+          } else if (!r.ok) {
+            // 只有「证明不对」才计入暴力破解:circle_exists / 限流 / 解散 不是在猜口令
+            if (r.reason === 'auth_failed' || r.reason === 'auth_required') recordAuthFailure(ip);
             send(ws, { t: 'error', message: r.reason });
-            return ws.close(4401, r.reason);
+            return ws.close(closeCodeFor(r.reason), r.reason);
           }
           session.authed = true;
           session.authMode = r.mode;
           session.authCircleId = r.circleId;
+          session.circleRegistered = Boolean(r.registered);
+          // 可选:带上圈主钥匙,回显 isOwner。钥匙不对不算鉴权失败 —— 只是「不是圈主」。
+          session.isOwner = Boolean(session.createdCircle)
+            || (r.registered && ownerKeyOk(r.circleId, msg.auth?.ownerKey));
           clearAuthFailures(ip); // 认证成功即销账,避免家人共用出口 IP 被连坐
         }
         session.userId = msg.userId;
         session.deviceId = typeof msg.deviceId === 'string' && msg.deviceId ? msg.deviceId : crypto.randomUUID();
         session.name = typeof msg.name === 'string' && msg.name ? msg.name.slice(0, 24) : '圈友';
         session.platform = typeof msg.platform === 'string' ? msg.platform : 'unknown';
-        send(ws, {
+        // circle 字段是新增的嵌套对象:老客户端(build 36)不认识,原样忽略。
+        const welcome = {
           t: 'welcome', userId: session.userId, deviceId: session.deviceId,
           rtcConfigured: RTC_CONFIGURED, authMode: session.authMode,
-        });
+        };
+        if (session.authMode === 'circle' && session.authCircleId) {
+          welcome.circle = { ...circleInfo(session.authCircleId), isOwner: Boolean(session.isOwner) };
+          // created 只是回执,不再下发 ownerKey(钥匙本来就是客户端自己生成的)
+          if (session.createdCircle) {
+            welcome.circle.created = true;
+            delete session.createdCircle;
+          }
+        }
+        send(ws, welcome);
         // 加入大厅并立即下发所有非空圈子的在线摘要
         lobby.add(ws);
         // 同样按授权范围过滤:circle 模式只推它自己那个圈子的摘要
@@ -643,6 +1033,10 @@ function handleConnection(ws, req) {
         const actor = circle?.get(session.userId);
         // 授权:发起者必须是圈内成员;不能踢自己
         if (!actor || !actor.devices.has(session.deviceId) || !targetId || targetId === session.userId) return;
+        // 注册圈:只有圈主能踢。env 圈(home/review)没有圈主,维持「圈内谁都能踢」。
+        if (registeredCircle(circleId) && !isOwnerFor(session, circleId, msg.ownerKey)) {
+          return send(ws, { t: 'owner_error', op: 'kick', circleId, reason: 'not_owner' });
+        }
         const target = circle.get(targetId);
         if (!target) return;
         // 先通知目标端,再移出房间
@@ -653,6 +1047,11 @@ function handleConnection(ws, req) {
         broadcast(circleId, { t: 'member_left', circleId, userId: targetId });
         if (circle.size === 0) circles.delete(circleId);
         broadcastLobbySummary(circleId);
+        if (registeredCircle(circleId)) {
+          // 圈主踢人时媒体侧也清掉,不靠对方客户端自觉退房
+          evictMedia(circleId, { only: targetId });
+          send(ws, { t: 'owner_ok', op: 'kick', circleId });
+        }
         break;
       }
 
@@ -744,16 +1143,108 @@ function handleConnection(ws, req) {
         // 修补越权:原实现下「空圈」任何人都能改,且连 hello 都不必说 ——
         // 公网上这等于让陌生人给任意圈子挂上/摘掉敲门锁。至少要求已握手 + 在授权范围内。
         if (!session.userId) return send(ws, { t: 'error', message: 'say_hello_first' });
-        if (!circleAllowed(session, msg.circleId)) return send(ws, { t: 'error', message: 'auth_scope' });
-        // 授权:圈内成员可改;空圈已鉴权者可预设(创建者场景)
-        const circle = getCircle(msg.circleId);
-        if (circle.size > 0) {
-          const setter = circle.get(session.userId);
-          if (!setter || !setter.devices.has(session.deviceId)) return;
+        // 注册圈的圈主钥匙本身就是凭据:允许从钉在别的圈上的连接改(圈子菜单里操作任意圈)
+        const ownerByKey = registeredCircle(msg.circleId) && ownerKeyOk(msg.circleId, msg.ownerKey);
+        if (!ownerByKey && !circleAllowed(session, msg.circleId)) return send(ws, { t: 'error', message: 'auth_scope' });
+        if (registeredCircle(msg.circleId)) {
+          // 注册圈:只有圈主能改,且不要求人在房里(圈主在圈子菜单里就能设)
+          if (!isOwnerFor(session, msg.circleId, msg.ownerKey)) {
+            return send(ws, { t: 'owner_error', op: 'knock_mode_set', circleId: msg.circleId, reason: 'not_owner' });
+          }
+        } else {
+          // env 圈:圈内成员可改;空圈已鉴权者可预设(创建者场景)
+          const circle = getCircle(msg.circleId);
+          if (circle.size > 0) {
+            const setter = circle.get(session.userId);
+            if (!setter || !setter.devices.has(session.deviceId)) return;
+          }
         }
-        circleSettings[msg.circleId] = { knockRequired: msg.enabled };
+        // 合并而不是整个替换:同一条记录里还住着 e2ee
+        circleSettings[msg.circleId] = { ...(circleSettings[msg.circleId] ?? {}), knockRequired: msg.enabled };
         saveSettings();
         broadcastLobbySummary(msg.circleId);
+        broadcastCircleSettings(msg.circleId);
+        if (registeredCircle(msg.circleId)) send(ws, { t: 'owner_ok', op: 'knock_mode_set', circleId: msg.circleId });
+        break;
+      }
+
+      // ── 圈主操作(仅注册圈)──────────────────────────────────────────
+      // 共同纪律:消息里带 ownerKey,服务器 sha256 后定长比较;不认 userId ——
+      // userId 是客户端自报的,谁都能冒充。
+      case 'circle_passcode_set': {
+        const circleId = typeof msg.circleId === 'string' ? msg.circleId : '';
+        const verifier = typeof msg.verifier === 'string' ? msg.verifier.toLowerCase() : '';
+        const fail = (reason) => send(ws, { t: 'owner_error', op: 'circle_passcode_set', circleId, reason });
+        if (!session.userId) return fail('say_hello_first');
+        if (!registeredCircle(circleId)) return fail('not_registered');
+        if (!ownerKeyOk(circleId, msg.ownerKey)) return fail('not_owner');
+        if (!HEX64_RE.test(verifier)) return fail('bad_verifier');
+        const rec = circleRegistry[circleId];
+        const prev = rec.verifier;
+        rec.verifier = verifier;
+        rec.rekeyedAt = Date.now();
+        try {
+          await saveRegistry();
+        } catch (e) {
+          rec.verifier = prev; // 没落盘就不算换成:否则重启后旧口令复活
+          console.error('[circles] 换口令写盘失败:', e);
+          return fail('save_failed');
+        }
+        send(ws, { t: 'owner_ok', op: 'circle_passcode_set', circleId });
+        // 这才是真正的「请人离开」:userId 是自报的,踢人挡不住换个 id 再进;
+        // 换口令后,没拿到新口令的人重连必然 4401,走既有的「请输入口令」流程。
+        // 圈主自己的其他设备也会被断开 —— 它们手里也是旧口令,理应重输。
+        for (const other of sessionsOfCircle(circleId)) {
+          if (other === ws) continue;
+          send(other, { t: 'circle_rekeyed', circleId });
+          other.close(4401, 'circle_rekeyed');
+        }
+        // 媒体侧同步清人:只留圈主自己
+        evictMedia(circleId, { keep: session.userId });
+        break;
+      }
+
+      case 'circle_e2ee_set': {
+        const circleId = typeof msg.circleId === 'string' ? msg.circleId : '';
+        const fail = (reason) => send(ws, { t: 'owner_error', op: 'circle_e2ee_set', circleId, reason });
+        if (!session.userId) return fail('say_hello_first');
+        if (typeof msg.enabled !== 'boolean') return fail('bad_request');
+        if (!registeredCircle(circleId)) return fail('not_registered');
+        if (!ownerKeyOk(circleId, msg.ownerKey)) return fail('not_owner');
+        circleSettings[circleId] = { ...(circleSettings[circleId] ?? {}), e2ee: msg.enabled };
+        saveSettings();
+        send(ws, { t: 'owner_ok', op: 'circle_e2ee_set', circleId });
+        broadcastLobbySummary(circleId);
+        broadcastCircleSettings(circleId);
+        break;
+      }
+
+      case 'circle_delete': {
+        const circleId = typeof msg.circleId === 'string' ? msg.circleId : '';
+        const fail = (reason) => send(ws, { t: 'owner_error', op: 'circle_delete', circleId, reason });
+        if (!session.userId) return fail('say_hello_first');
+        if (!registeredCircle(circleId)) return fail('not_registered');
+        if (!ownerKeyOk(circleId, msg.ownerKey)) return fail('not_owner');
+        const prev = circleRegistry[circleId];
+        // 留墓碑(只剩 verifier + 时间):记录本身的钥匙哈希删掉,圈主权随之作废
+        circleRegistry[circleId] = { verifier: prev.verifier, deletedAt: Date.now() };
+        try {
+          await saveRegistry();
+        } catch (e) {
+          circleRegistry[circleId] = prev;
+          console.error('[circles] 解散写盘失败:', e);
+          return fail('save_failed');
+        }
+        delete circleSettings[circleId];
+        saveSettings();
+        pendingKnocks.delete(circleId);
+        send(ws, { t: 'owner_ok', op: 'circle_delete', circleId });
+        for (const other of sessionsOfCircle(circleId)) {
+          send(other, { t: 'circle_deleted', circleId });
+          // 包括圈主自己这条:它被钉在一个已不存在的圈上,留着也没法用
+          other.close(4410, 'circle_deleted');
+        }
+        evictMedia(circleId);
         break;
       }
 
@@ -964,6 +1455,10 @@ function httpAuthOk(req, circleId) {
   // 逐个模式比对,命中任一即可(组合模式下 token 与口令都收)
   if (AUTH_MODES.has('token') && AUTH_TOKEN && safeEqualStr(presented, AUTH_TOKEN)) return true;
   if (AUTH_MODES.has('circle')) {
+    // 注册圈:服务器没有明文口令,只认 verifier 作 Bearer(与口令一样是静态凭据)
+    const rec = registeredCircle(circleId);
+    if (rec) return safeEqualStr(presented.toLowerCase(), rec.verifier);
+    if (Object.prototype.hasOwnProperty.call(circleRegistry, circleId)) return false; // 墓碑
     const pass = passcodeFor(circleId);
     if (pass && safeEqualStr(presented, pass)) return true;
   }
@@ -1002,6 +1497,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return json(204, {});
 
   if (url.pathname === '/health') {
+    await ensureRegistryLoaded();
+    await envVerifiersReady; // 健康 = 真能验 v2 了(部署探针与测试都靠它)
     // 开鉴权后不再吐各圈人数:那是给扫描器用的侦察面(谁在、哪个圈活跃)
     if (AUTH_REQUIRED) return json(200, { ok: true, rtcConfigured: RTC_CONFIGURED, authRequired: true });
     const summary = {};
@@ -1080,6 +1577,7 @@ const heartbeat = setInterval(() => {
   }
   sweepNonces();
   sweepRateLimits();
+  sweepCreateLog();
   sweepStaleRecordings();
 }, 30_000);
 wss.on('connection', (ws) => {
@@ -1090,6 +1588,7 @@ wss.on('close', () => clearInterval(heartbeat));
 
 server.listen(PORT, async () => {
   await loadSettings();
+  await ensureRegistryLoaded();
   console.log(`[lares] 信令服务已启动  ws://0.0.0.0:${PORT}`);
   console.log(`[lares] RTC: ${RTC_CONFIGURED ? `LiveKit 已配置 (${LIVEKIT_URL})` : '未配置(仅 presence,设置 LIVEKIT_URL/API_KEY/API_SECRET 启用)'}`);
   if (AUTH_REQUIRED) {

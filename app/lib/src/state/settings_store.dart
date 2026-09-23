@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_credential.dart';
+import '../auth/auth_verifier.dart';
 import '../config.dart';
 import '../net/secret_migration.dart';
 import '../net/secret_vault.dart';
@@ -43,6 +44,7 @@ class SettingsStore extends ChangeNotifier {
   SettingsStore._();
 
   static const _kWifiOnlyHq = 'lares.wifiOnlyHq';
+  static const _kJoinWithMicOn = 'lares.joinWithMicOn';
   static const _kDndStart = 'lares.dndStart'; // -1 = 未设置
   static const _kDndEnd = 'lares.dndEnd';
   static const _kSignalingOverride = 'lares.signalingOverride';
@@ -52,6 +54,13 @@ class SettingsStore extends ChangeNotifier {
 
   /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
   bool wifiOnlyHq = true;
+
+  /// 进圈时打开麦克风(默认开:常驻语音圈子,进来就是为了说话)。
+  ///
+  /// 只管**用户主动**进圈的那一下(点圈子、邀请链接、小组件/快捷方式、托盘)。
+  /// 掉线恢复、闲时唤醒、挂机自动进圈、被别人 reach 拉进来都不看它 ——
+  /// 见 RoomController 的 `_micOnAfterConnect`。
+  bool joinWithMicOn = true;
 
   /// 免打扰时段(小时 0-23,-1 表示不启用);跨零点时段支持
   int dndStartHour = -1;
@@ -116,6 +125,7 @@ class SettingsStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final s = SettingsStore._();
     s.wifiOnlyHq = prefs.getBool(_kWifiOnlyHq) ?? true;
+    s.joinWithMicOn = prefs.getBool(_kJoinWithMicOn) ?? true;
     s.dndStartHour = prefs.getInt(_kDndStart) ?? -1;
     s.dndEndHour = prefs.getInt(_kDndEnd) ?? -1;
     s.signalingOverride = prefs.getString(_kSignalingOverride);
@@ -221,6 +231,11 @@ class SettingsStore extends ChangeNotifier {
     // 2) 把 vault 里的值填回内存对象,供 UI 与鉴权使用。
     //    走到这里时 decode 已经为「配过口令的圈子」占位成空串。
     if (s.vaultAvailable) await s._hydrateFromVault();
+
+    // 3) 注册圈的待登记标记与圈主钥匙;verifier 缓存接上真 vault。
+    s.verifiers =
+        AuthVerifierCache(vault: s._vault, deriver: deriveAuthVerifierAsync);
+    await s._loadCircleOwnership(prefs);
 
     return s;
   }
@@ -450,6 +465,92 @@ class SettingsStore extends ChangeNotifier {
   String passcodeFor(String circleId) =>
       serverProfiles.active?.circlePasscodes[circleId] ?? '';
 
+  // ── 注册圈:待登记标记 + 圈主钥匙 ─────────────────────────────────
+  //
+  // 「待登记」不是秘密,存 prefs;圈主钥匙是秘密,只进 vault。
+  // prefs 里另记一份「本机是哪些圈的圈主」的 id 清单,启动时据此去 vault 取钥匙 ——
+  // vault 没有「列出所有键」的能力,不记清单就不知道该取哪些。
+  //
+  // 按 circleId 而不是 (服务器, circleId) 记:注册圈的 id 是 128 bit 随机数,
+  // 不同服务器撞上的概率可以忽略;env 圈(home/review)永远不会被标待登记。
+  static const _kPendingRegister = 'lares.pendingRegister';
+  static const _kOwnedCircles = 'lares.ownedCircles';
+
+  final Set<String> _pendingRegister = <String>{};
+  final Map<String, String> _ownerKeys = <String, String>{};
+
+  /// v2 鉴权的 verifier 缓存(isolate 派生 + vault 持久)。load() 之后才指向真 vault。
+  AuthVerifierCache verifiers =
+      AuthVerifierCache(deriver: deriveAuthVerifierAsync);
+
+  bool isPendingRegistration(String circleId) =>
+      _pendingRegister.contains(circleId);
+
+  /// 本机持有的圈主钥匙(没有则 null)。
+  String? ownerKeyFor(String circleId) => _ownerKeys[circleId];
+
+  bool isOwnerOf(String circleId) => _ownerKeys.containsKey(circleId);
+
+  /// 新建圈子:口令已由 [setCirclePasscode] 存好,这里只挂「下次握手带 register」。
+  Future<void> markPendingRegistration(String circleId) async {
+    if (!_pendingRegister.add(circleId)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kPendingRegister, _pendingRegister.toList());
+    notifyListeners();
+  }
+
+  Future<void> clearPendingRegistration(String circleId) async {
+    if (!_pendingRegister.remove(circleId)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kPendingRegister, _pendingRegister.toList());
+    notifyListeners();
+  }
+
+  /// 存圈主钥匙。**先写 vault、读回确认,再记清单** —— 顺序反了,
+  /// 写失败时清单里就有一个取不到钥匙的圈,界面会以为自己是圈主。
+  /// 写失败会抛出,调用方(信令层)据此**不**清待登记标记。
+  Future<void> saveOwnerKey(String circleId, String ownerKey) async {
+    _ownerKeys[circleId] = ownerKey; // 内存先生效:本次运行里马上能用
+    await _vault.write(vaultKeyForOwnerKey(circleId), ownerKey);
+    final back = await _vault.read(vaultKeyForOwnerKey(circleId));
+    if (back != ownerKey) {
+      throw StateError('owner key readback mismatch');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kOwnedCircles, _ownerKeys.keys.toList());
+    notifyListeners();
+  }
+
+  /// 圈子从本机拿掉(或被解散)时:清钥匙、清标记、清 verifier 缓存。
+  Future<void> forgetCircleSecrets(String circleId) async {
+    final hadKey = _ownerKeys.remove(circleId) != null;
+    final hadPending = _pendingRegister.remove(circleId);
+    await verifiers.forget(circleId);
+    try {
+      await _vault.delete(vaultKeyForOwnerKey(circleId));
+    } catch (_) {}
+    if (hadKey || hadPending) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kOwnedCircles, _ownerKeys.keys.toList());
+      await prefs.setStringList(_kPendingRegister, _pendingRegister.toList());
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadCircleOwnership(SharedPreferences prefs) async {
+    _pendingRegister
+      ..clear()
+      ..addAll(prefs.getStringList(_kPendingRegister) ?? const <String>[]);
+    for (final id in prefs.getStringList(_kOwnedCircles) ?? const <String>[]) {
+      try {
+        final k = await _vault.read(vaultKeyForOwnerKey(id));
+        if (k != null && k.isNotEmpty) _ownerKeys[id] = k;
+      } catch (e) {
+        debugPrint('[lares] 读取圈主钥匙失败($id): $e');
+      }
+    }
+  }
+
   /// 新增或更新一个档案(按 id 覆盖),并可顺手设为当前
   Future<void> upsertProfile(ServerProfile profile, {bool activate = false}) {
     final list = <ServerProfile>[];
@@ -547,6 +648,13 @@ class SettingsStore extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kWifiOnlyHq, value);
+  }
+
+  Future<void> setJoinWithMicOn(bool value) async {
+    joinWithMicOn = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kJoinWithMicOn, value);
   }
 
   Future<void> setDnd(int startHour, int endHour) async {

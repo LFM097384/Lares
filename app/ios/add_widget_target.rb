@@ -100,6 +100,42 @@ else
   puts "#{INFOPLIST_STRINGS} 已接入(#{LOCALES.join(', ')})"
 end
 
+# ── 0.8) 小组件麦克风按钮的 intent 也要编进 Runner ──
+#
+# 同样在幂等闸门**之前**:它挂在 Runner 上,与 Widget target 是否已存在无关。
+#
+# 为什么 Runner 也要有:ToggleMuteIntent 遵循 LiveActivityIntent,
+# 系统在 **App 进程**里执行它的 perform()(小组件进程够不着 Flutter 引擎)。
+# Apple 要求「add your custom app intent to your app target」——
+# 只编进 Widget target 的话,点按钮时 App 进程里找不到这个类型,
+# 表现为按了没反应,**不报错**。
+# https://developer.apple.com/documentation/widgetkit/adding-interactivity-to-widgets-and-live-activities
+INTENT_FILE = 'ToggleMuteIntent.swift'
+widget_group_for_intent = proj.main_group.find_subpath(WIDGET_NAME, true)
+# find_subpath 新建的组只有 name 没有 path;不补 path,组内文件会被解析到
+# ios/ToggleMuteIntent.swift(不存在),编译时报「找不到文件」。
+widget_group_for_intent.path = WIDGET_NAME if widget_group_for_intent.path.nil?
+intent_ref = widget_group_for_intent.files.find { |f| f.path.to_s == INTENT_FILE } ||
+             widget_group_for_intent.new_file(INTENT_FILE)
+if runner.source_build_phase.files_references.include?(intent_ref)
+  puts "#{INTENT_FILE} 已在 Runner 的编译源里,跳过"
+else
+  runner.add_file_references([intent_ref])
+  puts "#{INTENT_FILE} 已加入 Runner 的编译源"
+end
+# Runner 的部署目标是 iOS 15,而 AppIntents 是 iOS 16 才有的框架。
+# intent 类型本身标了 @available(iOS 17.0, *),但框架必须**弱链接**,
+# 否则 iOS 15 设备一启动就因找不到 AppIntents.framework 而崩溃 ——
+# 那是只有真机旧系统上才会出现的闪退,CI 和模拟器都看不到。
+runner.build_configurations.each do |c|
+  flags = Array(c.build_settings['OTHER_LDFLAGS'] || ['$(inherited)'])
+  unless flags.each_cons(2).any? { |a, b| a == '-weak_framework' && b == 'AppIntents' }
+    flags += ['-weak_framework', 'AppIntents']
+    c.build_settings['OTHER_LDFLAGS'] = flags
+  end
+end
+proj.save(PROJ_PATH)
+
 if proj.targets.any? { |t| t.name == WIDGET_NAME }
   puts "#{WIDGET_NAME} 已存在,跳过"
   exit 0
@@ -118,9 +154,12 @@ puts "父 App bundle id: #{BUNDLE_PREFIX}"
 widget = proj.new_target(:app_extension, WIDGET_NAME, :ios, '17.0')
 
 # 2) 源码与资源
-group = proj.main_group.new_group(WIDGET_NAME, WIDGET_NAME)
+# 组已由上面 0.8 步建好(那一步要往里放 intent),这里复用,不重复建组。
+group = proj.main_group.find_subpath(WIDGET_NAME, true)
 swift = group.new_file('LaresWidget.swift')
-widget.add_file_references([swift])
+# ToggleMuteIntent.swift 两边都编:小组件用它构造 Button(intent:),
+# App 进程用它执行 perform()。引用与 Runner 共用同一个(0.8 步建的)。
+widget.add_file_references([swift, intent_ref])
 # Info.plist 仅作为构建设置引用,不进编译资源
 group.new_file('Info.plist')
 group.new_file('LaresWidget.entitlements')

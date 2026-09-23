@@ -11,3 +11,7 @@
    两端措辞必须一致,否则同一个产品在两个平台上像两种口气。 */
 "widget.actionJoin" = "点一下,进圈 →";
 "widget.actionCreate" = "点一下,建个圈 →";
+
+/* 在房时的麦克风按钮:只描述真实状态。与 Android widget_mic_on / widget_mic_muted 一致。 */
+"widget.micOn" = "麦克风开着";
+"widget.micMuted" = "静音中";

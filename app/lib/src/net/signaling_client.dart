@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../auth/auth_credential.dart';
+import '../auth/auth_verifier.dart';
 
 /// 鉴权阶段:UI 可据此区分「网络抖动」与「口令错了」。
 enum AuthPhase {
@@ -99,6 +100,11 @@ typedef ChannelConnector = WebSocketChannel Function(Uri uri);
 /// 二来保证**每条 challenge 到达时现取**,用户改完口令下次重连自然生效。
 typedef CredentialSource = AuthCredential Function();
 
+/// 某个圈子在握手时要附带的东西:是否待登记、本机持有的圈主钥匙。
+/// 同步回调 —— 值由 SettingsStore 启动时从安全存储读进内存。
+typedef CircleAuthHints = ({bool register, String? ownerKey}) Function(
+    String circleId);
+
 /// presence 信令客户端:与 server/ 的 JSON-over-WebSocket 协议对话。
 ///
 /// 预连接策略(设计.md §8.3-P0):App 启动即 connect,
@@ -114,9 +120,51 @@ class SignalingClient {
     CredentialSource? credentials,
     ChannelConnector? connector,
     this.userId,
+    AuthVerifierCache? verifierCache,
+    this.circleHints,
   })  : _url = url,
         _credentials = credentials,
-        _connector = connector ?? WebSocketChannel.connect;
+        _connector = connector ?? WebSocketChannel.connect,
+        _verifiers =
+            verifierCache ?? defaultVerifierCache ?? _fallbackVerifierCache;
+
+  /// 没人配置时的进程级兜底(只在内存):同一口令在整个进程里只算一次 Argon2。
+  static final AuthVerifierCache _fallbackVerifierCache = AuthVerifierCache();
+
+  /// 全 App 共用的 verifier 缓存(main.dart 启动时设好:isolate 派生 + 安全存储)。
+  ///
+  /// 为什么是静态的:PresencePool 会为别的服务器各建一条 SignalingClient,
+  /// 它们不经过 main 的构造现场,但同样要发 v2 证明;共用一份缓存
+  /// 也避免同一口令被算两遍 Argon2。没设时每个实例各建一份内联缓存(测试场景)。
+  static AuthVerifierCache? defaultVerifierCache;
+
+  final AuthVerifierCache _verifiers;
+
+  /// 待登记 / 圈主钥匙的来源。为空视作「都没有」。
+  CircleAuthHints? circleHints;
+
+  /// 旧版服务器在 welcome 里发来了圈主钥匙(新服务器不发:钥匙由本机生成)。
+  /// 上层必须把它存进安全存储,**然后**清掉「待登记」标记。
+  Future<void> Function(String circleId, String ownerKey)? onOwnerKeyIssued;
+
+  /// 登记已经有了结论、不该再带 register 了(成功,或 id 已被占用)。
+  void Function(String circleId)? onRegistrationSettled;
+
+  /// 本进程内已登记完成(或已知被占用)的圈子:即使上层清标记的异步写入
+  /// 还没落地,重连时也绝不再带 register —— 否则必得 circle_exists。
+  final Set<String> _registrationSettled = <String>{};
+
+  /// 本进程内刚拿到、可能还没来得及落盘的圈主钥匙。
+  final Map<String, String> _issuedOwnerKeys = <String, String>{};
+
+  /// 每条新连接 +1。异步算 verifier 回来时靠它判断「还是不是那条连接」。
+  int _connGen = 0;
+
+  /// 本连接是否已在等 verifier(防止 challenge 与 send(hello) 各排一次,发出两帧 hello)。
+  bool _awaitingVerifier = false;
+
+  /// 本连接最近一条 error 报文(服务端关连接前会先说一句原因)。
+  String? _lastErrorReason;
 
   String _url;
 
@@ -354,6 +402,9 @@ class SignalingClient {
     _handshakeDone = false;
     _nonce = null;
     _challengeSettled = false;
+    _connGen++;
+    _awaitingVerifier = false;
+    _lastErrorReason = null;
     // 新连接 = 新的一次机会,上一条连接喊没喊过不算数。
     _credentialRequiredReported = false;
     _setAuth(auth.copyWith(phase: AuthPhase.awaitingChallenge, message: null));
@@ -428,10 +479,46 @@ class SignalingClient {
     final cred = _credentialNow();
 
     if (nonce != null && cred.mode != AuthMode.none) {
+      // v2 证明需要 verifier(Argon2,约 250ms)。缓存命中就当场算,
+      // 不命中就先去后台派生,回来再走一遍本函数 —— 期间若连接换了代、
+      // nonce 变了,回来的结果直接丢弃(旧 nonce 已作废,发了必 4401)。
+      String? verifier;
+      final circleId = cred.circleId ?? '';
+      if (cred.mode == AuthMode.circle &&
+          circleId.isNotEmpty &&
+          cred.passcode.isNotEmpty) {
+        verifier = _verifiers.peek(circleId, cred.passcode);
+        if (verifier == null) {
+          if (_awaitingVerifier) return; // 已经在算了,别排第二份 hello
+          _awaitingVerifier = true;
+          final gen = _connGen;
+          _verifiers.get(circleId, cred.passcode).then((_) {
+            if (gen != _connGen || !_connected || _handshakeDone) return;
+            _awaitingVerifier = false;
+            if (_nonce != nonce) return; // 挑战换了:新 challenge 会自己再走一遍
+            _sendHelloWithProof();
+          }, onError: (Object e) {
+            if (gen != _connGen) return;
+            _awaitingVerifier = false;
+            debugPrint('[lares] verifier 派生失败: $e');
+            _channel?.sink.close();
+          });
+          return;
+        }
+      }
+      final hints = cred.mode == AuthMode.circle && circleId.isNotEmpty
+          ? circleHints?.call(circleId)
+          : null;
+      final register =
+          (hints?.register ?? false) && !_registrationSettled.contains(circleId);
+      final ownerKey = _issuedOwnerKeys[circleId] ?? hints?.ownerKey;
       final authObj = AuthProof.build(
         credential: cred,
         nonce: nonce,
         userId: (msg['userId'] as String?) ?? userId ?? '',
+        verifier: verifier,
+        register: register,
+        ownerKey: ownerKey,
       );
       if (authObj == null) {
         // 凭据不全:停在这儿等用户填,别发一个注定失败的 hello
@@ -465,6 +552,39 @@ class SignalingClient {
     _handshakeDone = true;
     _retrySeconds = 1;
     _retriedAfterAuthFailure = false;
+    _awaitingVerifier = false;
+    // 圈子登记的结论:welcome.circle 里带着 registered / created / ownerKey。
+    final circle = msg['circle'];
+    if (circle is Map) {
+      final id = circle['id'];
+      if (id is String && id.isNotEmpty) {
+        final hints = circleHints?.call(id);
+        final ownerKey = circle['ownerKey'];
+        if (ownerKey is String && ownerKey.isNotEmpty) {
+          // 旧版服务器(钥匙由服务器生成、在 welcome 里发一次)的兼容路径。
+          // 新服务器不再下发 ownerKey —— 钥匙是本机登记前自己生成并先存好的。
+          _issuedOwnerKeys[id] = ownerKey;
+          _registrationSettled.add(id);
+          final save = onOwnerKeyIssued;
+          if (save != null) {
+            save(id, ownerKey).then((_) => onRegistrationSettled?.call(id),
+                onError: (Object e) =>
+                    debugPrint('[lares] 圈主钥匙保存失败(本进程内仍有效): $e'));
+          } else {
+            onRegistrationSettled?.call(id);
+          }
+        } else if (circle['registered'] == true &&
+            (hints?.register ?? false)) {
+          // 登记有了结论:created(本连接刚建成)或 isOwner(之前就建成了,
+          // 上次的 welcome 丢在路上 —— 钥匙本来就在本机,服务器认了它)。
+          // 两种都算成功;即便 isOwner=false(id 被别人占了)也不该再带 register。
+          _registrationSettled.add(id);
+          onRegistrationSettled?.call(id);
+        }
+        // 注意:服务器回 isOwner=false 而本机有钥匙时,**不**自动删钥匙。
+        // 删错一次就是永久失去圈主身份;留着一把错钥匙的代价只是操作吃 not_owner。
+      }
+    }
     _setAuth(auth.copyWith(
       phase: AuthPhase.authenticated,
       mode: AuthMode.fromWire(msg['authMode'] as String?),
@@ -536,7 +656,18 @@ class SignalingClient {
   /// 服务端 error 报文。注意 auth_scope / say_hello_first **不关连接**,
   /// 是单条消息被拒,属于可恢复错误,绝不能当成掉线去触发重连。
   void _onProtocolError(Map<String, dynamic> msg) {
-    switch (msg['message']) {
+    final reason = msg['message'];
+    if (reason is String) _lastErrorReason = reason;
+    switch (reason) {
+      case 'circle_exists':
+      case 'circle_deleted':
+      case 'create_rate_limited':
+      case 'circle_cap_reached':
+      case 'register_disabled':
+      case 'register_failed':
+      case 'register_invalid':
+        // 登记类错误:紧随其后就是 close,交给 _onDisconnected 按 close code 处理。
+        break;
       case 'auth_required':
       case 'auth_failed':
         _setAuth(auth.copyWith(
@@ -592,6 +723,41 @@ class SignalingClient {
 
     if (code == 4401) {
       _onAuthRejected();
+      return;
+    }
+    final circleId = _credentialNow().circleId ?? '';
+    if (code == 4409) {
+      // circle_exists:我们带了 register,但这个 id 已经有人登记过。
+      // 两种可能:① 我们自己登记成功了,但 welcome 丢在路上;
+      // ② 真撞了别人的 id(128 bit 随机,几乎不可能)。
+      // 都不能再带 register 重试 —— 服务器永不覆盖。退回普通登录,照常带上
+      // 本机生成的 ownerKey:① 下服务器回 isOwner=true,登记就算成功(钥匙
+      // 一直在本机,不会落成无主圈);② 下口令对不上,走 4401 口令流程。
+      //
+      // 这里只在**本进程内**停掉 register;持久的「待登记」标记等 welcome
+      // 真到了(见 welcome 分支)才清 —— 重试也失败的话,下次启动还能再试。
+      if (circleId.isNotEmpty) _registrationSettled.add(circleId);
+      _reconnectTimer?.cancel();
+      _reconnectTimer = Timer(const Duration(milliseconds: 200), connect);
+      return;
+    }
+    if (code == 4410 || code == 4403 || code == 4400) {
+      // 终局:解散了 / 服务器不肯登记。重连只会得到同样的答案,停。
+      final reason = _lastErrorReason ??
+          switch (code) {
+            4410 => 'circle_deleted',
+            4400 => 'register_invalid',
+            _ => 'register_failed',
+          };
+      _setAuth(auth.copyWith(phase: AuthPhase.failed, message: reason));
+      _reconnectTimer?.cancel();
+      if (code == 4410) {
+        _messages.add({'t': '_circle_deleted', 'circleId': circleId});
+      } else {
+        _messages.add(
+            {'t': '_register_failed', 'circleId': circleId, 'reason': reason});
+      }
+      // 不排重连:等上层换圈子(authCircleId)或 reconnectWithNewCredential()。
       return;
     }
     if (code == 4429) {
@@ -754,6 +920,41 @@ class SignalingClient {
   /// (零服务器),两条路产出的连接码格式完全一样。
   void sendP2PSignal(String toUserId, String payload) =>
       send({'t': 'p2p_signal', 'to': toUserId, 'payload': payload});
+
+  // ── 圈主操作(仅注册圈)──────────────────────────────────────────
+  //
+  // 每条都显式带 ownerKey:服务器不认 userId(那是自报的),只认钥匙。
+  // 回执是 owner_ok / owner_error{reason},原样抛给上层。
+
+  /// 本进程内拿到的圈主钥匙(比上层的安全存储更新:刚登记完、还没落盘时也在)。
+  String? issuedOwnerKey(String circleId) => _issuedOwnerKeys[circleId];
+
+  /// 换口令 = 真正的请人离开。[verifier] 必须是新口令算出的 v2 verifier。
+  void setCirclePasscode(String circleId,
+          {required String ownerKey, required String verifier}) =>
+      send({
+        't': 'circle_passcode_set',
+        'circleId': circleId,
+        'ownerKey': ownerKey,
+        'verifier': verifier,
+      });
+
+  /// 圈级 E2EE 开关(所有成员下次进房照此执行)。
+  void setCircleE2EE(String circleId,
+          {required String ownerKey, required bool enabled}) =>
+      send({
+        't': 'circle_e2ee_set',
+        'circleId': circleId,
+        'ownerKey': ownerKey,
+        'enabled': enabled,
+      });
+
+  /// 解散圈子。服务器会给圈内所有连接发 circle_deleted 并以 4410 关闭。
+  void deleteCircle(String circleId, {required String ownerKey}) => send({
+        't': 'circle_delete',
+        'circleId': circleId,
+        'ownerKey': ownerKey,
+      });
 
   /// 测试注入:模拟收到一条服务器消息
   // ignore: use_setters_to_change_properties

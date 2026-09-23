@@ -39,7 +39,7 @@ class _FakeRtc implements RtcService {
   bool get inRoom => _inRoom;
 
   @override
-  Future<Duration> join({
+  Future<RtcJoinResult> join({
     required String url,
     required String token,
     required bool startMuted,
@@ -48,7 +48,9 @@ class _FakeRtc implements RtcService {
   }) async {
     _inRoom = true;
     prepareCountAtJoin.add(prepareCalls);
-    return const Duration(milliseconds: 10);
+    return RtcJoinResult(
+        elapsed: const Duration(milliseconds: 10),
+        micOn: !startMuted);
   }
 
   @override

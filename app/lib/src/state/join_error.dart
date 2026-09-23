@@ -36,8 +36,34 @@ enum JoinErrorKind {
   /// 网络层问题:超时、DNS、证书。
   network,
 
+  /// 圈子已被圈主解散(4410)。重试、填口令都没用,只能从列表里拿掉。
+  circleDeleted,
+
+  /// 新建圈子时 id 已被占用(4409)。客户端会自动退回普通登录,
+  /// 走到这里说明退回之后也没进去 —— 多半是口令对不上那个已有的圈。
+  circleExists,
+
+  /// 服务器拒绝登记新圈子:建得太频繁 / 满员 / 未开放注册 / 请求不合法 / 写盘失败(4403 / 4400)。
+  registerRefused,
+
   /// 其余一概归此。
   unknown,
+}
+
+/// 登记被拒的细分:只决定措辞,对调用方都是 [JoinErrorKind.registerRefused]。
+enum _RegisterFlavor { rateLimited, capReached, disabled, invalid, failed }
+
+_RegisterFlavor? _registerFlavor(String text) {
+  if (text.contains('create_rate_limited')) return _RegisterFlavor.rateLimited;
+  if (text.contains('circle_cap_reached')) return _RegisterFlavor.capReached;
+  if (text.contains('register_disabled')) return _RegisterFlavor.disabled;
+  if (text.contains('register_invalid') || text.contains('4400')) {
+    return _RegisterFlavor.invalid;
+  }
+  if (text.contains('register_failed') || text.contains('4403')) {
+    return _RegisterFlavor.failed;
+  }
+  return null;
 }
 
 /// 网络类失败的细分。只在本文件内部用来决定措辞,不对外暴露 ——
@@ -79,6 +105,18 @@ JoinErrorKind classifyJoinError(Object error) => _classify(error).$1;
   }
 
   final text = error.toString();
+
+  // ⚠️ 圈子登记相关的码必须排在「鉴权/限流」之前:create_rate_limited 含 'rate',
+  // 顺序反了会被当成「输错口令太多次」,文案就说错了。
+  if (text.contains('circle_deleted') || text.contains('4410')) {
+    return (JoinErrorKind.circleDeleted, null);
+  }
+  if (text.contains('circle_exists') || text.contains('4409')) {
+    return (JoinErrorKind.circleExists, null);
+  }
+  if (_registerFlavor(text) != null) {
+    return (JoinErrorKind.registerRefused, null);
+  }
 
   // 鉴权失败。服务端用 4401 关闭连接(见 server/src/index.js)
   if (text.contains('4401') ||
@@ -133,6 +171,13 @@ const String _msgNeedsPasscode = '这个圈子要口令才能进。问一下拉�
 const String _msgRateLimited = '试得太频繁,先歇 5 分钟再来。';
 const String _msgServerNotReady = '服务器还没准备好语音服务。如果是自己搭的,检查一下 LiveKit 配置。';
 const String _msgUnknown = '没能进去。检查一下网络,或者稍后再试。';
+const String _msgCircleDeleted = '圈子已被圈主解散';
+const String _msgCircleExists = '这个圈子已经有人建过了,口令对不上。问问建圈的人要口令。';
+const String _msgCreateRateLimited = '这一小时建的圈子太多了,过一会儿再建。';
+const String _msgCapReached = '这台服务器上的圈子已经满了,建不了新的。可以请管理员放宽上限。';
+const String _msgRegisterDisabled = '这台服务器没有开放建新圈子。可以请管理员打开,或者加入已有的圈子。';
+const String _msgRegisterInvalid = '圈子信息不对,服务器没收。删掉这个圈子重新建一次试试。';
+const String _msgRegisterFailed = '服务器这会儿没存下新圈子,稍后再试。';
 
 /// 用户能看懂、且长度可控的一句话。
 ///
@@ -151,6 +196,16 @@ String humanizeJoinError(Object error) {
     JoinErrorKind.needsPasscode => _msgNeedsPasscode,
     JoinErrorKind.rateLimited => _msgRateLimited,
     JoinErrorKind.serverNotReady => _msgServerNotReady,
+    JoinErrorKind.circleDeleted => _msgCircleDeleted,
+    JoinErrorKind.circleExists => _msgCircleExists,
+    JoinErrorKind.registerRefused =>
+      switch (_registerFlavor(error.toString())!) {
+        _RegisterFlavor.rateLimited => _msgCreateRateLimited,
+        _RegisterFlavor.capReached => _msgCapReached,
+        _RegisterFlavor.disabled => _msgRegisterDisabled,
+        _RegisterFlavor.invalid => _msgRegisterInvalid,
+        _RegisterFlavor.failed => _msgRegisterFailed,
+      },
     // 兜底。**不拼接 $e** —— 那正是当初出事的写法。
     JoinErrorKind.unknown => _msgUnknown,
   };
@@ -175,5 +230,13 @@ JoinErrorKind? kindOfJoinMessage(String? message) => switch (message) {
       _msgRateLimited => JoinErrorKind.rateLimited,
       _msgServerNotReady => JoinErrorKind.serverNotReady,
       _msgUnknown => JoinErrorKind.unknown,
+      _msgCircleDeleted => JoinErrorKind.circleDeleted,
+      _msgCircleExists => JoinErrorKind.circleExists,
+      _msgCreateRateLimited ||
+      _msgCapReached ||
+      _msgRegisterDisabled ||
+      _msgRegisterInvalid ||
+      _msgRegisterFailed =>
+        JoinErrorKind.registerRefused,
       _ => null,
     };
