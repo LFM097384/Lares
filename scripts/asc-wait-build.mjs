@@ -87,6 +87,29 @@ async function reportUploadErrors() {
   }
 }
 
+// 出口合规:Info.plist 刻意不写 ITSAppUsesNonExemptEncryption(见 docs/compliance/encryption-export.md),
+// 于是每个构建 VALID 后都卡在 MISSING_EXPORT_COMPLIANCE,测试员看不到。2026-09-23 实测
+// build 37/38 因此没进 TestFlight。build 36 的网页问卷答完后 ASC 记为 usesNonExemptEncryption=false
+// (5D992.c 大众市场自分类 → 不属于「需申报」的加密),这里对新构建给出同一个答案。
+// 已经答过的不动;失败只警告,不让整个上传判失败。
+async function answerExportCompliance(buildId) {
+  const j = await get(`/builds/${buildId}?fields[builds]=usesNonExemptEncryption`);
+  const cur = j?.data?.attributes?.usesNonExemptEncryption;
+  if (cur !== null && cur !== undefined) {
+    console.log(`  出口合规已答(usesNonExemptEncryption=${cur}),不动`);
+    return;
+  }
+  const r = await fetch(`https://api.appstoreconnect.apple.com/v1/builds/${buildId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      data: { type: 'builds', id: buildId, attributes: { usesNonExemptEncryption: false } },
+    }),
+  });
+  if (r.ok) console.log('  ✓ 出口合规已按 build 36 的答案填好,测试员可见');
+  else console.log(`::warning::出口合规自动填写失败(HTTP ${r.status}),需到 ASC 网页手动答问卷`);
+}
+
 const rounds = Math.ceil((MAX_MINUTES * 60_000) / INTERVAL_MS);
 console.log(`等待 build ${WANT} 处理完成(最多 ${MAX_MINUTES} 分钟)`);
 
@@ -100,6 +123,7 @@ for (let i = 1; i <= rounds; i++) {
     const st = b.attributes.processingState;
     console.log(`[${i}/${rounds}] build ${WANT} → ${st}`);
     if (st === 'VALID') {
+      await answerExportCompliance(b.id);
       console.log('\n✓ 构建可用,TestFlight 里能看到了');
       process.exit(0);
     }
