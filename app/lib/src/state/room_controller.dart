@@ -139,6 +139,9 @@ class RoomController extends ChangeNotifier {
   /// 反方向同样可能:以为关了其实开着。所以现在一律「先做,成了再改」。
   bool muted = true;
 
+  /// 服务器是否提供实时字幕(welcome.captions)。false 时房间里不显示「字幕」按钮。
+  bool captionsAvailable = false;
+
   /// 麦克风操作没成的一次性提示(UI 弹一次即 [consumeMicNotice])。
   MicNotice? micNotice;
 
@@ -1040,6 +1043,8 @@ class RoomController extends ChangeNotifier {
     switch (msg['t']) {
       case 'welcome':
         _applyCircleInfo(msg['circle']);
+        // 服务器配了 DashScope Key 才有实时字幕;老服务器不发该字段 = 没有
+        captionsAvailable = msg['captions'] == true;
         // 断线重连成功:自动恢复到之前所在的房间(README 待办:房间态恢复)
         final wanted = circleId;
         if (wanted != null && phase != RoomPhase.idle) {

@@ -44,6 +44,8 @@ class SettingsStore extends ChangeNotifier {
   SettingsStore._();
 
   static const _kWifiOnlyHq = 'lares.wifiOnlyHq';
+  static const _kCaptionsProvide = 'lares.captionsProvide';
+  static const _kCaptionsE2eeCloud = 'lares.captionsE2eeCloud';
   static const _kJoinWithMicOn = 'lares.joinWithMicOn';
   static const _kDndStart = 'lares.dndStart'; // -1 = 未设置
   static const _kDndEnd = 'lares.dndEnd';
@@ -57,6 +59,12 @@ class SettingsStore extends ChangeNotifier {
 
   /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
   bool wifiOnlyHq = true;
+
+  /// 有人需要字幕时,是否把自己的语音送云端识别给他(默认是:无障碍功能默认可用)。
+  bool captionsProvide = true;
+
+  /// 端到端加密的圈子里也允许云端识别(默认否:开了加密就是要语音不出手机)。
+  bool captionsE2eeCloud = false;
 
   /// 进圈时打开麦克风(默认开:常驻语音圈子,进来就是为了说话)。
   ///
@@ -145,6 +153,8 @@ class SettingsStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final s = SettingsStore._();
     s.wifiOnlyHq = prefs.getBool(_kWifiOnlyHq) ?? true;
+    s.captionsProvide = prefs.getBool(_kCaptionsProvide) ?? true;
+    s.captionsE2eeCloud = prefs.getBool(_kCaptionsE2eeCloud) ?? false;
     s.joinWithMicOn = prefs.getBool(_kJoinWithMicOn) ?? true;
     s.dndStartHour = prefs.getInt(_kDndStart) ?? -1;
     s.dndEndHour = prefs.getInt(_kDndEnd) ?? -1;
@@ -673,6 +683,20 @@ class SettingsStore extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kWifiOnlyHq, value);
+  }
+
+  Future<void> setCaptionsProvide(bool value) async {
+    captionsProvide = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCaptionsProvide, value);
+  }
+
+  Future<void> setCaptionsE2eeCloud(bool value) async {
+    captionsE2eeCloud = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCaptionsE2eeCloud, value);
   }
 
   Future<void> setJoinWithMicOn(bool value) async {

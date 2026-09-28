@@ -775,6 +775,62 @@ const PUSH_MAX_TOKENS = Number(process.env.LARES_PUSH_MAX_TOKENS ?? 5000);
 // reach 同一 (被找者, 找人者) 60 秒一条 —— 防连点轰炸。测试用 env 调小。
 const PUSH_ACTIVE_THROTTLE_MS = Number(process.env.LARES_PUSH_ACTIVE_THROTTLE_MS ?? 10 * 60_000);
 const PUSH_REACH_THROTTLE_MS = Number(process.env.LARES_PUSH_REACH_THROTTLE_MS ?? 60_000);
+// ── 实时字幕:DashScope 临时 token 代签 ──
+// 客户端各自把**自己的**麦克风送去阿里云识别(qwen3-asr-flash-realtime),
+// 服务器只负责拿长期 API Key 换一张 5 分钟的 st- 临时 token 递给客户端。
+// 长期 Key 永不下发;没配 Key 时整个功能关闭(welcome.captions=false,客户端隐藏按钮)。
+const DASHSCOPE_API_KEY = String(process.env.LARES_DASHSCOPE_API_KEY ?? '').trim();
+// 测试用:把 token 端点指到本地假服务器
+const DASHSCOPE_BASE = String(process.env.LARES_DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com').replace(/\/+$/, '');
+const CAPTIONS_ENABLED = DASHSCOPE_API_KEY.length > 0;
+const CAPTIONS_WS_URL = String(process.env.LARES_DASHSCOPE_WS_URL ?? 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime');
+const CAPTIONS_MODEL = String(process.env.LARES_CAPTIONS_MODEL ?? 'qwen3-asr-flash-realtime');
+const CAP_TOKEN_TTL_S = 300;
+// 限流:每人每小时 20 张(一张 token 只管握手,一次会话最长 600s,正常一小时用不到 10 张),
+// 外加全站每小时总量兜底,防止刷 Key 额度。
+const CAP_PER_USER_PER_HOUR = Number(process.env.LARES_CAP_PER_USER_PER_HOUR ?? 20);
+const CAP_GLOBAL_PER_HOUR = Number(process.env.LARES_CAP_GLOBAL_PER_HOUR ?? 2000);
+const capMintLog = new Map(); // userId -> [时间戳...]
+let capGlobalLog = [];
+
+function capRateOk(userId) {
+  const now = Date.now();
+  const cutoff = now - 3600_000;
+  capGlobalLog = capGlobalLog.filter((t) => t > cutoff);
+  const mine = (capMintLog.get(userId) ?? []).filter((t) => t > cutoff);
+  capMintLog.set(userId, mine);
+  if (mine.length >= CAP_PER_USER_PER_HOUR) return 'rate_limited';
+  if (capGlobalLog.length >= CAP_GLOBAL_PER_HOUR) return 'global_rate_limited';
+  mine.push(now);
+  capGlobalLog.push(now);
+  return null;
+}
+
+function sweepCapLog() {
+  const cutoff = Date.now() - 3600_000;
+  for (const [uid, ts] of capMintLog) {
+    const kept = ts.filter((t) => t > cutoff);
+    if (kept.length) capMintLog.set(uid, kept); else capMintLog.delete(uid);
+  }
+  capGlobalLog = capGlobalLog.filter((t) => t > cutoff);
+}
+
+async function mintCaptionToken() {
+  const res = await fetch(`${DASHSCOPE_BASE}/api/v1/tokens?expire_in_seconds=${CAP_TOKEN_TTL_S}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${DASHSCOPE_API_KEY}` },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(`dashscope token http ${res.status}`);
+  const body = await res.json();
+  if (typeof body?.token !== 'string' || !body.token) throw new Error('dashscope token missing');
+  // expires_at 是秒级时间戳;统一成毫秒下发
+  let exp = Number(body.expires_at);
+  if (!Number.isFinite(exp) || exp <= 0) exp = Date.now() / 1000 + CAP_TOKEN_TTL_S;
+  if (exp < 1e12) exp *= 1000;
+  return { token: body.token, expiresAt: Math.round(exp) };
+}
+
 let pushSubs = {};
 const pushActiveSent = new Map(); // `${circleId}\0${token}` -> 上次推送时间
 const pushReachSent = new Map(); // `${targetUserId}\0${callerUserId}` -> 上次推送时间
@@ -1129,6 +1185,7 @@ function handleConnection(ws, req) {
         const welcome = {
           t: 'welcome', userId: session.userId, deviceId: session.deviceId,
           rtcConfigured: RTC_CONFIGURED, authMode: session.authMode,
+          captions: CAPTIONS_ENABLED,
         };
         if (session.authMode === 'circle' && session.authCircleId) {
           welcome.circle = { ...circleInfo(session.authCircleId), isOwner: Boolean(session.isOwner) };
@@ -1626,6 +1683,28 @@ function handleConnection(ws, req) {
         break;
       }
 
+      case 'cap_token': {
+        // 实时字幕:为「正在房里、要替别人转写自己声音」的人代签一张 DashScope 临时 token。
+        if (!session.userId || !session.authed) return send(ws, { t: 'cap_error', reason: 'say_hello_first' });
+        if (!CAPTIONS_ENABLED) return send(ws, { t: 'cap_error', reason: 'not_configured' });
+        if (!session.circleId) return send(ws, { t: 'cap_error', reason: 'not_in_room' });
+        // 圈主开了服务端 E2EE:语音要出圈去云端,必须由客户端显式同意(设置里的开关)
+        if (circleSettings[session.circleId]?.e2ee === true && msg.e2eeOptIn !== true) {
+          return send(ws, { t: 'cap_error', reason: 'e2ee_opt_in_required' });
+        }
+        const limited = capRateOk(session.userId);
+        if (limited) return send(ws, { t: 'cap_error', reason: limited });
+        try {
+          const { token, expiresAt } = await mintCaptionToken();
+          send(ws, { t: 'cap_token', token, expiresAt, url: CAPTIONS_WS_URL, model: CAPTIONS_MODEL });
+        } catch (err) {
+          // 绝不把上游响应体原样打出来(可能回显 Key 片段)
+          console.error('[captions] token 签发失败:', err?.message ?? err);
+          send(ws, { t: 'cap_error', reason: 'upstream_error' });
+        }
+        break;
+      }
+
       case 'ping': {
         send(ws, { t: 'pong', now: Date.now() });
         break;
@@ -1913,6 +1992,7 @@ const heartbeat = setInterval(() => {
   sweepCreateLog();
   sweepStaleRecordings();
   sweepPushThrottles();
+  sweepCapLog();
 }, 30_000);
 wss.on('connection', (ws) => {
   ws._laresAlive = true;
@@ -1933,6 +2013,11 @@ server.listen(PORT, async () => {
     console.log('[push] APNs 未配置,推送已禁用 (push disabled)');
   } else {
     console.log('[push] APNs 配置有误(见上方错误),推送已禁用 (push disabled)');
+  }
+  if (CAPTIONS_ENABLED) {
+    console.log(`[captions] 实时字幕已启用 (DashScope ${DASHSCOPE_BASE}, model ${CAPTIONS_MODEL})`);
+  } else {
+    console.log('[captions] 未设 LARES_DASHSCOPE_API_KEY,实时字幕已禁用 (captions disabled)');
   }
   if (AUTH_REQUIRED) {
     console.log(`[auth] 鉴权已启用,模式:${AUTH_MODE_LIST.join(',')}`);

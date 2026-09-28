@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
+import '../captions/caption_controller.dart';
 import '../chat/chat_service.dart';
 import '../config.dart';
 import '../e2ee/e2ee_controller.dart';
@@ -16,6 +17,7 @@ import '../state/room_controller.dart';
 import '../state/settings_store.dart';
 import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
+import 'caption_panel.dart';
 import 'chat_panel.dart';
 import 'map_panel.dart';
 import 'moderation_menus.dart';
@@ -48,6 +50,7 @@ class RoomScreen extends StatefulWidget {
     this.recordingConsent,
     this.blocks,
     this.e2ee,
+    this.captions,
   });
 
   final RoomController controller;
@@ -69,6 +72,9 @@ class RoomScreen extends StatefulWidget {
   /// 按圈端到端加密。为 null 时不显示任何加密字样 ——
   /// 宁可什么都不说,也不能显示一个可能说错的状态。
   final E2EEController? e2ee;
+
+  /// 实时字幕。为 null 时没有「字幕」按钮,也不会替别人转写。
+  final CaptionController? captions;
 
   @override
   State<RoomScreen> createState() => _RoomScreenState();
@@ -98,7 +104,11 @@ class _RoomScreenState extends State<RoomScreen> {
                       ? null
                       : () => setState(() => _showMap = !_showMap),
                   e2ee: widget.e2ee,
+                  captions: widget.captions,
                 ),
+                // 本机的语音正在出本机(云端识别):常驻,可一键停
+                if (widget.captions != null)
+                  CaptionProvidingBanner(captions: widget.captions!),
                 // 「你以为加密了但其实没有」值得一整条横幅,不是一个小角标。
                 if (widget.e2ee != null)
                   _E2EERoomBanner(
@@ -136,6 +146,8 @@ class _RoomScreenState extends State<RoomScreen> {
                           blocks: widget.blocks,
                         ),
                 ),
+                if (widget.captions != null)
+                  CaptionPanel(captions: widget.captions!),
                 // 副通道置于主按钮之上:默认折叠成一条细条,不挤压上方网格
                 if (widget.chat != null)
                   ChatPanel(chat: widget.chat!, blocks: widget.blocks)
@@ -443,6 +455,7 @@ class _RoomHeader extends StatelessWidget {
     this.showMap = false,
     this.onToggleMap,
     this.e2ee,
+    this.captions,
   });
 
   final RoomController controller;
@@ -450,6 +463,7 @@ class _RoomHeader extends StatelessWidget {
   final bool showMap;
   final VoidCallback? onToggleMap;
   final E2EEController? e2ee;
+  final CaptionController? captions;
 
   @override
   Widget build(BuildContext context) {
@@ -525,6 +539,11 @@ class _RoomHeader extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              if (captions != null)
+                CaptionToggleButton(
+                  captions: captions!,
+                  available: controller.captionsAvailable,
+                ),
               if (onToggleMap != null)
                 IconButton(
                   tooltip: showMap ? t.roomBackToRoom : t.roomLocationMap,

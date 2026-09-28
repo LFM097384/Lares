@@ -1555,4 +1555,70 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get e2eeManagedOn => 'The owner turned on end-to-end encryption';
+
+  @override
+  String get captionsToggle => 'Captions';
+
+  @override
+  String get captionsToggleOn => 'Turn off captions';
+
+  @override
+  String get captionsToggleOff =>
+      'Turn on captions: show what others say as text';
+
+  @override
+  String captionsBanner(String names) {
+    return 'Making captions for $names · speech is transcribed by Alibaba Cloud';
+  }
+
+  @override
+  String get captionsBannerStop => 'Tap to stop';
+
+  @override
+  String get captionsStoppedSnack =>
+      'Stopped making captions for others. They\'ll be back next time you join';
+
+  @override
+  String get captionsNameSeparator => ', ';
+
+  @override
+  String get captionsPanelTitle => 'Captions';
+
+  @override
+  String get captionsPanelEmpty =>
+      'When someone talks, their words show up here';
+
+  @override
+  String captionsProviders(String names) {
+    return '$names providing captions';
+  }
+
+  @override
+  String captionsNotProviding(String names) {
+    return '$names: captions off';
+  }
+
+  @override
+  String get captionsAlone => 'No one else is here yet';
+
+  @override
+  String get captionsYou => 'Me';
+
+  @override
+  String get settingsGroupCaptions => 'Live captions';
+
+  @override
+  String get settingsCaptionsProvide =>
+      'Make captions for people who need them';
+
+  @override
+  String get settingsCaptionsProvideSub =>
+      'Only while someone here needs captions and your mic is on, your speech is sent to Alibaba Cloud to turn it into text. Nothing is recorded or stored';
+
+  @override
+  String get settingsCaptionsE2eeCloud => 'Also in encrypted circles';
+
+  @override
+  String get settingsCaptionsE2eeCloudSub =>
+      'In an encrypted circle your voice normally never leaves your phone. With this on, your speech is sent to Alibaba Cloud when someone needs captions; the text still reaches them encrypted';
 }

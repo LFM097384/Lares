@@ -1441,4 +1441,66 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get e2eeManagedOn => '圈主开了端到端加密';
+
+  @override
+  String get captionsToggle => '字幕';
+
+  @override
+  String get captionsToggleOn => '关闭字幕';
+
+  @override
+  String get captionsToggleOff => '打开字幕:把其他人说的话显示成文字';
+
+  @override
+  String captionsBanner(String names) {
+    return '正在为 $names 生成字幕 · 语音经阿里云识别';
+  }
+
+  @override
+  String get captionsBannerStop => '点此停止';
+
+  @override
+  String get captionsStoppedSnack => '这次不再为别人生成字幕,下次进圈恢复';
+
+  @override
+  String get captionsNameSeparator => '、';
+
+  @override
+  String get captionsPanelTitle => '字幕';
+
+  @override
+  String get captionsPanelEmpty => '有人说话时,文字会出现在这里';
+
+  @override
+  String captionsProviders(String names) {
+    return '$names 正在提供字幕';
+  }
+
+  @override
+  String captionsNotProviding(String names) {
+    return '$names 未开启字幕';
+  }
+
+  @override
+  String get captionsAlone => '房里还没有其他人';
+
+  @override
+  String get captionsYou => '我';
+
+  @override
+  String get settingsGroupCaptions => '实时字幕';
+
+  @override
+  String get settingsCaptionsProvide => '为需要字幕的人生成字幕';
+
+  @override
+  String get settingsCaptionsProvideSub =>
+      '只在房里有人需要字幕、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音、不保存';
+
+  @override
+  String get settingsCaptionsE2eeCloud => '加密的圈子也允许';
+
+  @override
+  String get settingsCaptionsE2eeCloudSub =>
+      '加密圈的语音本来不出你的手机。打开后,有人需要字幕时你的语音会发往阿里云识别;识别出的文字仍加密传给对方';
 }

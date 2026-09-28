@@ -2509,6 +2509,114 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'圈主开了端到端加密'**
   String get e2eeManagedOn;
+
+  /// 房间顶部「字幕」按钮:打开后显示其他人说话的实时文字(给不方便外放声音的人)
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕'**
+  String get captionsToggle;
+
+  /// 字幕已打开时按钮的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭字幕'**
+  String get captionsToggleOn;
+
+  /// 字幕未打开时按钮的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'打开字幕:把其他人说的话显示成文字'**
+  String get captionsToggleOff;
+
+  /// 常驻横幅:本机正把自己的语音送云端识别给需要字幕的人。names 是需要字幕的人的名字(已用分隔符连好)
+  ///
+  /// In zh, this message translates to:
+  /// **'正在为 {names} 生成字幕 · 语音经阿里云识别'**
+  String captionsBanner(String names);
+
+  /// 横幅右侧的动作文字:点了本次在房期间不再为别人生成字幕
+  ///
+  /// In zh, this message translates to:
+  /// **'点此停止'**
+  String get captionsBannerStop;
+
+  /// 点横幅停止后的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'这次不再为别人生成字幕,下次进圈恢复'**
+  String get captionsStoppedSnack;
+
+  /// 连接多个名字的分隔符
+  ///
+  /// In zh, this message translates to:
+  /// **'、'**
+  String get captionsNameSeparator;
+
+  /// 字幕面板标题
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕'**
+  String get captionsPanelTitle;
+
+  /// 字幕面板还没有任何字幕时的占位文字
+  ///
+  /// In zh, this message translates to:
+  /// **'有人说话时,文字会出现在这里'**
+  String get captionsPanelEmpty;
+
+  /// 字幕面板顶部:哪些人正在把自己的话转成文字给你
+  ///
+  /// In zh, this message translates to:
+  /// **'{names} 正在提供字幕'**
+  String captionsProviders(String names);
+
+  /// 字幕面板顶部:这些人开着麦却没有提供字幕(他们关了设置或版本太旧),他们说的话不会出现
+  ///
+  /// In zh, this message translates to:
+  /// **'{names} 未开启字幕'**
+  String captionsNotProviding(String names);
+
+  /// 字幕打开但房里只有自己时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'房里还没有其他人'**
+  String get captionsAlone;
+
+  /// 字幕行里说话人是自己时(一般不会出现)
+  ///
+  /// In zh, this message translates to:
+  /// **'我'**
+  String get captionsYou;
+
+  /// 设置页分组标题:实时字幕
+  ///
+  /// In zh, this message translates to:
+  /// **'实时字幕'**
+  String get settingsGroupCaptions;
+
+  /// 设置开关:有人打开字幕时,是否把自己的语音转成文字给他
+  ///
+  /// In zh, this message translates to:
+  /// **'为需要字幕的人生成字幕'**
+  String get settingsCaptionsProvide;
+
+  /// 说明语音何时、发往哪里、是否保存
+  ///
+  /// In zh, this message translates to:
+  /// **'只在房里有人需要字幕、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音、不保存'**
+  String get settingsCaptionsProvideSub;
+
+  /// 设置开关:端到端加密的圈子里是否也允许云端识别
+  ///
+  /// In zh, this message translates to:
+  /// **'加密的圈子也允许'**
+  String get settingsCaptionsE2eeCloud;
+
+  /// 说明在加密圈开启云端识别意味着什么
+  ///
+  /// In zh, this message translates to:
+  /// **'加密圈的语音本来不出你的手机。打开后,有人需要字幕时你的语音会发往阿里云识别;识别出的文字仍加密传给对方'**
+  String get settingsCaptionsE2eeCloudSub;
 }
 
 class _AppLocalizationsDelegate

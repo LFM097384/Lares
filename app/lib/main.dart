@@ -8,7 +8,10 @@ import 'src/chat/chat_service.dart';
 import 'src/recording/recording_consent.dart';
 import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
+import 'src/captions/caption_controller.dart';
+import 'src/captions/caption_wiring.dart';
 import 'src/e2ee/e2ee_controller.dart';
+import 'src/e2ee/e2ee_status.dart';
 import 'src/e2ee/e2ee_store.dart';
 import 'src/moderation/block_audio_enforcer.dart';
 import 'src/moderation/block_store.dart';
@@ -456,6 +459,34 @@ Future<void> main() async {
     onResume: signaling.pokeAlive,
   );
 
+  // 实时字幕(无障碍):需要的人打开「字幕」,其他人各自把**自己的**麦克风送云端识别,
+  // 结果走数据通道(E2EE 圈随房间一起加密)只发给需要的人。服务器没配 Key 时整个隐藏。
+  // 语音只在「有人需要 + 自己开着麦 + 设置允许」时才出本机,房间里常驻横幅告知。
+  final captionTokens = SignalingCaptionTokenSource(
+    send: signaling.send,
+    messages: signaling.messages,
+    e2eeOptIn: () =>
+        settings.captionsE2eeCloud &&
+        (e2ee.statusForActiveCircle(controller.circleId)?.isEncrypted ??
+            controller.circleInfo[controller.circleId]?.e2ee ??
+            false),
+  );
+  final captions = CaptionController(
+    transcriberFactory:
+        qwenTranscriberFactory(captionTokens.call, onLog: debugPrint),
+    onLog: debugPrint,
+  );
+  // 与 App 同生命周期
+  // ignore: unused_local_variable
+  final captionWiring = CaptionWiring(
+    captions: captions,
+    controller: controller,
+    rtc: rtc,
+    settings: settings,
+    e2ee: e2ee,
+    onTokenSourceReset: captionTokens.clear,
+  );
+
   runApp(LaresApp(
     controller: controller,
     voiceNotes: voiceNotes,
@@ -467,6 +498,7 @@ Future<void> main() async {
     blocks: blocks,
     consent: consent,
     e2ee: e2ee,
+    captions: captions,
     devMode: devMode,
     ice: ice,
     onStartMesh: startMesh,
@@ -517,6 +549,7 @@ class LaresApp extends StatelessWidget {
     this.blocks,
     this.consent,
     this.e2ee,
+    this.captions,
     this.devMode,
     this.ice,
     this.onStartMesh,
@@ -541,6 +574,9 @@ class LaresApp extends StatelessWidget {
   /// 与其它可选协作者一样优雅降级(而不是显示一个假的「未加密」)。
   final E2EEController? e2ee;
 
+  /// 实时字幕。为 null 时房间里没有「字幕」按钮。
+  final CaptionController? captions;
+
   /// 开发者模式(连点版本号 7 次解锁)。为 null 时设置页里完全没有开发者区,
   /// 底部版本号也只是一行普通文字 —— 给测试留一个「天然干净」的默认。
   final DevModeStore? devMode;
@@ -563,6 +599,7 @@ class LaresApp extends StatelessWidget {
       blocks: blocks,
       consent: consent,
       e2ee: e2ee,
+      captions: captions,
       devMode: devMode,
       ice: ice,
       onStartMesh: onStartMesh,

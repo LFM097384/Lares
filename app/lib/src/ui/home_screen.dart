@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../auth/circle_identity.dart';
 import '../chat/chat_service.dart';
+import '../captions/caption_controller.dart';
 import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
 import '../moderation/block_store.dart';
@@ -43,6 +44,7 @@ class HomeScreen extends StatelessWidget {
     this.blocks,
     this.consent,
     this.e2ee,
+    this.captions,
     this.devMode,
     this.ice,
     this.onStartMesh,
@@ -64,6 +66,9 @@ class HomeScreen extends StatelessWidget {
 
   /// 按圈端到端加密。为 null 时圈子菜单里不出现加密开关(可选协作者优雅降级)
   final E2EEController? e2ee;
+
+  /// 实时字幕;为 null 时房间里没有「字幕」按钮
+  final CaptionController? captions;
 
   /// 开发者模式(连点版本号 7 次解锁)。为 null 时设置页里完全没有开发者区。
   final DevModeStore? devMode;
@@ -126,6 +131,7 @@ class HomeScreen extends StatelessWidget {
               recordingConsent: recordingConsent,
               blocks: blocks,
               e2ee: e2ee,
+              captions: captions,
             );
             if (!wide) {
               // 移动端:在房 -> 房间页整屏;未在房 -> 圈子列表

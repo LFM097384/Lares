@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import '../audio/audio_tuning.dart';
 
@@ -89,4 +90,61 @@ abstract interface class RtcService {
 
   /// 不进房也能查询本平台能力,供设置页如实显示(不承诺平台做不到的事)。
   ResolvedAudioTuning previewTuning(AudioTuning tuning);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 本地麦克风 PCM 抽头 + 房间数据通道(实时字幕用)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// 故意不塞进 [RtcService]:那个接口有好几个测试替身,字幕只需要这两小块能力,
+// 单独成接口,测试直接给假实现,不牵连其它测试。
+
+/// 取消一次抽头注册。
+typedef LocalAudioTapCancel = Future<void> Function();
+
+/// 从**本机麦克风**的已发布轨道上取 16 kHz 单声道 PCM16。
+abstract interface class LocalAudioTap {
+  /// 麦克风轨道是否已发布且未静音(SDK 层的真实状态)。
+  bool get micPublishedAndUnmuted;
+
+  /// 注册一个帧回调。轨道不存在时返回 null。
+  ///
+  /// 注意:LiveKit 在 unmute(restartTrack)、重新发布、重连时会换掉底层轨道,
+  /// 旧注册会**静默**失效 —— 调用方要在 [trackChanges] 触发后重新注册。
+  LocalAudioTapCancel? attach(void Function(Uint8List pcm16) onFrame);
+
+  /// 本地麦克风轨道可能被替换 / 静音状态可能改变时触发。
+  Stream<void> get trackChanges;
+}
+
+/// 一帧房间数据。
+class RoomDataFrame {
+  const RoomDataFrame({required this.senderIdentity, required this.bytes});
+  final String senderIdentity;
+  final Uint8List bytes;
+}
+
+/// 一个房间会话里的 reliable 数据通道 + 成员进出事件(按 topic 过滤)。
+abstract interface class RoomDataChannel {
+  String? get localIdentity;
+
+  /// 当前远端参与者 identity。
+  Set<String> get remoteIdentities;
+
+  Stream<RoomDataFrame> get inbound;
+
+  /// 有人进房(identity)。
+  Stream<String> get participantJoined;
+
+  /// 有人离开(identity)。
+  Stream<String> get participantLeft;
+
+  /// 某位远端此刻是否开着麦(已发布且未静音)。
+  bool isRemoteMicOn(String identity);
+
+  /// 远端开关麦时触发。
+  Stream<void> get remoteMicChanged;
+
+  /// [to] 为 null = 广播给所有人。
+  Future<void> publish(Uint8List data, {List<String>? to});
 }

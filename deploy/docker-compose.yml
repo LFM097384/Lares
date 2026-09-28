@@ -113,6 +113,9 @@ services:
       # Lares 的 Team ID 是 7CH28564U7
       LARES_APNS_TEAM_ID: ${LARES_APNS_TEAM_ID:-}
       LARES_APNS_TOPIC: ${LARES_APNS_TOPIC:-com.lfm097384.lares}
+      # ── 实时字幕(阿里云百炼 DashScope)。留空 = 字幕禁用,客户端隐藏按钮 ──────
+      # 长期 API Key 只留在服务器;客户端每次只拿一张 5 分钟的临时 token。**绝不提交真 Key。**
+      LARES_DASHSCOPE_API_KEY: ${LARES_DASHSCOPE_API_KEY:-}
     volumes:
       - lares-data:/app/data
       # 用钥匙文件时取消注释(容器内以 node 用户运行,文件需对其可读):

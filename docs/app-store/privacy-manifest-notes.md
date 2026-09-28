@@ -234,6 +234,13 @@ identifier, or other device-level ID"。本 app 的 `deviceId` 同样是本地�
 ### 3.5 实时通话音频、文字与图片消息 —— **不算 collected**,不声明
 
 - **通话音频**:LiveKit 实时媒体流,经 SFU 转发,不落盘。属实时服务。
+  - **例外:实时字幕**(2026-09 新增)。有人开字幕时,说话者设备把自己的麦克风 PCM
+    经 WebSocket 直送阿里云 DashScope(`qwen3-asr-flash-realtime`,北京),文字经 data channel
+    只发给请求者。开发者服务器只签发短期临时凭证(`cap_token`),不经手音频/文字。
+    对 xcprivacy 清单(规则 a/b):app 与开发者服务器均不留存,不需新增条目。
+    对营养标签(规则 c,含第三方):取决于阿里云是否留存识别音频 —— **提交前须查实**,
+    若无法确认不留存,按 `Audio Data`(App Functionality,不关联用户,不追踪)申报。
+    纯 Dart 实现,未用 iOS Speech 框架,**不需要** `NSSpeechRecognitionUsageDescription`。
 - **文字与图片消息**:走 **LiveKit data channel** 直接送达同圈成员,
   **完全不经过本项目的信令服务器**。已 grep 服务端确认:`index.js` 中
   **没有任何**聊天消息的存储或转发代码(搜 `case 'chat'` / `saveMessage` 均零命中)。

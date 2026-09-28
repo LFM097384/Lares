@@ -294,6 +294,31 @@ Future<void> showSettingsSheet(
                     ),
                 ],
               ),
+              // ── 实时字幕 ──────────────────────────────────────────
+              // 给不方便外放的人看其他人说话的文字。说明必须说全:
+              // 语音何时出本机(有人需要 + 自己开着麦)、去哪(阿里云)、存不存(不存)。
+              SettingsGroup(
+                title: t.settingsGroupCaptions,
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.closed_caption_rounded),
+                    title: Text(t.settingsCaptionsProvide),
+                    subtitle: Text(t.settingsCaptionsProvideSub),
+                    value: settings.captionsProvide,
+                    onChanged: settings.setCaptionsProvide,
+                  ),
+                  // 加密圈默认不送云端:用户开加密就是要语音不出手机
+                  SwitchListTile(
+                    secondary: const Icon(Icons.lock_outline_rounded),
+                    title: Text(t.settingsCaptionsE2eeCloud),
+                    subtitle: Text(t.settingsCaptionsE2eeCloudSub),
+                    value: settings.captionsE2eeCloud,
+                    onChanged: settings.captionsProvide
+                        ? settings.setCaptionsE2eeCloud
+                        : null,
+                  ),
+                ],
+              ),
               // ── 这个圈子 ──────────────────────────────────────────
               // 「我平时从哪儿进来」:主圈子 + 主屏幕入口 + 挂机保活。
               // 后台运行保障留在普通设置:它治的是「挂机会掉线」这个

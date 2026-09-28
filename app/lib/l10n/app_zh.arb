@@ -1859,5 +1859,86 @@
   "e2eeManagedOn": "圈主开了端到端加密",
   "@e2eeManagedOn": {
     "description": "非圈主看到的圈级加密状态(已开)"
+  },
+  "captionsToggle": "字幕",
+  "@captionsToggle": {
+    "description": "房间顶部「字幕」按钮:打开后显示其他人说话的实时文字(给不方便外放声音的人)"
+  },
+  "captionsToggleOn": "关闭字幕",
+  "@captionsToggleOn": {
+    "description": "字幕已打开时按钮的提示"
+  },
+  "captionsToggleOff": "打开字幕:把其他人说的话显示成文字",
+  "@captionsToggleOff": {
+    "description": "字幕未打开时按钮的提示"
+  },
+  "captionsBanner": "正在为 {names} 生成字幕 · 语音经阿里云识别",
+  "@captionsBanner": {
+    "description": "常驻横幅:本机正把自己的语音送云端识别给需要字幕的人。names 是需要字幕的人的名字(已用分隔符连好)",
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
+  "captionsBannerStop": "点此停止",
+  "@captionsBannerStop": {
+    "description": "横幅右侧的动作文字:点了本次在房期间不再为别人生成字幕"
+  },
+  "captionsStoppedSnack": "这次不再为别人生成字幕,下次进圈恢复",
+  "@captionsStoppedSnack": {
+    "description": "点横幅停止后的提示"
+  },
+  "captionsNameSeparator": "、",
+  "@captionsNameSeparator": {
+    "description": "连接多个名字的分隔符"
+  },
+  "captionsPanelTitle": "字幕",
+  "@captionsPanelTitle": {
+    "description": "字幕面板标题"
+  },
+  "captionsPanelEmpty": "有人说话时,文字会出现在这里",
+  "@captionsPanelEmpty": {
+    "description": "字幕面板还没有任何字幕时的占位文字"
+  },
+  "captionsProviders": "{names} 正在提供字幕",
+  "@captionsProviders": {
+    "description": "字幕面板顶部:哪些人正在把自己的话转成文字给你",
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
+  "captionsNotProviding": "{names} 未开启字幕",
+  "@captionsNotProviding": {
+    "description": "字幕面板顶部:这些人开着麦却没有提供字幕(他们关了设置或版本太旧),他们说的话不会出现",
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
+  "captionsAlone": "房里还没有其他人",
+  "@captionsAlone": {
+    "description": "字幕打开但房里只有自己时的提示"
+  },
+  "captionsYou": "我",
+  "@captionsYou": {
+    "description": "字幕行里说话人是自己时(一般不会出现)"
+  },
+  "settingsGroupCaptions": "实时字幕",
+  "@settingsGroupCaptions": {
+    "description": "设置页分组标题:实时字幕"
+  },
+  "settingsCaptionsProvide": "为需要字幕的人生成字幕",
+  "@settingsCaptionsProvide": {
+    "description": "设置开关:有人打开字幕时,是否把自己的语音转成文字给他"
+  },
+  "settingsCaptionsProvideSub": "只在房里有人需要字幕、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音、不保存",
+  "@settingsCaptionsProvideSub": {
+    "description": "说明语音何时、发往哪里、是否保存"
+  },
+  "settingsCaptionsE2eeCloud": "加密的圈子也允许",
+  "@settingsCaptionsE2eeCloud": {
+    "description": "设置开关:端到端加密的圈子里是否也允许云端识别"
+  },
+  "settingsCaptionsE2eeCloudSub": "加密圈的语音本来不出你的手机。打开后,有人需要字幕时你的语音会发往阿里云识别;识别出的文字仍加密传给对方",
+  "@settingsCaptionsE2eeCloudSub": {
+    "description": "说明在加密圈开启云端识别意味着什么"
   }
 }
