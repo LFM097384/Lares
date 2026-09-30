@@ -787,6 +787,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get roomStatusFree => '随时聊';
 
   @override
+  String get roomStatusPick => '我的状态';
+
+  @override
   String get roomUnmute => '说话';
 
   @override

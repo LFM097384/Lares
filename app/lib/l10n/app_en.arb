@@ -208,6 +208,7 @@
   "roomStatusBusy": "Busy",
   "roomStatusEars": "Just listening",
   "roomStatusFree": "Free to talk",
+  "roomStatusPick": "My status",
   "roomUnmute": "Speak",
   "settingsAuthModeCircle": "Per-circle passcode",
   "settingsAuthModeNone": "No passcode",

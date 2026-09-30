@@ -32,7 +32,9 @@ class CaptionToggleButton extends StatelessWidget {
           isSelected: on,
           onPressed: captions.toggleWantCaptions,
           icon: Icon(
-            on ? Icons.closed_caption_rounded : Icons.closed_caption_off_outlined,
+            on
+                ? Icons.closed_caption_rounded
+                : Icons.closed_caption_off_outlined,
             color: on ? LaresColors.ember : null,
             semanticLabel: t.captionsToggle,
           ),
@@ -61,7 +63,11 @@ class CaptionProvidingBanner extends StatelessWidget {
         final theme = Theme.of(context);
         return Padding(
           padding: const EdgeInsets.fromLTRB(
-              LaresSpacing.lg, LaresSpacing.sm, LaresSpacing.lg, 0),
+            LaresSpacing.md,
+            LaresSpacing.sm,
+            LaresSpacing.md,
+            0,
+          ),
           child: Material(
             color: LaresColors.emberSoft,
             borderRadius: BorderRadius.circular(LaresRadii.sm),
@@ -76,11 +82,16 @@ class CaptionProvidingBanner extends StatelessWidget {
               },
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: LaresSpacing.md, vertical: LaresSpacing.sm),
+                  horizontal: LaresSpacing.md,
+                  vertical: LaresSpacing.sm,
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.closed_caption_rounded,
-                        size: 18, color: LaresColors.ember),
+                    const Icon(
+                      Icons.closed_caption_rounded,
+                      size: 18,
+                      color: LaresColors.ember,
+                    ),
                     const SizedBox(width: LaresSpacing.sm),
                     Expanded(
                       child: Text(
@@ -91,8 +102,9 @@ class CaptionProvidingBanner extends StatelessWidget {
                     const SizedBox(width: LaresSpacing.sm),
                     Text(
                       t.captionsBannerStop,
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(color: LaresColors.ember),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: LaresColors.ember,
+                      ),
                     ),
                   ],
                 ),
@@ -108,9 +120,16 @@ class CaptionProvidingBanner extends StatelessWidget {
 /// 字幕面板:最近 ~30 行,「名字:文字」,partial 淡色原地替换;
 /// 自动滚到底,除非用户自己往上翻了。
 class CaptionPanel extends StatefulWidget {
-  const CaptionPanel({super.key, required this.captions});
+  const CaptionPanel({super.key, required this.captions, this.band = false});
 
   final CaptionController captions;
+
+  /// 字幕带形态:嵌进房间底座、紧贴输入框上方的一条半透明带,
+  /// 最多露出最近三四行 —— 而不是在语音与聊天之间再塞一只独立的盒子。
+  ///
+  /// 与聊天的区分靠三件事:左侧一道余烬色竖线 + CC 标记(「这是正在说的话」)、
+  /// 更大的字号、没有时间戳也没有气泡(字幕是流过去的,不是留下来的)。
+  final bool band;
 
   @override
   State<CaptionPanel> createState() => _CaptionPanelState();
@@ -173,21 +192,38 @@ class _CaptionPanelState extends State<CaptionPanel> {
         final missing = c.notProvidingNames;
         final sep = t.captionsNameSeparator;
         final baseStyle = theme.textTheme.titleMedium?.copyWith(
-          fontSize: 20,
-          height: 1.4,
+          fontSize: widget.band ? _bandFontSize : 20,
+          height: widget.band ? 1.35 : 1.4,
         );
+        if (widget.band) {
+          return _buildBand(
+            context,
+            t,
+            theme,
+            lines,
+            providers,
+            missing,
+            sep,
+            baseStyle,
+          );
+        }
         // partial:同色降透明度 —— 一眼看出「还没说完、可能会改」
         final dim = (baseStyle?.color ?? theme.colorScheme.onSurface)
             .withValues(alpha: 0.55);
         return Container(
           key: const ValueKey('caption-panel'),
           margin: const EdgeInsets.fromLTRB(
-              LaresSpacing.md, LaresSpacing.sm, LaresSpacing.md, 0),
+            LaresSpacing.md,
+            LaresSpacing.sm,
+            LaresSpacing.md,
+            0,
+          ),
           padding: const EdgeInsets.all(LaresSpacing.md),
           constraints: const BoxConstraints(maxHeight: 240),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.85),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.85,
+            ),
             borderRadius: BorderRadius.circular(LaresRadii.md),
           ),
           child: Column(
@@ -203,47 +239,31 @@ class _CaptionPanelState extends State<CaptionPanel> {
                 Text(
                   t.captionsNotProviding(missing.join(sep)),
                   key: const ValueKey('captions-not-providing'),
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: LaresColors.statusBusy),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: LaresColors.statusBusy,
+                  ),
                 ),
               if (providers.isNotEmpty || missing.isNotEmpty)
                 const SizedBox(height: LaresSpacing.xs),
               Flexible(
                 child: lines.isEmpty
                     ? Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: LaresSpacing.sm),
-                        child: Text(t.captionsPanelEmpty,
-                            style: theme.textTheme.bodyMedium),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: LaresSpacing.sm,
+                        ),
+                        child: Text(
+                          t.captionsPanelEmpty,
+                          style: theme.textTheme.bodyMedium,
+                        ),
                       )
                     : ListView.builder(
                         controller: _scroll,
                         shrinkWrap: true,
                         itemCount: lines.length,
-                        itemBuilder: (context, i) {
-                          final l = lines[i];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text.rich(
-                              TextSpan(children: [
-                                TextSpan(
-                                  text: '${l.name}: ',
-                                  style: baseStyle?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: LaresColors.ember,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: l.text,
-                                  style: l.isFinal
-                                      ? baseStyle
-                                      : baseStyle?.copyWith(color: dim),
-                                ),
-                              ]),
-                              key: ValueKey('cap-${l.identity}-${l.itemId}'),
-                            ),
-                          );
-                        },
+                        itemBuilder: (context, i) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: _line(lines[i], baseStyle, dim),
+                        ),
                       ),
               ),
             ],
@@ -252,4 +272,144 @@ class _CaptionPanelState extends State<CaptionPanel> {
       },
     );
   }
+
+  /// 一行字幕:「名字: 文字」。名字余烬色加粗,partial 同色降透明度。
+  /// 面板与字幕带共用,保证 key 与 TextSpan 结构只有一份定义。
+  Widget _line(CaptionLine l, TextStyle? baseStyle, Color dim) => Text.rich(
+    TextSpan(
+      children: [
+        TextSpan(
+          text: '${l.name}: ',
+          style: baseStyle?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: LaresColors.ember,
+          ),
+        ),
+        TextSpan(
+          text: l.text,
+          style: l.isFinal ? baseStyle : baseStyle?.copyWith(color: dim),
+        ),
+      ],
+    ),
+    key: ValueKey('cap-${l.identity}-${l.itemId}'),
+  );
+
+  Widget _buildBand(
+    BuildContext context,
+    AppLocalizations t,
+    ThemeData theme,
+    List<CaptionLine> lines,
+    List<String> providers,
+    List<String> missing,
+    String sep,
+    TextStyle? baseStyle,
+  ) {
+    final dim = (baseStyle?.color ?? theme.colorScheme.onSurface).withValues(
+      alpha: 0.55,
+    );
+    final meta = theme.textTheme.bodySmall;
+    return Padding(
+      key: const ValueKey('caption-panel'),
+      padding: const EdgeInsets.fromLTRB(
+        LaresSpacing.sm,
+        LaresSpacing.xs,
+        LaresSpacing.sm,
+        0,
+      ),
+      // 圆角交给 ClipRRect:Flutter 不允许「只有左边线的 Border」再带 borderRadius
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(LaresRadii.sm),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: _bandMaxHeight),
+          decoration: BoxDecoration(
+            // 余烬色极淡一层:与聊天区(无底色)分开,又不像一只新盒子
+            color: LaresColors.ember.withValues(alpha: _bandTintAlpha),
+            border: const Border(
+              left: BorderSide(
+                color: LaresColors.ember,
+                width: _bandAccentWidth,
+              ),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(
+            LaresSpacing.md,
+            LaresSpacing.sm,
+            LaresSpacing.md,
+            LaresSpacing.sm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 一行小字:CC 标记 + 谁在提供 / 谁没开。不另起一只盒子。
+              Row(
+                children: [
+                  const Icon(
+                    Icons.closed_caption_rounded,
+                    size: _bandIconSize,
+                    color: LaresColors.ember,
+                  ),
+                  const SizedBox(width: LaresSpacing.xs),
+                  if (providers.isNotEmpty)
+                    Flexible(
+                      child: Text(
+                        t.captionsProviders(providers.join(sep)),
+                        style: meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  if (providers.isNotEmpty && missing.isNotEmpty)
+                    Text(' · ', style: meta),
+                  if (missing.isNotEmpty)
+                    Flexible(
+                      child: Text(
+                        t.captionsNotProviding(missing.join(sep)),
+                        key: const ValueKey('captions-not-providing'),
+                        style: meta?.copyWith(color: LaresColors.statusBusy),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  if (providers.isEmpty && missing.isEmpty)
+                    Flexible(
+                      child: Text(t.captionsToggle, style: meta, maxLines: 1),
+                    ),
+                ],
+              ),
+              const SizedBox(height: LaresSpacing.xs),
+              Flexible(
+                child: lines.isEmpty
+                    ? Text(
+                        t.captionsPanelEmpty,
+                        style: theme.textTheme.bodyMedium,
+                      )
+                    : ListView.builder(
+                        controller: _scroll,
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        itemCount: lines.length,
+                        itemBuilder: (context, i) => Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: _line(lines[i], baseStyle, dim),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+/// 字幕带:字号(比聊天正文 16 大一档,一眼区分「正在说」与「写下的」)。
+const double _bandFontSize = 18;
+
+/// 字幕带最高高度:状态行 + 约三行字幕。再多就在带内滚动,不挤语音区。
+const double _bandMaxHeight = 128;
+
+/// 字幕带底色的余烬浓度、左侧强调线宽度、CC 小图标尺寸。
+const double _bandTintAlpha = 0.08;
+const double _bandAccentWidth = 3;
+const double _bandIconSize = 14;

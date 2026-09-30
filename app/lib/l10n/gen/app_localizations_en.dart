@@ -847,6 +847,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get roomStatusFree => 'Free to talk';
 
   @override
+  String get roomStatusPick => 'My status';
+
+  @override
   String get roomUnmute => 'Speak';
 
   @override

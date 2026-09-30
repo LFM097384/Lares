@@ -4,6 +4,10 @@ import '../../state/models.dart';
 import '../../theme/tokens.dart';
 import 'speaking_ripple.dart';
 
+/// 说话光晕的不透明度与模糊半径(相对头像直径)。
+const double _speakingGlowAlpha = 0.45;
+const double _speakingGlowBlur = 0.28;
+
 /// 成员头像球:状态色环 + 说话波纹 + 静音标记。
 /// 这是房间内 UI 的最小单元,视觉语言是「人」,不是「会」。
 class AvatarOrb extends StatelessWidget {
@@ -13,6 +17,8 @@ class AvatarOrb extends StatelessWidget {
     required this.speaking,
     required this.muted,
     this.size = 88,
+    this.compact = false,
+    this.showName = true,
   });
 
   final Member member;
@@ -21,6 +27,13 @@ class AvatarOrb extends StatelessWidget {
   /// 仅对「我」有意义:显示自己的静音状态
   final bool muted;
   final double size;
+
+  /// 紧凑形态(聊天展开 / 字幕开着时的顶部语音条):名字变小、不显示状态字。
+  /// 状态仍由色环表达,说话波纹照常 —— 「谁在说话」任何时候都看得见。
+  final bool compact;
+
+  /// 键盘弹起、竖向空间极紧时连名字也收起,只留头像球。
+  final bool showName;
 
   @override
   Widget build(BuildContext context) {
@@ -32,68 +45,89 @@ class AvatarOrb extends StatelessWidget {
       child: SizedBox(
         width: size + 24,
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: size + 16,
-            height: size + 16,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SpeakingRipple(speaking: speaking, size: size + 16),
-                Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: member.status.color,
-                      width: 2.5,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: size + 16,
+              height: size + 16,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SpeakingRipple(speaking: speaking, size: size + 16),
+                  Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: member.status.color,
+                        width: 2.5,
+                      ),
+                      color: theme.colorScheme.surface,
+                      // 说话时一圈暖光:波纹是动态的,光晕是静态的 ——
+                      // 截图、低动效模式下也能一眼认出谁在说话。
+                      boxShadow: speaking
+                          ? [
+                              BoxShadow(
+                                color: LaresColors.ember.withValues(
+                                  alpha: _speakingGlowAlpha,
+                                ),
+                                blurRadius: size * _speakingGlowBlur,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
                     ),
-                    color: theme.colorScheme.surface,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _initial(member.name),
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontSize: size * 0.36,
+                    alignment: Alignment.center,
+                    child: Text(
+                      _initial(member.name),
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontSize: size * 0.36,
+                      ),
                     ),
                   ),
+                  if (muted)
+                    Positioned(
+                      right: compact ? 2 : 6,
+                      bottom: compact ? 2 : 6,
+                      child: Container(
+                        padding: EdgeInsets.all(compact ? 2 : 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: theme.colorScheme.surface,
+                        ),
+                        child: Icon(
+                          Icons.mic_off_rounded,
+                          size: compact ? 12 : 16,
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (showName) ...[
+              SizedBox(height: compact ? LaresSpacing.xs : LaresSpacing.sm),
+              Text(
+                member.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: compact
+                    ? theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: 13,
+                        color: speaking ? theme.colorScheme.onSurface : null,
+                      )
+                    : theme.textTheme.bodyLarge,
+              ),
+            ],
+            if (!compact)
+              Text(
+                member.status.label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: member.status.color,
+                  fontSize: 12,
                 ),
-                if (muted)
-                  Positioned(
-                    right: 6,
-                    bottom: 6,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: theme.colorScheme.surface,
-                      ),
-                      child: Icon(
-                        Icons.mic_off_rounded,
-                        size: 16,
-                        color: theme.colorScheme.error,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: LaresSpacing.sm),
-          Text(
-            member.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyLarge,
-          ),
-          Text(
-            member.status.label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: member.status.color,
-              fontSize: 12,
-            ),
-          ),
+              ),
           ],
         ),
       ),

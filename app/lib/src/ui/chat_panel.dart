@@ -73,6 +73,9 @@ const double _listHeightMax = 320;
 /// 面板自身的固定边饰高度(上下内边距 + 分隔线),参与高度预算的算术。
 const double _panelChromeHeight = 24;
 
+/// 消息旁发送者小头像占的宽度(与 RoomScreen 的 mini 座位头像同尺寸)。
+const double _senderAvatarSlot = 28;
+
 /// 面板能冒出的三种安静提示。
 ///
 /// 刻意存标识而不存译好的字符串:本地化文案不是编译期常量,更重要的是
@@ -121,7 +124,41 @@ class ChatPanel extends StatefulWidget {
     this.enterToSend, // null = 按平台推断
     this.initiallyExpanded = false,
     this.blocks,
+    this.embedded = false,
+    this.collapsible = true,
+    this.aboveComposer,
+    this.senderAvatar,
+    this.onExpandedChanged,
+    this.showToggle = true,
   });
+
+  /// false = 展开/收起键不画在输入栏里 —— 由宿主放到别处(RoomScreen
+  /// 把它放进主控件排,与静音键左右对称),宿主通过 [ChatPanelState.toggleExpanded]
+  /// 驱动、用公开的 [ChatToggleButton] 画同一颗键。输入框因此多出一截宽度。
+  final bool showToggle;
+
+  /// 嵌入模式:面板不画自己的底板(由宿主的整块「房间底座」提供),
+  /// 展开时消息列表**填满父级给的高度**,而不是自己按屏高估算。
+  ///
+  /// 宿主的义务:展开时必须给有界高度(放进 Expanded / 定高盒子)。
+  /// RoomScreen 正是这么做的 —— 语音条、字幕带、输入栏同在一块底板上,
+  /// 读起来是一个房间,而不是三只叠着的盒子。
+  final bool embedded;
+
+  /// 是否允许收起。桌面侧栏里消息区常驻,不需要(也不该有)收起键。
+  final bool collapsible;
+
+  /// 夹在消息列表与输入框之间的一条内容(RoomScreen 放字幕带)。
+  /// 放在这里而不是面板外:字幕是「此刻正在说的话」,紧贴着「我要说的话」最自然。
+  final Widget? aboveComposer;
+
+  /// 别人消息的发送者头像。RoomScreen 用它画与语音座位同色同形的小头像,
+  /// 让「这句话是谁说的」与「那个在发光的人」一眼对上。null = 不画。
+  final Widget Function(BuildContext context, ChatMessage message)?
+  senderAvatar;
+
+  /// 展开/收起时通知宿主(宿主据此把语音区收成一条)。
+  final ValueChanged<bool>? onExpandedChanged;
 
   /// 消息源与发送入口。面板自身不持有任何消息状态。
   final ChatService chat;
@@ -162,7 +199,7 @@ class ChatPanelState extends State<ChatPanel> {
   final ScrollController _scroll = ScrollController();
   final FocusNode _focus = FocusNode(debugLabel: 'ChatPanel composer');
 
-  late bool _expanded = widget.initiallyExpanded;
+  late bool _expanded = widget.initiallyExpanded || !widget.collapsible;
 
   /// 上一次见到的消息条数,用来判断「是新增」还是「只是状态变了」。
   late int _lastMessageCount = widget.chat.messages.length;
@@ -191,6 +228,15 @@ class ChatPanelState extends State<ChatPanel> {
   @override
   void didUpdateWidget(covariant ChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // 宿主改成「不可收起」(窗口拉宽进了侧栏布局):消息区必须露出来
+    if (!widget.collapsible && !_expanded) {
+      _expanded = true;
+      _afterFrame(_markReadAndFollow);
+    } else if (widget.collapsible && !oldWidget.collapsible) {
+      // 反过来(窗口缩窄回底座布局):宿主从「收起」开始排版,这里必须跟上,
+      // 否则嵌入模式会在无界高度里要求填满
+      _expanded = widget.initiallyExpanded;
+    }
     if (!identical(oldWidget.chat, widget.chat)) {
       oldWidget.chat.removeListener(_onChatChanged);
       widget.chat.addListener(_onChatChanged);
@@ -271,11 +317,18 @@ class ChatPanelState extends State<ChatPanel> {
     });
   }
 
+  /// 宿主驱动展开/收起(键不在输入栏里时,见 [ChatPanel.showToggle])。
+  void toggleExpanded() {
+    if (!widget.collapsible) return;
+    _toggleExpanded();
+  }
+
   void _toggleExpanded() {
     setState(() {
       _expanded = !_expanded;
       _notice = null; // 换个状态就把旧提示收掉,不让它赖着
     });
+    widget.onExpandedChanged?.call(_expanded);
     if (_expanded) _afterFrame(_markReadAndFollow);
   }
 
@@ -320,7 +373,8 @@ class ChatPanelState extends State<ChatPanel> {
   }
 
   Future<void> _handlePickImage() async {
-    final Future<PickedImage?> Function() picker = widget.onPickImage ?? pickImage;
+    final Future<PickedImage?> Function() picker =
+        widget.onPickImage ?? pickImage;
     PickedImage? picked;
     try {
       picked = await picker();
@@ -385,21 +439,24 @@ class ChatPanelState extends State<ChatPanel> {
     final double screenHeight = MediaQuery.sizeOf(context).height;
 
     // 输入框上限按当前字体缩放算,而不是钉死像素:大字号下硬上限会把文字压扁。
-    final double scaledLine =
-        MediaQuery.textScalerOf(context).scale(_composerLineHeight);
-    final double idealComposer = scaledLine * _composerMaxLines + LaresSpacing.md;
+    final double scaledLine = MediaQuery.textScalerOf(
+      context,
+    ).scale(_composerLineHeight);
+    final double idealComposer =
+        scaledLine * _composerMaxLines + LaresSpacing.md;
 
     // 但「按字号放大」不能没有上限。超大字号(3×)下仅输入框自己就要 232px,
     // 而列表已经能缩到 0 —— 再没有可让的空间,于是溢出的是整个面板。
     // 所以输入框也必须夹在同一份预算里,超出部分改为框内滚动
     // (maxLines: null + 有界 ConstrainedBox 本来就支持)。
     // 下限保一行:宁可只剩一行,也不能夹成 0 让人没法打字。
-    final double composerBudget = screenHeight * _panelHeightBudget -
+    final double composerBudget =
+        screenHeight * _panelHeightBudget -
         _panelChromeHeight -
         // 提示行可能出现,先把它的位置留出来再谈输入框能长多高
         ((_showRemaining || _notice != null)
             ? MediaQuery.textScalerOf(context).scale(_composerLineHeight) +
-                LaresSpacing.xs
+                  LaresSpacing.xs
             : 0);
     final double oneLineFloor = scaledLine + LaresSpacing.md;
     final double composerMaxHeight = idealComposer.clamp(
@@ -419,7 +476,8 @@ class ChatPanelState extends State<ChatPanel> {
     // 列表高度 = min(四成屏高, 预算里刨掉输入框、提示行和边饰之后还剩的),再夹到绝对上下限。
     // 先扣输入框再分给列表,保证窄窗口 + 大字号时被牺牲的是列表而不是布局完整性。
     // 注意这里用的是**夹过之后**的输入框高度,让下面的列表算术保持不变。
-    final double budgetLeft = screenHeight * _panelHeightBudget -
+    final double budgetLeft =
+        screenHeight * _panelHeightBudget -
         composerMaxHeight -
         hintReserve -
         _panelChromeHeight;
@@ -435,21 +493,36 @@ class ChatPanelState extends State<ChatPanel> {
     final BlockStore? blocks = widget.blocks;
     // 没接屏蔽名单就传 null,_MessageRow 那边收到 null 便完全不挂手势 ——
     // 与本面板一贯的降级方式一致。
-    final ValueChanged<ChatMessage>? onModerate =
-        blocks == null ? null : (ChatMessage m) => _moderate(blocks, m);
+    final ValueChanged<ChatMessage>? onModerate = blocks == null
+        ? null
+        : (ChatMessage m) => _moderate(blocks, m);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(LaresRadii.lg),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          // 只有消息区订阅 chat:输入框的可用态只取决于本地文字,
-          // 让它跟着每条新消息一起重建纯属浪费(与 room_screen.dart 的叶子重建同构)。
+    // 嵌入模式 + 展开:列表吃满宿主给的高度(宿主保证有界)。
+    final bool fill = widget.embedded && _expanded;
+
+    final Widget column = Column(
+      mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
+      children: <Widget>[
+        // 只有消息区订阅 chat:输入框的可用态只取决于本地文字,
+        // 让它跟着每条新消息一起重建纯属浪费(与 room_screen.dart 的叶子重建同构)。
+        if (fill)
+          Expanded(
+            child: ListenableBuilder(
+              listenable: Listenable.merge(<Listenable?>[widget.chat, blocks]),
+              builder: (BuildContext context, Widget? child) {
+                return _MessageList(
+                  messages: blocks == null
+                      ? widget.chat.messages
+                      : widget.chat.visibleMessages,
+                  scrollController: _scroll,
+                  maxHeight: double.infinity,
+                  onModerate: onModerate,
+                  senderAvatar: widget.senderAvatar,
+                );
+              },
+            ),
+          )
+        else
           ListenableBuilder(
             // blocks 必须并进来:屏蔽发生在 BlockStore 上,chat 不会为此 notify,
             // 不合并就会「屏蔽了但那条消息还挂在列表里」。
@@ -469,29 +542,44 @@ class ChatPanelState extends State<ChatPanel> {
                         scrollController: _scroll,
                         maxHeight: listMaxHeight,
                         onModerate: onModerate,
+                        senderAvatar: widget.senderAvatar,
                       )
                     // 收起时高度归零,宽度撑满,避免动画过程中横向也跟着抖
                     : const SizedBox(width: double.infinity),
               );
             },
           ),
-          _Composer(
-            chat: widget.chat,
-            controller: _controller,
-            focusNode: _focus,
-            expanded: _expanded,
-            enterToSend: enterToSend,
-            canSend: _canSend,
-            remaining: _showRemaining ? _remaining : null,
-            notice: _notice,
-            imagePickEnabled: imagePickEnabled,
-            maxHeight: composerMaxHeight,
-            onToggle: _toggleExpanded,
-            onSend: _send,
-            onPickImage: _handlePickImage,
-          ),
-        ],
+        if (widget.aboveComposer != null) widget.aboveComposer!,
+        _Composer(
+          collapsible: widget.collapsible && widget.showToggle,
+          embedded: widget.embedded,
+          chat: widget.chat,
+          controller: _controller,
+          focusNode: _focus,
+          expanded: _expanded,
+          enterToSend: enterToSend,
+          canSend: _canSend,
+          remaining: _showRemaining ? _remaining : null,
+          notice: _notice,
+          imagePickEnabled: imagePickEnabled,
+          maxHeight: composerMaxHeight,
+          onToggle: _toggleExpanded,
+          onSend: _send,
+          onPickImage: _handlePickImage,
+        ),
+      ],
+    );
+
+    // 嵌入时底板由宿主统一提供:这里再画一层圆角面板就是「盒子套盒子」
+    if (widget.embedded) return column;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(LaresRadii.lg),
+        ),
       ),
+      child: column,
     );
   }
 }
@@ -503,11 +591,16 @@ class _MessageList extends StatelessWidget {
     required this.scrollController,
     required this.maxHeight,
     this.onModerate,
+    this.senderAvatar,
   });
 
   final List<ChatMessage> messages;
   final ScrollController scrollController;
+
+  /// 列表高度。`double.infinity` = 吃满父级(嵌入模式,父级保证有界)。
   final double maxHeight;
+
+  final Widget Function(BuildContext, ChatMessage)? senderAvatar;
 
   /// 长按一条消息时的处置回调。null = 没接屏蔽名单,不挂任何手势。
   /// 仓库风格是「要什么就从构造函数传进来」(参见 _Composer 的 `final ChatService chat;`),
@@ -535,13 +628,20 @@ class _MessageList extends StatelessWidget {
 
     // 定高 + ListView:高度由外部算好,列表在盒子里自己滚。
     // 有界的 ListView 不需要 shrinkWrap(那会强制整表布局,长列表直接卡死)。
-    return SizedBox(
+    //
+    // 嵌入(填满)时顶部留白放在列表**外**:放在里面的话,滚上去的上一条
+    // 会从这段留白里露出半截字脚,贴着底座上沿像一排噪点。
+    final bool fill = maxHeight == double.infinity;
+    return Container(
       height: maxHeight,
+      padding: EdgeInsets.only(top: fill ? LaresSpacing.sm : 0),
       child: ListView.builder(
         controller: scrollController,
-        padding: const EdgeInsets.symmetric(
-          horizontal: LaresSpacing.md,
-          vertical: LaresSpacing.sm,
+        padding: EdgeInsets.fromLTRB(
+          LaresSpacing.md,
+          fill ? 0 : LaresSpacing.sm,
+          LaresSpacing.md,
+          LaresSpacing.sm,
         ),
         itemCount: messages.length,
         itemBuilder: (BuildContext context, int index) {
@@ -554,6 +654,7 @@ class _MessageList extends StatelessWidget {
             message: message,
             showHeader: showHeader,
             onModerate: onModerate,
+            senderAvatar: senderAvatar,
           );
         },
       ),
@@ -568,10 +669,14 @@ class _MessageRow extends StatelessWidget {
     required this.message,
     required this.showHeader,
     this.onModerate,
+    this.senderAvatar,
   });
 
   final ChatMessage message;
   final bool showHeader;
+
+  /// 发送者小头像(只给别人的消息画;同一人连发时只在第一条画,其余留等宽空位对齐)。
+  final Widget Function(BuildContext, ChatMessage)? senderAvatar;
 
   /// 长按处置回调。null 或自己发的消息一律不挂手势(屏蔽/举报自己没有意义)。
   final ValueChanged<ChatMessage>? onModerate;
@@ -587,51 +692,73 @@ class _MessageRow extends StatelessWidget {
 
     final ValueChanged<ChatMessage>? moderate = onModerate;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: LaresSpacing.sm),
-      child: Column(
-        crossAxisAlignment:
-            mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: <Widget>[
-          if (showHeader)
-            Padding(
-              padding: const EdgeInsets.only(bottom: LaresSpacing.xs),
-              // bodyMedium 本身已是次要色,时间戳直接用它,不再 copyWith 调色
-              child: Text(
-                '${message.senderName}  ${_formatHm(message.timestamp)}',
-                style: theme.textTheme.bodyMedium,
-              ),
+    final Widget column = Column(
+      crossAxisAlignment: mine
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: <Widget>[
+        if (showHeader)
+          Padding(
+            padding: const EdgeInsets.only(bottom: LaresSpacing.xs),
+            // bodyMedium 本身已是次要色,时间戳直接用它,不再 copyWith 调色
+            child: Text(
+              '${message.senderName}  ${_formatHm(message.timestamp)}',
+              style: theme.textTheme.bodyMedium,
             ),
-          GestureDetector(
-            // 长按别人的消息 = 处置菜单(屏蔽/举报)。自己的消息不挂,
-            // 没接屏蔽名单也不挂 —— onLongPress 为 null 时 GestureDetector
-            // 根本不参与命中测试,原来点缩略图看大图的手势一点不受影响。
-            onLongPress: (moderate == null || mine)
-                ? null
-                : () => moderate(message),
-            child: Opacity(
-              // 发送中压暗,表示「还没落定」。不转圈、不进度条。
-              opacity: message.state == ChatDeliveryState.sending
-                  ? _sendingOpacity
-                  : 1,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: mine ? LaresColors.emberSoft : null,
-                  borderRadius: BorderRadius.circular(LaresRadii.sm),
+          ),
+        GestureDetector(
+          // 长按别人的消息 = 处置菜单(屏蔽/举报)。自己的消息不挂,
+          // 没接屏蔽名单也不挂 —— onLongPress 为 null 时 GestureDetector
+          // 根本不参与命中测试,原来点缩略图看大图的手势一点不受影响。
+          onLongPress: (moderate == null || mine)
+              ? null
+              : () => moderate(message),
+          child: Opacity(
+            // 发送中压暗,表示「还没落定」。不转圈、不进度条。
+            opacity: message.state == ChatDeliveryState.sending
+                ? _sendingOpacity
+                : 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: mine ? LaresColors.emberSoft : null,
+                borderRadius: BorderRadius.circular(LaresRadii.sm),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LaresSpacing.sm,
+                  vertical: LaresSpacing.xs,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: LaresSpacing.sm,
-                    vertical: LaresSpacing.xs,
-                  ),
-                  child: body,
-                ),
+                child: body,
               ),
             ),
           ),
-          if (message.state == ChatDeliveryState.failed) const _FailedMark(),
-        ],
+        ),
+        if (message.state == ChatDeliveryState.failed) const _FailedMark(),
+      ],
+    );
+
+    final avatarOf = senderAvatar;
+    final Widget content = (avatarOf == null || mine)
+        ? column
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              SizedBox(
+                width: _senderAvatarSlot,
+                child: showHeader ? avatarOf(context, message) : null,
+              ),
+              const SizedBox(width: LaresSpacing.sm),
+              Expanded(child: column),
+            ],
+          );
+
+    return Padding(
+      padding: EdgeInsets.only(
+        // 换人说话时多留一点呼吸;同一人连发时挨得近些,读起来是一段
+        top: showHeader ? LaresSpacing.xs : 0,
+        bottom: LaresSpacing.xs,
       ),
+      child: content,
     );
   }
 }
@@ -657,8 +784,9 @@ class _FailedMark extends StatelessWidget {
           const SizedBox(width: LaresSpacing.xs),
           Text(
             AppLocalizations.of(context).chatSendFailed,
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(color: theme.colorScheme.error),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+            ),
           ),
         ],
       ),
@@ -707,12 +835,12 @@ class _ImageThumb extends StatelessWidget {
                 cacheWidth: cacheWidth,
                 fit: BoxFit.cover,
                 // 坏字节要安静地退化成占位,而不是甩一块红底报错出来
-                errorBuilder: (
-                  BuildContext context,
-                  Object error,
-                  StackTrace? stackTrace,
-                ) =>
-                    const _ImagePlaceholder(),
+                errorBuilder:
+                    (
+                      BuildContext context,
+                      Object error,
+                      StackTrace? stackTrace,
+                    ) => const _ImagePlaceholder(),
               ),
             ),
           ),
@@ -790,12 +918,12 @@ class _ImageViewerDialog extends StatelessWidget {
                   child: Image.memory(
                     bytes,
                     fit: BoxFit.contain,
-                    errorBuilder: (
-                      BuildContext context,
-                      Object error,
-                      StackTrace? stackTrace,
-                    ) =>
-                        const Center(child: _ImagePlaceholder()),
+                    errorBuilder:
+                        (
+                          BuildContext context,
+                          Object error,
+                          StackTrace? stackTrace,
+                        ) => const Center(child: _ImagePlaceholder()),
                   ),
                 ),
               ),
@@ -863,7 +991,15 @@ class _Composer extends StatelessWidget {
     required this.onToggle,
     required this.onSend,
     required this.onPickImage,
+    this.collapsible = true,
+    this.embedded = false,
   });
+
+  /// false = 没有展开/收起键(桌面侧栏里消息常驻)。
+  final bool collapsible;
+
+  /// 嵌入 RoomScreen 底座时收紧左右留白,与语音条、字幕带对齐。
+  final bool embedded;
 
   final ChatService chat;
   final TextEditingController controller;
@@ -931,8 +1067,9 @@ class _Composer extends StatelessWidget {
                 _noticeText(context, notice!),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.colorScheme.error),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
               ),
             ),
           if (left != null)
@@ -954,7 +1091,14 @@ class _Composer extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              _ToggleButton(chat: chat, expanded: expanded, onToggle: onToggle),
+              if (collapsible)
+                ChatToggleButton(
+                  chat: chat,
+                  expanded: expanded,
+                  onToggle: onToggle,
+                )
+              else
+                const SizedBox(width: LaresSpacing.sm),
               Expanded(
                 child: Focus(
                   onKeyEvent: _onKeyEvent,
@@ -971,8 +1115,7 @@ class _Composer extends StatelessWidget {
                       textInputAction: enterToSend
                           ? TextInputAction.send
                           : TextInputAction.newline,
-                      onSubmitted:
-                          enterToSend ? (String _) => onSend() : null,
+                      onSubmitted: enterToSend ? (String _) => onSend() : null,
                       style: theme.textTheme.bodyLarge,
                       decoration: InputDecoration(
                         isDense: true,
@@ -985,8 +1128,7 @@ class _Composer extends StatelessWidget {
                           vertical: LaresSpacing.sm,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(LaresRadii.md),
+                          borderRadius: BorderRadius.circular(LaresRadii.md),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -1018,16 +1160,21 @@ class _Composer extends StatelessWidget {
 
 /// 展开/收起键,未读圆点叠在它右上角。
 /// 单独抽出来是为了让那颗圆点自己订阅 chat,而不是拖着整条输入栏一起重建。
-class _ToggleButton extends StatelessWidget {
-  const _ToggleButton({
+class ChatToggleButton extends StatelessWidget {
+  const ChatToggleButton({
+    super.key,
     required this.chat,
     required this.expanded,
     required this.onToggle,
+    this.tonal = false,
   });
 
   final ChatService chat;
   final bool expanded;
   final VoidCallback onToggle;
+
+  /// true = 画成 tonal 圆键(RoomScreen 主控件排里与离开 / 便签同款)。
+  final bool tonal;
 
   @override
   Widget build(BuildContext context) {
@@ -1040,7 +1187,7 @@ class _ToggleButton extends StatelessWidget {
           alignment: Alignment.center,
           children: <Widget>[
             // IconButton 自带 >=48 的点击区,不额外加 SizedBox
-            IconButton(
+            (tonal ? IconButton.filledTonal : IconButton.new)(
               tooltip: expanded
                   ? AppLocalizations.of(context).chatCollapse
                   : AppLocalizations.of(context).chatExpand,
@@ -1052,12 +1199,12 @@ class _ToggleButton extends StatelessWidget {
               onPressed: onToggle,
             ),
             if (hasUnread)
-              const Positioned(
-                right: LaresSpacing.sm,
-                top: LaresSpacing.sm,
+              Positioned(
+                right: tonal ? LaresSpacing.xs : LaresSpacing.sm,
+                top: tonal ? LaresSpacing.xs : LaresSpacing.sm,
                 // _UnreadDot 内部读 AppLocalizations,但它自身无字段,
                 // 构造仍是 const —— 本地化发生在它的 build 里,不影响这里。
-                child: _UnreadDot(),
+                child: const _UnreadDot(),
               ),
           ],
         );

@@ -1346,6 +1346,12 @@ abstract class AppLocalizations {
   /// **'随时聊'**
   String get roomStatusFree;
 
+  /// 收起后语音条上状态小药丸的提示:点开选自己的状态
+  ///
+  /// In zh, this message translates to:
+  /// **'我的状态'**
+  String get roomStatusPick;
+
   /// 解除静音开口说话的按钮提示
   ///
   /// In zh, this message translates to:

@@ -971,6 +971,10 @@
   "@roomStatusFree": {
     "description": "轻状态选择:随时可以聊"
   },
+  "roomStatusPick": "我的状态",
+  "@roomStatusPick": {
+    "description": "收起后语音条上状态小药丸的提示:点开选自己的状态"
+  },
   "roomUnmute": "说话",
   "@roomUnmute": {
     "description": "解除静音开口说话的按钮提示"
