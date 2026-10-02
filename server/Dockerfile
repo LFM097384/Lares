@@ -3,6 +3,10 @@
 # 版(linux-x64-gnu / arm64-gnu),在 musl 上装不上 → speak 只能返回 501。
 FROM node:22-bookworm-slim
 
+# rtc-node 的 Rust 内核从系统证书库加载根证书(不用 Node 自带的),slim 镜像没有它,
+# 连 wss:// LiveKit 会报 "no native root CA certificates found"(2026-09 生产实测)。
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev --no-audit --no-fund
