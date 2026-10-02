@@ -1638,4 +1638,351 @@ class AppLocalizationsZh extends AppLocalizations {
   String botTokenRevokeTitle(String name) {
     return '吊销「$name」?';
   }
+
+  @override
+  String get pluginTitle => '插件';
+
+  @override
+  String get pluginEntryDesc => '给这个圈子装小工具';
+
+  @override
+  String get pluginAdd => '添加插件';
+
+  @override
+  String get pluginEmpty => '还没装插件';
+
+  @override
+  String get pluginInstall => '装上';
+
+  @override
+  String get pluginUninstall => '卸载';
+
+  @override
+  String get pluginDetails => '详情';
+
+  @override
+  String get pluginSettings => '设置';
+
+  @override
+  String pluginUninstallTitle(String name) {
+    return '卸载「$name」?';
+  }
+
+  @override
+  String get pluginUninstallBody => '插件的设置和共享状态会一起删掉';
+
+  @override
+  String pluginInstalled(String name) {
+    return '「$name」装好了';
+  }
+
+  @override
+  String get pluginAlreadyInstalled => '已经装了';
+
+  @override
+  String get pluginFocusName => '专注学习';
+
+  @override
+  String get pluginFocusDesc => '一起专注,番茄钟和排行榜';
+
+  @override
+  String get pluginAddFromUrl => '从网址安装';
+
+  @override
+  String get pluginAddPaste => '粘贴 manifest';
+
+  @override
+  String get pluginManifestUrlHint => 'https://…/manifest.json';
+
+  @override
+  String get pluginManifestJsonHint => '把 manifest.json 的内容粘贴到这里';
+
+  @override
+  String pluginMeta(String version, String author) {
+    return '$version · $author';
+  }
+
+  @override
+  String get pluginHasWebhook => '带服务端回调(webhook)';
+
+  @override
+  String get pluginSecretsOnce => '下面的内容只显示这一次,关掉就看不到了。先复制存好。';
+
+  @override
+  String get pluginToken => '插件 token';
+
+  @override
+  String get pluginWebhookSecret => 'Webhook 密钥';
+
+  @override
+  String pluginSettingsOf(String name) {
+    return '$name 设置';
+  }
+
+  @override
+  String get pluginErrAlreadyInstalled => '这个插件已经装过了';
+
+  @override
+  String get pluginErrTooMany => '一个圈子最多装 10 个插件';
+
+  @override
+  String get pluginErrBadManifest => 'manifest 不对';
+
+  @override
+  String get pluginErrFetch => '取不到这个 manifest';
+
+  @override
+  String get pluginErrTimeout => '服务器没回应,稍后再试';
+
+  @override
+  String get pluginErrNotOwner => '只有圈主能管插件';
+
+  @override
+  String pluginErrGeneric(String reason) {
+    return '没成功:$reason';
+  }
+
+  @override
+  String get pluginErrHttpsOnly => '网址要以 https:// 开头';
+
+  @override
+  String get pluginErrBadJson => '这不是一段有效的 JSON';
+
+  @override
+  String get pluginConsentTitle => '打开插件';
+
+  @override
+  String pluginConsentFrom(String origin) {
+    return '来自 $origin';
+  }
+
+  @override
+  String get pluginConsentPermsHeader => '它想要:';
+
+  @override
+  String get pluginConsentNoPerms => '它不需要任何权限';
+
+  @override
+  String get pluginConsentE2eeWarning => '注意:这个圈子是端到端加密的,但插件的共享状态和回调对服务器可见。';
+
+  @override
+  String get pluginConsentAllow => '允许';
+
+  @override
+  String get pluginPlatformUnsupported => '此平台暂不支持内嵌插件';
+
+  @override
+  String get pluginOpenInBrowser => '在浏览器打开';
+
+  @override
+  String get pluginPermCircleRead => '看圈子名字和设置';
+
+  @override
+  String get pluginPermMembersRead => '看房间里有谁、谁进出';
+
+  @override
+  String get pluginPermChatRead => '读聊天消息';
+
+  @override
+  String get pluginPermChatSend => '以你的名义发聊天消息';
+
+  @override
+  String get pluginPermCaptionsRead => '读实时字幕';
+
+  @override
+  String get pluginPermCaptionsSend => '发字幕';
+
+  @override
+  String get pluginPermTranscriptRead => '读转写记录';
+
+  @override
+  String get pluginPermStateRead => '读插件的共享状态';
+
+  @override
+  String get pluginPermStateWrite => '改插件的共享状态';
+
+  @override
+  String get pluginPermStorage => '在本机存数据';
+
+  @override
+  String get pluginPermFocusRead => '读专注状态';
+
+  @override
+  String get focusTitle => '专注学习';
+
+  @override
+  String get focusPhaseFocus => '专注中';
+
+  @override
+  String get focusPhaseBreak => '休息一下';
+
+  @override
+  String get focusPhaseIdle => '等待开始';
+
+  @override
+  String get focusPhaseIdleHint => '一起安静地做事 · 番茄钟可选';
+
+  @override
+  String focusRound(int round, int rounds) {
+    return '第 $round/$rounds 轮';
+  }
+
+  @override
+  String get focusStart => '开始专注';
+
+  @override
+  String get focusStop => '结束';
+
+  @override
+  String get focusBoard => '排行榜';
+
+  @override
+  String get focusLock => '锁定专注';
+
+  @override
+  String get focusLocked => '已锁定';
+
+  @override
+  String get focusUnlock => '解除锁定';
+
+  @override
+  String get focusLockTitle => '锁定专注?';
+
+  @override
+  String get focusLockBody =>
+      '会把屏幕固定在 Lares 上,其他 App 和通知暂时打不开。想退出时,同时按住「返回」和「概览」键(或用系统提示的手势)。休息或结束时会自动解除。';
+
+  @override
+  String get focusLockConfirm => '锁定';
+
+  @override
+  String get focusLockCancel => '算了';
+
+  @override
+  String get focusLockFailed => '没能锁定,这台设备可能不支持屏幕固定';
+
+  @override
+  String get focusChatHidden => '专注中,文字聊天已收起 · 休息时再聊';
+
+  @override
+  String get focusChatHiddenNoBreak => '专注中,文字聊天已收起';
+
+  @override
+  String get focusBadgeFocus => '专注中';
+
+  @override
+  String focusBadgeAway(String time) {
+    return '离开 $time';
+  }
+
+  @override
+  String get focusBadgeBreak => '休息';
+
+  @override
+  String focusNoticeAway(String name) {
+    return '$name 离开了专注';
+  }
+
+  @override
+  String focusNoticeBack(String name) {
+    return '$name 回来了';
+  }
+
+  @override
+  String focusNoticeBackAfter(String name, String time) {
+    return '$name 回来了 · 离开 $time';
+  }
+
+  @override
+  String focusNoticeLeftEarly(String name) {
+    return '$name 提前离开了专注';
+  }
+
+  @override
+  String focusNoticePhaseFocus(int round) {
+    return '第 $round 轮专注开始';
+  }
+
+  @override
+  String get focusNoticePhaseBreak => '休息一下,聊两句吧';
+
+  @override
+  String get focusNoticeStarted => '番茄钟开始了';
+
+  @override
+  String get focusNoticeStopped => '番茄钟结束了,辛苦了';
+
+  @override
+  String get focusNoticeEnded => '圈主结束了专注';
+
+  @override
+  String get focusErrorForbidden => '只有圈主能开始或结束番茄钟';
+
+  @override
+  String get focusErrorGeneric => '操作没成功,稍后再试';
+
+  @override
+  String get focusBoardToday => '今天';
+
+  @override
+  String get focusBoardWeek => '本周';
+
+  @override
+  String get focusBoardAll => '全部';
+
+  @override
+  String get focusBoardMe => '我';
+
+  @override
+  String get focusBoardEmpty => '还没有人上榜,开始专注吧';
+
+  @override
+  String focusMinutes(int minutes) {
+    return '$minutes 分钟';
+  }
+
+  @override
+  String focusHoursMinutes(int hours, int minutes) {
+    return '$hours 小时 $minutes 分';
+  }
+
+  @override
+  String get focusSettingsTitle => '专注设置';
+
+  @override
+  String get focusSettingsFocusMin => '专注时长';
+
+  @override
+  String get focusSettingsBreakMin => '休息时长';
+
+  @override
+  String get focusSettingsRounds => '轮数';
+
+  @override
+  String focusSettingsRoundsValue(int count) {
+    return '$count 轮';
+  }
+
+  @override
+  String get focusSettingsGrace => '离开宽限';
+
+  @override
+  String focusSettingsGraceValue(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String get focusSettingsGraceHint => '切出 App 超过这么久才算离开';
+
+  @override
+  String get focusSettingsMembersCanStart => '成员也能开始番茄钟';
+
+  @override
+  String get focusSettingsChatInBreak => '休息时开放文字聊天';
+
+  @override
+  String get focusSettingsSave => '存下';
+
+  @override
+  String get focusSettingsPrivacy => '专注状态(谁在专注、离开多久、排行榜)服务器可见,加密圈也一样';
 }

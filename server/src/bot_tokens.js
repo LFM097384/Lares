@@ -9,7 +9,8 @@ import path from 'node:path';
 
 export const BOT_NAME_MAX = 32;
 export const BOT_TOKENS_PER_CIRCLE_MAX = 20;
-const TOKEN_RE = /^lrb_[A-Za-z0-9_-]{43}$/;
+const TOKEN_RE = /^(lrb|plg)_[A-Za-z0-9_-]{43}$/;
+const kindOf = (t) => (t.kind === 'plugin' ? 'plugin' : 'bot');
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
@@ -49,17 +50,20 @@ export function createBotTokenStore({ dataDir }) {
   }
 
   /// 返回 {token, record}。token 明文只出现在这一次返回里。
-  async function create(circleId, name) {
-    if (items.filter((t) => t.circleId === circleId).length >= BOT_TOKENS_PER_CIRCLE_MAX) {
+  /// opts.kind = 'plugin' 时签插件 token(plg_ 前缀,带 pluginId),不占机器人配额
+  async function create(circleId, name, { kind = 'bot', pluginId } = {}) {
+    const isPlugin = kind === 'plugin';
+    if (!isPlugin && items.filter((t) => t.circleId === circleId && kindOf(t) === 'bot').length >= BOT_TOKENS_PER_CIRCLE_MAX) {
       throw Object.assign(new Error('too_many'), { reason: 'too_many' });
     }
-    const token = `lrb_${crypto.randomBytes(32).toString('base64url')}`;
+    const token = `${isPlugin ? 'plg' : 'lrb'}_${crypto.randomBytes(32).toString('base64url')}`;
     const record = {
       id: `b_${crypto.randomBytes(8).toString('hex')}`,
       circleId,
       name,
       sha256: sha256(token),
       createdAt: Date.now(),
+      ...(isPlugin ? { kind: 'plugin', pluginId } : {}),
     };
     items.push(record);
     reindex();
@@ -68,12 +72,22 @@ export function createBotTokenStore({ dataDir }) {
   }
 
   function list(circleId) {
-    return items.filter((t) => t.circleId === circleId).map(({ id, name, createdAt }) => ({ id, name, createdAt }));
+    return items.filter((t) => t.circleId === circleId && kindOf(t) === 'bot').map(({ id, name, createdAt }) => ({ id, name, createdAt }));
   }
 
-  /// 撤销;返回被删的记录或 null
+  /// 撤销(只认机器人 token;插件 token 随插件卸载);返回被删的记录或 null
   async function revoke(circleId, id) {
-    const rec = items.find((t) => t.circleId === circleId && t.id === id);
+    const rec = items.find((t) => t.circleId === circleId && t.id === id && kindOf(t) === 'bot');
+    if (!rec) return null;
+    items = items.filter((t) => t !== rec);
+    reindex();
+    await save();
+    return rec;
+  }
+
+  /// 按 id 撤销任意 kind(插件卸载用)
+  async function revokeById(id) {
+    const rec = items.find((t) => t.id === id);
     if (!rec) return null;
     items = items.filter((t) => t !== rec);
     reindex();
@@ -96,5 +110,5 @@ export function createBotTokenStore({ dataDir }) {
     return byHash.get(sha256(token)) ?? null;
   }
 
-  return { load, create, list, revoke, deleteCircle, verify, file };
+  return { load, create, list, revoke, revokeById, deleteCircle, verify, file };
 }

@@ -94,6 +94,10 @@ dependencies:
   flutter_secure_storage: ^11.1.1
   local_auth: ^3.0.2
   archive: ^4.3.0
+  # 插件小程序面板(lib/src/plugins/):只加载 https 网页,不加载任何原生代码
+  # (App Store 2.5.2)。Android / iOS / macOS 有 WebView;Windows / Web / Linux
+  # 回落到系统浏览器打开或「此平台不支持」。
+  webview_flutter: ^4.13.0
 
 # ⚠️ 钉版本,不是洁癖,是绕开一个会让 iOS 上传直接失败的上游 bug。
 #

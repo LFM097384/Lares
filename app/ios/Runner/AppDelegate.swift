@@ -71,3 +71,87 @@ import UserNotifications
     completionHandler()
   }
 }
+
+// ── 专注学习(lares.focus):FamilyControls 屏蔽 ──
+// 整段包在 LARES_FAMILY_CONTROLS 编译条件里:该标志默认不设,CI 不编译这里的任何代码,
+// 也就不需要 com.apple.developer.family-controls 权限。申请与启用步骤见
+// docs/focus-ios-family-controls.md。Dart 侧在 lares/family_controls 上拿到
+// MissingPluginException 即视为「不可用」。
+#if LARES_FAMILY_CONTROLS
+import FamilyControls
+import ManagedSettings
+
+/// 通道 lares/family_controls:
+/// - available → Bool(iOS 16+ 才为 true)
+/// - authorize → Bool(请求 .individual 授权,用户拒绝则 FlutterError)
+/// - shield    → Bool(屏蔽所有应用类别)
+/// - unshield  → Bool(清除屏蔽)
+///
+/// 注册方式(调用处也必须包在 #if LARES_FAMILY_CONTROLS 里),
+/// 放在 AppDelegate.didInitializeImplicitFlutterEngine 中:
+///
+///   #if LARES_FAMILY_CONTROLS
+///   if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LaresFamilyControls") {
+///     LaresFamilyControlsChannel.register(with: registrar.messenger())
+///   }
+///   #endif
+final class LaresFamilyControlsChannel {
+  static let channelName = "lares/family_controls"
+  private static var channel: FlutterMethodChannel?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let ch = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+    ch.setMethodCallHandler { call, result in
+      handle(call, result: result)
+    }
+    channel = ch
+  }
+
+  private static func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "available":
+      if #available(iOS 16.0, *) {
+        result(true)
+      } else {
+        result(false)
+      }
+    case "authorize":
+      guard #available(iOS 16.0, *) else {
+        result(FlutterError(code: "family_controls", message: "requires iOS 16", details: nil))
+        return
+      }
+      Task { @MainActor in
+        do {
+          try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+          result(true)
+        } catch {
+          result(FlutterError(code: "family_controls", message: error.localizedDescription, details: nil))
+        }
+      }
+    case "shield":
+      guard #available(iOS 16.0, *) else {
+        result(FlutterError(code: "family_controls", message: "requires iOS 16", details: nil))
+        return
+      }
+      // 屏蔽全部应用类别。注意:要把 Lares 自己排除在外,需要它的 ApplicationToken,
+      // 而 token 只能由用户在 FamilyActivityPicker 里选出(无法凭 bundle id 构造),
+      // 届时改为 .all(except: [laresToken])。
+      let store = ManagedSettingsStore()
+      store.shield.applicationCategories = .all(except: Set())
+      result(true)
+    case "unshield":
+      guard #available(iOS 16.0, *) else {
+        result(true)
+        return
+      }
+      let store = ManagedSettingsStore()
+      store.shield.applicationCategories = nil
+      store.shield.applications = nil
+      store.shield.webDomainCategories = nil
+      result(true)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+}
+#endif

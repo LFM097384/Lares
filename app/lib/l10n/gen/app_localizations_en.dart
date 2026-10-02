@@ -1770,4 +1770,361 @@ class AppLocalizationsEn extends AppLocalizations {
   String botTokenRevokeTitle(String name) {
     return 'Revoke $name?';
   }
+
+  @override
+  String get pluginTitle => 'Plugins';
+
+  @override
+  String get pluginEntryDesc => 'Add small tools to this circle';
+
+  @override
+  String get pluginAdd => 'Add plugin';
+
+  @override
+  String get pluginEmpty => 'No plugins yet';
+
+  @override
+  String get pluginInstall => 'Install';
+
+  @override
+  String get pluginUninstall => 'Remove';
+
+  @override
+  String get pluginDetails => 'Details';
+
+  @override
+  String get pluginSettings => 'Settings';
+
+  @override
+  String pluginUninstallTitle(String name) {
+    return 'Remove $name?';
+  }
+
+  @override
+  String get pluginUninstallBody => 'Its settings and shared state go with it';
+
+  @override
+  String pluginInstalled(String name) {
+    return '$name is installed';
+  }
+
+  @override
+  String get pluginAlreadyInstalled => 'Already installed';
+
+  @override
+  String get pluginFocusName => 'Focus study';
+
+  @override
+  String get pluginFocusDesc =>
+      'Focus together, with a pomodoro timer and a leaderboard';
+
+  @override
+  String get pluginAddFromUrl => 'Install from URL';
+
+  @override
+  String get pluginAddPaste => 'Paste a manifest';
+
+  @override
+  String get pluginManifestUrlHint => 'https://…/manifest.json';
+
+  @override
+  String get pluginManifestJsonHint =>
+      'Paste the contents of manifest.json here';
+
+  @override
+  String pluginMeta(String version, String author) {
+    return '$version · $author';
+  }
+
+  @override
+  String get pluginHasWebhook => 'Has a server callback (webhook)';
+
+  @override
+  String get pluginSecretsOnce =>
+      'This is shown only once. Copy it somewhere safe before closing.';
+
+  @override
+  String get pluginToken => 'Plugin token';
+
+  @override
+  String get pluginWebhookSecret => 'Webhook secret';
+
+  @override
+  String pluginSettingsOf(String name) {
+    return '$name settings';
+  }
+
+  @override
+  String get pluginErrAlreadyInstalled => 'This plugin is already installed';
+
+  @override
+  String get pluginErrTooMany => 'A circle can have at most 10 plugins';
+
+  @override
+  String get pluginErrBadManifest => 'The manifest is not valid';
+
+  @override
+  String get pluginErrFetch => 'Couldn\'t fetch that manifest';
+
+  @override
+  String get pluginErrTimeout => 'No reply from the server. Try again later';
+
+  @override
+  String get pluginErrNotOwner => 'Only the circle owner can manage plugins';
+
+  @override
+  String pluginErrGeneric(String reason) {
+    return 'Didn\'t work: $reason';
+  }
+
+  @override
+  String get pluginErrHttpsOnly => 'The URL needs to start with https://';
+
+  @override
+  String get pluginErrBadJson => 'That isn\'t valid JSON';
+
+  @override
+  String get pluginConsentTitle => 'Open plugin';
+
+  @override
+  String pluginConsentFrom(String origin) {
+    return 'From $origin';
+  }
+
+  @override
+  String get pluginConsentPermsHeader => 'It wants to:';
+
+  @override
+  String get pluginConsentNoPerms => 'It doesn\'t need any permissions';
+
+  @override
+  String get pluginConsentE2eeWarning =>
+      'Heads up: this circle is end-to-end encrypted, but a plugin\'s shared state and callbacks are visible to the server.';
+
+  @override
+  String get pluginConsentAllow => 'Allow';
+
+  @override
+  String get pluginPlatformUnsupported =>
+      'Plugins can\'t be embedded on this platform yet';
+
+  @override
+  String get pluginOpenInBrowser => 'Open in browser';
+
+  @override
+  String get pluginPermCircleRead => 'See the circle name and settings';
+
+  @override
+  String get pluginPermMembersRead =>
+      'See who\'s in the room and who comes and goes';
+
+  @override
+  String get pluginPermChatRead => 'Read chat messages';
+
+  @override
+  String get pluginPermChatSend => 'Send chat messages as you';
+
+  @override
+  String get pluginPermCaptionsRead => 'Read live captions';
+
+  @override
+  String get pluginPermCaptionsSend => 'Send captions';
+
+  @override
+  String get pluginPermTranscriptRead => 'Read the transcript';
+
+  @override
+  String get pluginPermStateRead => 'Read the plugin\'s shared state';
+
+  @override
+  String get pluginPermStateWrite => 'Change the plugin\'s shared state';
+
+  @override
+  String get pluginPermStorage => 'Store data on this device';
+
+  @override
+  String get pluginPermFocusRead => 'Read focus status';
+
+  @override
+  String get focusTitle => 'Focus study';
+
+  @override
+  String get focusPhaseFocus => 'Focusing';
+
+  @override
+  String get focusPhaseBreak => 'Break time';
+
+  @override
+  String get focusPhaseIdle => 'Not started';
+
+  @override
+  String get focusPhaseIdleHint => 'Working quietly together · timer optional';
+
+  @override
+  String focusRound(int round, int rounds) {
+    return 'Round $round/$rounds';
+  }
+
+  @override
+  String get focusStart => 'Start focusing';
+
+  @override
+  String get focusStop => 'End';
+
+  @override
+  String get focusBoard => 'Leaderboard';
+
+  @override
+  String get focusLock => 'Lock focus';
+
+  @override
+  String get focusLocked => 'Locked';
+
+  @override
+  String get focusUnlock => 'Unlock';
+
+  @override
+  String get focusLockTitle => 'Lock focus?';
+
+  @override
+  String get focusLockBody =>
+      'This pins Lares to the screen so other apps and notifications are out of reach. To exit, hold Back and Overview together (or use the gesture the system shows). It unlocks automatically at break or when focus ends.';
+
+  @override
+  String get focusLockConfirm => 'Lock';
+
+  @override
+  String get focusLockCancel => 'Not now';
+
+  @override
+  String get focusLockFailed =>
+      'Couldn\'t lock. This device may not support screen pinning';
+
+  @override
+  String get focusChatHidden =>
+      'Focusing — text chat is tucked away · chat at the break';
+
+  @override
+  String get focusChatHiddenNoBreak => 'Focusing — text chat is tucked away';
+
+  @override
+  String get focusBadgeFocus => 'Focusing';
+
+  @override
+  String focusBadgeAway(String time) {
+    return 'Away $time';
+  }
+
+  @override
+  String get focusBadgeBreak => 'Break';
+
+  @override
+  String focusNoticeAway(String name) {
+    return '$name stepped away from focus';
+  }
+
+  @override
+  String focusNoticeBack(String name) {
+    return '$name is back';
+  }
+
+  @override
+  String focusNoticeBackAfter(String name, String time) {
+    return '$name is back · away $time';
+  }
+
+  @override
+  String focusNoticeLeftEarly(String name) {
+    return '$name left focus early';
+  }
+
+  @override
+  String focusNoticePhaseFocus(int round) {
+    return 'Round $round — focus';
+  }
+
+  @override
+  String get focusNoticePhaseBreak => 'Break time — say hi';
+
+  @override
+  String get focusNoticeStarted => 'Timer started';
+
+  @override
+  String get focusNoticeStopped => 'Timer finished. Nice work';
+
+  @override
+  String get focusNoticeEnded => 'The owner turned focus mode off';
+
+  @override
+  String get focusErrorForbidden => 'Only the owner can start or end the timer';
+
+  @override
+  String get focusErrorGeneric => 'That didn\'t work. Try again in a moment';
+
+  @override
+  String get focusBoardToday => 'Today';
+
+  @override
+  String get focusBoardWeek => 'This week';
+
+  @override
+  String get focusBoardAll => 'All time';
+
+  @override
+  String get focusBoardMe => 'Me';
+
+  @override
+  String get focusBoardEmpty => 'No one on the board yet. Start focusing';
+
+  @override
+  String focusMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String focusHoursMinutes(int hours, int minutes) {
+    return '$hours h $minutes min';
+  }
+
+  @override
+  String get focusSettingsTitle => 'Focus settings';
+
+  @override
+  String get focusSettingsFocusMin => 'Focus length';
+
+  @override
+  String get focusSettingsBreakMin => 'Break length';
+
+  @override
+  String get focusSettingsRounds => 'Rounds';
+
+  @override
+  String focusSettingsRoundsValue(int count) {
+    return '$count rounds';
+  }
+
+  @override
+  String get focusSettingsGrace => 'Grace before \"away\"';
+
+  @override
+  String focusSettingsGraceValue(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get focusSettingsGraceHint =>
+      'How long someone can switch apps before counting as away';
+
+  @override
+  String get focusSettingsMembersCanStart => 'Members can start the timer';
+
+  @override
+  String get focusSettingsChatInBreak => 'Open text chat during breaks';
+
+  @override
+  String get focusSettingsSave => 'Save';
+
+  @override
+  String get focusSettingsPrivacy =>
+      'Focus status (who is focusing, time away, the leaderboard) is visible to the server, even in encrypted circles';
 }

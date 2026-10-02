@@ -94,6 +94,8 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
 
   /// index.js 调:把一条事件推给该圈所有 SSE 流
   function emit(circleId, event, data) {
+    // webhook 扇出:SSE 推一条,订阅了的插件 webhook 跟一条(过滤在 plugins.fanout 里做)
+    try { hooks.onEmit?.(circleId, event, data); } catch (e) { console.error('[bot] onEmit 出错:', e?.message ?? e); }
     const set = streams.get(circleId);
     if (!set) return;
     for (const s of set) {
@@ -131,7 +133,14 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
     if (!rec) throw new HttpError(401, { error: 'unauthorized' }, { 'www-authenticate': 'Bearer' });
     const q = url.searchParams.get('circleId');
     if (q !== null && q !== rec.circleId) throw new HttpError(403, { error: 'wrong_circle' });
-    return rec;
+    if (rec.kind === 'plugin') {
+      // 插件 token:安装记录还在且 tokenId 对得上才算数;停用 → 403
+      const inst = hooks.pluginOf?.(rec.circleId, rec.pluginId);
+      if (!inst || inst.tokenId !== rec.id) throw new HttpError(401, { error: 'unauthorized' }, { 'www-authenticate': 'Bearer' });
+      if (inst.enabled !== true) throw new HttpError(403, { error: 'plugin_disabled' });
+      return { ...rec, name: inst.manifest.name, sid: `plugin:${rec.pluginId}`, plugin: true };
+    }
+    return { ...rec, sid: `bot:${rec.id}`, plugin: false };
   }
 
   function limit(bucket, key) {
@@ -184,8 +193,33 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
           muted: null,
           speaking: null,
         })),
-        bot: { id: bot.id, name: bot.name },
+        bot: { id: bot.id, name: bot.name, ...(bot.plugin ? { pluginId: bot.pluginId } : {}) },
       }];
+    }
+
+    if (p === '/api/v1/plugins' && req.method === 'GET') {
+      return [200, { items: hooks.plugins?.(circleId) ?? [] }];
+    }
+
+    if (p === '/api/v1/plugins/state' && (req.method === 'GET' || req.method === 'POST')) {
+      if (!bot.plugin) throw new HttpError(403, { error: 'plugin_token_required' });
+      if (req.method === 'GET') {
+        const inst = hooks.pluginOf(circleId, bot.pluginId);
+        return [200, { pluginId: bot.pluginId, state: inst?.state ?? {}, rev: inst?.rev ?? 0 }];
+      }
+      const body = await readJson(req);
+      limit(posting, bot.id);
+      const r = await hooks.pluginStateSet(circleId, bot.pluginId, body.patch);
+      if (!r.ok) {
+        if (r.reason === 'too_large') throw new HttpError(413, { error: 'too_large' });
+        if (r.reason === 'not_installed') throw new HttpError(401, { error: 'unauthorized' });
+        throw new HttpError(400, { error: r.reason });
+      }
+      return [200, { ok: true, rev: r.rev }];
+    }
+
+    if (p === '/api/v1/focus' && req.method === 'GET') {
+      return [200, hooks.focus(circleId)];
     }
 
     if (p === '/api/v1/transcript' && req.method === 'GET') {
@@ -238,7 +272,7 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
       limit(posting, bot.id);
       const header = {
         v: 1, t: 'text', id: crypto.randomUUID(),
-        sid: `bot:${bot.id}`, sn: bot.name, cid: circleId, ts: Date.now(), body: text, bot: true,
+        sid: bot.sid, sn: bot.name, cid: circleId, ts: Date.now(), body: text, bot: true,
       };
       await pushData(circleId, encodeChatFrame(header), CHAT_TOPIC);
       emit(circleId, 'chat', header);
@@ -266,7 +300,7 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
       let archived = null;
       if (fin && info.transcript === true) {
         const { item, duplicate } = await store.append(circleId, {
-          userId: `bot:${bot.id}`, name: bot.name, id, text, startedAt: Date.now(),
+          userId: bot.sid, name: bot.name, id, text, startedAt: Date.now(),
         });
         archived = item.seq;
         if (!duplicate) {

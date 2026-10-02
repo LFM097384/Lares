@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hello · Lares 插件示例</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 16px; line-height: 1.5; }
+    h1 { font-size: 1.2rem; margin: 0 0 12px; }
+    section { margin-bottom: 16px; padding: 12px; border: 1px solid #8884; border-radius: 10px; }
+    h2 { font-size: 0.95rem; margin: 0 0 8px; opacity: 0.8; }
+    button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid #8886; cursor: pointer; }
+    input { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid #8886; }
+    #counter { font-size: 2rem; font-weight: 600; margin-right: 12px; }
+    #log { font-family: ui-monospace, monospace; font-size: 0.8rem; max-height: 160px; overflow: auto; margin: 0; padding-left: 18px; }
+    .muted { opacity: 0.6; }
+    .err { color: #d33; }
+    #absent { display: none; text-align: center; padding: 40px 0; }
+  </style>
+</head>
+<body>
+  <div id="absent">
+    <h1>请在 Lares 里打开</h1>
+    <p class="muted">这个页面是 Lares 圈子插件,需要在 App 的房间里打开才能使用。</p>
+  </div>
+
+  <main id="app" hidden>
+    <h1 id="title">Hello</h1>
+
+    <section>
+      <h2>圈子</h2>
+      <div id="circle" class="muted">加载中…</div>
+    </section>
+
+    <section>
+      <h2>在房成员</h2>
+      <ul id="members"></ul>
+    </section>
+
+    <section>
+      <h2>共享计数器(所有人看到同一个数)</h2>
+      <span id="counter">0</span>
+      <button id="inc">+1</button>
+      <button id="reset">清零</button>
+      <span id="rev" class="muted"></span>
+    </section>
+
+    <section>
+      <h2>我的昵称(只存在本机)</h2>
+      <input id="nick" placeholder="起个昵称" maxlength="20">
+      <button id="saveNick">记住</button>
+    </section>
+
+    <section>
+      <h2>发聊天</h2>
+      <button id="hello">在房间里说「你好」</button>
+    </section>
+
+    <section>
+      <h2>事件</h2>
+      <ol id="log"></ol>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -19,6 +19,10 @@ import { createBotTokenStore } from './bot_tokens.js';
 import { createBotApi } from './bot_api.js';
 import { createSendData } from './livekit_senddata.js';
 import { createTranscriptWs } from './transcript_ws.js';
+// 插件 + 专注学习(契约 docs/plans/plugin-focus-contract.md)
+import { createPlugins, createPluginStore } from './plugins.js';
+import { createWebhookDispatcher } from './plugin_webhooks.js';
+import { createFocusEngine, createFocusWs } from './focus.js';
 
 const PORT = Number(process.env.LARES_PORT ?? 8787);
 const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
@@ -538,6 +542,8 @@ function circleInfo(circleId) {
     e2ee: typeof s.e2ee === 'boolean' ? s.e2ee : null,
     // 圈主开了「转写记录」:非 E2EE 圈服务器归档明文,E2EE 圈只中继密文
     transcript: s.transcript === true,
+    // 已装插件的公开视图(契约 plugin-focus-contract §3)
+    plugins: pluginsSvc ? pluginsSvc.views(circleId) : [],
   };
 }
 
@@ -716,6 +722,7 @@ function circleSummaryMsg(circleId) {
     registered: Boolean(registeredCircle(circleId)),
     e2ee: typeof circleSettings[circleId]?.e2ee === 'boolean' ? circleSettings[circleId].e2ee : null,
     transcript: circleSettings[circleId]?.transcript === true,
+    plugins: pluginsSvc ? pluginsSvc.summary(circleId) : [],
   };
 }
 
@@ -1128,6 +1135,8 @@ function handleConnection(ws, req) {
 
     // 转写记录 / 机器人 token 的消息在独立模块里处理(transcript_ws.js)
     if (await transcriptWs.handle(ws, session, msg)) return;
+    if (await pluginsSvc.handle(ws, session, msg)) return;
+    if (await focusWs.handle(ws, session, msg)) return;
 
     switch (msg.t) {
       case 'hello': {
@@ -1612,6 +1621,9 @@ function handleConnection(ws, req) {
         evictMedia(circleId);
         // 转写归档 / 密文队列 / 机器人 token 一并删掉
         await transcriptWs.onCircleDeleted(circleId);
+        // 插件安装(插件 token 已随上面的 tokens.deleteCircle 删掉)+ 专注排行榜
+        await pluginsSvc.onCircleDeleted(circleId);
+        focusEngine.deleteCircle(circleId);
         break;
       }
 
@@ -1791,6 +1803,8 @@ async function joinCircle(ws, session, circleId) {
   }
   // 转写:记入该圈成员名单(E2EE 离线队列的收件人)并补推积压密文
   transcriptWs.onJoin(ws, session, circleId);
+  // 专注学习:按会话(userId, deviceId)记入计时
+  focusEngine.join(circleId, session.userId, session.deviceId, session.name);
   // 签发 RTC token
   if (RTC_CONFIGURED) {
     try {
@@ -1809,6 +1823,8 @@ function leaveCircle(ws, session) {
   if (!session.circleId || !session.userId) return;
   const circle = getCircle(session.circleId);
   const member = circle.get(session.userId);
+  // 专注学习:该设备出房(最后一台出房且在专注期 → left_early 提示)
+  focusEngine.leave(session.circleId, session.userId, session.deviceId);
   if (member) {
     member.devices.delete(session.deviceId);
     // 同一用户所有端都离开才算「出房」
@@ -1937,8 +1953,66 @@ const botApi = createBotApi({
       broadcast(circleId, { t: 'transcript_line', circleId, item });
       botApi.emit(circleId, 'transcript', item);
     },
+    // 插件(plugin-focus-contract §4/§5)
+    onEmit: (circleId, event, data) => pluginsSvc.fanout(circleId, event, data),
+    pluginOf: (circleId, pluginId) => pluginsSvc.installOf(circleId, pluginId),
+    plugins: (circleId) => pluginsSvc.views(circleId),
+    pluginStateSet: (circleId, pluginId, patch) => pluginsSvc.applyState(circleId, pluginId, patch),
+    focus: (circleId) => focusWs.apiSnapshot(circleId),
   },
 });
+
+// ── 插件 + 专注学习的装配 ──
+const pluginStore = createPluginStore({ dataDir: DATA_DIR });
+const pluginWebhooks = createWebhookDispatcher({ env: process.env });
+const pluginsSvc = createPlugins({
+  store: pluginStore,
+  tokens: botTokens,
+  webhooks: pluginWebhooks,
+  botApi: { emit: (...a) => botApi.emit(...a), closeToken: (id) => botApi.closeToken(id) },
+  send,
+  sessionsOfCircle,
+  lobbyConns: () => lobby,
+  registeredCircle,
+  ownerKeyOk,
+  circleAllowed,
+  broadcastLobbySummary,
+  broadcastCircleSettings,
+  env: process.env,
+});
+const FOCUS_TZ_OFFSET_MIN = Number(process.env.LARES_FOCUS_TZ_OFFSET_MIN ?? 480);
+let focusWs = null;
+const focusEngine = createFocusEngine({
+  dataDir: DATA_DIR,
+  tzOffsetMin: Number.isFinite(FOCUS_TZ_OFFSET_MIN) ? FOCUS_TZ_OFFSET_MIN : 480,
+  pluginOf: (circleId) => pluginsSvc.focusPlugin(circleId),
+  out: (circleId, ev) => focusWs?.onEngineEvent(circleId, ev),
+});
+focusWs = createFocusWs({
+  engine: focusEngine,
+  plugins: pluginsSvc,
+  send,
+  sessionsOfCircle,
+  emit: (...a) => botApi.emit(...a),
+  circleAllowed,
+  isOwnerFor,
+});
+pluginsSvc.setFocus({ onPluginChanged: (circleId, p) => focusEngine.setPlugin(circleId, p) });
+const focusTimer = setInterval(() => {
+  focusWs.periodic().catch((e) => console.error('[focus] 周期落盘失败:', e?.message ?? e));
+}, Number(process.env.LARES_FOCUS_FLUSH_MS ?? 30_000));
+focusTimer.unref?.();
+let shuttingDown = false;
+function shutdownFlush(sig) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  try { focusEngine.flushSync(); } catch (e) { console.error('[focus] 关停落盘失败:', e); }
+  try { pluginsSvc.flushSync(); } catch (e) { console.error('[plugin] 关停落盘失败:', e); }
+  console.log(`[lares] 收到 ${sig},已落盘,退出`);
+  process.exit(0);
+}
+process.on('SIGINT', () => shutdownFlush('SIGINT'));
+process.on('SIGTERM', () => shutdownFlush('SIGTERM'));
 const transcriptWs = createTranscriptWs({
   store: transcriptStore,
   tokens: botTokens,
@@ -1962,7 +2036,7 @@ const transcriptWs = createTranscriptWs({
   broadcastLobbySummary,
   broadcastCircleSettings,
 });
-const botReady = Promise.all([botTokens.load(), transcriptStore.loadAllRelays()]).catch((e) => {
+const botReady = Promise.all([botTokens.load(), transcriptStore.loadAllRelays(), pluginStore.load()]).catch((e) => {
   console.error('[bot] 机器人 token / 转写队列加载失败:', e);
 });
 
@@ -2076,6 +2150,8 @@ const heartbeat = setInterval(() => {
   sweepCapLog();
   transcriptWs.sweep();
   botApi.sweep();
+  pluginsSvc.sweep();
+  focusWs.sweep();
 }, 30_000);
 wss.on('connection', (ws) => {
   ws._laresAlive = true;

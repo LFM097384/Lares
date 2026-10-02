@@ -193,3 +193,20 @@ curl.exe -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: audio/wav" -
 curl.exe -N -H "Authorization: Bearer $T" "$B/api/v1/events"     # Ctrl+C 结束
 ```
 PowerShell 7 往原生程序的管道默认是 UTF-8;5.1 先设 `$OutputEncoding = [Text.UTF8Encoding]::new($false)` 再用管道发中文。
+
+## 7. 插件与专注
+
+插件(网页小程序 / webhook 服务端插件)和第一方「专注学习」插件 `lares.focus` 的完整说明见 [`docs/plugin-api.md`](plugin-api.md)。与机器人 API 相关的增量:
+
+- 带 webhook 的插件安装后得到**插件 token**(`plg_…`),能调本文全部接口,显示名为插件名,聊天 `sid` 为 `plugin:<pluginId>`。插件停用时 → `403 plugin_disabled`;卸载后 → 401。
+- 新接口:
+  - `GET /api/v1/plugins` → `{items:[PluginView]}`,本圈已装插件(bot / plugin token 都能调)
+  - `GET /api/v1/plugins/state`、`POST /api/v1/plugins/state {patch}` → 仅插件 token,读写本插件共享状态(其它 token → `403 plugin_token_required`)
+  - `GET /api/v1/focus` → 专注状态、番茄钟与排行榜
+- 新 SSE 事件:
+
+| event | data |
+|---|---|
+| `plugin_state` | `{circleId, pluginId, state, rev}` 插件共享状态变了 |
+| `plugins` | `{circleId, items}` 插件列表变了(装 / 卸 / 启停 / 改配置) |
+| `focus` | `{circleId, kind, userId?, name?, awayMs?, phase?, round?, endsAt?}` 专注事件 |

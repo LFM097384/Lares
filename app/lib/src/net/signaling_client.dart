@@ -429,7 +429,7 @@ class SignalingClient {
     // 既不报错也不依赖到达顺序(服务端加 challenge 时老测试没挂,就是靠这条)。
     switch (json['t']) {
       case 'pong':
-        _onPong();
+        _onPong(json);
         return; // 心跳回包不外抛
       case 'challenge':
         _onChallenge(json);
@@ -639,18 +639,29 @@ class SignalingClient {
   /// 复用既有的 20 秒心跳,**零额外开销**。
   int latencyMs = -1;
 
-  void _onPong() {
+  /// 服务器时钟 − 本机时钟(毫秒),由 `pong.now` 估得(专注学习的离开时刻要用
+  /// 服务器时间,见 plugin-focus-contract §6.3)。null = 老服务器不发 now / 还没测到。
+  int? serverClockOffsetMs;
+
+  void _onPong([Map<String, dynamic>? msg]) {
     // 先归零:哪怕这个 pong 因为迟到而不计入延迟统计,
     // 它也证明了链路还活着 —— 那正是探活要的答案。
     _missedPongs = 0;
     final sent = _pingSentAt;
     if (sent == null) return;
     _pingSentAt = null;
-    final ms = DateTime.now().difference(sent).inMilliseconds;
+    final received = DateTime.now();
+    final ms = received.difference(sent).inMilliseconds;
     // 断线重连期间可能收到迟到的 pong,那个往返包含了重连耗时,
     // 不代表网络质量。给一个上限,超过就当没测到。
     if (ms < 0 || ms > 10000) return;
     latencyMs = ms;
+    final now = msg?['now'];
+    if (now is num) {
+      // 服务器在往返中点打的时间戳(NTP 式近似)
+      final mid = sent.millisecondsSinceEpoch + ms ~/ 2;
+      serverClockOffsetMs = now.toInt() - mid;
+    }
   }
 
   /// 服务端 error 报文。注意 auth_scope / say_hello_first **不关连接**,

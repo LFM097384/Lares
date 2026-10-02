@@ -2863,6 +2863,630 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'吊销「{name}」?'**
   String botTokenRevokeTitle(String name);
+
+  /// No description provided for @pluginTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件'**
+  String get pluginTitle;
+
+  /// No description provided for @pluginEntryDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'给这个圈子装小工具'**
+  String get pluginEntryDesc;
+
+  /// No description provided for @pluginAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加插件'**
+  String get pluginAdd;
+
+  /// No description provided for @pluginEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没装插件'**
+  String get pluginEmpty;
+
+  /// No description provided for @pluginInstall.
+  ///
+  /// In zh, this message translates to:
+  /// **'装上'**
+  String get pluginInstall;
+
+  /// No description provided for @pluginUninstall.
+  ///
+  /// In zh, this message translates to:
+  /// **'卸载'**
+  String get pluginUninstall;
+
+  /// No description provided for @pluginDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情'**
+  String get pluginDetails;
+
+  /// No description provided for @pluginSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get pluginSettings;
+
+  /// No description provided for @pluginUninstallTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'卸载「{name}」?'**
+  String pluginUninstallTitle(String name);
+
+  /// No description provided for @pluginUninstallBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件的设置和共享状态会一起删掉'**
+  String get pluginUninstallBody;
+
+  /// No description provided for @pluginInstalled.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」装好了'**
+  String pluginInstalled(String name);
+
+  /// No description provided for @pluginAlreadyInstalled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已经装了'**
+  String get pluginAlreadyInstalled;
+
+  /// No description provided for @pluginFocusName.
+  ///
+  /// In zh, this message translates to:
+  /// **'专注学习'**
+  String get pluginFocusName;
+
+  /// No description provided for @pluginFocusDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'一起专注,番茄钟和排行榜'**
+  String get pluginFocusDesc;
+
+  /// No description provided for @pluginAddFromUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'从网址安装'**
+  String get pluginAddFromUrl;
+
+  /// No description provided for @pluginAddPaste.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴 manifest'**
+  String get pluginAddPaste;
+
+  /// No description provided for @pluginManifestUrlHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'https://…/manifest.json'**
+  String get pluginManifestUrlHint;
+
+  /// No description provided for @pluginManifestJsonHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'把 manifest.json 的内容粘贴到这里'**
+  String get pluginManifestJsonHint;
+
+  /// No description provided for @pluginMeta.
+  ///
+  /// In zh, this message translates to:
+  /// **'{version} · {author}'**
+  String pluginMeta(String version, String author);
+
+  /// No description provided for @pluginHasWebhook.
+  ///
+  /// In zh, this message translates to:
+  /// **'带服务端回调(webhook)'**
+  String get pluginHasWebhook;
+
+  /// No description provided for @pluginSecretsOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'下面的内容只显示这一次,关掉就看不到了。先复制存好。'**
+  String get pluginSecretsOnce;
+
+  /// No description provided for @pluginToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件 token'**
+  String get pluginToken;
+
+  /// No description provided for @pluginWebhookSecret.
+  ///
+  /// In zh, this message translates to:
+  /// **'Webhook 密钥'**
+  String get pluginWebhookSecret;
+
+  /// No description provided for @pluginSettingsOf.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 设置'**
+  String pluginSettingsOf(String name);
+
+  /// No description provided for @pluginErrAlreadyInstalled.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个插件已经装过了'**
+  String get pluginErrAlreadyInstalled;
+
+  /// No description provided for @pluginErrTooMany.
+  ///
+  /// In zh, this message translates to:
+  /// **'一个圈子最多装 10 个插件'**
+  String get pluginErrTooMany;
+
+  /// No description provided for @pluginErrBadManifest.
+  ///
+  /// In zh, this message translates to:
+  /// **'manifest 不对'**
+  String get pluginErrBadManifest;
+
+  /// No description provided for @pluginErrFetch.
+  ///
+  /// In zh, this message translates to:
+  /// **'取不到这个 manifest'**
+  String get pluginErrFetch;
+
+  /// No description provided for @pluginErrTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器没回应,稍后再试'**
+  String get pluginErrTimeout;
+
+  /// No description provided for @pluginErrNotOwner.
+  ///
+  /// In zh, this message translates to:
+  /// **'只有圈主能管插件'**
+  String get pluginErrNotOwner;
+
+  /// No description provided for @pluginErrGeneric.
+  ///
+  /// In zh, this message translates to:
+  /// **'没成功:{reason}'**
+  String pluginErrGeneric(String reason);
+
+  /// No description provided for @pluginErrHttpsOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'网址要以 https:// 开头'**
+  String get pluginErrHttpsOnly;
+
+  /// No description provided for @pluginErrBadJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'这不是一段有效的 JSON'**
+  String get pluginErrBadJson;
+
+  /// No description provided for @pluginConsentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开插件'**
+  String get pluginConsentTitle;
+
+  /// No description provided for @pluginConsentFrom.
+  ///
+  /// In zh, this message translates to:
+  /// **'来自 {origin}'**
+  String pluginConsentFrom(String origin);
+
+  /// No description provided for @pluginConsentPermsHeader.
+  ///
+  /// In zh, this message translates to:
+  /// **'它想要:'**
+  String get pluginConsentPermsHeader;
+
+  /// No description provided for @pluginConsentNoPerms.
+  ///
+  /// In zh, this message translates to:
+  /// **'它不需要任何权限'**
+  String get pluginConsentNoPerms;
+
+  /// No description provided for @pluginConsentE2eeWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'注意:这个圈子是端到端加密的,但插件的共享状态和回调对服务器可见。'**
+  String get pluginConsentE2eeWarning;
+
+  /// No description provided for @pluginConsentAllow.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许'**
+  String get pluginConsentAllow;
+
+  /// No description provided for @pluginPlatformUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'此平台暂不支持内嵌插件'**
+  String get pluginPlatformUnsupported;
+
+  /// No description provided for @pluginOpenInBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'在浏览器打开'**
+  String get pluginOpenInBrowser;
+
+  /// No description provided for @pluginPermCircleRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'看圈子名字和设置'**
+  String get pluginPermCircleRead;
+
+  /// No description provided for @pluginPermMembersRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'看房间里有谁、谁进出'**
+  String get pluginPermMembersRead;
+
+  /// No description provided for @pluginPermChatRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读聊天消息'**
+  String get pluginPermChatRead;
+
+  /// No description provided for @pluginPermChatSend.
+  ///
+  /// In zh, this message translates to:
+  /// **'以你的名义发聊天消息'**
+  String get pluginPermChatSend;
+
+  /// No description provided for @pluginPermCaptionsRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读实时字幕'**
+  String get pluginPermCaptionsRead;
+
+  /// No description provided for @pluginPermCaptionsSend.
+  ///
+  /// In zh, this message translates to:
+  /// **'发字幕'**
+  String get pluginPermCaptionsSend;
+
+  /// No description provided for @pluginPermTranscriptRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读转写记录'**
+  String get pluginPermTranscriptRead;
+
+  /// No description provided for @pluginPermStateRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读插件的共享状态'**
+  String get pluginPermStateRead;
+
+  /// No description provided for @pluginPermStateWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'改插件的共享状态'**
+  String get pluginPermStateWrite;
+
+  /// No description provided for @pluginPermStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'在本机存数据'**
+  String get pluginPermStorage;
+
+  /// No description provided for @pluginPermFocusRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读专注状态'**
+  String get pluginPermFocusRead;
+
+  /// 专注插件名
+  ///
+  /// In zh, this message translates to:
+  /// **'专注学习'**
+  String get focusTitle;
+
+  /// 番茄钟专注期
+  ///
+  /// In zh, this message translates to:
+  /// **'专注中'**
+  String get focusPhaseFocus;
+
+  /// 番茄钟休息期
+  ///
+  /// In zh, this message translates to:
+  /// **'休息一下'**
+  String get focusPhaseBreak;
+
+  /// 番茄钟未开始
+  ///
+  /// In zh, this message translates to:
+  /// **'等待开始'**
+  String get focusPhaseIdle;
+
+  /// 未开番茄钟时的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'一起安静地做事 · 番茄钟可选'**
+  String get focusPhaseIdleHint;
+
+  /// 番茄钟轮次
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {round}/{rounds} 轮'**
+  String focusRound(int round, int rounds);
+
+  /// 开始番茄钟按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'开始专注'**
+  String get focusStart;
+
+  /// 结束番茄钟按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'结束'**
+  String get focusStop;
+
+  /// 排行榜按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'排行榜'**
+  String get focusBoard;
+
+  /// 锁定专注按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定专注'**
+  String get focusLock;
+
+  /// 已锁定状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已锁定'**
+  String get focusLocked;
+
+  /// 解除锁定按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'解除锁定'**
+  String get focusUnlock;
+
+  /// 锁定确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定专注?'**
+  String get focusLockTitle;
+
+  /// 锁定确认说明
+  ///
+  /// In zh, this message translates to:
+  /// **'会把屏幕固定在 Lares 上,其他 App 和通知暂时打不开。想退出时,同时按住「返回」和「概览」键(或用系统提示的手势)。休息或结束时会自动解除。'**
+  String get focusLockBody;
+
+  /// 锁定确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定'**
+  String get focusLockConfirm;
+
+  /// 锁定确认取消
+  ///
+  /// In zh, this message translates to:
+  /// **'算了'**
+  String get focusLockCancel;
+
+  /// 锁定失败
+  ///
+  /// In zh, this message translates to:
+  /// **'没能锁定,这台设备可能不支持屏幕固定'**
+  String get focusLockFailed;
+
+  /// 聊天被收起时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'专注中,文字聊天已收起 · 休息时再聊'**
+  String get focusChatHidden;
+
+  /// 聊天被收起且休息期也不开放时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'专注中,文字聊天已收起'**
+  String get focusChatHiddenNoBreak;
+
+  /// 座位徽标:专注
+  ///
+  /// In zh, this message translates to:
+  /// **'专注中'**
+  String get focusBadgeFocus;
+
+  /// 座位徽标:离开时长
+  ///
+  /// In zh, this message translates to:
+  /// **'离开 {time}'**
+  String focusBadgeAway(String time);
+
+  /// 座位徽标:休息
+  ///
+  /// In zh, this message translates to:
+  /// **'休息'**
+  String get focusBadgeBreak;
+
+  /// 离开提示
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 离开了专注'**
+  String focusNoticeAway(String name);
+
+  /// 回来提示
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 回来了'**
+  String focusNoticeBack(String name);
+
+  /// 回来提示带时长
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 回来了 · 离开 {time}'**
+  String focusNoticeBackAfter(String name, String time);
+
+  /// 专注期出房提示
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 提前离开了专注'**
+  String focusNoticeLeftEarly(String name);
+
+  /// 阶段切换到专注
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {round} 轮专注开始'**
+  String focusNoticePhaseFocus(int round);
+
+  /// 阶段切换到休息
+  ///
+  /// In zh, this message translates to:
+  /// **'休息一下,聊两句吧'**
+  String get focusNoticePhaseBreak;
+
+  /// 番茄钟开始
+  ///
+  /// In zh, this message translates to:
+  /// **'番茄钟开始了'**
+  String get focusNoticeStarted;
+
+  /// 番茄钟结束
+  ///
+  /// In zh, this message translates to:
+  /// **'番茄钟结束了,辛苦了'**
+  String get focusNoticeStopped;
+
+  /// 圈主停用专注
+  ///
+  /// In zh, this message translates to:
+  /// **'圈主结束了专注'**
+  String get focusNoticeEnded;
+
+  /// 无权限
+  ///
+  /// In zh, this message translates to:
+  /// **'只有圈主能开始或结束番茄钟'**
+  String get focusErrorForbidden;
+
+  /// 通用错误
+  ///
+  /// In zh, this message translates to:
+  /// **'操作没成功,稍后再试'**
+  String get focusErrorGeneric;
+
+  /// 排行榜:今天
+  ///
+  /// In zh, this message translates to:
+  /// **'今天'**
+  String get focusBoardToday;
+
+  /// 排行榜:本周
+  ///
+  /// In zh, this message translates to:
+  /// **'本周'**
+  String get focusBoardWeek;
+
+  /// 排行榜:全部
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get focusBoardAll;
+
+  /// 排行榜里自己那一行的名字(高亮已标明是自己)
+  ///
+  /// In zh, this message translates to:
+  /// **'我'**
+  String get focusBoardMe;
+
+  /// 排行榜为空
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有人上榜,开始专注吧'**
+  String get focusBoardEmpty;
+
+  /// 分钟数
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分钟'**
+  String focusMinutes(int minutes);
+
+  /// 小时分钟
+  ///
+  /// In zh, this message translates to:
+  /// **'{hours} 小时 {minutes} 分'**
+  String focusHoursMinutes(int hours, int minutes);
+
+  /// 设置标题
+  ///
+  /// In zh, this message translates to:
+  /// **'专注设置'**
+  String get focusSettingsTitle;
+
+  /// 专注时长
+  ///
+  /// In zh, this message translates to:
+  /// **'专注时长'**
+  String get focusSettingsFocusMin;
+
+  /// 休息时长
+  ///
+  /// In zh, this message translates to:
+  /// **'休息时长'**
+  String get focusSettingsBreakMin;
+
+  /// 轮数
+  ///
+  /// In zh, this message translates to:
+  /// **'轮数'**
+  String get focusSettingsRounds;
+
+  /// 轮数值
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 轮'**
+  String focusSettingsRoundsValue(int count);
+
+  /// 宽限期
+  ///
+  /// In zh, this message translates to:
+  /// **'离开宽限'**
+  String get focusSettingsGrace;
+
+  /// 宽限秒数
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds} 秒'**
+  String focusSettingsGraceValue(int seconds);
+
+  /// 宽限说明
+  ///
+  /// In zh, this message translates to:
+  /// **'切出 App 超过这么久才算离开'**
+  String get focusSettingsGraceHint;
+
+  /// 成员可开始
+  ///
+  /// In zh, this message translates to:
+  /// **'成员也能开始番茄钟'**
+  String get focusSettingsMembersCanStart;
+
+  /// 休息开放聊天
+  ///
+  /// In zh, this message translates to:
+  /// **'休息时开放文字聊天'**
+  String get focusSettingsChatInBreak;
+
+  /// 保存
+  ///
+  /// In zh, this message translates to:
+  /// **'存下'**
+  String get focusSettingsSave;
+
+  /// 隐私说明
+  ///
+  /// In zh, this message translates to:
+  /// **'专注状态(谁在专注、离开多久、排行榜)服务器可见,加密圈也一样'**
+  String get focusSettingsPrivacy;
 }
 
 class _AppLocalizationsDelegate

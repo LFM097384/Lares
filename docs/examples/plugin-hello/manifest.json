@@ -1,0 +1,11 @@
+{
+  "id": "com.example.hello",
+  "name": "Hello",
+  "version": "1.0.0",
+  "description": "演示插件:显示圈子与成员、共享计数器、发聊天、记住昵称。",
+  "author": "Example",
+  "homepage": "https://example.com/plugin-hello/",
+  "entry": { "url": "https://example.com/plugin-hello/index.html" },
+  "permissions": ["circle:read", "members:read", "chat:send", "state:read", "state:write", "storage", "captions:read"],
+  "webhook": { "url": "https://example.com/hooks/lares", "events": ["join", "leave", "plugin_state"] }
+}

@@ -23,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lares_app/src/captions/caption_controller.dart';
 import 'package:lares_app/src/chat/chat_message.dart';
+import 'package:lares_app/src/focus/focus_lock.dart';
 import 'package:lares_app/src/net/signaling_client.dart';
 import 'package:lares_app/src/rtc/rtc_service.dart';
 import 'package:lares_app/src/state/room_controller.dart';
@@ -31,6 +32,7 @@ import 'package:lares_app/src/ui/room_screen.dart';
 
 import 'helpers/caption_fakes.dart';
 import 'helpers/chat_fakes.dart';
+import 'helpers/focus_fixtures.dart';
 import 'helpers/localized_app.dart';
 
 final bool _skip = Platform.environment['LARES_SHOTS'] != '1';
@@ -209,6 +211,7 @@ class _Scene {
     this.padTop = 47,
     this.padBottom = 34,
     this.light = false,
+    this.focus,
   });
 
   final String name;
@@ -222,6 +225,9 @@ class _Scene {
   final double padTop;
   final double padBottom;
   final bool light;
+
+  /// 专注学习场景:'focus' / 'break' / 'board';null = 不装专注插件。
+  final String? focus;
 }
 
 final List<_Scene> _scenes = <_Scene>[
@@ -259,6 +265,26 @@ final List<_Scene> _scenes = <_Scene>[
       speaking: <String>{'u1'},
       chatMessages: true,
       light: true),
+  _Scene(name: 'focus_phase', speaking: <String>{'u1'}, focus: 'focus'),
+  _Scene(
+      name: 'focus_break',
+      speaking: <String>{'u1'},
+      chatMessages: true,
+      focus: 'break'),
+  _Scene(name: 'focus_leaderboard', focus: 'board'),
+  _Scene(
+      name: 'focus_idle',
+      speaking: <String>{'u1'},
+      chatMessages: true,
+      focus: 'idle'),
+  _Scene(
+      name: 'focus_phase_360',
+      speaking: <String>{'u1'},
+      captions: true,
+      focus: 'focus',
+      size: const Size(360, 640),
+      padTop: 24,
+      padBottom: 0),
 ];
 
 // ─────────────────────────── 出图 ───────────────────────────
@@ -364,6 +390,31 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   captions.updateConditions(const CaptionConditions(
       available: true, inRoom: true, muted: false, provide: true));
 
+  FocusHarness? focus;
+  if (s.focus != null) {
+    focus = FocusHarness(ownerKey: 'ok_home');
+    focus.enable('home');
+    focus.service.setRoom('home');
+    final bool brk = s.focus == 'break';
+    final bool idle = s.focus == 'idle';
+    focus.status(
+      'home',
+      phase: idle ? 'idle' : brk ? 'break' : 'focus',
+      endsAt: idle
+          ? null
+          : kFocusNow + (brk ? 3 * 60 + 42 : 18 * 60 + 27) * 1000,
+      round: idle ? 0 : 2,
+      rounds: 4,
+      members: <Map<String, dynamic>>[
+        focusMember('u_me', '我', idle ? 'idle' : brk ? 'break' : 'focus'),
+        focusMember('u1', _names['u1']!, idle ? 'idle' : brk ? 'break' : 'focus'),
+        focusMember('u2', _names['u2']!, idle ? 'idle' : brk ? 'break' : 'away',
+            awaySince: brk || idle ? null : kFocusNow - 133000),
+        focusMember('u3', _names['u3']!, idle ? 'idle' : brk ? 'break' : 'focus'),
+      ],
+    );
+  }
+
   final GlobalKey key = GlobalKey();
   final ThemeData theme =
       _withFont(s.light ? LaresTheme.light() : LaresTheme.dark());
@@ -376,6 +427,8 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
         circleName: '我们的圈',
         chat: chat,
         captions: captions,
+        focus: focus?.service,
+        focusLock: focus == null ? null : FocusLock(supported: true),
       ),
       theme: theme,
     ),
@@ -430,6 +483,26 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     _drainExceptions(tester, s.name, 'keyboard');
   }
 
+  if (s.focus == 'board' && focus != null) {
+    await tester.tap(find.byKey(const ValueKey<String>('focus-board')).first,
+        warnIfMissed: false);
+    await tester.pump();
+    focus.inject(<String, dynamic>{
+      't': 'focus_board',
+      'circleId': 'home',
+      'today': <Map<String, dynamic>>[
+        <String, dynamic>{'userId': 'u1', 'name': _names['u1'], 'ms': 142 * 60000},
+        <String, dynamic>{'userId': 'u_me', 'name': '我', 'ms': 96 * 60000},
+        <String, dynamic>{'userId': 'u3', 'name': _names['u3'], 'ms': 75 * 60000},
+        <String, dynamic>{'userId': 'u2', 'name': _names['u2'], 'ms': 31 * 60000},
+      ],
+      'week': <Map<String, dynamic>>[],
+      'all': <Map<String, dynamic>>[],
+    });
+    await tester.pump();
+    _drainExceptions(tester, s.name, 'board');
+  }
+
   for (int i = 0; i < 3; i++) {
     await tester.pump(const Duration(milliseconds: 700));
   }
@@ -444,6 +517,7 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   captions.dispose();
   chat.dispose();
   controller.dispose();
+  await focus?.dispose();
   await tester.pump(const Duration(seconds: 30)); // 放掉残余计时器
   _drainExceptions(tester, s.name, 'dispose');
 }

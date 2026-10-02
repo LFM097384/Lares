@@ -12,6 +12,13 @@ import 'src/captions/caption_controller.dart';
 import 'src/captions/caption_wiring.dart';
 import 'src/captions/transcript_sink.dart';
 import 'src/transcript/transcript_scope.dart';
+import 'src/plugins/plugin_scope.dart';
+import 'src/plugins/plugin_service.dart';
+import 'src/focus/focus_service.dart';
+import 'src/focus/focus_settings.dart';
+import 'src/focus/focus_widgets.dart';
+import 'src/focus/focus_window_stub.dart'
+    if (dart.library.io) 'src/focus/focus_window_io.dart';
 import 'src/transcript/transcript_service.dart';
 import 'src/e2ee/e2ee_controller.dart';
 import 'src/e2ee/e2ee_status.dart';
@@ -458,8 +465,27 @@ Future<void> main() async {
   // 大多数情况是短暂切出去又回来,重连要重算 Argon2 证明,既慢又浪费。
   //
   // 这个监听器与 App 同生命周期,不需要 dispose。
+  // 专注学习(plugin-focus-contract §6):宽限期后报离开 / 回来、番茄钟、排行榜。
+  // 与 App 同生命周期。
+  final focus = FocusService(
+    send: signaling.send,
+    messages: signaling.messages,
+    ownerKeyFor: (id) =>
+        settings.ownerKeyFor(id) ?? signaling.issuedOwnerKey(id),
+    myUserId: () => controller.userId,
+    clockOffsetMs: () => signaling.serverClockOffsetMs,
+    host: focusHostKind(),
+  );
+  void syncFocusRoom() => focus.setRoom(
+    controller.phase == RoomPhase.inRoom ? controller.circleId : null,
+  );
+  syncFocusRoom();
+  controller.addListener(syncFocusRoom);
+  attachFocusWindowListener(focus);
+
   AppLifecycleListener(
     onResume: signaling.pokeAlive,
+    onStateChange: focus.onAppLifecycle,
   );
 
   // 实时字幕(无障碍):需要的人打开「字幕」,其他人各自把**自己的**麦克风送云端识别,
@@ -513,8 +539,24 @@ Future<void> main() async {
     myName: () => controller.userName,
   );
   transcriptSink.encrypted = transcripts.encryptedSink;
+  // 插件(plugin-focus-contract):列表 / 共享状态 / 圈主装卸。与 App 同生命周期。
+  final plugins = PluginService(
+    send: signaling.send,
+    messages: signaling.messages,
+    ownerKeyFor: (id) =>
+        settings.ownerKeyFor(id) ?? signaling.issuedOwnerKey(id),
+  );
 
-  runApp(TranscriptScope(
+  runApp(PluginScope(
+    service: plugins,
+    focusSettingsBuilder: (ctx, service, circleId, plugin) => FocusSettingsPage(
+      config: plugin.config,
+      save: (c) async =>
+          (await service.setConfig(circleId, plugin.id, c)).ok,
+    ),
+    child: FocusStudyScope(
+    service: focus,
+    child: TranscriptScope(
     service: transcripts,
     child: LaresApp(
     controller: controller,
@@ -532,7 +574,7 @@ Future<void> main() async {
     ice: ice,
     onStartMesh: startMesh,
     navigatorKey: _navigatorKey,
-  )));
+  )))));
 }
 
 /// 给没有 BuildContext 的逻辑层(PushService)弹对话框用。

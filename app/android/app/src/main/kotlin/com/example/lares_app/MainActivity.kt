@@ -1,6 +1,8 @@
 package com.example.lares_app
 
+import android.app.ActivityManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -67,6 +69,28 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // 专注学习(lares.focus):屏幕固定(lock task / screen pinning)。
+        // 非设备所有者时 startLockTask 会弹系统确认框,用户可用「返回+概览」手势退出。
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lares/focus_lock")
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "start" -> {
+                            startLockTask()
+                            result.success(true)
+                        }
+                        "stop" -> {
+                            // 未处于锁定时调用也安全(系统忽略)
+                            if (isFocusLocked()) stopLockTask()
+                            result.success(true)
+                        }
+                        "isLocked" -> result.success(isFocusLocked())
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("focus_lock", e.message, null)
+                }
+            }
         // 小组件麦克风按钮的通道:把活着的引擎交给 WidgetActionReceiver。
         // 引擎在,接收器才能把请求递进 Dart;引擎销毁时在 cleanUpFlutterEngine 清掉,
         // 免得接收器往一条死通道里发、然后干等到超时。
@@ -82,6 +106,16 @@ class MainActivity : FlutterActivity() {
                     eventSink = null
                 }
             })
+    }
+
+    private fun isFocusLocked(): Boolean {
+        val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            am.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+        } else {
+            @Suppress("DEPRECATION")
+            am.isInLockTaskMode
+        }
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {

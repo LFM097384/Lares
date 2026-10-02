@@ -27,6 +27,8 @@ import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
 import 'nickname.dart';
 import '../transcript/transcript_scope.dart';
+import '../plugins/plugin_owner_section.dart';
+import '../plugins/plugin_scope.dart';
 import 'room_screen.dart';
 import 'settings_sheet.dart';
 import 'widgets/e2ee_badge.dart';
@@ -654,6 +656,15 @@ class _CircleTile extends StatelessWidget {
             service: TranscriptScope.maybeOf(context)!,
             circleId: circle.id,
             on: controller.isTranscriptOn(circle.id),
+            onBeforeOpen: () => Navigator.pop(ctx),
+          ),
+        // 插件管理(plugin-focus-contract §3)
+        if (registered && PluginScope.maybeOf(context) != null)
+          PluginOwnerTile(
+            service: PluginScope.maybeOf(context)!,
+            circleId: circle.id,
+            focusSettingsBuilder:
+                PluginScope.maybeScopeOf(context)?.focusSettingsBuilder,
             onBeforeOpen: () => Navigator.pop(ctx),
           ),
         ListTile(
