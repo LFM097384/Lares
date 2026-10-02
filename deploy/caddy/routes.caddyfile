@@ -12,6 +12,12 @@
 	handle /notes* {
 		reverse_proxy lares-server:8787
 	}
+	# bot HTTP 接口(docs/bot-api.md)。SSE 需要关掉缓冲,否则事件会被攒着不发。
+	handle /api/* {
+		reverse_proxy lares-server:8787 {
+			flush_interval -1
+		}
+	}
 	handle /health {
 		reverse_proxy lares-server:8787
 	}
