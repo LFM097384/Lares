@@ -1,0 +1,10 @@
+{
+  "description": "lares-transcript-v1 E2EE blob test vector (docs/plans/transcript-bot-contract.md §4). Generated with Node crypto (hkdfSync + aes-256-gcm).",
+  "keyHex": "9b1c5e7a2d4f6081a3c5e7f90b2d4f6182a4c6e8fa1c3e5f7092b4d6f8a1c3e5",
+  "circleId": "c_7f3a9e2b8d4c1f6a",
+  "info": "lares-transcript-v1",
+  "derivedKeyHex": "949c34f1bbefa6dcb467a32f733c377aa6866efcd5fb8456629375b11362ae9e",
+  "nonceHex": "000102030405060708090a0b",
+  "plaintext": "{\"id\":\"u1-1727900000000\",\"uid\":\"user-alice\",\"name\":\"阿丽\",\"text\":\"今晚八点见,别忘了带伞。\",\"startedAt\":1727900000000,\"ts\":1727900001234}",
+  "blob": "AQABAgMEBQYHCAkKC+gGVyx21Fr84zphlNxMsRBXTcvZjCMeEgCl9sJxWj5qW4Bf+P8hWmNhyw11iNJ1NV+0yIVIVHzgzohoNxR3JD5TH/cmFZiQDVWN3dC9JdGgIhfqT0vF8SWQ1VNM4pVT0lKtsGS/l/enZktCvxqUbUcUhql1W5yR5fEKSw/XL1gX4+3dGPh3enIZJpo9ua8mOfMdSrS+LIoWc8MLpVBClp6EXsieXw=="
+}

@@ -289,6 +289,16 @@ class ChatService extends ChangeNotifier {
     if (!decoded.isOk) return;
 
     final Map<String, dynamic> h = decoded.header;
+    switch (chatSenderVerdict(senderIdentity: frame.senderIdentity, header: h)) {
+      case ChatSenderVerdict.drop:
+        return; // 无法归因 / 成员冒充机器人
+      case ChatSenderVerdict.bot:
+        // 机器人只发文字;不经插件注册表(插件不该看到伪身份通道)
+        if (decoded.type == chatTypeText) _onTextFrame(h, bot: true);
+        return;
+      case ChatSenderVerdict.peer:
+        break;
+    }
     final Object? sid = h['sid'];
     // 忽略自己的消息:本地已乐观回显,再收一次会重复
     if (sid is String && sid == userId) return;
@@ -304,7 +314,7 @@ class ChatService extends ChangeNotifier {
     );
   }
 
-  void _onTextFrame(Map<String, dynamic> h) {
+  void _onTextFrame(Map<String, dynamic> h, {bool bot = false}) {
     final String id = _stringOf(h, 'id');
     final Object? bodyRaw = h['body'];
     if (id.isEmpty || bodyRaw is! String) return;
@@ -314,10 +324,13 @@ class ChatService extends ChangeNotifier {
       ChatMessage.text(
         id: id,
         senderId: _stringOf(h, 'sid'),
-        senderName: _stringOf(h, 'sn'),
+        senderName: bot
+            ? capGraphemes(_stringOf(h, 'sn'), _maxSenderNameGraphemes)
+            : _stringOf(h, 'sn'),
         circleId: _stringOf(h, 'cid'),
         timestamp: _timeOf(h),
-        body: bodyRaw,
+        body: bot ? capGraphemes(bodyRaw, maxTextGraphemes) : bodyRaw,
+        isBot: bot,
       ),
       countUnread: true,
     );

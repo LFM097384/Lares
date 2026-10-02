@@ -110,6 +110,9 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(pos.pixels, closeTo(scrolledTo, 1), reason: '翻上去看的时候不跳');
+    // 自字幕会为我开一个识别会话(含首帧看门狗计时器):关掉字幕收尾
+    await captions.setWantCaptions(false);
+    await tester.pump();
   });
 
   testWidgets('正在转写时显示横幅,点击 = 本次不再生成', (tester) async {

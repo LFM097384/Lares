@@ -1608,6 +1608,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get captionsYou => 'Me';
 
   @override
+  String get captionsBannerSelf =>
+      'Turning your words into captions · speech is transcribed by Alibaba Cloud';
+
+  @override
+  String get captionsArchiveBanner =>
+      'This circle keeps a transcript · speech is transcribed by Alibaba Cloud';
+
+  @override
+  String get captionsArchiveSelfOff =>
+      'Your words aren\'t being transcribed this time';
+
+  @override
+  String get captionsArchiveStoppedSnack =>
+      'Stopped transcribing your words. It\'ll resume next time you join';
+
+  @override
+  String captionsNotTranscribed(String names) {
+    return '$names: not transcribed';
+  }
+
+  @override
+  String captionsBotName(String name) {
+    return '$name (bot)';
+  }
+
+  @override
+  String get chatBotBadge => 'Bot';
+
+  @override
   String get settingsGroupCaptions => 'Live captions';
 
   @override
@@ -1616,7 +1645,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCaptionsProvideSub =>
-      'Only while someone here needs captions and your mic is on, your speech is sent to Alibaba Cloud to turn it into text. Nothing is recorded or stored';
+      'Only while someone here needs captions (or the owner turned on the transcript) and your mic is on, your speech is sent to Alibaba Cloud to turn it into text. No audio is recorded. Turn this off and your words stay out of the transcript too';
 
   @override
   String get settingsCaptionsE2eeCloud => 'Also in encrypted circles';
@@ -1624,4 +1653,121 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsCaptionsE2eeCloudSub =>
       'In an encrypted circle your voice normally never leaves your phone. With this on, your speech is sent to Alibaba Cloud when someone needs captions; the text still reaches them encrypted';
+
+  @override
+  String get transcriptTitle => 'Transcript';
+
+  @override
+  String get transcriptEmpty =>
+      'Nothing here yet. Once the owner turns this on, what people say is kept here as text';
+
+  @override
+  String get transcriptLoadError =>
+      'Couldn\'t load the transcript. Try again later';
+
+  @override
+  String get transcriptRetry => 'Retry';
+
+  @override
+  String get transcriptLoadMore => 'Earlier lines';
+
+  @override
+  String get transcriptClear => 'Clear transcript';
+
+  @override
+  String get transcriptClearConfirmTitle => 'Clear this circle\'s transcript?';
+
+  @override
+  String get transcriptClearConfirmBody =>
+      'Every line stored on the server will be deleted for everyone. This can\'t be undone';
+
+  @override
+  String get transcriptClearConfirmBodyE2ee =>
+      'The transcript will be deleted from every member\'s device, and undelivered encrypted lines will be dropped. This can\'t be undone';
+
+  @override
+  String get transcriptClearConfirm => 'Clear';
+
+  @override
+  String get transcriptCleared => 'Cleared';
+
+  @override
+  String get transcriptClearFailed => 'Couldn\'t clear it. Try again later';
+
+  @override
+  String get transcriptLocalOnlyNote =>
+      'Encrypted circle: the transcript lives only on this device. The server only passes along ciphertext it can\'t read';
+
+  @override
+  String get transcriptEntryDesc => 'See what people have said';
+
+  @override
+  String get transcriptEntryDescE2ee => 'Stored only on this device';
+
+  @override
+  String get transcriptOwnerSwitchDesc =>
+      'Turns what people say into text and keeps it on the server until you clear it or delete the circle. Speech is recognized by Alibaba Cloud. Anyone who doesn\'t want to be recorded can turn off captions for others in Settings';
+
+  @override
+  String get transcriptOwnerSwitchDescE2ee =>
+      'Turns what people say into text, stored encrypted on each member\'s device. Speech is sent to Alibaba Cloud for recognition';
+
+  @override
+  String get transcriptE2eeWarnTitle =>
+      'Turn on the transcript in an encrypted circle?';
+
+  @override
+  String get transcriptE2eeWarnBody =>
+      'Once on, everyone\'s speech is sent to Alibaba Cloud to be turned into text, so the audio leaves the phone for that step. The text is then encrypted: the server only passes along ciphertext it can\'t read, and each member keeps the transcript on their own device';
+
+  @override
+  String get transcriptE2eeWarnConfirm => 'Turn on';
+
+  @override
+  String get botTokensTitle => 'Bots';
+
+  @override
+  String get botTokensEntryDesc =>
+      'Let outside programs read and post text in this circle';
+
+  @override
+  String get botTokensDesc =>
+      'A bot holding a token can read the transcript and post messages, captions and short audio, always labeled as a bot. You can revoke it at any time';
+
+  @override
+  String get botTokensDescE2ee =>
+      'This circle is encrypted. The server can\'t read its content, so bots can\'t read or post here';
+
+  @override
+  String get botTokensEmpty => 'No bots yet';
+
+  @override
+  String get botTokenCreate => 'New';
+
+  @override
+  String get botTokenCreateTitle => 'Name the bot';
+
+  @override
+  String get botTokenNameHint => 'For example: meeting notes';
+
+  @override
+  String get botTokenShownOnce =>
+      'This token is shown only once. Copy it now and keep it somewhere safe';
+
+  @override
+  String get botTokenRevoke => 'Revoke';
+
+  @override
+  String get botTokenRevokeBody =>
+      'Any bot using this token loses access right away';
+
+  @override
+  String botTokenCreatedTitle(String name) {
+    return 'Token for $name';
+  }
+
+  @override
+  String botTokenRevokeTitle(String name) {
+    return 'Revoke $name?';
+  }
 }

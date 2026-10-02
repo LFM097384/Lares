@@ -229,3 +229,41 @@ Map<String, dynamic> buildImageChunkHeader({
   if (height != null) header['h'] = height;
   return header;
 }
+
+/// 发送方核验结论(见 docs/plans/transcript-bot-contract.md §2)。
+enum ChatSenderVerdict {
+  /// 普通成员发的帧
+  peer,
+
+  /// 服务器代机器人发的帧(没有 participant + `bot:true` + `sid` 以 `bot:` 开头)
+  bot,
+
+  /// 丢弃:无法归因,或成员冒充机器人
+  drop,
+}
+
+/// 机器人 sid 前缀。
+const String chatBotSidPrefix = 'bot:';
+
+/// 纯函数:按传输层给的发送方 identity 与帧 header 判定这帧算谁的。
+///
+/// - [senderIdentity] 为空 = 没有 participant(只有服务器经 RoomService.SendData
+///   才发得出):只有 `bot == true` 且 `sid` 以 `bot:` 开头才认作机器人,否则丢弃。
+/// - 有 participant 却带 `bot:true` 或 `sid` 以 `bot:` 开头 → 冒充,丢弃。
+ChatSenderVerdict chatSenderVerdict({
+  required String senderIdentity,
+  required Map<String, dynamic> header,
+}) {
+  final Object? sid = header['sid'];
+  final bool botSid = sid is String && sid.startsWith(chatBotSidPrefix);
+  final bool botFlag = header['bot'] == true;
+  if (senderIdentity.isEmpty) {
+    return (botFlag && sid is String && sid.length > chatBotSidPrefix.length && botSid)
+        ? ChatSenderVerdict.bot
+        : ChatSenderVerdict.drop;
+  }
+  if (botFlag || botSid) {
+    return ChatSenderVerdict.drop;
+  }
+  return ChatSenderVerdict.peer;
+}

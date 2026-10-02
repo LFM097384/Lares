@@ -2588,11 +2588,53 @@ abstract class AppLocalizations {
   /// **'房里还没有其他人'**
   String get captionsAlone;
 
-  /// 字幕行里说话人是自己时(一般不会出现)
+  /// 字幕行里说话人是自己时(开着字幕时自己的话也会显示)
   ///
   /// In zh, this message translates to:
   /// **'我'**
   String get captionsYou;
+
+  /// 常驻横幅:本机开着字幕、只为自己转写时(没有别人要字幕)
+  ///
+  /// In zh, this message translates to:
+  /// **'正在把你的话转成字幕 · 语音经阿里云识别'**
+  String get captionsBannerSelf;
+
+  /// 常驻横幅(全员可见):圈主开了转写记录,大家开麦说的话会被识别成文字并保存
+  ///
+  /// In zh, this message translates to:
+  /// **'本圈已开启转写记录 · 语音经阿里云识别'**
+  String get captionsArchiveBanner;
+
+  /// 转写记录横幅的小字:本机关了「为需要的人生成字幕」或点过停止,自己的话不进记录
+  ///
+  /// In zh, this message translates to:
+  /// **'你的话这次不转写'**
+  String get captionsArchiveSelfOff;
+
+  /// 转写记录开着时点横幅停止后的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'这次不再转写你的话,下次进圈恢复'**
+  String get captionsArchiveStoppedSnack;
+
+  /// 转写记录开着时:这些人选择不被转写,他们的话不会出现在记录里
+  ///
+  /// In zh, this message translates to:
+  /// **'{names} 未转写'**
+  String captionsNotTranscribed(String names);
+
+  /// 字幕行里说话人是机器人时的名字
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}(机器人)'**
+  String captionsBotName(String name);
+
+  /// 聊天里机器人消息名字旁的小徽标
+  ///
+  /// In zh, this message translates to:
+  /// **'机器人'**
+  String get chatBotBadge;
 
   /// 设置页分组标题:实时字幕
   ///
@@ -2609,7 +2651,7 @@ abstract class AppLocalizations {
   /// 说明语音何时、发往哪里、是否保存
   ///
   /// In zh, this message translates to:
-  /// **'只在房里有人需要字幕、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音、不保存'**
+  /// **'只在房里有人需要字幕(或圈主开了转写记录)、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音。关掉后你的话也不进转写记录'**
   String get settingsCaptionsProvideSub;
 
   /// 设置开关:端到端加密的圈子里是否也允许云端识别
@@ -2623,6 +2665,204 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'加密圈的语音本来不出你的手机。打开后,有人需要字幕时你的语音会发往阿里云识别;识别出的文字仍加密传给对方'**
   String get settingsCaptionsE2eeCloudSub;
+
+  /// 转写记录功能/页面标题
+  ///
+  /// In zh, this message translates to:
+  /// **'转写记录'**
+  String get transcriptTitle;
+
+  /// 转写记录空状态
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有记录。圈主开启后,大家说的话会在这里留下文字'**
+  String get transcriptEmpty;
+
+  /// 转写记录加载失败
+  ///
+  /// In zh, this message translates to:
+  /// **'没能读到记录,稍后再试'**
+  String get transcriptLoadError;
+
+  /// 重试按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get transcriptRetry;
+
+  /// 加载更早的转写记录
+  ///
+  /// In zh, this message translates to:
+  /// **'更早的记录'**
+  String get transcriptLoadMore;
+
+  /// 圈主清空转写记录的菜单项
+  ///
+  /// In zh, this message translates to:
+  /// **'清空记录'**
+  String get transcriptClear;
+
+  /// 清空确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'清空这个圈子的转写记录?'**
+  String get transcriptClearConfirmTitle;
+
+  /// 清空确认正文(非加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器上的全部记录会被删除,所有人都看不到了。这一步撤不回'**
+  String get transcriptClearConfirmBody;
+
+  /// 清空确认正文(加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'每位成员设备上的记录都会被删除,还没送达的密文也会作废。这一步撤不回'**
+  String get transcriptClearConfirmBodyE2ee;
+
+  /// 清空确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'清空'**
+  String get transcriptClearConfirm;
+
+  /// 清空成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'已清空'**
+  String get transcriptCleared;
+
+  /// 清空失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'没清空成功,稍后再试'**
+  String get transcriptClearFailed;
+
+  /// 加密圈历史页顶部说明
+  ///
+  /// In zh, this message translates to:
+  /// **'加密圈:记录只存在这台设备上,服务器只转交看不懂的密文'**
+  String get transcriptLocalOnlyNote;
+
+  /// 圈子菜单里转写记录入口副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'看看大家说过的话'**
+  String get transcriptEntryDesc;
+
+  /// 圈子菜单里转写记录入口副标题(加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'只存在这台设备上'**
+  String get transcriptEntryDescE2ee;
+
+  /// 圈主转写记录开关说明(非加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'把大家说的话识别成文字并保存在服务器上,直到你清空或删除圈子。语音经阿里云识别;不想被记录的人可以在设置里关掉「为需要字幕的人生成字幕」'**
+  String get transcriptOwnerSwitchDesc;
+
+  /// 圈主转写记录开关说明(加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'把大家说的话识别成文字,加密后只存在各人设备上。语音会送到阿里云识别'**
+  String get transcriptOwnerSwitchDescE2ee;
+
+  /// 加密圈开启转写记录的告知标题
+  ///
+  /// In zh, this message translates to:
+  /// **'在加密圈里开启转写记录?'**
+  String get transcriptE2eeWarnTitle;
+
+  /// 加密圈开启转写记录的告知正文
+  ///
+  /// In zh, this message translates to:
+  /// **'开启后,大家的语音会送到阿里云识别成文字 —— 这一步语音离开了手机。识别出的文字会加密,服务器只转交它看不懂的密文;记录由每位成员各自存在自己的设备上'**
+  String get transcriptE2eeWarnBody;
+
+  /// 加密圈开启转写记录的确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'开启'**
+  String get transcriptE2eeWarnConfirm;
+
+  /// 机器人 token 管理标题
+  ///
+  /// In zh, this message translates to:
+  /// **'机器人'**
+  String get botTokensTitle;
+
+  /// 机器人入口副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'让外部程序读写这个圈子的文字'**
+  String get botTokensEntryDesc;
+
+  /// 机器人页说明
+  ///
+  /// In zh, this message translates to:
+  /// **'持有令牌的机器人可以读取转写记录,并以「机器人」身份发消息、发字幕、播放语音。随时可以吊销'**
+  String get botTokensDesc;
+
+  /// 机器人页说明(加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'这是加密圈:服务器看不懂内容,机器人读不到也发不了消息'**
+  String get botTokensDescE2ee;
+
+  /// 机器人列表空状态
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有机器人'**
+  String get botTokensEmpty;
+
+  /// 新建机器人令牌按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'新建'**
+  String get botTokenCreate;
+
+  /// 新建令牌对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'给机器人起个名字'**
+  String get botTokenCreateTitle;
+
+  /// 机器人名称输入提示
+  ///
+  /// In zh, this message translates to:
+  /// **'比如:会议纪要'**
+  String get botTokenNameHint;
+
+  /// 令牌只显示一次的警告
+  ///
+  /// In zh, this message translates to:
+  /// **'令牌只显示这一次,关掉就再也看不到了。请现在复制并妥善保存'**
+  String get botTokenShownOnce;
+
+  /// 吊销令牌按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'吊销'**
+  String get botTokenRevoke;
+
+  /// 吊销确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'吊销后,用这个令牌的机器人立刻失去访问权限'**
+  String get botTokenRevokeBody;
+
+  /// 令牌已创建对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」的令牌'**
+  String botTokenCreatedTitle(String name);
+
+  /// 吊销确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'吊销「{name}」?'**
+  String botTokenRevokeTitle(String name);
 }
 
 class _AppLocalizationsDelegate

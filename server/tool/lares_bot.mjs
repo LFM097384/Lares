@@ -26,7 +26,15 @@
 //   await bot.join();
 //   await bot.speak(pcm16);          // 发声
 //   bot.onAudio((frame, from) => {}); // 听声
+//   bot.onChat((m) => {});            // 收聊天(含服务器代发的机器人消息,m.bot === true)
+//   bot.onCaption((c) => {});         // 收字幕(lares.cap)
+//   await bot.sendChat('你好');        // 发聊天(与 App 同一帧格式)
+//   await bot.sendCaption('一句话', { final: true });
 //   await bot.leave();
+//
+// 注册圈(App 新建的 c_xxx 圈)只认 v2 证明:传 authVersion: 2。
+// E2EE 圈:传 e2ee: true(密钥由 passcode 派生,与 App 相同),数据通道与音频一并加解密。
+// 不持有口令的程序要和 E2EE 圈打交道只能走这里;REST API(docs/bot-api.md)对 E2EE 圈一律 409。
 
 import crypto from 'node:crypto';
 import WebSocket from 'ws';
@@ -41,6 +49,46 @@ import {
   TrackKind,
   AudioFrame,
 } from '@livekit/rtc-node';
+// 纯 WASM Argon2;tool/ 下没装时会沿目录向上落到 server/node_modules(服务端依赖)
+import { argon2id } from 'hash-wasm';
+
+export const CHAT_TOPIC = 'lares.chat';
+export const CAPTION_TOPIC = 'lares.cap';
+
+/// 与 App(app/lib/src/e2ee/e2ee_key.dart)和服务端一致的 Argon2 参数
+const ARGON2 = { parallelism: 1, iterations: 3, memorySize: 64 * 1024, hashLength: 32, outputType: 'hex' };
+
+/// v2 鉴权 verifier = hex(Argon2id(口令, "lares-auth-v2:"+circleId))
+export function authVerifier(passcode, circleId) {
+  return argon2id({ password: passcode, salt: `lares-auth-v2:${circleId}`, ...ARGON2 });
+}
+
+/// E2EE 共享密钥(64 位 hex)= Argon2id(口令, sha256("lares-e2ee-v2:"+circleId) 前 16 字节)。
+/// 交给 LiveKit 的是这串 hex 的 **ASCII 字节**(App 的 setSharedKey 内部做 key.codeUnits)。
+export function e2eeKeyHex(passcode, circleId) {
+  const salt = crypto.createHash('sha256').update(`lares-e2ee-v2:${circleId}`, 'utf8').digest().subarray(0, 16);
+  return argon2id({ password: passcode, salt, ...ARGON2 });
+}
+
+/// 聊天帧:4 字节大端 header 长度 + UTF-8 JSON header + payload(app/lib/src/chat/chat_envelope.dart)
+export function encodeChatFrame(header, payload = new Uint8Array(0)) {
+  const h = Buffer.from(JSON.stringify(header), 'utf8');
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(h.length, 0);
+  return new Uint8Array(Buffer.concat([len, h, Buffer.from(payload)]));
+}
+
+export function decodeChatFrame(bytes) {
+  const b = Buffer.from(bytes);
+  if (b.length < 4) return null;
+  const n = b.readUInt32BE(0);
+  if (n === 0 || n > b.length - 4) return null;
+  try {
+    return { header: JSON.parse(b.subarray(4, 4 + n).toString('utf8')), payload: b.subarray(4 + n) };
+  } catch {
+    return null;
+  }
+}
 
 /// LiveKit 要求的采样率。48kHz 是 WebRTC 的原生档位,
 /// 用别的值会让 SDK 内部重采样,白白引入延迟和失真。
@@ -103,6 +151,14 @@ export class LaresBot {
     this.passcode = opts.passcode ?? process.env.LARES_CIRCLE_PASSCODE ?? null;
     this.token = opts.token ?? process.env.LARES_AUTH_TOKEN ?? null;
     this.joinTimeoutMs = opts.joinTimeoutMs ?? 15000;
+    // 1 = HMAC(口令);2 = HMAC(Argon2 verifier)。注册圈只收 2。
+    this.authVersion = opts.authVersion ?? 1;
+    this.e2ee = opts.e2ee === true;
+    this._verifier = null;
+    this._chatHandlers = [];
+    this._captionHandlers = [];
+    this._capSeq = 0;
+    this._capOpenId = null;
 
     this.ws = null;
     this.room = null;
@@ -116,7 +172,15 @@ export class LaresBot {
 
   /// 连信令 → 认证 → 进圈 → 拿 token → 连 LiveKit。
   async join() {
+    if (this.authVersion === 2 && this.passcode) this._verifier = await authVerifier(this.passcode, this.circleId);
     const tokenMsg = await this._connectSignaling();
+    const roomOpts = {};
+    if (this.e2ee) {
+      if (!this.passcode) throw new Error('e2ee: true 需要 passcode(密钥由口令派生)');
+      const hex = await e2eeKeyHex(this.passcode, this.circleId);
+      // ratchetSalt / KDF 用 SDK 默认值("LKFrameEncryptionKey" / PBKDF2),与 App 的 livekit_client 默认一致
+      roomOpts.encryption = { keyProviderOptions: { sharedKey: new TextEncoder().encode(hex) } };
+    }
     this.room = new Room();
 
     // 订阅别人的音频。**必须在 connect 之前挂监听** ——
@@ -128,7 +192,8 @@ export class LaresBot {
       if (this._audioHandlers.length === 0) return;
       this._attachStream(track, participant);
     });
-    this.room.on(RoomEvent.DataReceived, (payload, participant) => {
+    this.room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+      this._dispatchData(payload, participant?.identity ?? null, topic);
       for (const h of this._textHandlers) {
         try {
           h(payload, participant?.identity ?? null);
@@ -138,7 +203,8 @@ export class LaresBot {
       }
     });
 
-    await this.room.connect(tokenMsg.url, tokenMsg.token, { autoSubscribe: true });
+    // ⚠️ E2EE 选项必须传给 connect(),Room 构造函数会静默忽略它(实测:放构造里 = 明文发送)
+    await this.room.connect(tokenMsg.url, tokenMsg.token, { autoSubscribe: true, ...roomOpts });
     return this;
   }
 
@@ -221,13 +287,14 @@ export class LaresBot {
     // 优先 circle:它把连接钉死在一个圈子,权限更窄。
     // token 是全局令牌,能操作任意圈子,能不用就不用。
     if (modes.includes('circle') && this.passcode) {
-      return buildAuthProof({
+      const proof = buildAuthProof({
         mode: 'circle',
         nonce: challenge.nonce,
         userId: this.userId,
         circleId: this.circleId,
-        secret: this.passcode,
+        secret: this._verifier ?? this.passcode,
       });
+      return this._verifier ? { ...proof, v: 2 } : proof;
     }
     if (modes.includes('token') && this.token) {
       return buildAuthProof({
@@ -297,6 +364,64 @@ export class LaresBot {
   onText(handler) {
     this._textHandlers.push(handler);
     return this;
+  }
+
+  /// 订阅聊天(topic lares.chat)。回调签名 (msg),msg = {id, senderId, senderName, body, ts, bot, from}。
+  /// bot === true 仅当帧来自服务器(participant 为空)且 header 带 bot:true —— 与 App 的防伪规则一致;
+  /// 有 participant 却冒充机器人的帧直接丢弃。
+  onChat(handler) {
+    this._chatHandlers.push(handler);
+    return this;
+  }
+
+  /// 订阅字幕(topic lares.cap 的 {t:'cap'} 帧)。回调签名 (cap),cap = {id, seq, text, final, from, bot}。
+  /// bot = {id,name} 仅当帧来自服务器(participant 为空)。
+  onCaption(handler) {
+    this._captionHandlers.push(handler);
+    return this;
+  }
+
+  _dispatchData(payload, from, topic) {
+    if (topic === CHAT_TOPIC && this._chatHandlers.length) {
+      const f = decodeChatFrame(payload);
+      const h = f?.header;
+      if (!h || h.t !== 'text' || typeof h.body !== 'string') return;
+      const claimsBot = h.bot === true || (typeof h.sid === 'string' && h.sid.startsWith('bot:'));
+      if (from !== null && claimsBot) return; // 参与者冒充机器人
+      if (from === null && h.bot !== true) return; // 无主帧却不是机器人帧
+      const msg = { id: h.id, senderId: h.sid, senderName: h.sn, circleId: h.cid, ts: h.ts, body: h.body, bot: from === null, from };
+      for (const cb of this._chatHandlers) { try { cb(msg); } catch (e) { console.error('[bot] onChat 处理器抛错:', e); } }
+    } else if (topic === CAPTION_TOPIC && this._captionHandlers.length) {
+      let m;
+      try { m = JSON.parse(Buffer.from(payload).toString('utf8')); } catch { return; }
+      if (m?.t !== 'cap' || typeof m.id !== 'string' || typeof m.text !== 'string' || typeof m.final !== 'boolean') return;
+      if (from !== null && 'bot' in m) return; // 防伪:参与者的帧不许带 bot
+      if (from === null && !(m.bot && typeof m.bot.id === 'string')) return;
+      const cap = { id: m.id, seq: m.seq, text: m.text, final: m.final, from, bot: from === null ? { id: m.bot.id, name: String(m.bot.name ?? '') } : null };
+      for (const cb of this._captionHandlers) { try { cb(cap); } catch (e) { console.error('[bot] onCaption 处理器抛错:', e); } }
+    }
+  }
+
+  /// 发一条聊天(与 App 同格式,广播给房间)。e2ee: true 时数据包随房间密钥加密(实测无密钥者解不出)。返回消息 id。
+  async sendChat(text) {
+    if (!this.room) throw new Error('还没 join()');
+    const header = {
+      v: 1, t: 'text', id: crypto.randomUUID(),
+      sid: this.userId, sn: this.name, cid: this.circleId, ts: Date.now(), body: String(text),
+    };
+    await this.room.localParticipant.publishData(encodeChatFrame(header), { reliable: true, topic: CHAT_TOPIC });
+    return header.id;
+  }
+
+  /// 发一条字幕。同一句的 partial 共用 id,final 定稿后下一句换新 id。返回 {id, seq}。
+  async sendCaption(text, { final = false, id } = {}) {
+    if (!this.room) throw new Error('还没 join()');
+    const capId = id ?? this._capOpenId ?? `cap_${crypto.randomBytes(6).toString('hex')}`;
+    this._capSeq += 1;
+    this._capOpenId = final ? null : capId;
+    const frame = { t: 'cap', id: capId, seq: this._capSeq, text: String(text), final: Boolean(final) };
+    await this.room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(frame)), { reliable: true, topic: CAPTION_TOPIC });
+    return { id: capId, seq: this._capSeq };
   }
 
   _attachStream(track, participant) {

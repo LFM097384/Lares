@@ -315,7 +315,7 @@ void main() {
       );
       addTearDown(c.dispose);
       expect(c.canModerate('home'), isTrue, reason: '不知道的圈按老行为');
-      c.circleInfo['c_r'] = (registered: true, e2ee: null);
+      c.circleInfo['c_r'] = (registered: true, e2ee: null, transcript: false);
       expect(c.canModerate('c_r'), isFalse);
       await settings.saveOwnerKey('c_r', 'kk');
       expect(c.canModerate('c_r'), isTrue);
@@ -391,7 +391,7 @@ void main() {
       addTearDown(controller.dispose);
       final circleStore = await CircleStore.load();
       final id = circleStore.circles.first.id;
-      if (registered) controller.circleInfo[id] = (registered: true, e2ee: null);
+      if (registered) controller.circleInfo[id] = (registered: true, e2ee: null, transcript: false);
       if (owner) await settings.saveOwnerKey(id, 'kk');
       if (pending) await settings.markPendingRegistration(id);
       await tester.pumpWidget(localizedApp(

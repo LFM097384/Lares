@@ -17,6 +17,7 @@ import 'caption_controller.dart';
 import 'livekit_caption_session.dart';
 import 'qwen_realtime_stt.dart';
 import 'stt_socket.dart';
+import 'transcript_sink.dart';
 
 /// 通过信令向服务器要一张 DashScope 临时 token(cap_token)。
 ///
@@ -134,7 +135,16 @@ class CaptionWiring {
     required this.settings,
     this.e2ee,
     this.onTokenSourceReset,
+    this.transcriptSink,
   }) {
+    final TranscriptSink? sink = transcriptSink;
+    if (sink != null) {
+      captions.onOwnFinal = ownFinalHandler(
+        circleId: () => controller.circleId,
+        archiveOn: controller.isTranscriptOn,
+        sink: sink,
+      );
+    }
     controller.addListener(_sync);
     settings.addListener(_sync);
     e2ee?.addListener(_sync);
@@ -147,6 +157,25 @@ class CaptionWiring {
   final SettingsStore settings;
   final E2EEController? e2ee;
   final VoidCallback? onTokenSourceReset;
+
+  /// 转写记录出口(通常是 [RoutingTranscriptSink]:非加密走信令
+  /// `transcript_append`,加密走 transcript 模块注入的加密实现)。
+  final TranscriptSink? transcriptSink;
+
+  /// 本人定稿 → 转写记录。只在当前圈子开着转写记录时才交给 [sink]。
+  static void Function(String id, String text, DateTime startedAt)
+      ownFinalHandler({
+    required String? Function() circleId,
+    required bool Function(String circleId) archiveOn,
+    required TranscriptSink sink,
+  }) =>
+          (id, text, startedAt) {
+            final String? c = circleId();
+            if (c == null || c.isEmpty || !archiveOn(c)) return;
+            if (text.trim().isEmpty) return;
+            sink.appendFinal(
+                circleId: c, id: id, text: text, startedAt: startedAt);
+          };
 
   LiveKitCaptionSession? _session;
   String? _lastCircle;
@@ -208,6 +237,8 @@ class CaptionWiring {
       provide: settings.captionsProvide,
       encrypted: _encrypted,
       e2eeCloud: settings.captionsE2eeCloud,
+      archive: controller.circleId != null &&
+          controller.isTranscriptOn(controller.circleId!),
     ));
   }
 
@@ -216,6 +247,7 @@ class CaptionWiring {
     controller.removeListener(_sync);
     settings.removeListener(_sync);
     e2ee?.removeListener(_sync);
+    if (transcriptSink != null) captions.onOwnFinal = null;
     captions.unbindSession();
     unawaited(_session?.dispose());
     _session = null;

@@ -72,15 +72,22 @@ void main() {
       });
     });
 
-    test('只有我自己打开字幕 → 不为自己转写(需要远端请求者)', () {
+    test('只有我自己打开字幕 → 也转写自己(本地显示「我」),但不往外发 cap', () {
       fakeAsync((async) {
         final h = H()..bind();
         h.captions.setWantCaptions(true);
         async.flushMicrotasks();
-        expect(h.stts, isEmpty);
-        // 自己发回来的回声也不算
+        expect(h.active, isNotNull, reason: '自字幕:我自己要字幕也算有人需要');
+        h.active!.onFinal('s1', '今天天气不错。');
+        expect(h.captions.lines.single.isSelf, isTrue);
+        expect(h.captions.lines.single.identity, 'me');
+        expect(h.ch.sentOfType('cap'), isEmpty, reason: '没有远端请求者:不发');
+        // 自己发回来的回声不算请求者
         h.ch.receive('me', {'t': 'capreq', 'on': true});
-        expect(h.stts, isEmpty);
+        expect(h.captions.requesterNames, isEmpty);
+        h.captions.setWantCaptions(false);
+        async.flushMicrotasks();
+        expect(h.active, isNull);
         h.captions.dispose();
       });
     });
@@ -365,8 +372,8 @@ void main() {
     });
   });
 
-  group('发送:只发给请求者、partial 节流、语气词撤回', () {
-    test('cap 定向发给请求者,reliable 由通道保证;partial ≤5/s 且只发最新', () {
+  group('发送:有请求者才广播、partial 节流、语气词撤回', () {
+    test('cap 广播(一次转写全员共享),reliable 由通道保证;partial ≤5/s 且只发最新', () {
       fakeAsync((async) {
         final start = DateTime(2026);
         final h = H();
@@ -398,8 +405,8 @@ void main() {
         expect(caps.length, greaterThanOrEqualTo(4));
         expect(caps.last.msg['text'], '字' * 20, reason: '窗口结束时发最新的整句');
         expect(caps.every((p) => p.msg['final'] == false), isTrue);
-        expect(caps.every((p) => p.to!.length == 1 && p.to!.single == 'u1'),
-            isTrue, reason: '只发给需要字幕的人');
+        expect(caps.every((p) => p.to == null), isTrue,
+            reason: '契约 §1:cap 广播,不带 destinationIdentities');
         // seq 单调递增
         final seqs = caps.map((p) => p.msg['seq'] as int).toList();
         for (var i = 1; i < seqs.length; i++) {

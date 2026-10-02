@@ -3,11 +3,16 @@
 /// 两个方向:
 /// - **看字幕**:本机打开「字幕」→ 广播 `capreq{on:true}`(新人进房时单独补发),
 ///   收到的 `cap` 按发送者 identity 归属、按 item_id 原地替换,面板只留最近 30 行。
-/// - **供字幕**:房里至少有一位**远端**需要字幕的人,且本机在房、开着麦、
-///   麦克风轨道真的在出帧、设置允许(E2EE 圈还要单独同意)时,才把**自己的**
-///   麦克风送去云端识别,识别结果只发给需要的人。任何条件不再满足立即停、关连接。
+/// - **供字幕**:有人需要(远端请求者,或我自己开着字幕),或圈子开了转写记录,
+///   且本机在房、开着麦、麦克风轨道真的在出帧、设置允许(E2EE 圈还要单独同意)时,
+///   才把**自己的**麦克风送去云端识别。结果 `cap` **广播**;我自己的行本地直接插入
+///   (标「我」)。任何条件不再满足立即停、关连接。
+/// - **只转一次**:不论多少请求者 / 是否归档,本机同一时刻最多一个识别会话;
+///   旧会话 stop+dispose 完成前绝不建新的(见 [CaptionController.liveTranscribers])。
+/// - **定稿出口**:本人每句定稿(从不含 partial)交给 [CaptionController.onOwnFinal],
+///   由胶水层决定是否归档(转写记录)。
 ///
-/// 什么都不落盘:字幕只存在内存里,退房即清。
+/// 字幕面板只存在内存里,退房即清。
 library;
 
 import 'dart:async';
@@ -51,7 +56,12 @@ class CaptionConditions {
     this.provide = true,
     this.encrypted = false,
     this.e2eeCloud = false,
+    this.archive = false,
   });
+
+  /// 圈主开了「转写记录」(circleInfo.transcript):愿意的人一开麦就转写,
+  /// 不再要求有人请求字幕。
+  final bool archive;
 
   /// 服务器提供字幕(welcome.captions)。
   final bool available;
@@ -80,11 +90,12 @@ class CaptionConditions {
       other.muted == muted &&
       other.provide == provide &&
       other.encrypted == encrypted &&
-      other.e2eeCloud == e2eeCloud;
+      other.e2eeCloud == e2eeCloud &&
+      other.archive == archive;
 
   @override
-  int get hashCode =>
-      Object.hash(available, inRoom, muted, provide, encrypted, e2eeCloud);
+  int get hashCode => Object.hash(
+      available, inRoom, muted, provide, encrypted, e2eeCloud, archive);
 }
 
 /// 面板上的一行字幕。
@@ -97,6 +108,8 @@ class CaptionLine {
     required this.text,
     required this.isFinal,
     required this.seq,
+    this.isSelf = false,
+    this.isBot = false,
   });
 
   final String identity;
@@ -106,6 +119,12 @@ class CaptionLine {
   final bool isFinal;
   final int seq;
 
+  /// 本机自己说的话(本地直接插入;界面上名字显示「我」)。
+  final bool isSelf;
+
+  /// 机器人(服务器代发)的字幕;[name] 是机器人名。
+  final bool isBot;
+
   CaptionLine copyWith({String? text, bool? isFinal, int? seq, String? name}) =>
       CaptionLine(
         identity: identity,
@@ -114,6 +133,8 @@ class CaptionLine {
         text: text ?? this.text,
         isFinal: isFinal ?? this.isFinal,
         seq: seq ?? this.seq,
+        isSelf: isSelf,
+        isBot: isBot,
       );
 }
 
@@ -125,6 +146,7 @@ class CaptionController extends ChangeNotifier {
     this.firstFrameTimeout = const Duration(seconds: 2),
     this.partialInterval = kCaptionPartialInterval,
     DateTime Function()? now,
+    this.onOwnFinal,
   })  : _factory = transcriberFactory,
         _now = now ?? DateTime.now,
         _nameOf = nameOf ?? ((id) => id);
@@ -135,6 +157,10 @@ class CaptionController extends ChangeNotifier {
   final Duration firstFrameTimeout;
   final Duration partialInterval;
   final DateTime Function() _now;
+
+  /// 本人的一句**定稿**(只在定稿时调用,partial 永不进来;语气词定稿不进来)。
+  /// [startedAt] = 这句话第一次被识别到的时刻。胶水层据此归档(转写记录)。
+  void Function(String id, String text, DateTime startedAt)? onOwnFinal;
 
   // ── 会话绑定 ────────────────────────────────────────────────────────────
   RoomDataChannel? _channel;
@@ -179,6 +205,25 @@ class CaptionController extends ChangeNotifier {
   CaptionTranscriber? _stt;
   RendererWatchdog? _watchdog;
 
+  /// 上一个识别器的 stop+dispose 还没完成:新会话必须等它(一机一连接)。
+  Future<void>? _stopping;
+  bool _restartQueued = false;
+
+  /// 已创建、尚未 dispose 完成的识别器数量(结构性保证 ≤ 1)。
+  int _live = 0;
+  int _maxLive = 0;
+
+  /// 此刻活着(含正在关闭)的识别器数。
+  @visibleForTesting
+  int get liveTranscribers => _live;
+
+  /// 自创建以来同时活着的识别器数的峰值 —— 必须永远 ≤ 1。
+  @visibleForTesting
+  int get maxConcurrentTranscribers => _maxLive;
+
+  /// 本人每句话第一次出现的时刻(item_id -> 时刻),定稿时取作 startedAt。
+  final Map<String, DateTime> _startedAt = <String, DateTime>{};
+
   int _seq = 0;
   DateTime? _lastPartialAt;
   Timer? _partialTimer;
@@ -198,6 +243,24 @@ class CaptionController extends ChangeNotifier {
   /// 横幅上的「为 X」:需要字幕的人的名字。
   List<String> get requesterNames =>
       _requesters.map(_nameOf).toList(growable: false);
+
+  /// 本圈开着转写记录(且我在房):全员可见的常驻提示。
+  bool get archiveOn => _cond.archive && _cond.inRoom;
+
+  /// 本机此刻是否愿意被转写(设置允许、没点过停止、没有不可恢复错误)。
+  bool get willingNow => _willingNow;
+
+  /// 明确表示不愿被转写的远端(capack on:false)—— 转写记录开着时标「未转写」。
+  List<String> get declinedNames {
+    final Set<String> remote = _channel?.remoteIdentities ?? const {};
+    return remote
+        .where((id) => _acks[id] == false)
+        .map(_nameOf)
+        .toList(growable: false);
+  }
+
+  /// 某位远端是否明说不被转写(给成员卡片等处用)。
+  bool isDeclined(String identity) => _acks[identity] == false;
 
   /// 正在给我提供字幕的人(capack on 或已发过字幕)。
   List<String> get providerNames {
@@ -226,6 +289,8 @@ class CaptionController extends ChangeNotifier {
     _nameOf = f;
     // 名字可能变了:已有行重新取名
     for (int i = 0; i < _lines.length; i++) {
+      // 机器人名来自帧本身;自己的行由界面显示「我」
+      if (_lines[i].isBot || _lines[i].isSelf) continue;
       _lines[i] = _lines[i].copyWith(name: f(_lines[i].identity));
     }
     _notify();
@@ -293,12 +358,19 @@ class CaptionController extends ChangeNotifier {
   void updateConditions(CaptionConditions c) {
     if (c == _cond) return;
     final bool willingBefore = _cond.willing;
+    final bool archiveBefore = _cond.archive && _cond.inRoom;
     _cond = c;
     if (!c.inRoom) {
       // 出房:不显示任何残留
       _lines.clear();
     }
-    if (c.willing != willingBefore) _broadcastAckIfChanged();
+    final bool archiveNow = c.archive && c.inRoom;
+    if (archiveNow && !archiveBefore) {
+      // 转写记录刚打开(或刚进房):让所有人知道我转不转
+      _broadcastAckIfChanged(force: true);
+    } else if (c.willing != willingBefore) {
+      _broadcastAckIfChanged();
+    }
     _reevaluate();
     _notify();
   }
@@ -309,6 +381,8 @@ class CaptionController extends ChangeNotifier {
     if (_want == on) return;
     _want = on;
     if (!on) _lines.clear();
+    // 我自己开着字幕也算「有人需要」:自己的话也转写(本地显示)
+    _reevaluate();
     _notify();
     await _publish(CapReq(on));
   }
@@ -318,6 +392,10 @@ class CaptionController extends ChangeNotifier {
   void _onJoined(String identity) {
     // 后来的人不知道我要字幕:单独告诉他
     if (_want) unawaited(_publish(const CapReq(true), to: [identity]));
+    // 转写记录开着:告诉他我转不转(他据此显示「未转写」)
+    if (_cond.archive && _cond.inRoom) {
+      unawaited(_publish(CapAck(_willingNow), to: [identity]));
+    }
     _notify();
   }
 
@@ -330,33 +408,49 @@ class CaptionController extends ChangeNotifier {
   }
 
   void _onData(RoomDataFrame f) {
-    final String? me = _channel?.localIdentity;
-    if (f.senderIdentity.isEmpty || f.senderIdentity == me) return;
-    final CaptionMessage? m = CaptionMessage.decode(f.bytes);
+    // 归属规则(含机器人帧防伪造)在纯函数里,见 attributeCaptionFrame
+    final CaptionAttribution? a = attributeCaptionFrame(
+      sender: f.senderIdentity,
+      bytes: f.bytes,
+      localIdentity: _channel?.localIdentity,
+    );
+    if (a == null) return;
+    final String from = a.identity;
+    final CaptionMessage m = a.message;
+    if (a.isBot) {
+      if (m is Cap && _want) {
+        _applyCaption(from, m, name: a.botName, isBot: true);
+        _notify();
+      }
+      return;
+    }
     switch (m) {
-      case null:
-        return;
       case CapReq(:final on):
-        final bool changed = on
-            ? _requesters.add(f.senderIdentity)
-            : _requesters.remove(f.senderIdentity);
+        final bool changed =
+            on ? _requesters.add(from) : _requesters.remove(from);
         if (on) {
           // 回应:我会不会替你转写
-          unawaited(_publish(CapAck(_willingNow), to: [f.senderIdentity]));
+          unawaited(_publish(CapAck(_willingNow), to: [from]));
         }
         if (changed) _reevaluate();
         _notify();
       case CapAck(:final on):
-        _acks[f.senderIdentity] = on;
+        _acks[from] = on;
         _notify();
       case Cap():
-        _sentCap.add(f.senderIdentity);
-        if (_want) _applyCaption(f.senderIdentity, m);
+        _sentCap.add(from);
+        if (_want) _applyCaption(from, m);
         _notify();
     }
   }
 
-  void _applyCaption(String identity, Cap c) {
+  void _applyCaption(
+    String identity,
+    Cap c, {
+    String? name,
+    bool isSelf = false,
+    bool isBot = false,
+  }) {
     final int idx =
         _lines.indexWhere((l) => l.identity == identity && l.itemId == c.id);
     if (idx >= 0) {
@@ -373,11 +467,13 @@ class CaptionController extends ChangeNotifier {
     if (c.text.trim().isEmpty) return;
     _lines.add(CaptionLine(
       identity: identity,
-      name: _nameOf(identity),
+      name: name ?? _nameOf(identity),
       itemId: c.id,
       text: c.text,
       isFinal: c.isFinal,
       seq: c.seq,
+      isSelf: isSelf,
+      isBot: isBot,
     ));
     while (_lines.length > kCaptionMaxLines) {
       _lines.removeAt(0);
@@ -388,15 +484,21 @@ class CaptionController extends ChangeNotifier {
 
   bool get _willingNow => _cond.willing && !_stoppedForSession && _fatal == null;
 
-  void _broadcastAckIfChanged() {
+  /// 告诉别人「我愿不愿意被转写」。转写记录开着时广播给所有人(大家都要知道
+  /// 谁「未转写」);否则只告诉请求者。[force] = 即使没变也再发一次。
+  void _broadcastAckIfChanged({bool force = false}) {
     final bool now = _willingNow;
-    if (_lastAckSent == now) return;
+    if (!force && _lastAckSent == now) return;
     _lastAckSent = now;
+    if (_cond.archive && _cond.inRoom) {
+      unawaited(_publish(CapAck(now)));
+      return;
+    }
     if (_requesters.isEmpty) return;
     unawaited(_publish(CapAck(now), to: _requesters.toList()));
   }
 
-  /// 用户点了横幅:本次在房期间不再替别人转写。
+  /// 用户点了横幅:本次在房期间不再转写我的话(不为别人生成字幕、也不进转写记录)。
   void stopForSession() {
     _stoppedForSession = true;
     _broadcastAckIfChanged();
@@ -404,20 +506,29 @@ class CaptionController extends ChangeNotifier {
     _notify();
   }
 
+  /// 有没有人需要我的话:远端请求者、我自己开着字幕、或圈子开着转写记录。
+  bool get _needed => _requesters.isNotEmpty || _want || _cond.archive;
+
   bool get _shouldTranscribe =>
       _channel != null &&
       _tap != null &&
       _cond.inRoom &&
       !_cond.muted &&
       _willingNow &&
-      _requesters.isNotEmpty &&
+      _needed &&
       !_tapFailed &&
       (_tap?.micPublishedAndUnmuted ?? false);
 
   void _reevaluate() {
     if (_disposed) return;
     if (_shouldTranscribe) {
-      if (_stt == null) _startTranscribing();
+      if (_stt != null) return;
+      if (_stopping != null) {
+        // 上一个识别器还没关干净:等它关完再开(一机永远只有一个连接)
+        _restartQueued = true;
+        return;
+      }
+      _startTranscribing();
     } else if (_stt != null) {
       unawaited(_stopTranscribing());
     }
@@ -439,11 +550,14 @@ class CaptionController extends ChangeNotifier {
   }
 
   void _startTranscribing() {
-    _log('开始为 ${_requesters.length} 人转写');
+    assert(_stt == null && _stopping == null);
+    _log('开始转写(请求者 ${_requesters.length} 人'
+        '${_want ? ' + 我' : ''}${_cond.archive ? ' + 转写记录' : ''})');
     final CaptionTranscriber stt = _factory(
       onPartial: _onLocalPartial,
       onFinal: _onLocalFinal,
       onFatal: (reason) {
+        if (_disposed) return;
         _log('字幕不可用: $reason');
         _fatal = reason;
         _broadcastAckIfChanged();
@@ -451,6 +565,8 @@ class CaptionController extends ChangeNotifier {
         _notify();
       },
     );
+    _live++;
+    if (_live > _maxLive) _maxLive = _live;
     _stt = stt;
     stt.start();
     _attachTap();
@@ -494,22 +610,46 @@ class CaptionController extends ChangeNotifier {
     if (wd != null) unawaited(wd.dispose());
   }
 
-  Future<void> _stopTranscribing() async {
+  Future<void> _stopTranscribing() {
     final CaptionTranscriber? stt = _stt;
-    if (stt == null) return;
+    if (stt == null) return _stopping ?? Future<void>.value();
     _stt = null;
     _detachTap();
     _log('停止转写');
     _notify();
+    late final Future<void> f;
+    f = _closeTranscriber(stt).whenComplete(() {
+      _live--;
+      if (identical(_stopping, f)) _stopping = null;
+      _flushPendingPartial(send: false);
+      if (_restartQueued) {
+        _restartQueued = false;
+        _reevaluate();
+        _notify();
+      }
+    });
+    _stopping = f;
+    return f;
+  }
+
+  Future<void> _closeTranscriber(CaptionTranscriber stt) async {
     // 定稿会在 stop 期间到达:仍然发出去(_onLocalFinal 不依赖 _stt)
-    await stt.stop();
-    await stt.dispose();
-    _flushPendingPartial(send: false);
+    try {
+      await stt.stop();
+    } on Object catch (e) {
+      _log('识别器 stop 出错: $e');
+    }
+    try {
+      await stt.dispose();
+    } on Object catch (e) {
+      _log('识别器 dispose 出错: $e');
+    }
   }
 
   void _onLocalPartial(String id, String text) {
     if (_finalizedIds.contains(id)) return;
     final DateTime now = _now();
+    _startedAt.putIfAbsent(id, () => now);
     final DateTime? last = _lastPartialAt;
     if (last == null || now.difference(last) >= partialInterval) {
       _pendingPartial = null;
@@ -545,20 +685,38 @@ class CaptionController extends ChangeNotifier {
       _partialTimer?.cancel();
       _partialTimer = null;
     }
+    if (_finalizedIds.contains(id)) return; // 重复定稿
     _finalizedIds.add(id);
     if (_finalizedIds.length > 200) _finalizedIds.remove(_finalizedIds.first);
+    final DateTime startedAt = _startedAt.remove(id) ?? _now();
+    if (_startedAt.length > 200) _startedAt.remove(_startedAt.keys.first);
+    final bool filler = isFillerOnly(text);
     // 语气词定稿:发一条空定稿,让对端把已显示的 partial 撤掉
-    _sendCap(id, isFillerOnly(text) ? '' : text.trim(), isFinal: true);
+    _sendCap(id, filler ? '' : text.trim(), isFinal: true);
+    // 关识别器期间仍可能到达定稿:用户已关「提供字幕」或点了停止,就绝不再进记录
+    if (!filler && _willingNow) {
+      try {
+        onOwnFinal?.call(id, text.trim(), startedAt);
+      } on Object catch (e) {
+        _log('定稿出口出错(不影响字幕): $e');
+      }
+    }
   }
 
+  /// 发一条本人字幕:我开着字幕就本地插入(标「我」,不靠回环);
+  /// 有远端请求者就**广播**出去(不带 destinationIdentities,契约 §1)。
   void _sendCap(String id, String text, {required bool isFinal}) {
-    if (_requesters.isEmpty) return;
     _seq++;
-    unawaited(_publish(
-      Cap(id: id, seq: _seq, text: text, isFinal: isFinal),
-      to: _requesters.toList(),
-    ));
+    final Cap c = Cap(id: id, seq: _seq, text: text, isFinal: isFinal);
+    if (_want) {
+      _applyCaption(_selfIdentity, c, name: '', isSelf: true);
+      _notify();
+    }
+    if (_requesters.isEmpty) return;
+    unawaited(_publish(c));
   }
+
+  String get _selfIdentity => _channel?.localIdentity ?? '';
 
   Future<void> _publish(CaptionMessage m, {List<String>? to}) async {
     final RoomDataChannel? ch = _channel;

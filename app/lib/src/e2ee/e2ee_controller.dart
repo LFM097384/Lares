@@ -134,6 +134,31 @@ class E2EEController extends ChangeNotifier {
         hasPasscode: hasPasscode(circleId),
       );
 
+  /// 已派生的圈共享密钥缓存:circleId -> (派生时的口令, hex 密钥)。
+  /// 口令变了缓存自动作废(下面按口令比对),不必监听换口令事件。
+  final Map<String, ({String passcode, String key})> _keyCache = {};
+
+  /// 本圈 E2EE 共享密钥(交给 LiveKit setSharedKey 的那串 64 位 hex)。
+  ///
+  /// 给转写记录密文用(transcript-bot-contract §4)。进过房的圈直接命中缓存;
+  /// 没进过房(比如在大厅收到离线补推)就现算一次 Argon2(isolate 里)。
+  /// 本机没有口令 → null(调用方不得 ack 那些密文,留给有口令时再收)。
+  Future<String?> sharedKeyFor(String circleId) async {
+    if (circleId.isEmpty) return null;
+    final passcode = _settings.credentialFor(circleId).passcode;
+    if (!canDeriveCircleKey(passcode)) return null;
+    final hit = _keyCache[circleId];
+    if (hit != null && hit.passcode == passcode) return hit.key;
+    try {
+      final key = await _deriveKey(passcode: passcode, circleId: circleId);
+      _keyCache[circleId] = (passcode: passcode, key: key);
+      return key;
+    } catch (e) {
+      debugPrint('[lares] 转写记录密钥派生失败: $e');
+      return null;
+    }
+  }
+
   Future<void> setEnabled(String circleId, bool enabled) =>
       _store.setEnabled(circleId, enabled);
 
@@ -174,10 +199,12 @@ class E2EEController extends ChangeNotifier {
       // 否则进房那一刻 UI 线程会卡掉十几帧。
       // 派生也放进这个 try:低内存设备上 Argon2 要 64 MiB,可能抛 OOM,
       // 那种情况必须落到 failed 而不是让异常冒出去把进房整个打断。
+      final String passcode = _settings.credentialFor(id).passcode;
       final String key = await _deriveKey(
-        passcode: _settings.credentialFor(id).passcode,
+        passcode: passcode,
         circleId: id,
       );
+      _keyCache[id] = (passcode: passcode, key: key);
       await _install(rtc, key);
     } catch (e) {
       // 底层 frame cryptor 没起来。绝不静默当作加密成功。

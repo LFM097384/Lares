@@ -20,6 +20,7 @@ import '../theme/tokens.dart';
 import 'caption_panel.dart';
 import 'chat_panel.dart';
 import 'map_panel.dart';
+import '../transcript/transcript_scope.dart';
 import 'moderation_menus.dart';
 import 'widgets/avatar_orb.dart';
 import 'widgets/e2ee_badge.dart';
@@ -1090,6 +1091,22 @@ class _RoomHeader extends StatelessWidget {
                   ],
                 ),
               ),
+              // 转写记录入口:圈主开了才有(transcript-bot-contract)
+              if (cid != null &&
+                  controller.isTranscriptOn(cid) &&
+                  TranscriptScope.maybeOf(context) != null)
+                IconButton(
+                  key: const ValueKey('room-transcript-history'),
+                  tooltip: t.transcriptTitle,
+                  icon: const Icon(Icons.subject_rounded),
+                  onPressed: () => openTranscriptHistory(
+                    context,
+                    service: TranscriptScope.maybeOf(context)!,
+                    circleId: cid,
+                    circleName: circleName,
+                    isOwner: controller.isOwnerOf(cid),
+                  ),
+                ),
               if (onToggleMap != null)
                 IconButton(
                   tooltip: showMap ? t.roomBackToRoom : t.roomLocationMap,

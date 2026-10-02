@@ -1923,7 +1923,41 @@
   },
   "captionsYou": "我",
   "@captionsYou": {
-    "description": "字幕行里说话人是自己时(一般不会出现)"
+    "description": "字幕行里说话人是自己时(开着字幕时自己的话也会显示)"
+  },
+  "captionsBannerSelf": "正在把你的话转成字幕 · 语音经阿里云识别",
+  "@captionsBannerSelf": {
+    "description": "常驻横幅:本机开着字幕、只为自己转写时(没有别人要字幕)"
+  },
+  "captionsArchiveBanner": "本圈已开启转写记录 · 语音经阿里云识别",
+  "@captionsArchiveBanner": {
+    "description": "常驻横幅(全员可见):圈主开了转写记录,大家开麦说的话会被识别成文字并保存"
+  },
+  "captionsArchiveSelfOff": "你的话这次不转写",
+  "@captionsArchiveSelfOff": {
+    "description": "转写记录横幅的小字:本机关了「为需要的人生成字幕」或点过停止,自己的话不进记录"
+  },
+  "captionsArchiveStoppedSnack": "这次不再转写你的话,下次进圈恢复",
+  "@captionsArchiveStoppedSnack": {
+    "description": "转写记录开着时点横幅停止后的提示"
+  },
+  "captionsNotTranscribed": "{names} 未转写",
+  "@captionsNotTranscribed": {
+    "description": "转写记录开着时:这些人选择不被转写,他们的话不会出现在记录里",
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
+  "captionsBotName": "{name}(机器人)",
+  "@captionsBotName": {
+    "description": "字幕行里说话人是机器人时的名字",
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "chatBotBadge": "机器人",
+  "@chatBotBadge": {
+    "description": "聊天里机器人消息名字旁的小徽标"
   },
   "settingsGroupCaptions": "实时字幕",
   "@settingsGroupCaptions": {
@@ -1933,7 +1967,7 @@
   "@settingsCaptionsProvide": {
     "description": "设置开关:有人打开字幕时,是否把自己的语音转成文字给他"
   },
-  "settingsCaptionsProvideSub": "只在房里有人需要字幕、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音、不保存",
+  "settingsCaptionsProvideSub": "只在房里有人需要字幕(或圈主开了转写记录)、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音。关掉后你的话也不进转写记录",
   "@settingsCaptionsProvideSub": {
     "description": "说明语音何时、发往哪里、是否保存"
   },
@@ -1944,5 +1978,143 @@
   "settingsCaptionsE2eeCloudSub": "加密圈的语音本来不出你的手机。打开后,有人需要字幕时你的语音会发往阿里云识别;识别出的文字仍加密传给对方",
   "@settingsCaptionsE2eeCloudSub": {
     "description": "说明在加密圈开启云端识别意味着什么"
+  },
+  "transcriptTitle": "转写记录",
+  "@transcriptTitle": {
+    "description": "转写记录功能/页面标题"
+  },
+  "transcriptEmpty": "还没有记录。圈主开启后,大家说的话会在这里留下文字",
+  "@transcriptEmpty": {
+    "description": "转写记录空状态"
+  },
+  "transcriptLoadError": "没能读到记录,稍后再试",
+  "@transcriptLoadError": {
+    "description": "转写记录加载失败"
+  },
+  "transcriptRetry": "重试",
+  "@transcriptRetry": {
+    "description": "重试按钮"
+  },
+  "transcriptLoadMore": "更早的记录",
+  "@transcriptLoadMore": {
+    "description": "加载更早的转写记录"
+  },
+  "transcriptClear": "清空记录",
+  "@transcriptClear": {
+    "description": "圈主清空转写记录的菜单项"
+  },
+  "transcriptClearConfirmTitle": "清空这个圈子的转写记录?",
+  "@transcriptClearConfirmTitle": {
+    "description": "清空确认标题"
+  },
+  "transcriptClearConfirmBody": "服务器上的全部记录会被删除,所有人都看不到了。这一步撤不回",
+  "@transcriptClearConfirmBody": {
+    "description": "清空确认正文(非加密圈)"
+  },
+  "transcriptClearConfirmBodyE2ee": "每位成员设备上的记录都会被删除,还没送达的密文也会作废。这一步撤不回",
+  "@transcriptClearConfirmBodyE2ee": {
+    "description": "清空确认正文(加密圈)"
+  },
+  "transcriptClearConfirm": "清空",
+  "@transcriptClearConfirm": {
+    "description": "清空确认按钮"
+  },
+  "transcriptCleared": "已清空",
+  "@transcriptCleared": {
+    "description": "清空成功提示"
+  },
+  "transcriptClearFailed": "没清空成功,稍后再试",
+  "@transcriptClearFailed": {
+    "description": "清空失败提示"
+  },
+  "transcriptLocalOnlyNote": "加密圈:记录只存在这台设备上,服务器只转交看不懂的密文",
+  "@transcriptLocalOnlyNote": {
+    "description": "加密圈历史页顶部说明"
+  },
+  "transcriptEntryDesc": "看看大家说过的话",
+  "@transcriptEntryDesc": {
+    "description": "圈子菜单里转写记录入口副标题"
+  },
+  "transcriptEntryDescE2ee": "只存在这台设备上",
+  "@transcriptEntryDescE2ee": {
+    "description": "圈子菜单里转写记录入口副标题(加密圈)"
+  },
+  "transcriptOwnerSwitchDesc": "把大家说的话识别成文字并保存在服务器上,直到你清空或删除圈子。语音经阿里云识别;不想被记录的人可以在设置里关掉「为需要字幕的人生成字幕」",
+  "@transcriptOwnerSwitchDesc": {
+    "description": "圈主转写记录开关说明(非加密圈)"
+  },
+  "transcriptOwnerSwitchDescE2ee": "把大家说的话识别成文字,加密后只存在各人设备上。语音会送到阿里云识别",
+  "@transcriptOwnerSwitchDescE2ee": {
+    "description": "圈主转写记录开关说明(加密圈)"
+  },
+  "transcriptE2eeWarnTitle": "在加密圈里开启转写记录?",
+  "@transcriptE2eeWarnTitle": {
+    "description": "加密圈开启转写记录的告知标题"
+  },
+  "transcriptE2eeWarnBody": "开启后,大家的语音会送到阿里云识别成文字 —— 这一步语音离开了手机。识别出的文字会加密,服务器只转交它看不懂的密文;记录由每位成员各自存在自己的设备上",
+  "@transcriptE2eeWarnBody": {
+    "description": "加密圈开启转写记录的告知正文"
+  },
+  "transcriptE2eeWarnConfirm": "开启",
+  "@transcriptE2eeWarnConfirm": {
+    "description": "加密圈开启转写记录的确认按钮"
+  },
+  "botTokensTitle": "机器人",
+  "@botTokensTitle": {
+    "description": "机器人 token 管理标题"
+  },
+  "botTokensEntryDesc": "让外部程序读写这个圈子的文字",
+  "@botTokensEntryDesc": {
+    "description": "机器人入口副标题"
+  },
+  "botTokensDesc": "持有令牌的机器人可以读取转写记录,并以「机器人」身份发消息、发字幕、播放语音。随时可以吊销",
+  "@botTokensDesc": {
+    "description": "机器人页说明"
+  },
+  "botTokensDescE2ee": "这是加密圈:服务器看不懂内容,机器人读不到也发不了消息",
+  "@botTokensDescE2ee": {
+    "description": "机器人页说明(加密圈)"
+  },
+  "botTokensEmpty": "还没有机器人",
+  "@botTokensEmpty": {
+    "description": "机器人列表空状态"
+  },
+  "botTokenCreate": "新建",
+  "@botTokenCreate": {
+    "description": "新建机器人令牌按钮"
+  },
+  "botTokenCreateTitle": "给机器人起个名字",
+  "@botTokenCreateTitle": {
+    "description": "新建令牌对话框标题"
+  },
+  "botTokenNameHint": "比如:会议纪要",
+  "@botTokenNameHint": {
+    "description": "机器人名称输入提示"
+  },
+  "botTokenShownOnce": "令牌只显示这一次,关掉就再也看不到了。请现在复制并妥善保存",
+  "@botTokenShownOnce": {
+    "description": "令牌只显示一次的警告"
+  },
+  "botTokenRevoke": "吊销",
+  "@botTokenRevoke": {
+    "description": "吊销令牌按钮"
+  },
+  "botTokenRevokeBody": "吊销后,用这个令牌的机器人立刻失去访问权限",
+  "@botTokenRevokeBody": {
+    "description": "吊销确认正文"
+  },
+  "botTokenCreatedTitle": "「{name}」的令牌",
+  "@botTokenCreatedTitle": {
+    "description": "令牌已创建对话框标题",
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "botTokenRevokeTitle": "吊销「{name}」?",
+  "@botTokenRevokeTitle": {
+    "description": "吊销确认标题",
+    "placeholders": {
+      "name": {"type": "String"}
+    }
   }
 }

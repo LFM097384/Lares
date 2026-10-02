@@ -1,5 +1,7 @@
 # Lares 信令服务镜像
-FROM node:22-alpine
+# 不用 alpine:bot 的 /api/v1/speak 依赖 @livekit/rtc-node,它的原生库只发 glibc
+# 版(linux-x64-gnu / arm64-gnu),在 musl 上装不上 → speak 只能返回 501。
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 COPY package.json package-lock.json* ./

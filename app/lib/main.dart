@@ -10,6 +10,9 @@ import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
 import 'src/captions/caption_controller.dart';
 import 'src/captions/caption_wiring.dart';
+import 'src/captions/transcript_sink.dart';
+import 'src/transcript/transcript_scope.dart';
+import 'src/transcript/transcript_service.dart';
 import 'src/e2ee/e2ee_controller.dart';
 import 'src/e2ee/e2ee_status.dart';
 import 'src/e2ee/e2ee_store.dart';
@@ -476,6 +479,16 @@ Future<void> main() async {
         qwenTranscriberFactory(captionTokens.call, onLog: debugPrint),
     onLog: debugPrint,
   );
+  // 转写记录(圈主开启后):本人每句定稿归档。非加密圈经信令 transcript_append;
+  // 加密圈交给 transcriptSink.encrypted(由 lib/src/transcript/ 注入:加密 +
+  // transcript_relay + 本地落库)。未注入时加密圈的句子直接丢弃,绝不明文上送。
+  final transcriptSink = RoutingTranscriptSink(
+    plain: SignalingTranscriptSink(signaling.send),
+    isEncrypted: (id) =>
+        (id == controller.circleId &&
+            (e2ee.statusForActiveCircle(id)?.isEncrypted ?? false)) ||
+        (controller.circleInfo[id]?.e2ee ?? false),
+  );
   // 与 App 同生命周期
   // ignore: unused_local_variable
   final captionWiring = CaptionWiring(
@@ -485,9 +498,25 @@ Future<void> main() async {
     settings: settings,
     e2ee: e2ee,
     onTokenSourceReset: captionTokens.clear,
+    transcriptSink: transcriptSink,
   );
+  // 转写记录:历史(服务器 / 本机)、E2EE 密文收发、圈主开关与机器人 token。
+  final transcripts = TranscriptService(
+    send: signaling.send,
+    messages: signaling.messages,
+    ownerKeyFor: (id) =>
+        settings.ownerKeyFor(id) ?? signaling.issuedOwnerKey(id),
+    circleKeyFor: e2ee.sharedKeyFor,
+    isE2EE: transcriptSink.isEncrypted,
+    transcriptOn: controller.isTranscriptOn,
+    myUserId: () => controller.userId,
+    myName: () => controller.userName,
+  );
+  transcriptSink.encrypted = transcripts.encryptedSink;
 
-  runApp(LaresApp(
+  runApp(TranscriptScope(
+    service: transcripts,
+    child: LaresApp(
     controller: controller,
     voiceNotes: voiceNotes,
     circleStore: circleStore,
@@ -503,7 +532,7 @@ Future<void> main() async {
     ice: ice,
     onStartMesh: startMesh,
     navigatorKey: _navigatorKey,
-  ));
+  )));
 }
 
 /// 给没有 BuildContext 的逻辑层(PushService)弹对话框用。

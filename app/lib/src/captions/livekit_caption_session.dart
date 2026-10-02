@@ -63,8 +63,9 @@ class LiveKitCaptionSession implements LocalAudioTap, RoomDataChannel {
     if (_disposed) return;
     // SDK 实际给的是空串而非 null
     if ((e.topic ?? '') != kCaptionTopic) return;
+    // 没有 participant 的帧(空 identity)只可能来自服务器(RoomService.SendData):
+    // 照样交上去,由 attributeCaptionFrame 决定只认机器人字幕。
     final String identity = e.participant?.identity ?? '';
-    if (identity.isEmpty) return;
     _inbound.add(RoomDataFrame(
       senderIdentity: identity,
       bytes: Uint8List.fromList(e.data),

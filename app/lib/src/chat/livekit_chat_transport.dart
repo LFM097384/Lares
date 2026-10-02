@@ -3,8 +3,20 @@ import 'dart:typed_data';
 
 import 'package:livekit_client/livekit_client.dart';
 
+import 'chat_envelope.dart';
 import 'chat_limits.dart';
 import 'chat_transport.dart';
+
+/// 传输层收帧闸门(纯函数,可单测):有 participant 的帧照常放行
+/// (冒充机器人的由 [ChatService] 按 header 丢弃);没有 participant 的帧
+/// 只放行合法的机器人帧。
+bool acceptChatFrame(String identity, List<int> bytes) {
+  if (identity.isNotEmpty) return true;
+  final ChatFrame f = decodeFrame(bytes);
+  if (!f.isOk) return false;
+  return chatSenderVerdict(senderIdentity: '', header: f.header) ==
+      ChatSenderVerdict.bot;
+}
 
 /// LiveKit 实现:把聊天帧打在 reliable data channel 上(topic = [chatTopic])。
 ///
@@ -44,10 +56,12 @@ class LiveKitChatTransport implements ChatTransport {
     final String topic = e.topic ?? '';
     if (topic != chatTopic) return;
 
-    // 无法归因发送方的帧直接丢弃:上层要靠 identity 过滤掉自己的消息,
-    // 拿不到 identity 就没法保证这条语义。
+    // 无法归因发送方的帧原则上丢弃:上层要靠 identity 过滤掉自己的消息。
+    // 唯一例外是服务器代机器人发的帧(participant == null + header bot:true +
+    // sid 以 bot: 开头);有 participant 却自称机器人的帧也在这里丢掉。
+    // 判定是纯函数 chatSenderVerdict(见 chat_envelope.dart),ChatService 会再验一次。
     final String identity = e.participant?.identity ?? '';
-    if (identity.isEmpty) return;
+    if (!acceptChatFrame(identity, e.data)) return;
 
     // 注意 `e.data` 是 `List<int>` 而不是 `Uint8List`,必须转一道。
     _controller.add(

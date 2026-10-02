@@ -26,6 +26,7 @@ import '../state/settings_store.dart';
 import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
 import 'nickname.dart';
+import '../transcript/transcript_scope.dart';
 import 'room_screen.dart';
 import 'settings_sheet.dart';
 import 'widgets/e2ee_badge.dart';
@@ -647,6 +648,14 @@ class _CircleTile extends StatelessWidget {
       if (owner) ...[
         if (registered && e2ee != null)
           _OwnerE2EETile(circle: circle, controller: controller, e2ee: e2ee!),
+        // 转写记录开关 + 机器人 token(transcript-bot-contract §3)
+        if (registered && TranscriptScope.maybeOf(context) != null)
+          TranscriptOwnerTiles(
+            service: TranscriptScope.maybeOf(context)!,
+            circleId: circle.id,
+            on: controller.isTranscriptOn(circle.id),
+            onBeforeOpen: () => Navigator.pop(ctx),
+          ),
         ListTile(
           leading: const Icon(Icons.key_rounded),
           title: Text(t.homeChangePasscode),
@@ -900,6 +909,18 @@ class _CircleTile extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.lock_rounded, color: LaresColors.ember),
                 title: Text(t.e2eeManagedOn),
+              ),
+            // 转写记录:圈主开了才有;所有成员都能看
+            if (registered &&
+                controller.isTranscriptOn(circle.id) &&
+                TranscriptScope.maybeOf(context) != null)
+              TranscriptHistoryTile(
+                service: TranscriptScope.maybeOf(context)!,
+                circleId: circle.id,
+                circleName: circle.name,
+                isOwner: controller.isOwnerOf(circle.id) &&
+                    !settings.isPendingRegistration(circle.id),
+                onBeforeOpen: () => Navigator.pop(ctx),
               ),
             ..._ownerTiles(context, ctx),
             // 端到端加密(老圈 / env 圈):按圈可选,默认关,只动本机。

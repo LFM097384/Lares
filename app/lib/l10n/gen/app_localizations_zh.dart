@@ -1491,6 +1491,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get captionsYou => '我';
 
   @override
+  String get captionsBannerSelf => '正在把你的话转成字幕 · 语音经阿里云识别';
+
+  @override
+  String get captionsArchiveBanner => '本圈已开启转写记录 · 语音经阿里云识别';
+
+  @override
+  String get captionsArchiveSelfOff => '你的话这次不转写';
+
+  @override
+  String get captionsArchiveStoppedSnack => '这次不再转写你的话,下次进圈恢复';
+
+  @override
+  String captionsNotTranscribed(String names) {
+    return '$names 未转写';
+  }
+
+  @override
+  String captionsBotName(String name) {
+    return '$name(机器人)';
+  }
+
+  @override
+  String get chatBotBadge => '机器人';
+
+  @override
   String get settingsGroupCaptions => '实时字幕';
 
   @override
@@ -1498,7 +1523,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsCaptionsProvideSub =>
-      '只在房里有人需要字幕、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音、不保存';
+      '只在房里有人需要字幕(或圈主开了转写记录)、且你开着麦时,你的语音才会发往阿里云识别成文字;不录音。关掉后你的话也不进转写记录';
 
   @override
   String get settingsCaptionsE2eeCloud => '加密的圈子也允许';
@@ -1506,4 +1531,111 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settingsCaptionsE2eeCloudSub =>
       '加密圈的语音本来不出你的手机。打开后,有人需要字幕时你的语音会发往阿里云识别;识别出的文字仍加密传给对方';
+
+  @override
+  String get transcriptTitle => '转写记录';
+
+  @override
+  String get transcriptEmpty => '还没有记录。圈主开启后,大家说的话会在这里留下文字';
+
+  @override
+  String get transcriptLoadError => '没能读到记录,稍后再试';
+
+  @override
+  String get transcriptRetry => '重试';
+
+  @override
+  String get transcriptLoadMore => '更早的记录';
+
+  @override
+  String get transcriptClear => '清空记录';
+
+  @override
+  String get transcriptClearConfirmTitle => '清空这个圈子的转写记录?';
+
+  @override
+  String get transcriptClearConfirmBody => '服务器上的全部记录会被删除,所有人都看不到了。这一步撤不回';
+
+  @override
+  String get transcriptClearConfirmBodyE2ee =>
+      '每位成员设备上的记录都会被删除,还没送达的密文也会作废。这一步撤不回';
+
+  @override
+  String get transcriptClearConfirm => '清空';
+
+  @override
+  String get transcriptCleared => '已清空';
+
+  @override
+  String get transcriptClearFailed => '没清空成功,稍后再试';
+
+  @override
+  String get transcriptLocalOnlyNote => '加密圈:记录只存在这台设备上,服务器只转交看不懂的密文';
+
+  @override
+  String get transcriptEntryDesc => '看看大家说过的话';
+
+  @override
+  String get transcriptEntryDescE2ee => '只存在这台设备上';
+
+  @override
+  String get transcriptOwnerSwitchDesc =>
+      '把大家说的话识别成文字并保存在服务器上,直到你清空或删除圈子。语音经阿里云识别;不想被记录的人可以在设置里关掉「为需要字幕的人生成字幕」';
+
+  @override
+  String get transcriptOwnerSwitchDescE2ee =>
+      '把大家说的话识别成文字,加密后只存在各人设备上。语音会送到阿里云识别';
+
+  @override
+  String get transcriptE2eeWarnTitle => '在加密圈里开启转写记录?';
+
+  @override
+  String get transcriptE2eeWarnBody =>
+      '开启后,大家的语音会送到阿里云识别成文字 —— 这一步语音离开了手机。识别出的文字会加密,服务器只转交它看不懂的密文;记录由每位成员各自存在自己的设备上';
+
+  @override
+  String get transcriptE2eeWarnConfirm => '开启';
+
+  @override
+  String get botTokensTitle => '机器人';
+
+  @override
+  String get botTokensEntryDesc => '让外部程序读写这个圈子的文字';
+
+  @override
+  String get botTokensDesc => '持有令牌的机器人可以读取转写记录,并以「机器人」身份发消息、发字幕、播放语音。随时可以吊销';
+
+  @override
+  String get botTokensDescE2ee => '这是加密圈:服务器看不懂内容,机器人读不到也发不了消息';
+
+  @override
+  String get botTokensEmpty => '还没有机器人';
+
+  @override
+  String get botTokenCreate => '新建';
+
+  @override
+  String get botTokenCreateTitle => '给机器人起个名字';
+
+  @override
+  String get botTokenNameHint => '比如:会议纪要';
+
+  @override
+  String get botTokenShownOnce => '令牌只显示这一次,关掉就再也看不到了。请现在复制并妥善保存';
+
+  @override
+  String get botTokenRevoke => '吊销';
+
+  @override
+  String get botTokenRevokeBody => '吊销后,用这个令牌的机器人立刻失去访问权限';
+
+  @override
+  String botTokenCreatedTitle(String name) {
+    return '「$name」的令牌';
+  }
+
+  @override
+  String botTokenRevokeTitle(String name) {
+    return '吊销「$name」?';
+  }
 }

@@ -2,6 +2,13 @@
 
 让程序以「圈子成员」身份进房、说话、听声。
 
+> **只想让程序往圈里发消息 / 字幕 / 一段语音、读转写记录?** 不用进房,用服务器的机器人 REST API:见 [docs/bot-api.md](../../docs/bot-api.md)(圈主在 App 里签 token,curl 就能调)。
+> 本目录的 `lares_bot.mjs` 是「以成员身份进房」的路线,**E2EE 圈只能走这条**(REST 对 E2EE 圈一律 409)。
+>
+> `lares_bot.mjs` 新增:`onChat(cb)` / `sendChat(text)`(topic `lares.chat`,与 App 同帧格式)、`onCaption(cb)` / `sendCaption(text, {final})`(topic `lares.cap`)、
+> `authVersion: 2`(注册圈 `c_…` 必须)、`e2ee: true`(密钥由口令派生,音频与数据包都加密,实测见 `bot_api_e2e.mjs`)。
+> 坑:rtc-node 的 E2EE 选项必须传给 `room.connect()`,放进 `new Room(...)` 会被**静默忽略**、照样明文发送。
+
 ## 两条路线,别搞混
 
 | 用途 | 用什么 | 为什么 |

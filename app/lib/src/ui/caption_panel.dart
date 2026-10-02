@@ -57,10 +57,26 @@ class CaptionProvidingBanner extends StatelessWidget {
     return ListenableBuilder(
       listenable: captions,
       builder: (context, _) {
-        if (!captions.transcribing) return const SizedBox.shrink();
+        final bool archive = captions.archiveOn;
+        if (!captions.transcribing && !archive) return const SizedBox.shrink();
         final t = AppLocalizations.of(context);
-        final names = captions.requesterNames.join(t.captionsNameSeparator);
+        final sep = t.captionsNameSeparator;
+        final names = captions.requesterNames.join(sep);
         final theme = Theme.of(context);
+        // 转写记录开着:全员常驻提示;能停的只有「我的话」
+        final bool canStop = captions.transcribing ||
+            (archive && captions.willingNow);
+        final declined = archive ? captions.declinedNames : const <String>[];
+        final String message = archive
+            ? t.captionsArchiveBanner
+            : (names.isEmpty ? t.captionsBannerSelf : t.captionsBanner(names));
+        final String? detail = archive
+            ? [
+                if (!captions.willingNow) t.captionsArchiveSelfOff,
+                if (declined.isNotEmpty)
+                  t.captionsNotTranscribed(declined.join(sep)),
+              ].join(' · ')
+            : null;
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             LaresSpacing.md,
@@ -72,14 +88,20 @@ class CaptionProvidingBanner extends StatelessWidget {
             color: LaresColors.emberSoft,
             borderRadius: BorderRadius.circular(LaresRadii.sm),
             child: InkWell(
-              key: const ValueKey('captions-banner'),
+              key: ValueKey(archive ? 'captions-archive-banner' : 'captions-banner'),
               borderRadius: BorderRadius.circular(LaresRadii.sm),
-              onTap: () {
-                captions.stopForSession();
-                ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                  SnackBar(content: Text(t.captionsStoppedSnack)),
-                );
-              },
+              onTap: !canStop
+                  ? null
+                  : () {
+                      captions.stopForSession();
+                      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                        SnackBar(
+                          content: Text(archive
+                              ? t.captionsArchiveStoppedSnack
+                              : t.captionsStoppedSnack),
+                        ),
+                      );
+                    },
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: LaresSpacing.md,
@@ -94,18 +116,31 @@ class CaptionProvidingBanner extends StatelessWidget {
                     ),
                     const SizedBox(width: LaresSpacing.sm),
                     Expanded(
-                      child: Text(
-                        t.captionsBanner(names),
-                        style: theme.textTheme.bodyMedium,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(message, style: theme.textTheme.bodyMedium),
+                          if (detail != null && detail.isNotEmpty)
+                            Text(
+                              detail,
+                              key: const ValueKey('captions-not-transcribed'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: LaresColors.statusBusy,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: LaresSpacing.sm),
-                    Text(
-                      t.captionsBannerStop,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: LaresColors.ember,
+                    if (canStop) ...[
+                      const SizedBox(width: LaresSpacing.sm),
+                      Text(
+                        t.captionsBannerStop,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: LaresColors.ember,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -262,7 +297,7 @@ class _CaptionPanelState extends State<CaptionPanel> {
                         itemCount: lines.length,
                         itemBuilder: (context, i) => Padding(
                           padding: const EdgeInsets.only(bottom: 4),
-                          child: _line(lines[i], baseStyle, dim),
+                          child: _line(t, lines[i], baseStyle, dim),
                         ),
                       ),
               ),
@@ -275,11 +310,13 @@ class _CaptionPanelState extends State<CaptionPanel> {
 
   /// 一行字幕:「名字: 文字」。名字余烬色加粗,partial 同色降透明度。
   /// 面板与字幕带共用,保证 key 与 TextSpan 结构只有一份定义。
-  Widget _line(CaptionLine l, TextStyle? baseStyle, Color dim) => Text.rich(
+  Widget _line(AppLocalizations t, CaptionLine l, TextStyle? baseStyle,
+          Color dim) =>
+      Text.rich(
     TextSpan(
       children: [
         TextSpan(
-          text: '${l.name}: ',
+          text: '${_speaker(t, l)}: ',
           style: baseStyle?.copyWith(
             fontWeight: FontWeight.w600,
             color: LaresColors.ember,
@@ -293,6 +330,11 @@ class _CaptionPanelState extends State<CaptionPanel> {
     ),
     key: ValueKey('cap-${l.identity}-${l.itemId}'),
   );
+
+  /// 说话人:自己 →「我」;机器人 → 名字 +「机器人」。
+  static String _speaker(AppLocalizations t, CaptionLine l) => l.isSelf
+      ? t.captionsYou
+      : (l.isBot ? t.captionsBotName(l.name) : l.name);
 
   Widget _buildBand(
     BuildContext context,
@@ -391,7 +433,7 @@ class _CaptionPanelState extends State<CaptionPanel> {
                         itemCount: lines.length,
                         itemBuilder: (context, i) => Padding(
                           padding: const EdgeInsets.only(bottom: 2),
-                          child: _line(lines[i], baseStyle, dim),
+                          child: _line(t, lines[i], baseStyle, dim),
                         ),
                       ),
               ),

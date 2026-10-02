@@ -701,16 +701,35 @@ class _MessageRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: LaresSpacing.xs),
             // bodyMedium 本身已是次要色,时间戳直接用它,不再 copyWith 调色
-            child: Text(
-              '${message.senderName}  ${_formatHm(message.timestamp)}',
-              style: theme.textTheme.bodyMedium,
-            ),
+            child: message.isBot
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Flexible(
+                        child: Text(
+                          message.senderName,
+                          style: theme.textTheme.bodyMedium,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: LaresSpacing.xs),
+                      _BotBadge(),
+                      Text(
+                        '  ${_formatHm(message.timestamp)}',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  )
+                : Text(
+                    '${message.senderName}  ${_formatHm(message.timestamp)}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
           ),
         GestureDetector(
           // 长按别人的消息 = 处置菜单(屏蔽/举报)。自己的消息不挂,
           // 没接屏蔽名单也不挂 —— onLongPress 为 null 时 GestureDetector
           // 根本不参与命中测试,原来点缩略图看大图的手势一点不受影响。
-          onLongPress: (moderate == null || mine)
+          onLongPress: (moderate == null || mine || message.isBot)
               ? null
               : () => moderate(message),
           child: Opacity(
@@ -789,6 +808,30 @@ class _FailedMark extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 机器人消息名字旁的小徽标:一眼分清「这不是人」。
+class _BotBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      key: const ValueKey('chat-bot-badge'),
+      decoration: BoxDecoration(
+        color: LaresColors.emberSoft,
+        borderRadius: BorderRadius.circular(LaresRadii.sm),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: LaresSpacing.xs),
+        child: Text(
+          AppLocalizations.of(context).chatBotBadge,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: LaresColors.ember,
+          ),
+        ),
       ),
     );
   }

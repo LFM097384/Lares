@@ -22,6 +22,7 @@ class ChatMessage {
     this.imageHeight,
     this.state = ChatDeliveryState.sent,
     this.isMine = false,
+    this.isBot = false,
   });
 
   /// 文字消息便捷构造
@@ -34,6 +35,7 @@ class ChatMessage {
     required String body,
     this.state = ChatDeliveryState.sent,
     this.isMine = false,
+    this.isBot = false,
   })  : kind = ChatMessageKind.text,
         text = body,
         imageBytes = null,
@@ -52,6 +54,7 @@ class ChatMessage {
     this.imageHeight,
     this.state = ChatDeliveryState.sent,
     this.isMine = false,
+    this.isBot = false,
   })  : kind = ChatMessageKind.image,
         text = null,
         imageBytes = bytes;
@@ -79,6 +82,9 @@ class ChatMessage {
   /// 是否本人发出,决定气泡左右与配色
   final bool isMine;
 
+  /// 服务器代机器人发的消息(名字旁显示「机器人」徽标;不可屏蔽/举报)
+  final bool isBot;
+
   ChatMessage copyWith({
     ChatDeliveryState? state,
     Uint8List? imageBytes,
@@ -98,5 +104,6 @@ class ChatMessage {
         imageHeight: imageHeight ?? this.imageHeight,
         state: state ?? this.state,
         isMine: isMine,
+        isBot: isBot,
       );
 }

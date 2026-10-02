@@ -13,6 +13,12 @@ import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 // 而原生 argon2 包在 alpine/musl 上要现编,镜像构建会变脆。
 import { argon2id } from 'hash-wasm';
 import { createApnsSender, isInvalidTokenResponse } from './apns.js';
+// 转写记录 + 机器人 API(契约 docs/plans/transcript-bot-contract.md)
+import { createTranscriptStore } from './transcripts.js';
+import { createBotTokenStore } from './bot_tokens.js';
+import { createBotApi } from './bot_api.js';
+import { createSendData } from './livekit_senddata.js';
+import { createTranscriptWs } from './transcript_ws.js';
 
 const PORT = Number(process.env.LARES_PORT ?? 8787);
 const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
@@ -530,6 +536,8 @@ function circleInfo(circleId) {
     // e2ee:null = 圈子没有统一规定(老圈 / env 圈),客户端沿用本机开关;
     // true/false = 圈主定死了,所有人照此进房。
     e2ee: typeof s.e2ee === 'boolean' ? s.e2ee : null,
+    // 圈主开了「转写记录」:非 E2EE 圈服务器归档明文,E2EE 圈只中继密文
+    transcript: s.transcript === true,
   };
 }
 
@@ -707,6 +715,7 @@ function circleSummaryMsg(circleId) {
     // 新增字段,老客户端忽略
     registered: Boolean(registeredCircle(circleId)),
     e2ee: typeof circleSettings[circleId]?.e2ee === 'boolean' ? circleSettings[circleId].e2ee : null,
+    transcript: circleSettings[circleId]?.transcript === true,
   };
 }
 
@@ -1115,10 +1124,17 @@ function handleConnection(ws, req) {
     if (raw.length > 64 * 1024) return send(ws, { t: 'error', message: 'too_large' });
     let msg;
     try { msg = JSON.parse(raw); } catch { return send(ws, { t: 'error', message: 'bad_json' }); }
+    if (!msg || typeof msg !== 'object') return send(ws, { t: 'error', message: 'bad_json' });
+
+    // 转写记录 / 机器人 token 的消息在独立模块里处理(transcript_ws.js)
+    if (await transcriptWs.handle(ws, session, msg)) return;
 
     switch (msg.t) {
       case 'hello': {
         if (typeof msg.userId !== 'string' || !msg.userId) return send(ws, { t: 'error', message: 'userId_required' });
+        // `bot:` 前缀专属服务器代发的机器人身份(转写署名 / speak 的 LiveKit identity):
+        // 成员自报这种 userId 就能在记录里冒充机器人、或用同名 identity 把说话机器人踢出房
+        if (msg.userId.startsWith('bot:')) return send(ws, { t: 'error', message: 'userId_reserved' });
         // 订阅表先读进来(通常早已就绪,只是重启后头几个连接要等一下)
         await ensurePushLoaded();
         // 鉴权闸门:先验证再落任何会话状态,失败即断,用 4401 让客户端能区分
@@ -1210,6 +1226,8 @@ function handleConnection(ws, req) {
           (ws._laresSawAvailable ??= new Set()).add(uid);
           send(ws, availableMsg(uid, entry, session));
         }
+        // E2EE 转写:补推离线期间积压的密文(不阻塞 hello 处理)
+        transcriptWs.onHello(ws, session);
         break;
       }
 
@@ -1592,6 +1610,8 @@ function handleConnection(ws, req) {
           other.close(4410, 'circle_deleted');
         }
         evictMedia(circleId);
+        // 转写归档 / 密文队列 / 机器人 token 一并删掉
+        await transcriptWs.onCircleDeleted(circleId);
         break;
       }
 
@@ -1680,6 +1700,7 @@ function handleConnection(ws, req) {
         if (!member) return;
         member.status = status;
         broadcast(session.circleId, { t: 'member_status', circleId: session.circleId, userId: session.userId, status });
+        botApi.emit(session.circleId, 'presence', { circleId: session.circleId, userId: session.userId, name: member.name, status });
         break;
       }
 
@@ -1763,10 +1784,13 @@ async function joinCircle(ws, session, circleId) {
     };
     circle.set(session.userId, member);
     broadcast(circleId, { t: 'member_joined', circleId, member: memberSnapshot(member) }, ws);
+    botApi.emit(circleId, 'join', { circleId, userId: member.userId, name: member.name, status: member.status });
     send(ws, roomSnapshot(circleId));
     broadcastLobbySummary(circleId);
     if (becameActive) pushRoomActive(circleId, session);
   }
+  // 转写:记入该圈成员名单(E2EE 离线队列的收件人)并补推积压密文
+  transcriptWs.onJoin(ws, session, circleId);
   // 签发 RTC token
   if (RTC_CONFIGURED) {
     try {
@@ -1805,6 +1829,7 @@ function leaveCircle(ws, session) {
       }
       circle.delete(session.userId);
       broadcast(session.circleId, { t: 'member_left', circleId: session.circleId, userId: session.userId });
+      botApi.emit(session.circleId, 'leave', { circleId: session.circleId, userId: session.userId, name: member.name });
       if (circle.size === 0) circles.delete(session.circleId);
       broadcastLobbySummary(session.circleId);
     }
@@ -1891,6 +1916,56 @@ function readBody(req) {
   });
 }
 
+// ── 转写记录 + 机器人 API 的装配 ─────────────────────────────────────────
+// 逻辑都在独立模块里;这里只把 index.js 的状态以函数形式递进去。
+const transcriptStore = createTranscriptStore({ dataDir: DATA_DIR });
+const botTokens = createBotTokenStore({ dataDir: DATA_DIR });
+const LIVEKIT_ADMIN_OK = Boolean(LIVEKIT_API_URL && LIVEKIT_API_KEY && LIVEKIT_API_SECRET);
+const botApi = createBotApi({
+  tokens: botTokens,
+  store: transcriptStore,
+  livekit: LIVEKIT_ADMIN_OK
+    ? createSendData({ apiUrl: LIVEKIT_API_URL, apiKey: LIVEKIT_API_KEY, apiSecret: LIVEKIT_API_SECRET })
+    : null,
+  // speak 以参与者身份进房,走的是客户端用的那个地址(LIVEKIT_URL),不是管理口
+  rtc: RTC_CONFIGURED ? { url: LIVEKIT_URL, apiKey: LIVEKIT_API_KEY, apiSecret: LIVEKIT_API_SECRET } : null,
+  origin: ALLOWED_ORIGIN || '*',
+  hooks: {
+    circleInfo,
+    members: (circleId) => [...(circles.get(circleId)?.values() ?? [])],
+    onBotTranscript: (circleId, item) => {
+      broadcast(circleId, { t: 'transcript_line', circleId, item });
+      botApi.emit(circleId, 'transcript', item);
+    },
+  },
+});
+const transcriptWs = createTranscriptWs({
+  store: transcriptStore,
+  tokens: botTokens,
+  botApi: {
+    emit: (...a) => botApi.emit(...a),
+    closeToken: (id) => botApi.closeToken(id),
+    closeCircle: (id) => botApi.closeCircle(id),
+  },
+  send,
+  broadcast: (circleId, msg) => {
+    broadcast(circleId, msg);
+    // 明文转写同步推给该圈的机器人 SSE
+    if (msg.t === 'transcript_line') botApi.emit(circleId, 'transcript', msg.item);
+  },
+  sessionsOfCircle,
+  settings: () => circleSettings,
+  saveSettings,
+  registeredCircle,
+  ownerKeyOk,
+  circleAllowed,
+  broadcastLobbySummary,
+  broadcastCircleSettings,
+});
+const botReady = Promise.all([botTokens.load(), transcriptStore.loadAllRelays()]).catch((e) => {
+  console.error('[bot] 机器人 token / 转写队列加载失败:', e);
+});
+
 // ── HTTP + WS 服务 ────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -1907,6 +1982,12 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(obj));
   };
   if (req.method === 'OPTIONS') return json(204, {});
+
+  // 机器人 REST(/api/v1/*,Bearer 机器人 token)—— 见 bot_api.js / docs/bot-api.md
+  if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/')) {
+    await botReady;
+    if (await botApi.handle(req, res, url)) return;
+  }
 
   if (url.pathname === '/health') {
     await ensureRegistryLoaded();
@@ -1993,6 +2074,8 @@ const heartbeat = setInterval(() => {
   sweepStaleRecordings();
   sweepPushThrottles();
   sweepCapLog();
+  transcriptWs.sweep();
+  botApi.sweep();
 }, 30_000);
 wss.on('connection', (ws) => {
   ws._laresAlive = true;
@@ -2004,6 +2087,7 @@ server.listen(PORT, async () => {
   await loadSettings();
   await ensureRegistryLoaded();
   await ensurePushLoaded();
+  await botReady;
   console.log(`[lares] 信令服务已启动  ws://0.0.0.0:${PORT}`);
   console.log(`[lares] RTC: ${RTC_CONFIGURED ? `LiveKit 已配置 (${LIVEKIT_URL})` : '未配置(仅 presence,设置 LIVEKIT_URL/API_KEY/API_SECRET 启用)'}`);
   if (apns.enabled) {

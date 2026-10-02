@@ -177,10 +177,15 @@ class RoomController extends ChangeNotifier {
   ///
   /// 来源:welcome.circle(本连接证明的那个圈)、circle_summary、circle_settings。
   /// e2ee 为 null = 圈子没有统一规定(老圈 / env 圈),沿用本机开关。
-  final Map<String, ({bool registered, bool? e2ee})> circleInfo = {};
+  /// transcript = 圈主开了「转写记录」(老服务器不发 → false)。
+  final Map<String, ({bool registered, bool? e2ee, bool transcript})>
+      circleInfo = {};
 
   /// 这个圈子是注册圈吗(有圈主,kick/敲门/加密只归圈主管)。
   bool isRegisteredCircle(String id) => circleInfo[id]?.registered ?? false;
+
+  /// 这个圈子开了转写记录吗(服务器权威,见 transcript-bot-contract §3)。
+  bool isTranscriptOn(String id) => circleInfo[id]?.transcript ?? false;
 
   /// 本机是不是这个圈的圈主:只看本机有没有钥匙 —— 钥匙才是凭据。
   /// (welcome.isOwner 只是服务器对那把钥匙的回执,不单独当真。)
@@ -223,6 +228,7 @@ class RoomController extends ChangeNotifier {
     circleInfo[id] = (
       registered: raw['registered'] == true,
       e2ee: e2ee is bool ? e2ee : null,
+      transcript: raw['transcript'] == true,
     );
     onCirclePolicy?.call(id, e2ee is bool ? e2ee : null);
     final prev = circlePresence[id];
@@ -1211,6 +1217,7 @@ class RoomController extends ChangeNotifier {
             'id': id,
             'registered': msg['registered'],
             'e2ee': msg['e2ee'],
+            'transcript': msg['transcript'],
           });
         }
         notifyListeners();
