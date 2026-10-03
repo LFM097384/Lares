@@ -15,6 +15,7 @@
 - **网页小程序**:manifest 带 `entry.url`(https)。成员在房间里打开它,App 用**沙箱 WebView** 加载这个网页,网页经 `window.lares` 桥访问受权限约束的能力(读成员、发聊天、读写共享状态……)。
 
 第一方插件由服务器按 id 认识,不需要 URL,目前只有 `lares.focus`(§9)。`lares.` 前缀保留给第一方。
+另有服务器托管的语音 AI 助手 `lares.ai-voice`,见 [`docs/ai-voice-bot.md`](ai-voice-bot.md)。
 
 > **关于 App Store 审核指南 2.5.2**:Lares 的插件**只加载网页内容**,运行在 App 的沙箱 WebView 里,能做的事仅限 `window.lares` 桥暴露的接口;App **从不下载、加载或执行原生代码或可执行文件**,插件也无法改变 App 本身的功能或绕过系统权限。服务端插件完全运行在开发者自己的服务器上。
 

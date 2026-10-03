@@ -1976,4 +1976,743 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get focusSettingsPrivacy => '专注状态(谁在专注、离开多久、排行榜)服务器可见,加密圈也一样';
+
+  @override
+  String get featureCaptions => '实时字幕';
+
+  @override
+  String get featureTranscript => '转写记录';
+
+  @override
+  String get featureVoiceNotes => '语音便签';
+
+  @override
+  String get featureMap => '位置地图';
+
+  @override
+  String get featureRecording => '录音';
+
+  @override
+  String get featurePlugins => '插件';
+
+  @override
+  String get featureFocus => '专注学习';
+
+  @override
+  String get featureP2p => '点对点直连';
+
+  @override
+  String get featureDevTools => '开发者读数';
+
+  @override
+  String get roomMore => '更多';
+
+  @override
+  String get roomMoreOn => '开着';
+
+  @override
+  String get roomMoreOff => '关着';
+
+  @override
+  String get roomMoreVoiceNotesHint => '长按录一条';
+
+  @override
+  String roomMoreVoiceNotesPending(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 条待听 · 长按录',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get roomMoreVoiceNotesRecording => '松手发送';
+
+  @override
+  String get roomTranscriptNotice => '本圈开着转写记录';
+
+  @override
+  String get roomTranscriptNoticeOpen => '查看转写记录';
+
+  @override
+  String get ownerFeaturesTitle => '功能';
+
+  @override
+  String get ownerFeaturesEntryDesc => '这个圈里开哪些功能、做什么用';
+
+  @override
+  String get ownerFeaturesHint => '语音和文字聊天一直都在。下面这些按需打开,只对这个圈生效。';
+
+  @override
+  String get ownerFeatureCaptionsDesc => '说话实时转成字,语音片段会送云端识别';
+
+  @override
+  String get ownerFeatureTranscriptDesc => '把识别出的文字存档,圈里的人之后能翻看';
+
+  @override
+  String get ownerFeatureVoiceNotesDesc => '不在线时也能给圈里留一段话';
+
+  @override
+  String get ownerFeatureMapDesc => '愿意的人可以共享位置,在地图上看到彼此';
+
+  @override
+  String get ownerFeatureRecordingDesc => '经所有人同意后录下房间里的声音';
+
+  @override
+  String get ownerFeatureRecordingUnavailable => '这个版本还没有录音,先替以后定好';
+
+  @override
+  String get ownerFeaturePluginsDesc => '允许装第三方小程序';
+
+  @override
+  String get ownerFeatureFocusDesc => '番茄钟和一起专注的排行';
+
+  @override
+  String get ownerFeatureP2pDesc => '人少时绕过服务器直接连,延迟更低';
+
+  @override
+  String get ownerFeatureDevToolsDesc => '显示进房耗时等调试读数';
+
+  @override
+  String ownerFeatureToggleFailed(String feature, String reason) {
+    return '「$feature」没改成:$reason';
+  }
+
+  @override
+  String get purposeTitle => '用途';
+
+  @override
+  String get purposeNone => '还没选';
+
+  @override
+  String get purposePickerTitle => '这个圈用来做什么?';
+
+  @override
+  String get purposeChat => '闲聊';
+
+  @override
+  String get purposeChatDesc => '随便聊聊。留着语音便签,字幕和记录都关着';
+
+  @override
+  String get purposeStudy => '学习';
+
+  @override
+  String get purposeStudyDesc => '一起专注,打开番茄钟,少点打扰';
+
+  @override
+  String get purposeMeeting => '开会';
+
+  @override
+  String get purposeMeetingDesc => '打开实时字幕和转写记录,方便会后翻看';
+
+  @override
+  String get purposeCustom => '自定义';
+
+  @override
+  String get purposeCustomDesc => '自己挑功能和插件,也可以用别人的分享码';
+
+  @override
+  String get purposeCreateLabel => '用途';
+
+  @override
+  String get purposeCreateHint => '登记好之后自动设上,之后随时能改';
+
+  @override
+  String purposeApplied(String name) {
+    return '已换成「$name」';
+  }
+
+  @override
+  String purposeApplyFailed(String reason) {
+    return '用途没换成:$reason';
+  }
+
+  @override
+  String purposeReasonBad(String detail) {
+    return '内容有问题($detail)';
+  }
+
+  @override
+  String purposeReasonManifest(String detail) {
+    return '插件描述有问题($detail)';
+  }
+
+  @override
+  String get purposeReasonFetch => '插件地址拿不到';
+
+  @override
+  String get purposeReasonTooMany => '插件超过 10 个了';
+
+  @override
+  String get purposeReasonFeatureOff => '这个圈关了插件,要先打开';
+
+  @override
+  String get purposeReasonUnknownBuiltin => '服务器不认识这个内置插件';
+
+  @override
+  String get purposeReasonNotRegistered => '圈子还在登记,稍后再试';
+
+  @override
+  String get purposeExport => '导出分享码';
+
+  @override
+  String get purposeImport => '导入分享码';
+
+  @override
+  String get purposeExportFailed => '没导出来,稍后再试';
+
+  @override
+  String get purposeCodeTitle => '分享码';
+
+  @override
+  String get purposeCodeHint => '别人在「导入分享码」里粘贴它,就能用上同样的设置。里面不含口令和插件密钥。';
+
+  @override
+  String get purposeCodeCopied => '分享码复制好了';
+
+  @override
+  String get purposeCodeErrPrefix => '这不像分享码,应该以 lares-purpose: 开头';
+
+  @override
+  String get purposeCodeErrBroken => '分享码不完整,可能没复制全';
+
+  @override
+  String get purposeCodeErrTooLarge => '分享码太大了';
+
+  @override
+  String get purposeCodeErrJson => '分享码里的内容读不懂';
+
+  @override
+  String get purposeImportTitle => '导入分享码';
+
+  @override
+  String get purposeImportFieldHint => '把 lares-purpose:… 粘贴到这里';
+
+  @override
+  String get purposeImportApply => '应用';
+
+  @override
+  String get purposeImportFill => '填进去';
+
+  @override
+  String get purposePreviewNoChange => '功能开关不变';
+
+  @override
+  String purposePreviewTurnsOn(String list) {
+    return '打开:$list';
+  }
+
+  @override
+  String purposePreviewTurnsOff(String list) {
+    return '关闭:$list';
+  }
+
+  @override
+  String purposePreviewPlugins(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '涉及 $count 个插件',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String purposePreviewSettings(String list) {
+    return '圈设置:$list';
+  }
+
+  @override
+  String get purposeEditorTitle => '自定义用途';
+
+  @override
+  String get purposeEditorFormat => '格式化';
+
+  @override
+  String get purposeEditorImport => '从分享码导入';
+
+  @override
+  String get purposeEditorCopyCode => '复制分享码';
+
+  @override
+  String get purposeEditorFormatFailed => '先把语法错误改好才能格式化';
+
+  @override
+  String get purposeEditorValid => '没问题,可以应用';
+
+  @override
+  String get purposeEditorChecking => '检查中…';
+
+  @override
+  String purposeEditorLine(int line) {
+    return '第 $line 行';
+  }
+
+  @override
+  String get purposeEditorApply => '应用';
+
+  @override
+  String purposeErrSyntax(int line, int column) {
+    return 'JSON 写错了(第 $line 行第 $column 列)';
+  }
+
+  @override
+  String get purposeErrNotObject => '最外层要是一个 JSON 对象';
+
+  @override
+  String get purposeErrTooLarge => '太大了,不能超过 32 KB';
+
+  @override
+  String get purposeErrUnknownKey => '不认识这个键';
+
+  @override
+  String get purposeErrVersion => 'v 只能是 1';
+
+  @override
+  String get purposeErrId => 'id 只能用小写字母、数字、- 和 _,最多 32 个';
+
+  @override
+  String get purposeErrName => '名字要有,最多 24 个字';
+
+  @override
+  String get purposeErrIcon => '图标放一个 emoji 就好';
+
+  @override
+  String get purposeErrDescription => '说明最多 200 个字';
+
+  @override
+  String get purposeErrNotBool => '要填 true 或 false';
+
+  @override
+  String get purposeErrNotObjectField => '这里要是一个 JSON 对象';
+
+  @override
+  String get purposeErrNotArray => '这里要是一个 JSON 列表';
+
+  @override
+  String get purposeErrTooManyPlugins => '插件最多 10 个';
+
+  @override
+  String get purposeErrPluginSource => 'id、manifest、manifestUrl 三选一,只能写一个';
+
+  @override
+  String get purposeErrPluginId => '插件 id 不对';
+
+  @override
+  String get purposeErrConfigTooLarge => '插件配置不能超过 4 KB';
+
+  @override
+  String get purposeErrManifestUrl => '要是一个 https:// 开头的地址';
+
+  @override
+  String purposeErrManifest(String field) {
+    return '插件描述的「$field」不对';
+  }
+
+  @override
+  String purposeErrConflict(String field) {
+    return '和 $field 对不上';
+  }
+
+  @override
+  String get purposeErrDuplicate => '同一个插件写了两次';
+
+  @override
+  String get privacySheetTitle => '本圈的隐私设置';
+
+  @override
+  String get privacySheetTranscript => '转写记录开(语音经阿里云识别,文字连同昵称存在服务器上,直到圈主清空)';
+
+  @override
+  String get privacySheetTranscriptE2ee => '转写记录开(语音经阿里云识别;服务器只转交密文,记录存在各人设备上)';
+
+  @override
+  String get privacySheetCaptions => '实时字幕可用(有人开字幕时,你说话的片段会送阿里云识别,本应用不保存)';
+
+  @override
+  String privacySheetPlugins(int count, String names) {
+    return '插件 $count 个($names)';
+  }
+
+  @override
+  String privacySheetPluginDetail(String name, String perms) {
+    return '$name:$perms';
+  }
+
+  @override
+  String get privacySheetPluginNoPerms => '不要任何权限';
+
+  @override
+  String get privacySheetPluginThirdParty => ' · 数据会发到插件作者的服务器(第三方)';
+
+  @override
+  String get privacySheetSeparator => '、';
+
+  @override
+  String get privacySheetFocus => '专注追踪开(圈里能看到谁在专注、离开了多久)';
+
+  @override
+  String get privacySheetMap => '位置共享可用(只在你自己打开时才共享)';
+
+  @override
+  String get privacySheetRecording => '录音功能开(录音时房里每个人都会看到提示)';
+
+  @override
+  String get privacySheetNothing => '本圈没开转写、插件这类会额外处理你数据的功能';
+
+  @override
+  String get privacySheetE2eeOn => '端到端加密:是';
+
+  @override
+  String get privacySheetE2eeOff => '端到端加密:否';
+
+  @override
+  String get privacySheetE2eeUnset => '端到端加密:圈子没有统一规定,看各人自己的设置';
+
+  @override
+  String get privacySheetAi => 'AI 助手开(房间里的语音会发到阿里云百炼 DashScope 识别并生成回答)';
+
+  @override
+  String get aiVoicePluginName => 'AI 助手';
+
+  @override
+  String get aiVoicePluginDesc => '房间里多一个会说话的助手,叫它就回答';
+
+  @override
+  String get aiVoiceSettingsTitle => 'AI 助手设置';
+
+  @override
+  String get aiVoicePrivacyNote =>
+      '开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,再由 AI 生成回答并念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。';
+
+  @override
+  String get aiVoiceE2eeBlocked => '这个圈开着端到端加密,服务器听不到语音,AI 助手没法工作';
+
+  @override
+  String get aiVoiceFieldName => '名字(也是唤醒词)';
+
+  @override
+  String get aiVoiceFieldNameEmpty => '给它起个名字';
+
+  @override
+  String get aiVoiceFieldWakeWords => '别的叫法';
+
+  @override
+  String get aiVoiceFieldWakeWordsHint => '用逗号、顿号或空格隔开';
+
+  @override
+  String get aiVoiceFieldPersona => '人设';
+
+  @override
+  String get aiVoicePersonaReset => '恢复默认';
+
+  @override
+  String get aiVoiceFieldTrigger => '什么时候回答';
+
+  @override
+  String get aiVoiceTriggerWake => '叫名字';
+
+  @override
+  String get aiVoiceTriggerAlways => '一直听';
+
+  @override
+  String get aiVoiceTriggerPtt => '只回 @它';
+
+  @override
+  String get aiVoiceTriggerWakeDesc => '有人叫它的名字或别的叫法,它才回答';
+
+  @override
+  String get aiVoiceTriggerAlwaysDesc => '有人说完一句话,它就回答 —— 适合一个人和它聊';
+
+  @override
+  String aiVoiceTriggerPttDesc(String name) {
+    return '不听语音,只回答聊天里 @$name 开头的文字';
+  }
+
+  @override
+  String get aiVoiceFieldVoice => '音色';
+
+  @override
+  String get aiVoiceFieldInterrupt => '有人插话就停下';
+
+  @override
+  String get aiVoiceAdvanced => '高级';
+
+  @override
+  String get aiVoiceFieldModel => '对话模型';
+
+  @override
+  String get aiVoiceFieldModelInvalid => '只能用字母、数字、点、横线和下划线';
+
+  @override
+  String get aiVoiceFieldMaxReplyChars => '一次最多说多少字';
+
+  @override
+  String get aiVoiceFieldMaxTurnsPerHour => '每小时最多回答几次';
+
+  @override
+  String get aiVoiceFieldMaxTurnsPerDay => '每天最多回答几次';
+
+  @override
+  String aiVoiceRangeHint(int min, int max) {
+    return '$min–$max';
+  }
+
+  @override
+  String aiVoiceRangeError(int min, int max) {
+    return '要在 $min 到 $max 之间';
+  }
+
+  @override
+  String get aiVoiceSaved => '存好了';
+
+  @override
+  String aiVoiceSaveFailed(String reason) {
+    return '没存上:$reason';
+  }
+
+  @override
+  String get aiVoiceSeatStatus => 'AI 助手';
+
+  @override
+  String get aiVoiceSeatBadge => 'AI';
+
+  @override
+  String get aiVoiceModerationHint => '这是 AI 助手。圈主可以在「插件」里把它关掉';
+
+  @override
+  String get roomMoreAi => 'AI 助手';
+
+  @override
+  String roomMoreAiTitle(String name) {
+    return 'AI 助手「$name」';
+  }
+
+  @override
+  String roomMoreAiHowWake(String name) {
+    return '叫「$name」再说问题';
+  }
+
+  @override
+  String get roomMoreAiHowAlways => '说完它就会回答';
+
+  @override
+  String roomMoreAiHowPtt(String name) {
+    return '在聊天里 @$name';
+  }
+
+  @override
+  String get roomMoreAiPrivacy => '房间里的语音会发到阿里云百炼 DashScope 识别,回答由 AI 生成,可能出错。';
+
+  @override
+  String get purposeMeetingAiSwitch => '加上 AI 助手';
+
+  @override
+  String get purposeMeetingAiDesc => '开会时叫它名字就能提问;语音会发到阿里云百炼 DashScope';
+
+  @override
+  String get purposeMeetingAiE2ee => '这个圈开着端到端加密,用不了 AI 助手';
+
+  @override
+  String get purposeMeetingAiConfirm => '就用开会';
+
+  @override
+  String get privacySheetFullPolicy => '完整隐私说明';
+
+  @override
+  String get pushLevelTitle => '通知我';
+
+  @override
+  String get pushLevelAll => '全部';
+
+  @override
+  String get pushLevelAllDesc => '有人开始专注、房里人多了、圈主叫人,都提醒我';
+
+  @override
+  String get pushLevelCalled => '只要被叫';
+
+  @override
+  String get pushLevelCalledDesc => '只在圈主「叫大家来」时提醒我';
+
+  @override
+  String get pushLevelOff => '关';
+
+  @override
+  String get pushLevelOffDesc => '这个圈不给我发通知';
+
+  @override
+  String pushLevelTile(String level) {
+    return '通知我:$level';
+  }
+
+  @override
+  String get pushQuietTitle => '推送免打扰';
+
+  @override
+  String get pushQuietOffSub => '关 —— 任何时间都可能收到圈里的动静';
+
+  @override
+  String pushQuietOnSub(String range) {
+    return '$range 不推送圈里的动静';
+  }
+
+  @override
+  String get pushQuietSwitch => '免打扰时段';
+
+  @override
+  String get pushQuietHint => '按这台手机的时区算。圈主叫人、每周小结也会等到时段结束。';
+
+  @override
+  String get pushQuietDone => '好';
+
+  @override
+  String get pushTriggersTitle => '活动提醒';
+
+  @override
+  String get pushTriggersSub => '圈里有动静时,提醒不在房里的人';
+
+  @override
+  String get pushTriggerFocus => '有人开始专注';
+
+  @override
+  String get pushTriggerFocusDesc => '「阿蛮开始专注了,一起学?」';
+
+  @override
+  String get pushTriggerCrowd => '房里人多了';
+
+  @override
+  String pushTriggerCrowdDesc(int count) {
+    return '「圈里已经有 $count 个人在聊」,每次开房只提醒一次';
+  }
+
+  @override
+  String get pushTriggerCrowdN => '达到几个人时提醒';
+
+  @override
+  String pushTriggerCrowdNValue(int count) {
+    return '$count 人';
+  }
+
+  @override
+  String get pushTriggerArrive => '有人走进空房间';
+
+  @override
+  String get pushTriggerArriveDesc => '「小鹿来了」—— 默认关,容易吵';
+
+  @override
+  String get pushTriggersReset => '恢复用途默认';
+
+  @override
+  String get pushTriggersPurpose => '现在是按用途给的默认';
+
+  @override
+  String pushTriggersLimits(int cooldown, int cap) {
+    return '每人每圈 $cooldown 分钟内最多收一条,一天最多 $cap 条;正在房里或刚离开的人不会收到。';
+  }
+
+  @override
+  String get pushTriggersLoading => '正在读取…';
+
+  @override
+  String get pushTriggersFailed => '没改成,稍后再试';
+
+  @override
+  String get summonButton => '叫大家来';
+
+  @override
+  String summonCooldown(int minutes) {
+    return '$minutes 分钟后可以再叫';
+  }
+
+  @override
+  String summonCooldownShort(int minutes) {
+    return '$minutes 分';
+  }
+
+  @override
+  String summonSent(int count) {
+    return '已经叫了 $count 个人';
+  }
+
+  @override
+  String get summonNobody => '现在没有能叫到的人(有人关了通知或在免打扰)';
+
+  @override
+  String get summonFailed => '没叫成,稍后再试';
+
+  @override
+  String get summonConfirmTitle => '叫大家来?';
+
+  @override
+  String summonConfirmBody(String name, int minutes) {
+    return '不在房里的人会收到一条「$name 叫你来圈里」。$minutes 分钟内只能叫一次。';
+  }
+
+  @override
+  String focusRoundAllIn(int count) {
+    return '本轮 $count 人全勤 🎉';
+  }
+
+  @override
+  String get focusRoundSolo => '本轮全勤 🎉';
+
+  @override
+  String focusRoundPartial(int full, int total) {
+    return '$full/$total 全勤';
+  }
+
+  @override
+  String focusRoundAway(String name, int minutes) {
+    return '$name离开 $minutes 分钟';
+  }
+
+  @override
+  String focusRoundAwayBrief(String name) {
+    return '$name离开了一会儿';
+  }
+
+  @override
+  String focusRoundMore(int count) {
+    return '等 $count 人';
+  }
+
+  @override
+  String focusRoundTitle(int round) {
+    return '第 $round 轮结束';
+  }
+
+  @override
+  String get focusRoundDismiss => '收起';
+
+  @override
+  String focusStreakTooltip(int days) {
+    return '连续 $days 天完成专注';
+  }
+
+  @override
+  String get focusWeeklyTitle => '上周专注小结';
+
+  @override
+  String focusWeeklyTime(String time) {
+    return '你专注了 $time';
+  }
+
+  @override
+  String focusWeeklyRank(int rank, int of) {
+    return '圈里第 $rank 名 · 共 $of 人';
+  }
+
+  @override
+  String focusWeeklyStreak(int days) {
+    return '连续 $days 天 🔥';
+  }
+
+  @override
+  String focusWeeklyTotal(String time) {
+    return '全圈一共 $time';
+  }
+
+  @override
+  String get focusWeeklyDismiss => '知道了';
 }

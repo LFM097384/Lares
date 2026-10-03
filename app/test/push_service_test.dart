@@ -228,6 +228,57 @@ void main() {
       expect(circles.firstWhere((c) => c['circleId'] == 'work')['name'], '工作');
     });
 
+    test('按圈等级 level + 免打扰 prefs(§9.5):改了就重发', () async {
+      final h = await _make();
+      await h.welcome();
+      var circles = (h.registers.last['circles'] as List)
+          .cast<Map<String, dynamic>>();
+      expect(circles.map((c) => c['level']).toSet(), {'all'});
+      final prefs = h.registers.last['prefs'] as Map;
+      expect(prefs['tzOffsetMin'], DateTime.now().timeZoneOffset.inMinutes);
+      expect(prefs['quiet'], {'start': 1380, 'end': 480});
+
+      await h.settings.setCirclePushLevel('work', 'called');
+      circles = (h.registers.last['circles'] as List)
+          .cast<Map<String, dynamic>>();
+      final work = circles.firstWhere((c) => c['circleId'] == 'work');
+      expect(work['level'], 'called');
+      expect(work['muted'], isFalse);
+
+      await h.settings.setCirclePushLevel('work', 'off');
+      circles = (h.registers.last['circles'] as List)
+          .cast<Map<String, dynamic>>();
+      expect(
+        circles.firstWhere((c) => c['circleId'] == 'work')['muted'],
+        isTrue,
+        reason: '「关」沿用老的静音名单,老服务器也认',
+      );
+      expect(h.settings.isCirclePushMuted('work'), isTrue);
+
+      await h.settings.setPushQuiet(on: true, start: 22 * 60, end: 7 * 60);
+      expect((h.registers.last['prefs'] as Map)['quiet'], {
+        'start': 1320,
+        'end': 420,
+      });
+      await h.settings.setPushQuiet(on: false);
+      expect((h.registers.last['prefs'] as Map)['quiet'], isNull);
+    });
+
+    test('设置持久化:等级与免打扰', () async {
+      final s = await SettingsStore.load(vault: InMemorySecretVault());
+      await s.setCirclePushLevel('a', 'called');
+      await s.setCirclePushLevel('b', 'off');
+      await s.setPushQuiet(on: true, start: 60, end: 120);
+      final s2 = await SettingsStore.load(vault: InMemorySecretVault());
+      expect(s2.circlePushLevel('a'), 'called');
+      expect(s2.circlePushLevel('b'), 'off');
+      expect(s2.circlePushLevel('c'), 'all');
+      expect(s2.pushQuietStart, 60);
+      expect(s2.pushQuietEnd, 120);
+      await s2.setCirclePushLevel('a', 'all');
+      expect(s2.circlePushLevel('a'), 'all');
+    });
+
     test('没见过 welcome 不发;每次 welcome 都重发', () async {
       final h = await _make();
       expect(h.pushSent, isEmpty);

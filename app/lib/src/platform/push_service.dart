@@ -28,6 +28,15 @@ import 'platform_info.dart'
 ///
 /// 下面的常量与 ios/Runner/LaresPushBridge.swift、server/src 里的字符串一一对应,
 /// test/push_contract_test.dart 会逐个比对,改名字要三处一起改。
+/// push_register.prefs:本机时区偏移(分钟,东正)+ 免打扰时段(本地分钟)或 null(关)。
+/// IANA 时区名 Dart 拿不到(timeZoneName 是缩写),只报偏移;夏令时切换后下次注册自会更新。
+Map<String, dynamic> pushPrefsPayload(SettingsStore s, DateTime now) => {
+  'tzOffsetMin': now.timeZoneOffset.inMinutes,
+  'quiet': s.pushQuietOn
+      ? {'start': s.pushQuietStart, 'end': s.pushQuietEnd}
+      : null,
+};
+
 class PushService {
   // ── 原生桥(MethodChannel)──
   static const channelName = 'lares/push';
@@ -198,8 +207,12 @@ class PushService {
               'circleId': c.id,
               'name': c.name,
               'muted': _settings.isCirclePushMuted(c.id),
+              // 活动推送等级(all / called / off);老服务器只认 muted
+              'level': _settings.circlePushLevel(c.id),
             },
       ],
+      // 免打扰按本机时区判断(plugin-focus-contract §9.3)
+      'prefs': pushPrefsPayload(_settings, DateTime.now()),
     };
   }
 

@@ -9,6 +9,7 @@ import { writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { TokenBuckets } from './ratelimit.js';
 import { normalizeFocusConfig, FOCUS_DEFAULTS } from './focus.js';
+import { normalizeAiVoiceConfig, AI_VOICE_SETTINGS_SCHEMA } from './ai_voice_config.js'; // lares.ai-voice
 import { resolveSafe, fetchManifest, newWebhookSecret, allowPrivateFrom } from './plugin_webhooks.js';
 
 export const MANIFEST_MAX = 16 * 1024;
@@ -150,6 +151,19 @@ export const BUILTINS = Object.freeze({
       },
     }),
     normalizeConfig: normalizeFocusConfig,
+  },
+  // lares.ai-voice:服务器托管的语音助手(进程监管在 ai_voice_supervisor.js)
+  'lares.ai-voice': {
+    manifest: Object.freeze({
+      id: 'lares.ai-voice',
+      name: 'AI 助手',
+      version: '1.0.0',
+      description: '房间里的语音 AI 助手:叫它的名字提问,它用语音回答。启用后,房间内正在说话成员的语音会发送到阿里云百炼(DashScope)做语音识别,回答由 DashScope 大模型生成并合成为语音。助手作为一名成员显示在房间里。服务端 E2EE 圈不可用(需由圈友带口令自行运行)。',
+      author: 'Lares',
+      permissions: ['circle:read', 'members:read', 'chat:read', 'chat:send', 'captions:send'],
+      settingsSchema: AI_VOICE_SETTINGS_SCHEMA,
+    }),
+    normalizeConfig: normalizeAiVoiceConfig,
   },
 });
 
@@ -302,6 +316,7 @@ export function createPlugins(d) {
     for (const inst of store.list(circleId)) {
       const m = inst.manifest;
       if (!m.webhook || !inst.enabled || !inst.webhookSecretEnc) continue;
+      if (!inst.builtin && !featureOn(circleId, 'plugins')) continue; // 圈主关了第三方插件
       if (!m.webhook.events.includes(type) || !m.permissions.includes(perm)) continue;
       // 共享状态只推本插件自己的
       if (type === 'plugin_state' && data?.pluginId !== m.id) continue;
@@ -369,56 +384,74 @@ export function createPlugins(d) {
     return { circleId, fail };
   }
 
+  const isBuiltinId = (pid) => typeof pid === 'string' && Object.prototype.hasOwnProperty.call(BUILTINS, pid);
+  const featureOn = (circleId, key) => (d.featureOn ? d.featureOn(circleId, key) !== false : true);
+
+  /**
+   * 把一个来源解析成已校验的 manifest(plugin_install 与用途共用同一条路径):
+   * 内置 id / 内联 manifest / manifestUrl(抓取 + SSRF),带 webhook 的再解析地址。
+   * @param {'pluginId'|'manifest'|'manifestUrl'} kind
+   * @returns {Promise<{ok:true, manifest:object, builtin:boolean} | {ok:false, reason:string, detail?:string}>}
+   */
+  async function resolveSource(kind, value) {
+    const no = (reason, detail) => ({ ok: false, reason, ...(detail ? { detail } : {}) });
+    if (kind === 'pluginId') {
+      if (!isBuiltinId(value)) return no('unknown_builtin');
+      return { ok: true, manifest: JSON.parse(JSON.stringify(BUILTINS[value].manifest)), builtin: true };
+    }
+    let raw = value;
+    if (kind === 'manifestUrl') {
+      if (typeof value !== 'string') return no('bad_request');
+      try {
+        raw = await doFetchManifest(value);
+      } catch (e) {
+        const r = e?.reason === 'ssrf_blocked' ? 'ssrf_blocked'
+          : e?.reason === 'bad_url' ? 'bad_request' : 'manifest_fetch_failed';
+        return no(r, e?.detail ? String(e.detail).slice(0, 120) : undefined);
+      }
+    }
+    const v = validateManifest(raw, { allowPrivate });
+    if (!v.ok) return no(v.reason, v.detail);
+    const manifest = v.manifest;
+    if (manifest.webhook) {
+      try {
+        await doResolve(manifest.webhook.url);
+      } catch (e) {
+        if (e?.reason === 'bad_url') return no('bad_manifest', 'webhook.url');
+        return no('ssrf_blocked', e?.detail ? String(e.detail).slice(0, 120) : undefined);
+      }
+    }
+    return { ok: true, manifest, builtin: false };
+  }
+
+  function newInst(manifest, builtin, { enabled = true, config } = {}) {
+    return {
+      manifest,
+      builtin,
+      enabled,
+      config: config ?? (builtin ? BUILTINS[manifest.id].normalizeConfig({}).config : {}),
+      state: {},
+      rev: 0,
+      installedAt: Date.now(),
+    };
+  }
+
   async function install(ws, session, msg) {
     const g = ownerGate(ws, session, msg, 'plugin_install');
     if (!g) return;
     const { circleId, fail } = g;
     const sources = ['pluginId', 'manifest', 'manifestUrl'].filter((k) => msg[k] !== undefined && msg[k] !== null);
     if (sources.length !== 1) return fail('bad_request');
-    let manifest;
-    let builtin = false;
-    if (sources[0] === 'pluginId') {
-      const pid = pidOf(msg);
-      if (!Object.prototype.hasOwnProperty.call(BUILTINS, pid)) return fail('unknown_builtin');
-      manifest = JSON.parse(JSON.stringify(BUILTINS[pid].manifest));
-      builtin = true;
-    } else {
-      let raw = msg.manifest;
-      if (sources[0] === 'manifestUrl') {
-        if (typeof msg.manifestUrl !== 'string') return fail('bad_request');
-        try {
-          raw = await doFetchManifest(msg.manifestUrl);
-        } catch (e) {
-          const r = e?.reason === 'ssrf_blocked' ? 'ssrf_blocked'
-            : e?.reason === 'bad_url' ? 'bad_request' : 'manifest_fetch_failed';
-          return fail(r, e?.detail ? String(e.detail).slice(0, 120) : undefined);
-        }
-      }
-      const v = validateManifest(raw, { allowPrivate });
-      if (!v.ok) return fail(v.reason, v.detail);
-      manifest = v.manifest;
-      if (manifest.webhook) {
-        try {
-          await doResolve(manifest.webhook.url);
-        } catch (e) {
-          if (e?.reason === 'bad_url') return fail('bad_manifest', 'webhook.url');
-          return fail('ssrf_blocked', e?.detail ? String(e.detail).slice(0, 120) : undefined);
-        }
-      }
-    }
+    // 圈主关了「第三方插件」:只许装内置
+    if (sources[0] !== 'pluginId' && !featureOn(circleId, 'plugins')) return fail('feature_off');
+    const src = await resolveSource(sources[0], sources[0] === 'pluginId' ? pidOf(msg) : msg[sources[0]]);
+    if (!src.ok) return fail(src.reason, src.detail);
+    const { manifest, builtin } = src;
     // await 之后再查重 / 计数,防并发装两次
     if (store.get(circleId, manifest.id)) return fail('already_installed');
     if (store.list(circleId).length >= PLUGINS_PER_CIRCLE_MAX) return fail('too_many');
 
-    const inst = {
-      manifest,
-      builtin,
-      enabled: true,
-      config: builtin ? BUILTINS[manifest.id].normalizeConfig({}).config : {},
-      state: {},
-      rev: 0,
-      installedAt: Date.now(),
-    };
+    const inst = newInst(manifest, builtin);
     let token;
     let webhookSecret;
     if (manifest.webhook) {
@@ -536,6 +569,159 @@ export function createPlugins(d) {
     if (pid === FOCUS_ID) notifyFocus(g.circleId, inst);
   }
 
+  // ── 用途 / 功能开关用的批量接口(features.js 调;契约 features-purpose-contract §2 §3.3)──
+  // 流程:plan(全部校验 + 抓取,不动存储)→ issueTokens → commit(内存改,返回快照)
+  //      → 调用方 await savePlugins() 与圈设置落盘 → 成功 announce / 失败 restore + revokeTokens。
+
+  /**
+   * @param {Array<{id?:string, manifest?:object, manifestUrl?:string, enabled:boolean, config?:object}>} items
+   *   已经过 validatePurpose 结构校验的插件项
+   * @returns {Promise<{ok:true, plan:Array} | {ok:false, reason:string, detail?:string}>}
+   */
+  async function planPurposePlugins(circleId, items, { allowThirdParty = true } = {}) {
+    const plan = [];
+    const seen = new Set();
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const at = `plugins[${i}]`;
+      const no = (reason, detail) => ({ ok: false, reason, detail: detail ? `${at}:${detail}` : at });
+      let manifest;
+      let builtin;
+      if (it.id !== undefined) {
+        const existing = store.get(circleId, it.id);
+        if (existing) { manifest = existing.manifest; builtin = existing.builtin === true; }
+        else if (isBuiltinId(it.id)) { manifest = JSON.parse(JSON.stringify(BUILTINS[it.id].manifest)); builtin = true; }
+        else return no('unknown_builtin', it.id.slice(0, 64));
+      } else {
+        const kind = it.manifest !== undefined ? 'manifest' : 'manifestUrl';
+        const src = await resolveSource(kind, it[kind]);
+        if (!src.ok) return no(src.reason, src.detail);
+        manifest = src.manifest;
+        builtin = false;
+      }
+      const pid = manifest.id;
+      if (seen.has(pid)) return no('bad_purpose', 'duplicate');
+      seen.add(pid);
+      const existing = store.get(circleId, pid);
+      if (!existing && !builtin && !allowThirdParty) return no('feature_off');
+      let config;
+      if (builtin && BUILTINS[pid]?.normalizeConfig) {
+        const base = it.config ?? (existing ? existing.config : {});
+        const r = BUILTINS[pid].normalizeConfig(base ?? {});
+        if (!r.ok) return no('bad_purpose', `config:${r.detail}`);
+        config = r.config;
+      } else {
+        config = it.config ?? (existing ? existing.config : {});
+      }
+      plan.push({ pluginId: pid, action: existing ? 'update' : 'install', manifest: existing ? existing.manifest : manifest, builtin, enabled: it.enabled !== false, config });
+    }
+    const installs = plan.filter((p) => p.action === 'install').length;
+    if (store.list(circleId).length + installs > PLUGINS_PER_CIRCLE_MAX) return { ok: false, reason: 'too_many', detail: 'plugins' };
+    return { ok: true, plan };
+  }
+
+  /// 给计划里新装且带 webhook 的插件签 token + 生成密钥(写在 plan 项上)。失败自己吊销已签的再抛。
+  async function issueTokens(circleId, plan) {
+    const issued = [];
+    try {
+      for (const p of plan) {
+        if (p.action !== 'install' || !p.manifest.webhook) continue;
+        p.webhookSecret = newWebhookSecret();
+        const r = await d.tokens.create(circleId, p.manifest.name, { kind: 'plugin', pluginId: p.pluginId });
+        p.token = r.token;
+        p.tokenId = r.record.id;
+        issued.push(r.record.id);
+      }
+    } catch (e) {
+      await revokeTokens(plan);
+      throw e;
+    }
+  }
+
+  async function revokeTokens(plan) {
+    for (const p of plan) {
+      if (!p.tokenId) continue;
+      await d.tokens.revokeById(p.tokenId).catch(() => {});
+      d.botApi.closeToken(p.tokenId);
+      delete p.tokenId; delete p.token;
+    }
+  }
+
+  /// 同步改内存。返回快照(原实例引用或 null),给 restore / announce 用。
+  /// 并发装上了同 id(token 签发期间)→ 返回 {ok:false} 什么都不改。
+  function commitPlan(circleId, plan) {
+    for (const p of plan) {
+      if (p.action === 'install' && store.get(circleId, p.pluginId)) return { ok: false, reason: 'already_installed', detail: p.pluginId };
+      if (p.action === 'update' && !store.get(circleId, p.pluginId)) return { ok: false, reason: 'not_found', detail: p.pluginId };
+    }
+    if (store.list(circleId).length + plan.filter((p) => p.action === 'install').length > PLUGINS_PER_CIRCLE_MAX) {
+      return { ok: false, reason: 'too_many', detail: 'plugins' };
+    }
+    // 快照只记「改了的字段」:更新是就地改实例(共享状态的并发写不会被回滚冲掉)
+    const snap = new Map();
+    for (const p of plan) {
+      const cur = store.get(circleId, p.pluginId);
+      if (p.action === 'install') {
+        snap.set(p.pluginId, null);
+        const inst = newInst(p.manifest, p.builtin, { enabled: p.enabled, config: p.config });
+        if (p.webhookSecret) inst.webhookSecretEnc = p.webhookSecret;
+        if (p.tokenId) inst.tokenId = p.tokenId;
+        store.put(circleId, p.pluginId, inst);
+      } else {
+        snap.set(p.pluginId, { enabled: cur.enabled === true, config: cur.config });
+        cur.enabled = p.enabled;
+        cur.config = p.config;
+      }
+    }
+    return { ok: true, snap };
+  }
+
+  function restore(circleId, snap) {
+    for (const [pid, prev] of snap) {
+      if (!prev) { store.remove(circleId, pid); continue; }
+      const cur = store.get(circleId, pid);
+      if (cur) { cur.enabled = prev.enabled; cur.config = prev.config; }
+    }
+  }
+
+  /// 落盘成功后:生命周期 webhook + 停用关 SSE + 专注引擎 + 插件列表广播(含摘要与圈设置)
+  function announce(circleId, plan, snap, { broadcast = true } = {}) {
+    let changed = false;
+    for (const p of plan) {
+      const inst = store.get(circleId, p.pluginId);
+      if (!inst) continue;
+      const prev = snap.get(p.pluginId);
+      if (!prev) {
+        changed = true;
+        if (p.token) lifecycle(circleId, inst, 'installed', { token: p.token });
+      } else {
+        if (prev.enabled !== inst.enabled) {
+          changed = true;
+          lifecycle(circleId, inst, 'enabled', { enabled: inst.enabled });
+          if (!inst.enabled && inst.tokenId) d.botApi.closeToken(inst.tokenId);
+        }
+        if (JSON.stringify(prev.config ?? {}) !== JSON.stringify(inst.config ?? {})) {
+          changed = true;
+          lifecycle(circleId, inst, 'config', { config: inst.config });
+        }
+      }
+      if (p.pluginId === FOCUS_ID && (!prev || prev.enabled !== inst.enabled || JSON.stringify(prev.config) !== JSON.stringify(inst.config))) {
+        notifyFocus(circleId, inst);
+      }
+    }
+    if (changed && broadcast) broadcastList(circleId);
+    return changed;
+  }
+
+  /// 导出用:所有已装插件(内置给 id,第三方给完整 manifest,含 webhook 地址)
+  function exportItems(circleId) {
+    return store.list(circleId).map((inst) => ({
+      ...(inst.builtin ? { id: inst.manifest.id } : { manifest: JSON.parse(JSON.stringify(inst.manifest)) }),
+      enabled: inst.enabled === true,
+      config: JSON.parse(JSON.stringify(inst.config ?? {})),
+    }));
+  }
+
   async function handle(ws, session, msg) {
     switch (msg.t) {
       case 'plugin_install': await install(ws, session, msg); return true;
@@ -595,6 +781,9 @@ export function createPlugins(d) {
 
   return {
     handle, views, summary, isEnabled, installOf, focusPlugin, applyState, fanout, onCircleDeleted, sweep,
+    // 用途 / 功能开关(features.js)
+    planPurposePlugins, issueTokens, revokeTokens, commitPlan, restore, announce, exportItems,
+    savePlugins: () => store.save(),
     setFocus: (f) => { focus = f; },
     flushSync: () => store.saveSync(),
   };

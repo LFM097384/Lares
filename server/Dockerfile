@@ -11,6 +11,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev --no-audit --no-fund
 COPY src ./src
+# AI 语音助手(插件 lares.ai-voice)由服务器按圈拉起的子进程,代码在 bots/
+COPY bots ./bots
 
 ENV LARES_PORT=8787
 EXPOSE 8787

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/gen/app_localizations.dart';
+import '../../state/ai_member.dart';
 import '../../state/models.dart';
 import '../../theme/tokens.dart';
 import 'speaking_ripple.dart';
@@ -38,9 +40,14 @@ class AvatarOrb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // AI 语音助手:没有「随时聊 / 在忙」这类人的状态,换成「AI 助手」。
+    final bool ai = isAiMemberId(member.userId);
+    final t = ai ? AppLocalizations.of(context) : null;
+    final String statusLabel = ai ? t!.aiVoiceSeatStatus : member.status.label;
+    final Color statusColor =
+        ai ? theme.colorScheme.tertiary : member.status.color;
     return Semantics(
-      label:
-          '${member.name} · ${member.status.label}${speaking ? ' · 正在说话' : ''}',
+      label: '${member.name} · $statusLabel${speaking ? ' · 正在说话' : ''}',
       excludeSemantics: true,
       child: SizedBox(
         width: size + 24,
@@ -60,7 +67,7 @@ class AvatarOrb extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: member.status.color,
+                        color: statusColor,
                         width: 2.5,
                       ),
                       color: theme.colorScheme.surface,
@@ -86,6 +93,30 @@ class AvatarOrb extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (ai)
+                    Positioned(
+                      left: compact ? 0 : 4,
+                      top: compact ? 0 : 4,
+                      child: Container(
+                        key: const ValueKey('seat-ai-badge'),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 4 : 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.tertiary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          t!.aiVoiceSeatBadge,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onTertiary,
+                            fontSize: compact ? 9 : 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (muted)
                     Positioned(
                       right: compact ? 2 : 6,
@@ -122,9 +153,9 @@ class AvatarOrb extends StatelessWidget {
             ],
             if (!compact)
               Text(
-                member.status.label,
+                statusLabel,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: member.status.color,
+                  color: statusColor,
                   fontSize: 12,
                 ),
               ),

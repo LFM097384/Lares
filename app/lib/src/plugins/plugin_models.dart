@@ -10,6 +10,9 @@ import '../../l10n/gen/app_localizations.dart';
 /// 内置专注学习插件的 id。
 const String focusPluginId = 'lares.focus';
 
+/// 内置 AI 语音助手插件的 id(docs/ai-voice-bot.md)。
+const String aiVoicePluginId = 'lares.ai-voice';
+
 /// 已知权限(契约 §1 表)。
 abstract final class PluginPermissions {
   static const circleRead = 'circle:read';

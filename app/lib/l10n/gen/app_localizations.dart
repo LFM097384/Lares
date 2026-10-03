@@ -3469,6 +3469,1290 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'专注状态(谁在专注、离开多久、排行榜)服务器可见,加密圈也一样'**
   String get focusSettingsPrivacy;
+
+  /// 功能名:实时字幕(功能开关、更多面板、用途编辑共用)
+  ///
+  /// In zh, this message translates to:
+  /// **'实时字幕'**
+  String get featureCaptions;
+
+  /// 功能名:转写记录
+  ///
+  /// In zh, this message translates to:
+  /// **'转写记录'**
+  String get featureTranscript;
+
+  /// 功能名:语音便签
+  ///
+  /// In zh, this message translates to:
+  /// **'语音便签'**
+  String get featureVoiceNotes;
+
+  /// 功能名:位置共享 / 地图
+  ///
+  /// In zh, this message translates to:
+  /// **'位置地图'**
+  String get featureMap;
+
+  /// 功能名:录音
+  ///
+  /// In zh, this message translates to:
+  /// **'录音'**
+  String get featureRecording;
+
+  /// 功能名:第三方插件(网页小程序)
+  ///
+  /// In zh, this message translates to:
+  /// **'插件'**
+  String get featurePlugins;
+
+  /// 功能名:专注学习(番茄钟)
+  ///
+  /// In zh, this message translates to:
+  /// **'专注学习'**
+  String get featureFocus;
+
+  /// 功能名:点对点直连
+  ///
+  /// In zh, this message translates to:
+  /// **'点对点直连'**
+  String get featureP2p;
+
+  /// 功能名:开发者读数(进房延迟等)
+  ///
+  /// In zh, this message translates to:
+  /// **'开发者读数'**
+  String get featureDevTools;
+
+  /// 房间「更多」入口的按钮文字 / 提示
+  ///
+  /// In zh, this message translates to:
+  /// **'更多'**
+  String get roomMore;
+
+  /// 「更多」面板里开关类格子(如字幕)的状态:开
+  ///
+  /// In zh, this message translates to:
+  /// **'开着'**
+  String get roomMoreOn;
+
+  /// 「更多」面板里开关类格子(如字幕)的状态:关
+  ///
+  /// In zh, this message translates to:
+  /// **'关着'**
+  String get roomMoreOff;
+
+  /// 「更多」面板语音便签格子的小字:没有待听时提示长按录音
+  ///
+  /// In zh, this message translates to:
+  /// **'长按录一条'**
+  String get roomMoreVoiceNotesHint;
+
+  /// 「更多」面板语音便签格子的小字:有待听便签时显示条数
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 条待听 · 长按录}}'**
+  String roomMoreVoiceNotesPending(int count);
+
+  /// 「更多」面板语音便签格子:正在长按录音时的小字
+  ///
+  /// In zh, this message translates to:
+  /// **'松手发送'**
+  String get roomMoreVoiceNotesRecording;
+
+  /// 房间里常驻的一行小字:圈主开了转写记录
+  ///
+  /// In zh, this message translates to:
+  /// **'本圈开着转写记录'**
+  String get roomTranscriptNotice;
+
+  /// 房间转写提示那一行的无障碍 / 悬浮提示:点开看记录
+  ///
+  /// In zh, this message translates to:
+  /// **'查看转写记录'**
+  String get roomTranscriptNoticeOpen;
+
+  /// 圈主设置里「功能」一节的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'功能'**
+  String get ownerFeaturesTitle;
+
+  /// 圈子菜单「功能」入口的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈里开哪些功能、做什么用'**
+  String get ownerFeaturesEntryDesc;
+
+  /// 功能页开关列表上方的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'语音和文字聊天一直都在。下面这些按需打开,只对这个圈生效。'**
+  String get ownerFeaturesHint;
+
+  /// 功能说明:实时字幕
+  ///
+  /// In zh, this message translates to:
+  /// **'说话实时转成字,语音片段会送云端识别'**
+  String get ownerFeatureCaptionsDesc;
+
+  /// 功能说明:转写记录
+  ///
+  /// In zh, this message translates to:
+  /// **'把识别出的文字存档,圈里的人之后能翻看'**
+  String get ownerFeatureTranscriptDesc;
+
+  /// 功能说明:语音便签
+  ///
+  /// In zh, this message translates to:
+  /// **'不在线时也能给圈里留一段话'**
+  String get ownerFeatureVoiceNotesDesc;
+
+  /// 功能说明:位置地图
+  ///
+  /// In zh, this message translates to:
+  /// **'愿意的人可以共享位置,在地图上看到彼此'**
+  String get ownerFeatureMapDesc;
+
+  /// 功能说明:录音
+  ///
+  /// In zh, this message translates to:
+  /// **'经所有人同意后录下房间里的声音'**
+  String get ownerFeatureRecordingDesc;
+
+  /// 录音开关的补充:本构建未开放录音
+  ///
+  /// In zh, this message translates to:
+  /// **'这个版本还没有录音,先替以后定好'**
+  String get ownerFeatureRecordingUnavailable;
+
+  /// 功能说明:插件
+  ///
+  /// In zh, this message translates to:
+  /// **'允许装第三方小程序'**
+  String get ownerFeaturePluginsDesc;
+
+  /// 功能说明:专注学习
+  ///
+  /// In zh, this message translates to:
+  /// **'番茄钟和一起专注的排行'**
+  String get ownerFeatureFocusDesc;
+
+  /// 功能说明:点对点直连
+  ///
+  /// In zh, this message translates to:
+  /// **'人少时绕过服务器直接连,延迟更低'**
+  String get ownerFeatureP2pDesc;
+
+  /// 功能说明:开发者读数
+  ///
+  /// In zh, this message translates to:
+  /// **'显示进房耗时等调试读数'**
+  String get ownerFeatureDevToolsDesc;
+
+  /// 功能开关失败
+  ///
+  /// In zh, this message translates to:
+  /// **'「{feature}」没改成:{reason}'**
+  String ownerFeatureToggleFailed(String feature, String reason);
+
+  /// 圈主设置「用途」入口标题
+  ///
+  /// In zh, this message translates to:
+  /// **'用途'**
+  String get purposeTitle;
+
+  /// 圈子还没设用途
+  ///
+  /// In zh, this message translates to:
+  /// **'还没选'**
+  String get purposeNone;
+
+  /// 用途选择面板标题
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈用来做什么?'**
+  String get purposePickerTitle;
+
+  /// 内置用途名:闲聊
+  ///
+  /// In zh, this message translates to:
+  /// **'闲聊'**
+  String get purposeChat;
+
+  /// 内置用途说明:闲聊
+  ///
+  /// In zh, this message translates to:
+  /// **'随便聊聊。留着语音便签,字幕和记录都关着'**
+  String get purposeChatDesc;
+
+  /// 内置用途名:学习
+  ///
+  /// In zh, this message translates to:
+  /// **'学习'**
+  String get purposeStudy;
+
+  /// 内置用途说明:学习
+  ///
+  /// In zh, this message translates to:
+  /// **'一起专注,打开番茄钟,少点打扰'**
+  String get purposeStudyDesc;
+
+  /// 内置用途名:开会
+  ///
+  /// In zh, this message translates to:
+  /// **'开会'**
+  String get purposeMeeting;
+
+  /// 内置用途说明:开会
+  ///
+  /// In zh, this message translates to:
+  /// **'打开实时字幕和转写记录,方便会后翻看'**
+  String get purposeMeetingDesc;
+
+  /// 用途选项:自定义
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get purposeCustom;
+
+  /// 用途选项说明:自定义
+  ///
+  /// In zh, this message translates to:
+  /// **'自己挑功能和插件,也可以用别人的分享码'**
+  String get purposeCustomDesc;
+
+  /// 建圈对话框里用途选择的标签
+  ///
+  /// In zh, this message translates to:
+  /// **'用途'**
+  String get purposeCreateLabel;
+
+  /// 建圈对话框用途选择的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'登记好之后自动设上,之后随时能改'**
+  String get purposeCreateHint;
+
+  /// 用途应用成功
+  ///
+  /// In zh, this message translates to:
+  /// **'已换成「{name}」'**
+  String purposeApplied(String name);
+
+  /// 用途应用失败
+  ///
+  /// In zh, this message translates to:
+  /// **'用途没换成:{reason}'**
+  String purposeApplyFailed(String reason);
+
+  /// 用途失败原因:bad_purpose
+  ///
+  /// In zh, this message translates to:
+  /// **'内容有问题({detail})'**
+  String purposeReasonBad(String detail);
+
+  /// 用途失败原因:bad_manifest
+  ///
+  /// In zh, this message translates to:
+  /// **'插件描述有问题({detail})'**
+  String purposeReasonManifest(String detail);
+
+  /// 用途失败原因:抓 manifest 失败 / 地址不允许
+  ///
+  /// In zh, this message translates to:
+  /// **'插件地址拿不到'**
+  String get purposeReasonFetch;
+
+  /// 用途失败原因:too_many
+  ///
+  /// In zh, this message translates to:
+  /// **'插件超过 10 个了'**
+  String get purposeReasonTooMany;
+
+  /// 用途失败原因:feature_off
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈关了插件,要先打开'**
+  String get purposeReasonFeatureOff;
+
+  /// 用途失败原因:unknown_builtin
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器不认识这个内置插件'**
+  String get purposeReasonUnknownBuiltin;
+
+  /// 用途失败原因:未登记 / 握手没好
+  ///
+  /// In zh, this message translates to:
+  /// **'圈子还在登记,稍后再试'**
+  String get purposeReasonNotRegistered;
+
+  /// 功能页:导出分享码按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'导出分享码'**
+  String get purposeExport;
+
+  /// 功能页:导入分享码按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'导入分享码'**
+  String get purposeImport;
+
+  /// 导出失败
+  ///
+  /// In zh, this message translates to:
+  /// **'没导出来,稍后再试'**
+  String get purposeExportFailed;
+
+  /// 分享码对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'分享码'**
+  String get purposeCodeTitle;
+
+  /// 分享码对话框说明
+  ///
+  /// In zh, this message translates to:
+  /// **'别人在「导入分享码」里粘贴它,就能用上同样的设置。里面不含口令和插件密钥。'**
+  String get purposeCodeHint;
+
+  /// 复制分享码后的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'分享码复制好了'**
+  String get purposeCodeCopied;
+
+  /// 分享码错误:前缀不对
+  ///
+  /// In zh, this message translates to:
+  /// **'这不像分享码,应该以 lares-purpose: 开头'**
+  String get purposeCodeErrPrefix;
+
+  /// 分享码错误:base64 / gzip 坏了
+  ///
+  /// In zh, this message translates to:
+  /// **'分享码不完整,可能没复制全'**
+  String get purposeCodeErrBroken;
+
+  /// 分享码错误:超过大小上限
+  ///
+  /// In zh, this message translates to:
+  /// **'分享码太大了'**
+  String get purposeCodeErrTooLarge;
+
+  /// 分享码错误:不是 JSON 对象
+  ///
+  /// In zh, this message translates to:
+  /// **'分享码里的内容读不懂'**
+  String get purposeCodeErrJson;
+
+  /// 导入分享码对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'导入分享码'**
+  String get purposeImportTitle;
+
+  /// 导入分享码输入框提示
+  ///
+  /// In zh, this message translates to:
+  /// **'把 lares-purpose:… 粘贴到这里'**
+  String get purposeImportFieldHint;
+
+  /// 导入分享码:应用
+  ///
+  /// In zh, this message translates to:
+  /// **'应用'**
+  String get purposeImportApply;
+
+  /// 编辑器里导入分享码:填进编辑器
+  ///
+  /// In zh, this message translates to:
+  /// **'填进去'**
+  String get purposeImportFill;
+
+  /// 导入预览:功能不变
+  ///
+  /// In zh, this message translates to:
+  /// **'功能开关不变'**
+  String get purposePreviewNoChange;
+
+  /// 导入预览:打开的功能
+  ///
+  /// In zh, this message translates to:
+  /// **'打开:{list}'**
+  String purposePreviewTurnsOn(String list);
+
+  /// 导入预览:关闭的功能
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭:{list}'**
+  String purposePreviewTurnsOff(String list);
+
+  /// 导入预览:插件数
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{涉及 {count} 个插件}}'**
+  String purposePreviewPlugins(int count);
+
+  /// 导入预览:圈设置
+  ///
+  /// In zh, this message translates to:
+  /// **'圈设置:{list}'**
+  String purposePreviewSettings(String list);
+
+  /// 用途编辑器标题
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义用途'**
+  String get purposeEditorTitle;
+
+  /// 编辑器:格式化
+  ///
+  /// In zh, this message translates to:
+  /// **'格式化'**
+  String get purposeEditorFormat;
+
+  /// 编辑器:从分享码导入
+  ///
+  /// In zh, this message translates to:
+  /// **'从分享码导入'**
+  String get purposeEditorImport;
+
+  /// 编辑器:复制分享码
+  ///
+  /// In zh, this message translates to:
+  /// **'复制分享码'**
+  String get purposeEditorCopyCode;
+
+  /// 编辑器:语法错时格式化失败
+  ///
+  /// In zh, this message translates to:
+  /// **'先把语法错误改好才能格式化'**
+  String get purposeEditorFormatFailed;
+
+  /// 编辑器:校验通过
+  ///
+  /// In zh, this message translates to:
+  /// **'没问题,可以应用'**
+  String get purposeEditorValid;
+
+  /// 编辑器:校验中
+  ///
+  /// In zh, this message translates to:
+  /// **'检查中…'**
+  String get purposeEditorChecking;
+
+  /// 编辑器:错误所在行
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {line} 行'**
+  String purposeEditorLine(int line);
+
+  /// 编辑器:应用
+  ///
+  /// In zh, this message translates to:
+  /// **'应用'**
+  String get purposeEditorApply;
+
+  /// 校验:语法错误
+  ///
+  /// In zh, this message translates to:
+  /// **'JSON 写错了(第 {line} 行第 {column} 列)'**
+  String purposeErrSyntax(int line, int column);
+
+  /// 校验:不是对象
+  ///
+  /// In zh, this message translates to:
+  /// **'最外层要是一个 JSON 对象'**
+  String get purposeErrNotObject;
+
+  /// 校验:超过 32KB
+  ///
+  /// In zh, this message translates to:
+  /// **'太大了,不能超过 32 KB'**
+  String get purposeErrTooLarge;
+
+  /// 校验:未知键
+  ///
+  /// In zh, this message translates to:
+  /// **'不认识这个键'**
+  String get purposeErrUnknownKey;
+
+  /// 校验:版本
+  ///
+  /// In zh, this message translates to:
+  /// **'v 只能是 1'**
+  String get purposeErrVersion;
+
+  /// 校验:id
+  ///
+  /// In zh, this message translates to:
+  /// **'id 只能用小写字母、数字、- 和 _,最多 32 个'**
+  String get purposeErrId;
+
+  /// 校验:name
+  ///
+  /// In zh, this message translates to:
+  /// **'名字要有,最多 24 个字'**
+  String get purposeErrName;
+
+  /// 校验:icon
+  ///
+  /// In zh, this message translates to:
+  /// **'图标放一个 emoji 就好'**
+  String get purposeErrIcon;
+
+  /// 校验:description
+  ///
+  /// In zh, this message translates to:
+  /// **'说明最多 200 个字'**
+  String get purposeErrDescription;
+
+  /// 校验:不是布尔
+  ///
+  /// In zh, this message translates to:
+  /// **'要填 true 或 false'**
+  String get purposeErrNotBool;
+
+  /// 校验:字段不是对象
+  ///
+  /// In zh, this message translates to:
+  /// **'这里要是一个 JSON 对象'**
+  String get purposeErrNotObjectField;
+
+  /// 校验:不是数组
+  ///
+  /// In zh, this message translates to:
+  /// **'这里要是一个 JSON 列表'**
+  String get purposeErrNotArray;
+
+  /// 校验:插件过多
+  ///
+  /// In zh, this message translates to:
+  /// **'插件最多 10 个'**
+  String get purposeErrTooManyPlugins;
+
+  /// 校验:插件来源不是恰好一个
+  ///
+  /// In zh, this message translates to:
+  /// **'id、manifest、manifestUrl 三选一,只能写一个'**
+  String get purposeErrPluginSource;
+
+  /// 校验:插件 id
+  ///
+  /// In zh, this message translates to:
+  /// **'插件 id 不对'**
+  String get purposeErrPluginId;
+
+  /// 校验:config 过大
+  ///
+  /// In zh, this message translates to:
+  /// **'插件配置不能超过 4 KB'**
+  String get purposeErrConfigTooLarge;
+
+  /// 校验:manifestUrl
+  ///
+  /// In zh, this message translates to:
+  /// **'要是一个 https:// 开头的地址'**
+  String get purposeErrManifestUrl;
+
+  /// 校验:manifest 字段问题
+  ///
+  /// In zh, this message translates to:
+  /// **'插件描述的「{field}」不对'**
+  String purposeErrManifest(String field);
+
+  /// 校验:冲突
+  ///
+  /// In zh, this message translates to:
+  /// **'和 {field} 对不上'**
+  String purposeErrConflict(String field);
+
+  /// 校验:插件重复
+  ///
+  /// In zh, this message translates to:
+  /// **'同一个插件写了两次'**
+  String get purposeErrDuplicate;
+
+  /// 进圈隐私告知面板的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'本圈的隐私设置'**
+  String get privacySheetTitle;
+
+  /// 进圈隐私告知:本圈开了转写记录(非加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'转写记录开(语音经阿里云识别,文字连同昵称存在服务器上,直到圈主清空)'**
+  String get privacySheetTranscript;
+
+  /// 进圈隐私告知:本圈开了转写记录(端到端加密圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'转写记录开(语音经阿里云识别;服务器只转交密文,记录存在各人设备上)'**
+  String get privacySheetTranscriptE2ee;
+
+  /// 进圈隐私告知:服务器配了字幕且本圈开着字幕
+  ///
+  /// In zh, this message translates to:
+  /// **'实时字幕可用(有人开字幕时,你说话的片段会送阿里云识别,本应用不保存)'**
+  String get privacySheetCaptions;
+
+  /// 进圈隐私告知:启用的插件个数与名字
+  ///
+  /// In zh, this message translates to:
+  /// **'插件 {count} 个({names})'**
+  String privacySheetPlugins(int count, String names);
+
+  /// 进圈隐私告知:单个插件的权限一行
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}:{perms}'**
+  String privacySheetPluginDetail(String name, String perms);
+
+  /// 进圈隐私告知:插件没申请任何权限
+  ///
+  /// In zh, this message translates to:
+  /// **'不要任何权限'**
+  String get privacySheetPluginNoPerms;
+
+  /// 进圈隐私告知:服务端(webhook)插件的提示,接在权限一行后面,前面带空格和分隔点
+  ///
+  /// In zh, this message translates to:
+  /// **' · 数据会发到插件作者的服务器(第三方)'**
+  String get privacySheetPluginThirdParty;
+
+  /// 进圈隐私告知:列举插件名 / 权限时的分隔符
+  ///
+  /// In zh, this message translates to:
+  /// **'、'**
+  String get privacySheetSeparator;
+
+  /// 进圈隐私告知:本圈开了专注学习
+  ///
+  /// In zh, this message translates to:
+  /// **'专注追踪开(圈里能看到谁在专注、离开了多久)'**
+  String get privacySheetFocus;
+
+  /// 进圈隐私告知:本圈开着位置共享 / 地图
+  ///
+  /// In zh, this message translates to:
+  /// **'位置共享可用(只在你自己打开时才共享)'**
+  String get privacySheetMap;
+
+  /// 进圈隐私告知:本圈开着录音功能
+  ///
+  /// In zh, this message translates to:
+  /// **'录音功能开(录音时房里每个人都会看到提示)'**
+  String get privacySheetRecording;
+
+  /// 进圈隐私告知:没有值得一提的功能时的那一句
+  ///
+  /// In zh, this message translates to:
+  /// **'本圈没开转写、插件这类会额外处理你数据的功能'**
+  String get privacySheetNothing;
+
+  /// 进圈隐私告知:圈主定了端到端加密
+  ///
+  /// In zh, this message translates to:
+  /// **'端到端加密:是'**
+  String get privacySheetE2eeOn;
+
+  /// 进圈隐私告知:圈主定了不加密
+  ///
+  /// In zh, this message translates to:
+  /// **'端到端加密:否'**
+  String get privacySheetE2eeOff;
+
+  /// 进圈隐私告知:圈子没有统一的加密规定(老圈 / 服务器配置的圈)
+  ///
+  /// In zh, this message translates to:
+  /// **'端到端加密:圈子没有统一规定,看各人自己的设置'**
+  String get privacySheetE2eeUnset;
+
+  /// 进圈隐私告知:本圈启用了内置 AI 语音助手
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 助手开(房间里的语音会发到阿里云百炼 DashScope 识别并生成回答)'**
+  String get privacySheetAi;
+
+  /// 内置 AI 语音助手插件的名字(插件管理 → 添加)
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 助手'**
+  String get aiVoicePluginName;
+
+  /// 插件管理 → 添加:AI 助手一句话介绍
+  ///
+  /// In zh, this message translates to:
+  /// **'房间里多一个会说话的助手,叫它就回答'**
+  String get aiVoicePluginDesc;
+
+  /// AI 助手设置页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 助手设置'**
+  String get aiVoiceSettingsTitle;
+
+  /// AI 助手设置页顶部的隐私说明
+  ///
+  /// In zh, this message translates to:
+  /// **'开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,再由 AI 生成回答并念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。'**
+  String get aiVoicePrivacyNote;
+
+  /// E2EE 圈里不能启用 AI 助手的原因
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈开着端到端加密,服务器听不到语音,AI 助手没法工作'**
+  String get aiVoiceE2eeBlocked;
+
+  /// AI 助手设置:名字字段
+  ///
+  /// In zh, this message translates to:
+  /// **'名字(也是唤醒词)'**
+  String get aiVoiceFieldName;
+
+  /// AI 助手设置:名字为空时的校验提示
+  ///
+  /// In zh, this message translates to:
+  /// **'给它起个名字'**
+  String get aiVoiceFieldNameEmpty;
+
+  /// AI 助手设置:额外唤醒词字段
+  ///
+  /// In zh, this message translates to:
+  /// **'别的叫法'**
+  String get aiVoiceFieldWakeWords;
+
+  /// AI 助手设置:额外唤醒词的填写提示
+  ///
+  /// In zh, this message translates to:
+  /// **'用逗号、顿号或空格隔开'**
+  String get aiVoiceFieldWakeWordsHint;
+
+  /// AI 助手设置:人设(系统提示)字段
+  ///
+  /// In zh, this message translates to:
+  /// **'人设'**
+  String get aiVoiceFieldPersona;
+
+  /// AI 助手设置:人设恢复默认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get aiVoicePersonaReset;
+
+  /// AI 助手设置:触发方式标题
+  ///
+  /// In zh, this message translates to:
+  /// **'什么时候回答'**
+  String get aiVoiceFieldTrigger;
+
+  /// 触发方式:叫名字(wake)
+  ///
+  /// In zh, this message translates to:
+  /// **'叫名字'**
+  String get aiVoiceTriggerWake;
+
+  /// 触发方式:一直听(always)
+  ///
+  /// In zh, this message translates to:
+  /// **'一直听'**
+  String get aiVoiceTriggerAlways;
+
+  /// 触发方式:只回 @它 的文字(ptt)
+  ///
+  /// In zh, this message translates to:
+  /// **'只回 @它'**
+  String get aiVoiceTriggerPtt;
+
+  /// 触发方式 wake 的一行说明
+  ///
+  /// In zh, this message translates to:
+  /// **'有人叫它的名字或别的叫法,它才回答'**
+  String get aiVoiceTriggerWakeDesc;
+
+  /// 触发方式 always 的一行说明
+  ///
+  /// In zh, this message translates to:
+  /// **'有人说完一句话,它就回答 —— 适合一个人和它聊'**
+  String get aiVoiceTriggerAlwaysDesc;
+
+  /// 触发方式 ptt 的一行说明
+  ///
+  /// In zh, this message translates to:
+  /// **'不听语音,只回答聊天里 @{name} 开头的文字'**
+  String aiVoiceTriggerPttDesc(String name);
+
+  /// AI 助手设置:音色下拉
+  ///
+  /// In zh, this message translates to:
+  /// **'音色'**
+  String get aiVoiceFieldVoice;
+
+  /// AI 助手设置:被打断时停止说话的开关
+  ///
+  /// In zh, this message translates to:
+  /// **'有人插话就停下'**
+  String get aiVoiceFieldInterrupt;
+
+  /// AI 助手设置:高级选项折叠区
+  ///
+  /// In zh, this message translates to:
+  /// **'高级'**
+  String get aiVoiceAdvanced;
+
+  /// AI 助手设置:模型名字段
+  ///
+  /// In zh, this message translates to:
+  /// **'对话模型'**
+  String get aiVoiceFieldModel;
+
+  /// AI 助手设置:模型名格式不对
+  ///
+  /// In zh, this message translates to:
+  /// **'只能用字母、数字、点、横线和下划线'**
+  String get aiVoiceFieldModelInvalid;
+
+  /// AI 助手设置:单次回复字数上限
+  ///
+  /// In zh, this message translates to:
+  /// **'一次最多说多少字'**
+  String get aiVoiceFieldMaxReplyChars;
+
+  /// AI 助手设置:每小时回答次数上限
+  ///
+  /// In zh, this message translates to:
+  /// **'每小时最多回答几次'**
+  String get aiVoiceFieldMaxTurnsPerHour;
+
+  /// AI 助手设置:每天回答次数上限
+  ///
+  /// In zh, this message translates to:
+  /// **'每天最多回答几次'**
+  String get aiVoiceFieldMaxTurnsPerDay;
+
+  /// AI 助手设置:数字字段的允许范围
+  ///
+  /// In zh, this message translates to:
+  /// **'{min}–{max}'**
+  String aiVoiceRangeHint(int min, int max);
+
+  /// AI 助手设置:数字超出范围
+  ///
+  /// In zh, this message translates to:
+  /// **'要在 {min} 到 {max} 之间'**
+  String aiVoiceRangeError(int min, int max);
+
+  /// AI 助手设置保存成功
+  ///
+  /// In zh, this message translates to:
+  /// **'存好了'**
+  String get aiVoiceSaved;
+
+  /// AI 助手设置保存失败
+  ///
+  /// In zh, this message translates to:
+  /// **'没存上:{reason}'**
+  String aiVoiceSaveFailed(String reason);
+
+  /// 房间座位上 AI 成员名字下方代替「随时聊 / 在忙」的标签
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 助手'**
+  String get aiVoiceSeatStatus;
+
+  /// 房间座位上 AI 成员头像角上的小徽标
+  ///
+  /// In zh, this message translates to:
+  /// **'AI'**
+  String get aiVoiceSeatBadge;
+
+  /// 点 AI 成员头像后的处置菜单里的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'这是 AI 助手。圈主可以在「插件」里把它关掉'**
+  String get aiVoiceModerationHint;
+
+  /// 房间「更多」面板里的 AI 助手格
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 助手'**
+  String get roomMoreAi;
+
+  /// AI 助手说明面板标题
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 助手「{name}」'**
+  String roomMoreAiTitle(String name);
+
+  /// AI 助手说明:叫名字触发
+  ///
+  /// In zh, this message translates to:
+  /// **'叫「{name}」再说问题'**
+  String roomMoreAiHowWake(String name);
+
+  /// AI 助手说明:一直听
+  ///
+  /// In zh, this message translates to:
+  /// **'说完它就会回答'**
+  String get roomMoreAiHowAlways;
+
+  /// AI 助手说明:只回 @它 的文字
+  ///
+  /// In zh, this message translates to:
+  /// **'在聊天里 @{name}'**
+  String roomMoreAiHowPtt(String name);
+
+  /// AI 助手说明面板的隐私提示
+  ///
+  /// In zh, this message translates to:
+  /// **'房间里的语音会发到阿里云百炼 DashScope 识别,回答由 AI 生成,可能出错。'**
+  String get roomMoreAiPrivacy;
+
+  /// 选用途「开会」时的可选开关:顺带装上 AI 助手
+  ///
+  /// In zh, this message translates to:
+  /// **'加上 AI 助手'**
+  String get purposeMeetingAiSwitch;
+
+  /// 「加上 AI 助手」开关的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'开会时叫它名字就能提问;语音会发到阿里云百炼 DashScope'**
+  String get purposeMeetingAiDesc;
+
+  /// E2EE 圈里「加上 AI 助手」不可用的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈开着端到端加密,用不了 AI 助手'**
+  String get purposeMeetingAiE2ee;
+
+  /// 选了「开会」后的确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'就用开会'**
+  String get purposeMeetingAiConfirm;
+
+  /// 进圈隐私告知:打开完整隐私政策的文字链接
+  ///
+  /// In zh, this message translates to:
+  /// **'完整隐私说明'**
+  String get privacySheetFullPolicy;
+
+  /// 按圈的通知等级标题
+  ///
+  /// In zh, this message translates to:
+  /// **'通知我'**
+  String get pushLevelTitle;
+
+  /// 通知等级:全部
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get pushLevelAll;
+
+  /// 等级「全部」说明
+  ///
+  /// In zh, this message translates to:
+  /// **'有人开始专注、房里人多了、圈主叫人,都提醒我'**
+  String get pushLevelAllDesc;
+
+  /// 通知等级:只要被叫
+  ///
+  /// In zh, this message translates to:
+  /// **'只要被叫'**
+  String get pushLevelCalled;
+
+  /// 等级「只要被叫」说明
+  ///
+  /// In zh, this message translates to:
+  /// **'只在圈主「叫大家来」时提醒我'**
+  String get pushLevelCalledDesc;
+
+  /// 通知等级:关
+  ///
+  /// In zh, this message translates to:
+  /// **'关'**
+  String get pushLevelOff;
+
+  /// 等级「关」说明
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈不给我发通知'**
+  String get pushLevelOffDesc;
+
+  /// 圈子菜单里的通知等级行
+  ///
+  /// In zh, this message translates to:
+  /// **'通知我:{level}'**
+  String pushLevelTile(String level);
+
+  /// 设置:推送免打扰
+  ///
+  /// In zh, this message translates to:
+  /// **'推送免打扰'**
+  String get pushQuietTitle;
+
+  /// 推送免打扰关闭时的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'关 —— 任何时间都可能收到圈里的动静'**
+  String get pushQuietOffSub;
+
+  /// 推送免打扰开着时的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{range} 不推送圈里的动静'**
+  String pushQuietOnSub(String range);
+
+  /// 推送免打扰对话框里的开关
+  ///
+  /// In zh, this message translates to:
+  /// **'免打扰时段'**
+  String get pushQuietSwitch;
+
+  /// 推送免打扰对话框说明
+  ///
+  /// In zh, this message translates to:
+  /// **'按这台手机的时区算。圈主叫人、每周小结也会等到时段结束。'**
+  String get pushQuietHint;
+
+  /// 推送免打扰对话框确认
+  ///
+  /// In zh, this message translates to:
+  /// **'好'**
+  String get pushQuietDone;
+
+  /// 圈主:活动推送设置入口
+  ///
+  /// In zh, this message translates to:
+  /// **'活动提醒'**
+  String get pushTriggersTitle;
+
+  /// 圈主:活动推送设置副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'圈里有动静时,提醒不在房里的人'**
+  String get pushTriggersSub;
+
+  /// 触发:开始专注
+  ///
+  /// In zh, this message translates to:
+  /// **'有人开始专注'**
+  String get pushTriggerFocus;
+
+  /// 触发:开始专注的示例文案
+  ///
+  /// In zh, this message translates to:
+  /// **'「阿蛮开始专注了,一起学?」'**
+  String get pushTriggerFocusDesc;
+
+  /// 触发:人数达到 N
+  ///
+  /// In zh, this message translates to:
+  /// **'房里人多了'**
+  String get pushTriggerCrowd;
+
+  /// 触发:人数达到 N 的示例
+  ///
+  /// In zh, this message translates to:
+  /// **'「圈里已经有 {count} 个人在聊」,每次开房只提醒一次'**
+  String pushTriggerCrowdDesc(int count);
+
+  /// 人数阈值行
+  ///
+  /// In zh, this message translates to:
+  /// **'达到几个人时提醒'**
+  String get pushTriggerCrowdN;
+
+  /// 人数阈值
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 人'**
+  String pushTriggerCrowdNValue(int count);
+
+  /// 触发:空房间来人
+  ///
+  /// In zh, this message translates to:
+  /// **'有人走进空房间'**
+  String get pushTriggerArrive;
+
+  /// 触发:空房间来人说明
+  ///
+  /// In zh, this message translates to:
+  /// **'「小鹿来了」—— 默认关,容易吵'**
+  String get pushTriggerArriveDesc;
+
+  /// 恢复按用途的默认触发
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复用途默认'**
+  String get pushTriggersReset;
+
+  /// 未自定义时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'现在是按用途给的默认'**
+  String get pushTriggersPurpose;
+
+  /// 防打扰规则说明
+  ///
+  /// In zh, this message translates to:
+  /// **'每人每圈 {cooldown} 分钟内最多收一条,一天最多 {cap} 条;正在房里或刚离开的人不会收到。'**
+  String pushTriggersLimits(int cooldown, int cap);
+
+  /// 活动推送设置加载中
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取…'**
+  String get pushTriggersLoading;
+
+  /// 活动推送设置保存失败
+  ///
+  /// In zh, this message translates to:
+  /// **'没改成,稍后再试'**
+  String get pushTriggersFailed;
+
+  /// 圈主在房里一键叫人
+  ///
+  /// In zh, this message translates to:
+  /// **'叫大家来'**
+  String get summonButton;
+
+  /// 叫人冷却中
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分钟后可以再叫'**
+  String summonCooldown(int minutes);
+
+  /// 叫人冷却中(按钮上的短字)
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分'**
+  String summonCooldownShort(int minutes);
+
+  /// 叫人成功
+  ///
+  /// In zh, this message translates to:
+  /// **'已经叫了 {count} 个人'**
+  String summonSent(int count);
+
+  /// 叫人:没有可推送的人
+  ///
+  /// In zh, this message translates to:
+  /// **'现在没有能叫到的人(有人关了通知或在免打扰)'**
+  String get summonNobody;
+
+  /// 叫人失败
+  ///
+  /// In zh, this message translates to:
+  /// **'没叫成,稍后再试'**
+  String get summonFailed;
+
+  /// 叫人确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'叫大家来?'**
+  String get summonConfirmTitle;
+
+  /// 叫人确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'不在房里的人会收到一条「{name} 叫你来圈里」。{minutes} 分钟内只能叫一次。'**
+  String summonConfirmBody(String name, int minutes);
+
+  /// 出勤卡:全勤
+  ///
+  /// In zh, this message translates to:
+  /// **'本轮 {count} 人全勤 🎉'**
+  String focusRoundAllIn(int count);
+
+  /// 出勤卡:只有一个人且全勤
+  ///
+  /// In zh, this message translates to:
+  /// **'本轮全勤 🎉'**
+  String get focusRoundSolo;
+
+  /// 出勤卡:部分全勤
+  ///
+  /// In zh, this message translates to:
+  /// **'{full}/{total} 全勤'**
+  String focusRoundPartial(int full, int total);
+
+  /// 出勤卡:谁离开了多久
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}离开 {minutes} 分钟'**
+  String focusRoundAway(String name, int minutes);
+
+  /// 出勤卡:离开不到一分钟
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}离开了一会儿'**
+  String focusRoundAwayBrief(String name);
+
+  /// 出勤卡:还有几人没全勤
+  ///
+  /// In zh, this message translates to:
+  /// **'等 {count} 人'**
+  String focusRoundMore(int count);
+
+  /// 出勤卡标题
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {round} 轮结束'**
+  String focusRoundTitle(int round);
+
+  /// 出勤卡关闭按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get focusRoundDismiss;
+
+  /// 连续打卡徽标的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'连续 {days} 天完成专注'**
+  String focusStreakTooltip(int days);
+
+  /// 周报卡标题
+  ///
+  /// In zh, this message translates to:
+  /// **'上周专注小结'**
+  String get focusWeeklyTitle;
+
+  /// 周报:本人时长
+  ///
+  /// In zh, this message translates to:
+  /// **'你专注了 {time}'**
+  String focusWeeklyTime(String time);
+
+  /// 周报:名次
+  ///
+  /// In zh, this message translates to:
+  /// **'圈里第 {rank} 名 · 共 {of} 人'**
+  String focusWeeklyRank(int rank, int of);
+
+  /// 周报:连续天数
+  ///
+  /// In zh, this message translates to:
+  /// **'连续 {days} 天 🔥'**
+  String focusWeeklyStreak(int days);
+
+  /// 周报:全圈时长
+  ///
+  /// In zh, this message translates to:
+  /// **'全圈一共 {time}'**
+  String focusWeeklyTotal(String time);
+
+  /// 周报卡关闭
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get focusWeeklyDismiss;
 }
 
 class _AppLocalizationsDelegate

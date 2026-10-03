@@ -6,6 +6,7 @@
 import { TokenBuckets } from './ratelimit.js';
 import { TEXT_MAX, ID_MAX, PAGE_MAX, PAGE_DEFAULT, validBlob } from './transcripts.js';
 import { BOT_NAME_MAX } from './bot_tokens.js';
+import { isAiUserId } from './ai_voice_supervisor.js';
 
 const RELAY_BATCH = 50; // 补推时一条 WS 消息最多带几条密文(每条 ≤8 KB)
 
@@ -41,7 +42,7 @@ export function createTranscriptWs(d) {
 
   /// 给一条连接补推该圈的离线密文(分批)
   async function deliverPending(ws, session, circleId) {
-    if (!session.userId) return;
+    if (!session.userId || isAiUserId(session.userId)) return;
     const items = await d.store.pending(circleId, session.userId);
     for (let i = 0; i < items.length; i += RELAY_BATCH) {
       d.send(ws, { t: 'transcript_relay', circleId, items: items.slice(i, i + RELAY_BATCH) });
@@ -67,6 +68,8 @@ export function createTranscriptWs(d) {
 
   /// 进房后:登记为该圈成员(离线队列收件人),再补推
   async function onJoin(ws, session, circleId) {
+    // AI 语音助手(u_ai_*)不是收件人:不进离线队列名单,也不补推密文
+    if (isAiUserId(session.userId)) return;
     try {
       await d.store.addMember(circleId, session.userId);
       // circle 模式的连接从 hello 起就被钉在这个圈上,在线推送一直收得到;hello 时已补推过就不重复
@@ -192,7 +195,7 @@ export function createTranscriptWs(d) {
         for (const other of d.sessionsOfCircle(circleId)) {
           if (other === ws) continue;
           const s = other._laresSession;
-          if (!s?.authed || !s.userId || !d.circleAllowed(s, circleId)) continue;
+          if (!s?.authed || !s.userId || isAiUserId(s.userId) || !d.circleAllowed(s, circleId)) continue;
           d.send(other, out);
         }
         return true;

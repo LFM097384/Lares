@@ -75,7 +75,7 @@ export const v1Auth = (pass, cid) => (nonce, uid) => ({ mode: 'circle', circleId
 /// v2 证明(注册圈);extra 可带 register / ownerKey
 export const v2Auth = (verifier, cid, extra = {}) => (nonce, uid) => ({ mode: 'circle', v: 2, circleId: cid, nonce, proof: hmac(verifier, `${nonce}:${uid}:${cid}`), ...extra });
 
-export function connect(port, { userId = 'u_' + randomBytes(3).toString('hex'), deviceId, name, auth } = {}) {
+export function connect(port, { userId = 'u_' + randomBytes(3).toString('hex'), deviceId, name, auth, helloExtra } = {}) {
   return new Promise((resolve) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     const inbox = [];
@@ -110,7 +110,7 @@ export function connect(port, { userId = 'u_' + randomBytes(3).toString('hex'), 
       let m; try { m = JSON.parse(raw); } catch { return; }
       if (m.t === 'challenge') {
         const a = await auth(m.nonce, userId);
-        ws.send(JSON.stringify({ t: 'hello', userId, deviceId: deviceId ?? 'd-' + userId, name: name ?? userId, platform: 'windows', auth: a }));
+        ws.send(JSON.stringify({ t: 'hello', userId, deviceId: deviceId ?? 'd-' + userId, name: name ?? userId, platform: 'windows', auth: a, ...(helloExtra ? helloExtra(m.nonce, userId) : {}) }));
         return;
       }
       const w = waiters.find((x) => x.pred(m));

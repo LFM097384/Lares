@@ -1,0 +1,37 @@
+# plugin_focus_e2e  2026-10-02T20:03:19.520Z
+服务端 :61061  webhook 接收器 :61062  DATA_DIR C:\Users\Liu_F\AppData\Local\Temp\lares-pf-e2e-pqQKEh
+  ✓ 服务端启动
+
+[1] 注册圈子 c_nimysdpldq7nl7w4xdn74k7z2u
+
+[2] 安装 docs/examples/plugin-hello(webhook → 本机)
+  ✓ plugin_installed com.example.hello@1.0.0
+  token plg_aWUqD_…  secret whsec_DaRj…
+
+[3] 安装内置 lares.focus
+  ✓ 内置插件 专注学习
+
+[4] 两个成员进房,Alice 离开 / 回来
+  pong.now 偏差 0 ms
+  ✓ Bob 收到 focus_notice away(Alice)
+  ✓ Bob 收到 back,awayMs=1515
+  ✓ 共享状态 rev=1
+
+[5] webhook 投递与签名
+  HMAC✓ installed    evt_d02c8e83e47b8983e73103c5 {"token":"plg_aWUqD_snsGtgHR_qt3_xxJbYT27FC-jM-u860TBkeB8"}
+  HMAC✓ join         evt_db9492dde6141f6cf4f1fd8d {"circleId":"c_nimysdpldq7nl7w4xdn74k7z2u","userId":"u_alice","name":"Alice","st
+  HMAC✓ join         evt_ceac014d7a26c2aec5708af8 {"circleId":"c_nimysdpldq7nl7w4xdn74k7z2u","userId":"u_bob","name":"Bob","status
+  HMAC✓ plugin_state evt_0e075d0770c9602ad17a5ca0 {"circleId":"c_nimysdpldq7nl7w4xdn74k7z2u","pluginId":"com.example.hello","state
+  ✓ 收到 installed + 2×join + plugin_state(共 4 条)
+  ✓ installed 事件携带插件 token
+  ✓ 未订阅 focus 事件 → 不投
+
+[6] 插件 token 查 /api/v1/focus
+  ✓ HTTP 200 installed=true enabled=true
+  Alice  state=focus focus=1.8s away=1.5s
+  Bob    state=focus focus=3.3s away=0.0s
+  ✓ Alice 离开时长已记录
+  排行榜(today): Bob 3.3s, Alice 1.8s
+  ✓ 插件 token 身份 = "Hello"
+
+结果:PASS  12 通过 0 失败  用时 3783 ms

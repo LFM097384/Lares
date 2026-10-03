@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../theme/tokens.dart';
+import 'ai_voice_settings.dart';
 import 'plugin_models.dart';
 import 'plugin_service.dart';
 
@@ -24,12 +25,16 @@ class PluginOwnerTile extends StatelessWidget {
     required this.circleId,
     this.onBeforeOpen,
     this.focusSettingsBuilder,
+    this.e2ee = false,
   });
 
   final PluginService service;
   final String circleId;
   final VoidCallback? onBeforeOpen;
   final FocusSettingsBuilder? focusSettingsBuilder;
+
+  /// 本圈开着端到端加密:AI 助手装不了 / 开不了。
+  final bool e2ee;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +53,7 @@ class PluginOwnerTile extends StatelessWidget {
             service: service,
             circleId: circleId,
             focusSettingsBuilder: focusSettingsBuilder,
+            e2ee: e2ee,
           ),
         ));
       },
@@ -74,11 +80,15 @@ class PluginsScreen extends StatefulWidget {
     required this.service,
     required this.circleId,
     this.focusSettingsBuilder,
+    this.e2ee = false,
   });
 
   final PluginService service;
   final String circleId;
   final FocusSettingsBuilder? focusSettingsBuilder;
+
+  /// 本圈开着端到端加密:AI 助手不能装 / 开(说明原因)。
+  final bool e2ee;
 
   @override
   State<PluginsScreen> createState() => _PluginsScreenState();
@@ -89,6 +99,7 @@ class _PluginsScreenState extends State<PluginsScreen> {
 
   PluginService get _s => widget.service;
   String get _cid => widget.circleId;
+  bool get _e2ee => widget.e2ee;
 
   @override
   void initState() {
@@ -161,6 +172,7 @@ class _PluginsScreenState extends State<PluginsScreen> {
   Future<void> _addFlow() async {
     final t = AppLocalizations.of(context);
     final installed = _s.plugin(_cid, focusPluginId) != null;
+    final aiInstalled = _s.plugin(_cid, aiVoicePluginId) != null;
     final choice = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -176,6 +188,18 @@ class _PluginsScreenState extends State<PluginsScreen> {
                   : t.pluginFocusDesc),
               enabled: !installed,
               onTap: () => Navigator.pop(ctx, 'focus'),
+            ),
+            ListTile(
+              key: const ValueKey('plugin-add-ai'),
+              leading: const Icon(Icons.smart_toy_outlined),
+              title: Text(t.aiVoicePluginName),
+              subtitle: Text(aiInstalled
+                  ? t.pluginAlreadyInstalled
+                  : _e2ee
+                      ? t.aiVoiceE2eeBlocked
+                      : t.aiVoicePluginDesc),
+              enabled: !aiInstalled && !_e2ee,
+              onTap: () => Navigator.pop(ctx, 'ai'),
             ),
             ListTile(
               key: const ValueKey('plugin-add-url'),
@@ -197,6 +221,8 @@ class _PluginsScreenState extends State<PluginsScreen> {
     switch (choice) {
       case 'focus':
         await _install(pluginId: focusPluginId);
+      case 'ai':
+        await _install(pluginId: aiVoicePluginId);
       case 'url':
         final url = await _askText(t.pluginAddFromUrl, t.pluginManifestUrlHint,
             multiline: false);
@@ -239,7 +265,10 @@ class _PluginsScreenState extends State<PluginsScreen> {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (ctx) => p.id == focusPluginId && b != null
           ? b(ctx, _s, _cid, p)
-          : PluginConfigEditor(service: _s, circleId: _cid, plugin: p),
+          : p.id == aiVoicePluginId
+              ? AiVoiceSettingsPage(
+                  service: _s, circleId: _cid, plugin: p, e2ee: _e2ee)
+              : PluginConfigEditor(service: _s, circleId: _cid, plugin: p),
     ));
   }
 
@@ -318,9 +347,26 @@ class _PluginsScreenState extends State<PluginsScreen> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis),
                         value: p.enabled,
-                        onChanged:
-                            _busy.contains(p.id) ? null : (v) => _toggle(p, v),
+                        // E2EE 圈不给开 AI 助手(服务器拿不到明文音频);已开着的仍可关
+                        onChanged: _busy.contains(p.id) ||
+                                (p.id == aiVoicePluginId && _e2ee && !p.enabled)
+                            ? null
+                            : (v) => _toggle(p, v),
                       ),
+                      if (p.id == aiVoicePluginId && _e2ee)
+                        Padding(
+                          key: const ValueKey('plugin-ai-e2ee-note'),
+                          padding: const EdgeInsets.fromLTRB(
+                              LaresSpacing.md, 0, LaresSpacing.md, 0),
+                          child: Text(
+                            t.aiVoiceE2eeBlocked,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: Theme.of(context).colorScheme.error),
+                          ),
+                        ),
                       OverflowBar(
                         alignment: MainAxisAlignment.end,
                         children: [
@@ -330,6 +376,7 @@ class _PluginsScreenState extends State<PluginsScreen> {
                             child: Text(t.pluginDetails),
                           ),
                           if (p.id == focusPluginId ||
+                              p.id == aiVoicePluginId ||
                               p.settingsSchema != null)
                             TextButton(
                               key: ValueKey('plugin-settings-${p.id}'),

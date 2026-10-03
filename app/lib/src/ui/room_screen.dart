@@ -8,10 +8,13 @@ import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
 import '../focus/focus_lock.dart';
 import '../focus/focus_service.dart';
+import '../focus/focus_social_widgets.dart';
 import '../focus/focus_widgets.dart';
 import '../moderation/block_store.dart';
 import '../recording/recording_consent.dart';
 import '../recording/recording_indicator.dart';
+import '../state/ai_member.dart';
+import '../state/circle_features.dart';
 import '../state/location_share_stub.dart'
     if (dart.library.io) '../state/location_share.dart';
 import '../state/mic_notice.dart';
@@ -24,10 +27,10 @@ import 'caption_panel.dart';
 import 'chat_panel.dart';
 import 'map_panel.dart';
 import '../transcript/transcript_scope.dart';
-import '../plugins/plugin_panel.dart';
 import '../plugins/plugin_scope.dart';
 import '../plugins/plugin_service.dart';
 import 'moderation_menus.dart';
+import 'room_more_sheet.dart';
 import 'widgets/avatar_orb.dart';
 import 'widgets/e2ee_badge.dart';
 
@@ -116,6 +119,55 @@ class _RoomScreenState extends State<RoomScreen> {
 
   FocusLock? get _lock => widget.focusLock ?? _ownLock;
 
+  // ── 圈级功能开关(features-purpose-contract §1)──
+  /// 上一次看到的本圈功能;只在「开 → 关」那一下动手,不反复折腾。
+  CircleFeatures? _lastFeatures;
+  RoomController? _boundController;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindController();
+  }
+
+  void _bindController() {
+    if (identical(_boundController, widget.controller)) return;
+    _boundController?.removeListener(_onFeatures);
+    _boundController = widget.controller..addListener(_onFeatures);
+    _lastFeatures = null;
+    _onFeatures();
+  }
+
+  CircleFeatures _currentFeatures() {
+    final cid = widget.controller.circleId;
+    return cid == null
+        ? CircleFeatures.legacy
+        : widget.controller.featuresOf(cid);
+  }
+
+  /// 圈主把某项功能关掉时,本机跟着收:地图退回房间、不再看字幕。
+  /// 「替别人出字幕」由 CaptionWiring 把 available 跟着功能开关一起收掉
+  /// (服务器 cap_token 也会回 feature_off)—— 不在这里 stopForSession:
+  /// 那是用户自己的选择,圈主再打开时不该还粘着。
+  /// 一律放到帧后做:这里可能在 initState / 别的 notify 途中被调到。
+  void _onFeatures() {
+    final f = _currentFeatures();
+    final prev = _lastFeatures;
+    _lastFeatures = f;
+    if (!mounted) return;
+    final captions = widget.captions;
+    final bool dropCaptions =
+        captions != null && !f.captions && (prev == null || prev.captions);
+    if (f.map && !dropCaptions) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!f.map && _showMap) setState(() => _showMap = false);
+      if (dropCaptions && captions.wantCaptions) {
+        captions.setWantCaptions(false);
+      }
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -126,6 +178,7 @@ class _RoomScreenState extends State<RoomScreen> {
   void didUpdateWidget(RoomScreen old) {
     super.didUpdateWidget(old);
     _bindFocus();
+    _bindController();
   }
 
   void _bindFocus() {
@@ -156,6 +209,7 @@ class _RoomScreenState extends State<RoomScreen> {
   @override
   void dispose() {
     _focus?.removeListener(_onFocus);
+    _boundController?.removeListener(_onFeatures);
     _lifecycle?.dispose();
     // 离开房间:锁一定要解开,不能把人困在一个已经没在开的房间里
     final lock = _lock;
@@ -181,7 +235,10 @@ class _RoomScreenState extends State<RoomScreen> {
     final double bottomSafe = keyboardOpen
         ? 0
         : MediaQuery.paddingOf(context).bottom;
-    final bool mapOn = _showMap && widget.locationShare != null;
+    final CircleFeatures features = _currentFeatures();
+    final bool mapOn =
+        _showMap && widget.locationShare != null && features.map;
+    final RoomMoreModel more = _moreModel();
     return Scaffold(
       body: Stack(
         children: [
@@ -209,20 +266,29 @@ class _RoomScreenState extends State<RoomScreen> {
                     _RoomHeader(
                       controller: controller,
                       circleName: widget.circleName,
-                      showMap: _showMap,
-                      onToggleMap: widget.locationShare == null || focusing
-                          ? null
-                          : () => setState(() => _showMap = !_showMap),
                       e2ee: widget.e2ee,
-                      plugins: focusing
-                          ? null
-                          : widget.plugins ?? PluginScope.maybeOf(context),
-                      chat: chat,
-                      captions: widget.captions,
+                      onCloseMap: mapOn
+                          ? () => setState(() => _showMap = false)
+                          : null,
+                      // 圈主的「叫大家来」(§9.4):不是圈主时自己不占位
+                      trailing: focus != null && controller.circleId != null
+                          ? SummonButton(
+                              focus: focus,
+                              circleId: controller.circleId!,
+                              myName: controller.userName,
+                            )
+                          : null,
                     ),
                     // 本机的语音正在出本机(云端识别):常驻,可一键停
                     if (widget.captions != null)
                       CaptionProvidingBanner(captions: widget.captions!),
+                    // 本圈开着转写记录:一行安静的常驻小字(上面横幅在喊时不重复)
+                    RoomTranscriptNotice(
+                      controller: controller,
+                      circleName: widget.circleName,
+                      captions: widget.captions,
+                      transcripts: TranscriptScope.maybeOf(context),
+                    ),
                     // 「你以为加密了但其实没有」值得一整条横幅,不是一个小角标。
                     if (widget.e2ee != null)
                       _E2EERoomBanner(
@@ -261,6 +327,8 @@ class _RoomScreenState extends State<RoomScreen> {
                             keyboardOpen ||
                             MediaQuery.sizeOf(context).height < 700,
                       ),
+                    // 专注社交:本轮出勤卡 + 待看的周报卡(§10)
+                    if (focus != null) FocusSocialCards(focus: focus),
                     if (wide)
                       Expanded(
                         child: Row(
@@ -338,9 +406,7 @@ class _RoomScreenState extends State<RoomScreen> {
                               if (!keyboardOpen)
                                 _ControlBar(
                                   controller: controller,
-                                  voiceNotes: widget.voiceNotes,
-                                  showVoiceNote: !focusing,
-                                  captions: widget.captions,
+                                  more: more,
                                   focus: focus,
                                   lock: _lock,
                                   // 聊天展开/收起键从输入栏挪到这里:与离开/字幕
@@ -367,6 +433,25 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 「更多」面板的输入。番茄钟专注段的收起逻辑在 [RoomMoreModel.items] 里。
+  RoomMoreModel _moreModel() {
+    return RoomMoreModel(
+      controller: widget.controller,
+      circleName: widget.circleName,
+      captions: widget.captions,
+      voiceNotes: widget.voiceNotes,
+      locationShare: widget.locationShare,
+      plugins: widget.plugins ?? PluginScope.maybeOf(context),
+      chat: widget.chat,
+      transcripts: TranscriptScope.maybeOf(context),
+      focus: _focus,
+      showMap: _showMap,
+      onToggleMap: widget.locationShare == null
+          ? null
+          : () => setState(() => _showMap = !_showMap),
     );
   }
 
@@ -412,9 +497,7 @@ class _RoomScreenState extends State<RoomScreen> {
             padding: EdgeInsets.only(bottom: bottomInset),
             child: _ControlBar(
               controller: controller,
-              voiceNotes: widget.voiceNotes,
-              showVoiceNote: !(_focus?.focusing ?? false),
-              captions: widget.captions,
+              more: _moreModel(),
               focus: _focus,
               lock: _lock,
             ),
@@ -1116,22 +1199,20 @@ class _RoomHeader extends StatelessWidget {
   const _RoomHeader({
     required this.controller,
     required this.circleName,
-    this.showMap = false,
-    this.onToggleMap,
     this.e2ee,
-    this.plugins,
-    this.chat,
-    this.captions,
+    this.onCloseMap,
+    this.trailing,
   });
 
   final RoomController controller;
   final String circleName;
-  final bool showMap;
-  final VoidCallback? onToggleMap;
   final E2EEController? e2ee;
-  final PluginService? plugins;
-  final ChatService? chat;
-  final CaptionController? captions;
+
+  /// 头部右侧的附加按钮(圈主「叫大家来」)。
+  final Widget? trailing;
+
+  /// 地图铺着时非 null:头部出一个「回到房间」。
+  final VoidCallback? onCloseMap;
 
   @override
   Widget build(BuildContext context) {
@@ -1140,7 +1221,8 @@ class _RoomHeader extends StatelessWidget {
     return ListenableBuilder(
       listenable: Listenable.merge([controller, e2ee]),
       builder: (context, _) {
-        final count = controller.members.length;
+        // AI 语音助手(u_ai_*)不是人:不算进「几个人在」
+        final count = humanMemberCount(controller.members);
         // 只认「本次通话」的权威结论,且必须与当前圈子匹配 ——
         // 圈子对不上一律返回 null,绝不把上一个圈的状态显示给这一个圈。
         // 注册圈的加密由圈主统一定:进房后照样以本次通话的权威结论为准;
@@ -1151,6 +1233,8 @@ class _RoomHeader extends StatelessWidget {
             (cid != null && e2ee != null && e2ee!.isCircleManaged(cid)
                 ? e2ee!.previewStatusFor(cid)
                 : null);
+        final CirclePurposeInfo? purpose =
+            cid == null ? null : controller.circlePurpose[cid];
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             LaresSpacing.lg,
@@ -1186,6 +1270,20 @@ class _RoomHeader extends StatelessWidget {
                         ],
                       ],
                     ),
+                    // 用途名牌:一行淡字,不抢圈名
+                    if (purpose != null)
+                      Text(
+                        [
+                          if (purpose.icon != null) purpose.icon!,
+                          purpose.name,
+                        ].join(' '),
+                        key: const ValueKey('room-purpose'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     Text(
                       switch (controller.phase) {
                         RoomPhase.joining =>
@@ -1208,43 +1306,23 @@ class _RoomHeader extends StatelessWidget {
                   ],
                 ),
               ),
-              // 插件入口:本圈有启用且带网页入口的插件才出现
-              if (cid != null && plugins != null)
-                RoomPluginsButton(
-                  service: plugins!,
-                  controller: controller,
-                  circleId: cid,
-                  circleName: circleName,
-                  chat: chat,
-                  captions: captions,
-                  transcripts: TranscriptScope.maybeOf(context),
-                ),
-              // 转写记录入口:圈主开了才有(transcript-bot-contract)
-              if (cid != null &&
-                  controller.isTranscriptOn(cid) &&
-                  TranscriptScope.maybeOf(context) != null)
+              if (trailing != null && controller.phase == RoomPhase.inRoom)
+                trailing!,
+              // 地图铺着时留一个「回到房间」:进地图走「更多」,出来不该再绕一圈
+              if (onCloseMap != null)
                 IconButton(
-                  key: const ValueKey('room-transcript-history'),
-                  tooltip: t.transcriptTitle,
-                  icon: const Icon(Icons.subject_rounded),
-                  onPressed: () => openTranscriptHistory(
-                    context,
-                    service: TranscriptScope.maybeOf(context)!,
-                    circleId: cid,
-                    circleName: circleName,
-                    isOwner: controller.isOwnerOf(cid),
+                  key: const ValueKey('room-map-close'),
+                  tooltip: t.roomBackToRoom,
+                  onPressed: onCloseMap,
+                  icon: const Icon(
+                    Icons.groups_rounded,
+                    color: LaresColors.ember,
                   ),
                 ),
-              if (onToggleMap != null)
-                IconButton(
-                  tooltip: showMap ? t.roomBackToRoom : t.roomLocationMap,
-                  onPressed: onToggleMap,
-                  icon: Icon(
-                    showMap ? Icons.groups_rounded : Icons.map_outlined,
-                    color: showMap ? LaresColors.ember : null,
-                  ),
-                ),
-              if (controller.lastJoinLatency != null)
+              // 开发者读数:进房耗时。圈主开了「开发者读数」才显示
+              if (controller.lastJoinLatency != null &&
+                  (cid == null ||
+                      controller.isFeatureOn(cid, CircleFeature.devTools)))
                 Tooltip(
                   message: t.roomJoinLatencyTooltip,
                   child: Text(
@@ -1281,56 +1359,6 @@ class _E2EERoomBanner extends StatelessWidget {
           return const SizedBox.shrink();
         }
         return E2EEWarningBanner(status: status);
-      },
-    );
-  }
-}
-
-/// 语音便签按钮:红点=有待听;长按录音时变色提示
-class _VoiceNoteButton extends StatelessWidget {
-  const _VoiceNoteButton({this.voiceNotes});
-
-  final VoiceNotesController? voiceNotes;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final vn = voiceNotes;
-    if (vn == null) {
-      return const IconButton.filledTonal(
-        onPressed: null,
-        icon: Icon(Icons.voicemail_rounded),
-      );
-    }
-    return ListenableBuilder(
-      listenable: vn,
-      builder: (context, _) {
-        final count = vn.pendingCount;
-        return GestureDetector(
-          onLongPressStart: (_) => vn.startRecording(),
-          onLongPressEnd: (_) => vn.stopAndSend(),
-          child: Badge(
-            isLabelVisible: count > 0,
-            label: Text('$count'),
-            child: IconButton.filledTonal(
-              tooltip: count > 0 ? t.noteListen(count) : t.noteRecordHint,
-              style: vn.recording
-                  ? IconButton.styleFrom(
-                      backgroundColor: LaresColors.ember,
-                      foregroundColor: const Color(0xFF1A120C),
-                    )
-                  : null,
-              onPressed: count > 0 ? vn.playAll : null,
-              icon: Icon(
-                vn.recording
-                    ? Icons.mic_rounded
-                    : vn.playing
-                    ? Icons.volume_up_rounded
-                    : Icons.voicemail_rounded,
-              ),
-            ),
-          ),
-        );
       },
     );
   }
@@ -1395,10 +1423,16 @@ class _MemberGrid extends StatelessWidget {
             // 矮屏(360×640 + 字幕横幅 + 计时卡 + 字幕带)放不下一整排大座位:
             // 名字会被网格裁掉。这时换成小一号的球、只留名字(状态由色环表达),
             // 保证至少一整排座位连名字完整可见。
-            final double cellW =
-                _gridCellWidth(box.maxWidth - 2 * LaresSpacing.lg);
-            final bool tight =
-                box.maxHeight < cellW / _gridChildAspect + 2 * LaresSpacing.lg;
+            // 判断要看「所有排」放不放得下,不只是第一排:专注出勤卡等横幅
+            // 一多,第二排大座位会被视口截断,名字落在可见区外。
+            final double innerW = box.maxWidth - 2 * LaresSpacing.lg;
+            final double cellW = _gridCellWidth(innerW);
+            final int rows =
+                (members.length / _gridColumns(innerW)).ceil().clamp(1, 1 << 20);
+            final double fullH = rows * (cellW / _gridChildAspect) +
+                (rows - 1) * LaresSpacing.md +
+                2 * LaresSpacing.lg;
+            final bool tight = box.maxHeight < fullH;
             return GridView.builder(
               padding: tight
                   ? const EdgeInsets.symmetric(
@@ -1490,8 +1524,14 @@ Widget _seat(
     onLongPress:
         openMenu ??
         (isMe || !canKick ? null : () => _confirmKick(context, controller, m)),
-    child: withFocusBadge(
-      seat: blocked ? _BlockedOverlay(child: orb) : orb,
+    child: withStreakBadge(
+      seat: withFocusBadge(
+        seat: blocked ? _BlockedOverlay(child: orb) : orb,
+        focus: focus,
+        userId: m.userId,
+        orbBox: size + 16,
+        compact: compact,
+      ),
       focus: focus,
       userId: m.userId,
       orbBox: size + 16,
@@ -1550,56 +1590,75 @@ class _BlockedOverlay extends StatelessWidget {
   }
 }
 
-/// 底座最下一排主控件:离开 · 字幕 · 静音(主角) · 语音便签。
+/// 底座最下一排主控件:离开 · 更多 · 静音(主角) · 聊天。
 ///
-/// 从前字幕开关在顶栏、控件在另一块面板里;现在「和声音有关的开关」
-/// 都在拇指够得着的这一排,与输入框同在一块底座上。
+/// 默认房间只有语音 + 文字聊天;字幕、便签、地图、转写、插件这些可选功能
+/// 都收在「更多」后面(features-purpose-contract §1),这一排因此永远很短,
+/// 麦克风永远在正中。
 class _ControlBar extends StatelessWidget {
   const _ControlBar({
     required this.controller,
-    this.voiceNotes,
-    this.showVoiceNote = true,
-    this.captions,
+    required this.more,
     this.trailing,
     this.focus,
     this.lock,
   });
 
   final RoomController controller;
-  final VoiceNotesController? voiceNotes;
 
-  /// 专注插件开着时:静音键右侧换成「排行榜 + 锁定专注 / 聊天 / 便签」两颗键,
+  /// 「更多」面板的输入;面板会是空的就不出「更多」键。
+  final RoomMoreModel more;
+
+  /// 专注插件开着时:静音键右侧换成「排行榜 + 锁定专注 / 聊天」,
   /// 静音键始终在正中。
   final FocusService? focus;
   final FocusLock? lock;
 
-  /// 专注期收起语音便签(便签是「回头再听」的分心入口)。
-  final bool showVoiceNote;
-  final CaptionController? captions;
-
-  /// 静音键右侧的第二颗键(窄屏 = 聊天展开/收起)。有它时左右各两颗。
+  /// 静音键右侧的键(窄屏 = 聊天展开/收起)。
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    more.ensureLoaded();
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable?>[controller, focus, lock]),
+      listenable: Listenable.merge(<Listenable?>[
+        more.listenable,
+        focus,
+        lock,
+      ]),
       builder: (context, _) {
-        final bool captionsOn =
-            captions != null && controller.captionsAvailable;
         final FocusService? f = focus;
         final bool focusOn = f != null && f.active;
-        // 右侧第二颗:专注段且能锁(Android)→ 锁;否则聊天开关;再否则便签
+        final bool hasMore = more.hasAnything;
+        final Widget leave = IconButton.filledTonal(
+          tooltip: t.roomLeave,
+          onPressed: controller.leave,
+          icon: const Icon(Icons.call_end_rounded),
+        );
+        final Widget? moreButton = hasMore ? RoomMoreButton(model: more) : null;
+        // 右侧第二颗:专注段且能锁(Android)→ 锁;否则聊天开关
         final Widget? focusSecond = !focusOn
             ? null
             : (lock != null && lock!.supported && f.focusing)
             ? FocusLockButton(lock: lock!)
-            : trailing ??
-                  (showVoiceNote
-                      ? _VoiceNoteButton(voiceNotes: voiceNotes)
-                      : null);
+            : trailing;
+
+        final List<Widget> left;
+        final List<Widget> right;
+        if (focusOn) {
+          left = [leave, ?moreButton];
+          right = [FocusBoardButton(focus: f), ?focusSecond];
+        } else if (trailing != null) {
+          // 离开 · 更多 | 麦 | 聊天
+          left = [leave, ?moreButton];
+          right = [trailing!];
+        } else {
+          // 没有聊天:离开 | 麦 | 更多 —— 一边一颗,天然对称
+          left = [leave];
+          right = [?moreButton];
+        }
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             LaresSpacing.md,
@@ -1608,16 +1667,7 @@ class _ControlBar extends StatelessWidget {
             LaresSpacing.md,
           ),
           child: _balancedRow(
-            left: [
-              // 离开:低调,无仪式感
-              IconButton.filledTonal(
-                tooltip: t.roomLeave,
-                onPressed: controller.leave,
-                icon: const Icon(Icons.call_end_rounded),
-              ),
-              // 字幕:与离开同级的次要键;服务器没配字幕就不出现
-              if (captionsOn) _CaptionsControl(captions: captions!),
-            ],
+            left: left,
             // 静音/说话:绝对主角
             center: SizedBox(
               width: _micSize,
@@ -1639,16 +1689,9 @@ class _ControlBar extends StatelessWidget {
                 ),
               ),
             ),
-            right: focusOn
-                ? [FocusBoardButton(focus: f), ?focusSecond]
-                : [
-                    // 语音便签:点=听留言,长按=留一条(≤15s)
-                    if (showVoiceNote)
-                      _VoiceNoteButton(voiceNotes: voiceNotes),
-                    ?trailing,
-                  ],
-            // 专注时两侧键数常常不等(没字幕 / 没锁):仍用等宽两半把麦克风钉在正中
-            pinCenter: focusOn,
+            right: right,
+            // 两侧键数不等时(2 对 1 / 1 对 0)仍用等宽两半把麦克风钉在正中
+            pinCenter: focusOn || left.length != right.length,
           ),
         );
       },
@@ -1695,33 +1738,6 @@ Widget _balancedRow({
   );
 }
 
-/// 控件排里的字幕开关:外观与离开/便签同为 tonal 圆键,开着时余烬色。
-class _CaptionsControl extends StatelessWidget {
-  const _CaptionsControl({required this.captions});
-
-  final CaptionController captions;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: captions,
-      builder: (context, _) {
-        final bool on = captions.wantCaptions;
-        return IconButtonTheme(
-          data: IconButtonThemeData(
-            style: IconButton.styleFrom(
-              backgroundColor: on
-                  ? LaresColors.emberSoft
-                  : Theme.of(context).colorScheme.secondaryContainer,
-            ),
-          ),
-          child: CaptionToggleButton(captions: captions, available: true),
-        );
-      },
-    );
-  }
-}
-
 // ── 房间布局常量 ──
 
 /// 窗口宽到这个值起,聊天改成右侧常驻侧栏(语音舞台在左)。
@@ -1746,8 +1762,13 @@ const double _tightSeatHeight = 98;
 /// crossAxisSpacing: sm) 相同的列宽算法,用来判断一排大座位放不放得下。
 double _gridCellWidth(double width) {
   if (width <= 0) return 140;
-  final int cols = (width / (140 + LaresSpacing.sm)).ceil().clamp(1, 1 << 20);
+  final int cols = _gridColumns(width);
   return (width - LaresSpacing.sm * (cols - 1)) / cols;
+}
+
+int _gridColumns(double width) {
+  if (width <= 0) return 1;
+  return (width / (140 + LaresSpacing.sm)).ceil().clamp(1, 1 << 20);
 }
 const double _stripHeight = 84;
 const double _stripHeightNoNames = 64;

@@ -56,6 +56,11 @@ class SettingsStore extends ChangeNotifier {
   static const _kPushEnabled = 'lares.pushEnabled';
   static const _kPushMutedCircles = 'lares.pushMutedCircles';
   static const _kPushPermissionAsked = 'lares.pushPermissionAsked';
+  // 活动推送(push-triggers):按圈「只要被叫」名单 + 推送免打扰时段(分钟,本地时间)
+  static const _kPushCalledOnly = 'lares.pushCalledOnlyCircles';
+  static const _kPushQuietOn = 'lares.pushQuietOn';
+  static const _kPushQuietStart = 'lares.pushQuietStart';
+  static const _kPushQuietEnd = 'lares.pushQuietEnd';
 
   /// 仅 WiFi 下高音质(移动网络自动降码率省流量)
   bool wifiOnlyHq = true;
@@ -96,6 +101,14 @@ class SettingsStore extends ChangeNotifier {
   /// 单独静音了通知的圈子 id。存「静音的」而不是「开着的」:
   /// 新加的圈子默认有通知,不必每加一个圈再去打开一次。
   Set<String> pushMutedCircles = <String>{};
+
+  /// 「只要被叫」的圈子:只收圈主的「叫大家来」,不收专注 / 人多 / 有人来。
+  Set<String> pushCalledOnlyCircles = <String>{};
+
+  /// 推送免打扰(服务器按本机时区判断,只管活动推送;默认 23:00–08:00 开着)。
+  bool pushQuietOn = true;
+  int pushQuietStart = 23 * 60;
+  int pushQuietEnd = 8 * 60;
 
   /// 系统通知权限是否已经问过(不论答应与否)。
   ///
@@ -173,6 +186,13 @@ class SettingsStore extends ChangeNotifier {
       ...prefs.getStringList(_kPushMutedCircles) ?? const <String>[],
     };
     s.pushPermissionAsked = prefs.getBool(_kPushPermissionAsked) ?? false;
+    s.pushCalledOnlyCircles = {
+      ...prefs.getStringList(_kPushCalledOnly) ?? const <String>[],
+    };
+    s.pushQuietOn = prefs.getBool(_kPushQuietOn) ?? true;
+    s.pushQuietStart =
+        (prefs.getInt(_kPushQuietStart) ?? 23 * 60).clamp(0, 1439);
+    s.pushQuietEnd = (prefs.getInt(_kPushQuietEnd) ?? 8 * 60).clamp(0, 1439);
     // 服务器档案:没存过就从老的 signalingOverride 迁移一份过来,别让人丢设置
     final rawProfiles = prefs.getString(_kServerProfiles);
     if (rawProfiles == null) {
@@ -272,7 +292,34 @@ class SettingsStore extends ChangeNotifier {
         AuthVerifierCache(vault: s._vault, deriver: deriveAuthVerifierAsync);
     await s._loadCircleOwnership(prefs);
 
+    // 4) 进圈隐私告知的 ack(lares.privacyAck.<circleId> = 哈希)。
+    for (final k in prefs.getKeys()) {
+      if (!k.startsWith(_kPrivacyAckPrefix)) continue;
+      final v = prefs.getString(k);
+      if (v != null) s._privacyAcks[k.substring(_kPrivacyAckPrefix.length)] = v;
+    }
+
     return s;
+  }
+
+  // ── 进圈隐私告知(features-purpose-contract §4)──────────────────
+  // 只存本机,从不上传。值是「看过的那份隐私配置」的哈希。
+  static const _kPrivacyAckPrefix = 'lares.privacyAck.';
+  final Map<String, String> _privacyAcks = <String, String>{};
+
+  /// 本机为这个圈子确认过的隐私哈希(没看过 = null)。
+  String? privacyAckFor(String circleId) => _privacyAcks[circleId];
+
+  Future<void> setPrivacyAck(String circleId, String hash) async {
+    _privacyAcks[circleId] = hash;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('$_kPrivacyAckPrefix$circleId', hash);
+  }
+
+  Future<void> clearPrivacyAck(String circleId) async {
+    if (_privacyAcks.remove(circleId) == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('$_kPrivacyAckPrefix$circleId');
   }
 
   /// 从 vault 取回令牌与各圈口令,填进内存里的档案对象。
@@ -560,6 +607,7 @@ class SettingsStore extends ChangeNotifier {
   Future<void> forgetCircleSecrets(String circleId) async {
     final hadKey = _ownerKeys.remove(circleId) != null;
     final hadPending = _pendingRegister.remove(circleId);
+    await clearPrivacyAck(circleId);
     await verifiers.forget(circleId);
     try {
       await _vault.delete(vaultKeyForOwnerKey(circleId));
@@ -723,6 +771,41 @@ class SettingsStore extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_kPushMutedCircles, pushMutedCircles.toList());
+  }
+
+  /// 某圈的通知等级:`all`(全部)/ `called`(只要被叫)/ `off`(关)。
+  /// 「关」沿用老的静音名单,老版本留下的设置不丢。
+  String circlePushLevel(String circleId) {
+    if (pushMutedCircles.contains(circleId)) return 'off';
+    if (pushCalledOnlyCircles.contains(circleId)) return 'called';
+    return 'all';
+  }
+
+  Future<void> setCirclePushLevel(String circleId, String level) async {
+    if (circlePushLevel(circleId) == level) return;
+    pushMutedCircles.remove(circleId);
+    pushCalledOnlyCircles.remove(circleId);
+    if (level == 'off') pushMutedCircles.add(circleId);
+    if (level == 'called') pushCalledOnlyCircles.add(circleId);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kPushMutedCircles, pushMutedCircles.toList());
+    await prefs.setStringList(
+      _kPushCalledOnly,
+      pushCalledOnlyCircles.toList(),
+    );
+  }
+
+  /// 推送免打扰。[on]=false 时服务器不再按时段压活动推送。
+  Future<void> setPushQuiet({required bool on, int? start, int? end}) async {
+    pushQuietOn = on;
+    if (start != null) pushQuietStart = start.clamp(0, 1439);
+    if (end != null) pushQuietEnd = end.clamp(0, 1439);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kPushQuietOn, pushQuietOn);
+    await prefs.setInt(_kPushQuietStart, pushQuietStart);
+    await prefs.setInt(_kPushQuietEnd, pushQuietEnd);
   }
 
   /// 记下「权限已经问过」。调用方要在**弹框之前** await 它:

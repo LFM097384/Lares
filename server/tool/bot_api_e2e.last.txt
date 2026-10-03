@@ -1,0 +1,28 @@
+
+✓ health.rtcConfigured: true
+✓ circle_transcript_set: owner_ok
+✓ bot_token: {"id":"b_20d4ebaa7fac5686","prefix":"lrb_U6jq"}
+✓ listener joined: u_bot_93366a84
+✓ SSE ready (curl.exe -N): {"members":["监听者","圈主"]}
+✓ POST /messages: {"status":200,"body":{"ok":true,"id":"f656047a-8df9-4f3c-ba0b-b28eae01cb42","ts":1790964003810},"err":""}
+✓ SSE chat event: {"sid":"bot:b_20d4ebaa7fac5686","sn":"E2E 机器人"}
+✓ POST /captions final: {"ok":true,"id":"bc_0c8804c7d956c838","seq":1,"final":true,"archivedSeq":1}
+✓ SSE transcript (bot caption archived): {"seq":1,"name":"E2E 机器人"}
+✓ WS transcript_append -> SSE transcript: {"seq":2,"name":"圈主","text":"圈主说的一句话"}
+✓ GET /transcript: ["2:圈主:圈主说的一句话","1:E2E 机器人:这是一条机器人字幕"]
+✓ GET /circle: {"id":"c_ok7gd5ofakpxpqbhymrakpqm","name":null,"e2ee":false,"transcript":true,"members":[{"userId":"u_bot_93366a84","name":"监听者","status":"free","muted":null,"speaking":null},{"userId":"u_owner","name":"圈主","status":"free","muted":null,"speaking":null}],"bot":{"id":"b_20d4ebaa7fac5686","name":"E2E 机器人"}}
+✓ listener onChat 收到机器人消息(participant=null, bot:true): {"id":"f656047a-8df9-4f3c-ba0b-b28eae01cb42","senderId":"bot:b_20d4ebaa7fac5686","senderName":"E2E 机器人","circleId":"c_ok7gd5ofakpxpqbhymrakpqm","ts":1790964003810,"body":"你好,我是机器人 👋","bot":true,"from":null}
+✓ listener onCaption 收到机器人字幕: {"id":"bc_0c8804c7d956c838","seq":1,"text":"这是一条机器人字幕","final":true,"from":null,"bot":{"id":"b_20d4ebaa7fac5686","name":"E2E 机器人"}}
+✓ POST /speak (2 s 440 Hz @24 kHz): {"ok":true,"sampleRate":24000,"durationMs":2000,"elapsedMs":2323,"wallMs":2349}
+✓ listener 收到 bot 音频,YIN 测频: {"freqHz":440,"voicedMs":2022,"rxRate":48000,"samples":106560}
+✓ E2EE 圈 REST -> 409: {"messages":"409 e2ee","captions":"409 e2ee","speak":"409 e2ee","transcript":"409 e2ee"}
+✓ E2EE: 同口令 bot 音频解密,YIN 测频: {"freqHz":440,"samples":120960,"rms":7357}
+✓ E2EE: 无密钥参与者听不出 440 Hz(音频确实加密): {"freqHz":19277.2,"samples":120960,"rms":4805}
+✓ E2EE: sendChat -> 同口令 onChat: ["加密聊天 🔒"]
+✓ E2EE: sendCaption -> 同口令 onCaption: ["加密字幕"]
+✓ E2EE: 无密钥参与者解不出聊天(数据通道已加密): {"decodedChats":0}
+
+RESULTS {"health.rtcConfigured":true,"circle_transcript_set":"owner_ok","bot_token":{"id":"b_20d4ebaa7fac5686","prefix":"lrb_U6jq"},"listener joined":"u_bot_93366a84","SSE ready (curl.exe -N)":{"members":["监听者","圈主"]},"POST /messages":{"status":200,"body":{"ok":true,"id":"f656047a-8df9-4f3c-ba0b-b28eae01cb42","ts":1790964003810},"err":""},"SSE chat event":{"sid":"bot:b_20d4ebaa7fac5686","sn":"E2E 机器人"},"POST /captions final":{"ok":true,"id":"bc_0c8804c7d956c838","seq":1,"final":true,"archivedSeq":1},"SSE transcript (bot caption archived)":{"seq":1,"name":"E2E 机器人"},"WS transcript_append -> SSE transcript":{"seq":2,"name":"圈主","text":"圈主说的一句话"},"GET /transcript":["2:圈主:圈主说的一句话","1:E2E 机器人:这是一条机器人字幕"],"GET /circle":{"id":"c_ok7gd5ofakpxpqbhymrakpqm","name":null,"e2ee":false,"transcript":true,"members":[{"userId":"u_bot_93366a84","name":"监听者","status":"free","muted":null,"speaking":null},{"userId":"u_owner","name":"圈主","status":"free","muted":null,"speaking":null}],"bot":{"id":"b_20d4ebaa7fac5686","name":"E2E 机器人"}},"listener onChat 收到机器人消息(participant=null, bot:true)":{"id":"f656047a-8df9-4f3c-ba0b-b28eae01cb42","senderId":"bot:b_20d4ebaa7fac5686","senderName":"E2E 机器人","circleId":"c_ok7gd5ofakpxpqbhymrakpqm","ts":1790964003810,"body":"你好,我是机器人 👋","bot":true,"from":null},"listener onCaption 收到机器人字幕":{"id":"bc_0c8804c7d956c838","seq":1,"text":"这是一条机器人字幕","final":true,"from":null,"bot":{"id":"b_20d4ebaa7fac5686","name":"E2E 机器人"}},"POST /speak (2 s 440 Hz @24 kHz)":{"ok":true,"sampleRate":24000,"durationMs":2000,"elapsedMs":2323,"wallMs":2349},"listener 收到 bot 音频,YIN 测频":{"freqHz":440,"voicedMs":2022,"rxRate":48000,"samples":106560},"speakJoinSeenOnSse":false,"E2EE 圈 REST -> 409":{"messages":"409 e2ee","captions":"409 e2ee","speak":"409 e2ee","transcript":"409 e2ee"},"E2EE: 同口令 bot 音频解密,YIN 测频":{"freqHz":440,"samples":120960,"rms":7357},"E2EE: 无密钥参与者听不出 440 Hz(音频确实加密)":{"freqHz":19277.2,"samples":120960,"rms":4805},"E2EE: sendChat -> 同口令 onChat":["加密聊天 🔒"],"E2EE: sendCaption -> 同口令 onCaption":["加密字幕"],"E2EE: 无密钥参与者解不出聊天(数据通道已加密)":{"decodedChats":0}}
+
+E2E 全部通过
+

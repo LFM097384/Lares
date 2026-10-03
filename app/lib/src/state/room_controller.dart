@@ -7,6 +7,7 @@ import '../net/signaling_client.dart';
 import '../recording/recording_consent.dart';
 import '../p2p/host_election.dart';
 import '../rtc/rtc_service.dart';
+import 'circle_features.dart';
 import 'identity.dart' show capNickname;
 import 'join_error.dart';
 import 'mic_notice.dart';
@@ -181,6 +182,25 @@ class RoomController extends ChangeNotifier {
   final Map<String, ({bool registered, bool? e2ee, bool transcript})>
       circleInfo = {};
 
+  /// 圈级功能开关(服务器权威,features-purpose-contract §1)。
+  /// 没收到过(老服务器)→ [CircleFeatures.legacy] 全开。
+  final Map<String, CircleFeatures> circleFeatures = {};
+
+  /// 圈子当前用途的名牌(null = 没设过)。
+  final Map<String, CirclePurposeInfo?> circlePurpose = {};
+
+  /// 圈里启用的插件(id → 权限 / 有无 webhook),给进圈隐私告知算哈希用。
+  /// 来源同 circleInfo:welcome.circle / circle_settings 带完整视图;
+  /// circle_summary 只带 {id, enabled},不覆盖已知的权限信息。
+  final Map<String, List<({String id, List<String> permissions, bool hasWebhook})>>
+      circlePrivacyPlugins = {};
+
+  /// 某圈的功能开关。
+  CircleFeatures featuresOf(String id) =>
+      circleFeatures[id] ?? CircleFeatures.legacy;
+
+  bool isFeatureOn(String id, CircleFeature f) => featuresOf(id).isOn(f);
+
   /// 这个圈子是注册圈吗(有圈主,kick/敲门/加密只归圈主管)。
   bool isRegisteredCircle(String id) => circleInfo[id]?.registered ?? false;
 
@@ -230,6 +250,30 @@ class RoomController extends ChangeNotifier {
       e2ee: e2ee is bool ? e2ee : null,
       transcript: raw['transcript'] == true,
     );
+    if (raw.containsKey('features')) {
+      circleFeatures[id] = CircleFeatures.fromJson(
+        raw['features'],
+        transcript: raw['transcript'] == true,
+      );
+    }
+    if (raw.containsKey('purpose')) {
+      circlePurpose[id] = CirclePurposeInfo.fromJson(raw['purpose']);
+    }
+    final plugins = raw['plugins'];
+    if (plugins is List &&
+        plugins.every((p) => p is Map && p.containsKey('permissions'))) {
+      circlePrivacyPlugins[id] = [
+        for (final p in plugins.cast<Map>())
+          if (p['enabled'] == true && p['id'] is String)
+            (
+              id: p['id'] as String,
+              permissions: (p['permissions'] as List? ?? const [])
+                  .whereType<String>()
+                  .toList(),
+              hasWebhook: p['hasWebhook'] == true,
+            ),
+      ];
+    }
     onCirclePolicy?.call(id, e2ee is bool ? e2ee : null);
     final prev = circlePresence[id];
     if (raw.containsKey('knockRequired')) {
@@ -295,6 +339,71 @@ class RoomController extends ChangeNotifier {
 
   Future<String?> deleteCircleAsOwner(String id) => _ownerOp('circle_delete',
       id, (key) => _signaling.deleteCircle(id, ownerKey: key));
+
+  /// 改圈级功能开关(部分合并)。features-purpose-contract §2。
+  Future<String?> setCircleFeaturesAsOwner(
+          String id, Map<CircleFeature, bool> changes) =>
+      _ownerOp(
+          'circle_features_set',
+          id,
+          (key) => _signaling.send({
+                't': 'circle_features_set',
+                'circleId': id,
+                'ownerKey': key,
+                'features': {
+                  for (final e in changes.entries) e.key.key: e.value,
+                },
+              }));
+
+  /// 最近一次 owner_error 的 detail(用途校验失败时服务器给的路径),读完即可丢。
+  String? lastOwnerErrorDetail;
+
+  /// 应用用途:[purpose] 是内置 id('chat' / 'study' / 'meeting')或完整 JSON 对象。
+  /// 成功返回 null;失败返回原因码(细节见 [lastOwnerErrorDetail])。
+  /// 新装的带 webhook 插件的凭据由 [onPurposeSecrets] 交给 UI 显示一次。
+  Future<String?> applyCirclePurposeAsOwner(String id, Object purpose) =>
+      _ownerOp(
+          'circle_purpose_apply',
+          id,
+          (key) => _signaling.send({
+                't': 'circle_purpose_apply',
+                'circleId': id,
+                'ownerKey': key,
+                'purpose': purpose,
+              }));
+
+  /// 新装插件的一次性凭据(purpose_applied.secrets)。
+  void Function(String circleId, List<Map<String, dynamic>> secrets)?
+      onPurposeSecrets;
+
+  final Map<String, List<Completer<Map<String, dynamic>?>>> _exportWaiters =
+      {};
+
+  /// 导出当前圈的完整配置(圈主才有,含第三方插件 manifest)。
+  /// 返回 null = 没钥匙 / 超时 / 服务器拒了。
+  Future<Map<String, dynamic>?> exportCirclePurposeAsOwner(String id) {
+    final key = _ownerKeyFor(id);
+    if (key == null) return Future.value(null);
+    final done = Completer<Map<String, dynamic>?>();
+    (_exportWaiters[id] ??= []).add(done);
+    _signaling.send({
+      't': 'circle_purpose_export',
+      'circleId': id,
+      'ownerKey': key,
+    });
+    return done.future.timeout(const Duration(seconds: 15), onTimeout: () {
+      _exportWaiters[id]?.remove(done);
+      return null;
+    });
+  }
+
+  void _settleExport(String id, Map<String, dynamic>? purpose) {
+    final ws = _exportWaiters.remove(id);
+    if (ws == null) return;
+    for (final w in ws) {
+      if (!w.isCompleted) w.complete(purpose);
+    }
+  }
 
   /// 挂着「我有空」的人(userId -> 信息)。
   ///
@@ -1218,12 +1327,29 @@ class RoomController extends ChangeNotifier {
             'registered': msg['registered'],
             'e2ee': msg['e2ee'],
             'transcript': msg['transcript'],
+            if (msg.containsKey('features')) 'features': msg['features'],
+            if (msg.containsKey('purpose')) 'purpose': msg['purpose'],
           });
         }
         notifyListeners();
       case 'circle_settings':
         _applyCircleInfo(msg['circle']);
         notifyListeners();
+      case 'circle_purpose':
+        final id = msg['circleId'];
+        final p = msg['purpose'];
+        if (id is String) {
+          _settleExport(id, p is Map ? Map<String, dynamic>.from(p) : null);
+        }
+      case 'purpose_applied':
+        final id = msg['circleId'];
+        final secrets = msg['secrets'];
+        if (id is String && secrets is List && secrets.isNotEmpty) {
+          onPurposeSecrets?.call(id, [
+            for (final s in secrets)
+              if (s is Map) Map<String, dynamic>.from(s),
+          ]);
+        }
       case 'owner_ok':
       case 'owner_error':
         final result = (
@@ -1234,6 +1360,13 @@ class RoomController extends ChangeNotifier {
               : null,
         );
         ownerResult = result;
+        if (msg['t'] == 'owner_error') {
+          final d = msg['detail'];
+          lastOwnerErrorDetail = d is String ? d : null;
+          if (result.op == 'circle_purpose_export') {
+            _settleExport(result.circleId, null);
+          }
+        }
         _settleOwnerWaiters(result.op, result.circleId, result.error);
         notifyListeners();
       case 'circle_deleted':
@@ -1242,6 +1375,9 @@ class RoomController extends ChangeNotifier {
         if (id == null || id.isEmpty) return;
         dissolvedCircleId = id;
         circleInfo.remove(id);
+        circleFeatures.remove(id);
+        circlePurpose.remove(id);
+        circlePrivacyPlugins.remove(id);
         circlePresence.remove(id);
         if (circleId == id) {
           // 在房里:真的退出(断媒体),提示由主页读 dissolvedCircleId 弹;

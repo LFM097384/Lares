@@ -259,7 +259,7 @@ export function createTranscriptStore({ dataDir, now = () => Date.now() }) {
     const r = relay(circleId);
     const item = { rid: `r_${now().toString(36)}_${crypto.randomBytes(6).toString('hex')}`, blob, ts: now() };
     for (const u of r.members) {
-      if (u === senderUserId) continue;
+      if (u === senderUserId || u.startsWith('u_ai_')) continue; // AI 语音助手(老名单里可能残留)不收密文
       const list = r.queues.get(u) ?? [];
       list.push(item);
       if (list.length > QUEUE_MAX_PER_USER) list.splice(0, list.length - QUEUE_MAX_PER_USER);

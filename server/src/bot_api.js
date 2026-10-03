@@ -185,6 +185,9 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
         name: null, // 圈名只存在于客户端,服务器不知道
         e2ee: info.e2ee === true,
         transcript: info.transcript === true,
+        // 功能开关(9 键)+ 当前用途(features-purpose-contract §1)
+        features: info.features ?? null,
+        purpose: info.purpose ?? null,
         members: hooks.members(circleId).map((m) => ({
           userId: m.userId,
           name: m.name,

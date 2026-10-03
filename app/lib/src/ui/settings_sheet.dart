@@ -22,6 +22,7 @@ import 'content_policy_screen.dart';
 import 'developer_section.dart';
 import 'identity_section.dart';
 import 'nickname.dart';
+import 'push_settings_widgets.dart' show PushQuietTile;
 import 'settings_group.dart';
 import 'server_settings_section.dart';
 import 'update_panel.dart';
@@ -187,6 +188,9 @@ Future<void> showSettingsSheet(
                       value: settings.pushEnabled,
                       onChanged: settings.setPushEnabled,
                     ),
+                  // 推送免打扰(服务器端按本机时区挡掉活动推送,§9.3)
+                  if (PlatformInfo.current == 'ios' && settings.pushEnabled)
+                    PushQuietTile(settings: settings),
                   ListTile(
                     leading: const Icon(Icons.noise_control_off_rounded),
                     title: Text(t.settingsNoiseSuppression),

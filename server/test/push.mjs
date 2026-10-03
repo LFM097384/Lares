@@ -259,6 +259,10 @@ async function main() {
     LARES_PUBLIC_URL: PUBLIC_URL,
     LARES_PUSH_ACTIVE_THROTTLE_MS: String(ACTIVE_WIN),
     LARES_PUSH_REACH_THROTTLE_MS: String(REACH_WIN),
+    // 2026-11 起「空圈来人」是活动推送触发器 arrive(默认关):本测试沿用旧语义,把它默认打开;
+    // 「5 分钟内刚在房不推」调小,不干扰下面的进出房节奏(触发器本身见 push_triggers.mjs)
+    LARES_PUSH_ARRIVE_DEFAULT: '1',
+    LARES_PUSH_RECENT_MS: '100',
   });
 
   const dataDir = mkdtempSync(path.join(tmpdir(), 'lares-push-'));
@@ -348,13 +352,13 @@ async function main() {
       const sigOk = crypto.verify('sha256', Buffer.from(`${hh}.${cc}`), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(ss, 'base64url'));
       check(sigOk, 'JWT 签名可用公钥验证(ES256 / ieee-p1363)', null);
       const b = pb.body;
-      check(b?.aps?.alert?.title === ('家里的圈子' + 'x'.repeat(80)).slice(0, 64) && b?.aps?.alert?.body === 'Alice 在圈里', '中文文案:标题=圈名,正文「Alice 在圈里」', b?.aps?.alert);
+      check(b?.aps?.alert?.title === ('家里的圈子' + 'x'.repeat(80)).slice(0, 64) && b?.aps?.alert?.body === 'Alice来了', '中文文案:标题=圈名,正文「Alice来了」(arrive 触发器)', b?.aps?.alert);
       check(b?.aps?.sound === 'default' && b?.aps?.category === 'LARES_JOIN' && b?.aps?.['thread-id'] === c1
         && b?.aps?.['interruption-level'] === 'time-sensitive', 'aps: sound/category/thread-id/interruption-level', b?.aps);
       check(b?.lares?.circleId === c1 && b?.lares?.server === PUBLIC_URL && b?.lares?.kind === 'active', 'lares: {circleId, server, kind:active}', b?.lares);
     }
     if (pc) {
-      check(pc.body?.aps?.alert?.title === 'Home' && pc.body?.aps?.alert?.body === 'Alice is in the circle', '英文文案「Alice is in the circle」', pc.body?.aps?.alert);
+      check(pc.body?.aps?.alert?.title === 'Home' && pc.body?.aps?.alert?.body === 'Alice is here', '英文文案「Alice is here」', pc.body?.aps?.alert);
     }
     const jwts = new Set(fake.requests.map((q) => q.headers.authorization));
     check(jwts.size === 1, 'JWT 被缓存复用(多条推送同一个 provider token)', jwts.size);

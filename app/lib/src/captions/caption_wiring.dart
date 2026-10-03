@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
 import '../rtc/livekit_rtc_service.dart';
+import '../state/circle_features.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../state/settings_store.dart';
@@ -231,7 +232,12 @@ class CaptionWiring {
     }
 
     captions.updateConditions(CaptionConditions(
-      available: controller.captionsAvailable && kSttSocketSupported,
+      // 圈主关了「实时字幕」:本机不再替任何人出字幕(服务器 cap_token 也会拒)
+      available: controller.captionsAvailable &&
+          kSttSocketSupported &&
+          (controller.circleId == null ||
+              controller.isFeatureOn(
+                  controller.circleId!, CircleFeature.captions)),
       inRoom: inRoom && room != null,
       muted: controller.muted,
       provide: settings.captionsProvide,

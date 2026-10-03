@@ -37,6 +37,7 @@ import 'src/platform/tray_service_stub.dart'
     if (dart.library.io) 'src/platform/tray_service.dart';
 import 'src/platform/window_setup.dart'
     if (dart.library.io) 'src/platform/window_setup_io.dart';
+import 'src/privacy/privacy_gate.dart';
 import 'src/rtc/livekit_rtc_service.dart';
 import 'src/state/circle_store.dart';
 import 'src/state/dev_mode_store.dart';
@@ -659,21 +660,32 @@ class LaresApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final home = HomeScreen(
+    // 进圈隐私告知(features-purpose-contract §4):需要 Navigator,所以挂在 home 上。
+    final home = CirclePrivacyGate(
       controller: controller,
-      circleStore: circleStore,
       settings: settings,
-      voiceNotes: voiceNotes,
-      locationShare: locationShare,
-      chat: chat,
-      recordingConsent: recordingConsent,
-      blocks: blocks,
-      consent: consent,
-      e2ee: e2ee,
-      captions: captions,
-      devMode: devMode,
-      ice: ice,
-      onStartMesh: onStartMesh,
+      circleNameOf: (id) {
+        for (final c in circleStore.circles) {
+          if (c.id == id) return c.name;
+        }
+        return null;
+      },
+      child: HomeScreen(
+        controller: controller,
+        circleStore: circleStore,
+        settings: settings,
+        voiceNotes: voiceNotes,
+        locationShare: locationShare,
+        chat: chat,
+        recordingConsent: recordingConsent,
+        blocks: blocks,
+        consent: consent,
+        e2ee: e2ee,
+        captions: captions,
+        devMode: devMode,
+        ice: ice,
+        onStartMesh: onStartMesh,
+      ),
     );
     final consentStore = consent;
     // 语言改了要**整棵树**重建,所以监听点必须在 MaterialApp 之外。

@@ -15,6 +15,7 @@ import '../platform/platform_info.dart'
     if (dart.library.io) '../platform/platform_info_io.dart';
 import '../recording/recording_consent.dart';
 import '../p2p/ice_store.dart';
+import '../state/ai_member.dart';
 import '../state/circle_store.dart';
 import '../state/dev_mode_store.dart';
 import '../state/location_share_stub.dart'
@@ -29,6 +30,13 @@ import 'nickname.dart';
 import '../transcript/transcript_scope.dart';
 import '../plugins/plugin_owner_section.dart';
 import '../plugins/plugin_scope.dart';
+import '../purpose/features_screen.dart';
+import '../purpose/purpose_editor.dart';
+import '../purpose/purpose_flow.dart';
+import '../purpose/purpose_picker.dart';
+import '../purpose/purpose_schema.dart';
+import '../focus/focus_widgets.dart' show FocusStudyScope;
+import 'push_settings_widgets.dart';
 import 'room_screen.dart';
 import 'settings_sheet.dart';
 import 'widgets/e2ee_badge.dart';
@@ -293,13 +301,37 @@ class _CircleList extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final field = TextEditingController();
     final passField = TextEditingController(text: generateCirclePasscode());
-    final result = await showDialog<({String name, String passcode})>(
+    // 用途:默认闲聊;自定义先开编辑器,拿到的 JSON 跟着建圈结果走
+    var purposeChoice = 'chat';
+    Map<String, dynamic>? customPurpose;
+    final result = await showDialog<
+        ({String name, String passcode, Object purpose})>(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setState) {
         final passOk = isAcceptableCirclePasscode(passField.text);
         void submit() {
           if (field.text.trim().isEmpty || !passOk) return;
-          Navigator.pop(ctx, (name: field.text.trim(), passcode: passField.text));
+          Navigator.pop(ctx, (
+            name: field.text.trim(),
+            passcode: passField.text,
+            purpose: purposeChoice == kPurposeCustomId && customPurpose != null
+                ? customPurpose!
+                : purposeChoice,
+          ));
+        }
+
+        Future<void> choosePurpose(String id) async {
+          if (id != kPurposeCustomId) {
+            setState(() => purposeChoice = id);
+            return;
+          }
+          final edited = await openPurposeEditor(ctx,
+              initial: customPurpose ?? purposeTemplate(t));
+          if (edited == null) return; // 算了:保持原来的选择
+          setState(() {
+            customPurpose = edited;
+            purposeChoice = kPurposeCustomId;
+          });
         }
 
         return AlertDialog(
@@ -335,6 +367,19 @@ class _CircleList extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: LaresSpacing.md),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(t.purposeCreateLabel,
+                    style: Theme.of(ctx).textTheme.labelMedium),
+              ),
+              const SizedBox(height: LaresSpacing.xs),
+              PurposeChips(value: purposeChoice, onChanged: choosePurpose),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(t.purposeCreateHint,
+                    style: Theme.of(ctx).textTheme.bodySmall),
+              ),
             ],
           ),
           actions: [
@@ -352,6 +397,8 @@ class _CircleList extends StatelessWidget {
       }),
     );
     if (result == null) return;
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final circle = Circle(id: generateCircleId(), name: result.name);
     // 顺序:口令(vault)→ 圈主钥匙(本机生成,vault 读回确认)→ 待登记标记
     // → 列表。钥匙存不进去就不建:否则登记上去就是一个本机不持钥匙的无主圈。
@@ -369,6 +416,18 @@ class _CircleList extends StatelessWidget {
     }
     await settings.markPendingRegistration(circle.id);
     await circleStore.add(circle);
+    // 用途等登记好(拿到圈主身份)再应用一次;失败只提示,圈主之后可以在「功能」里再选
+    PendingPurposes.instance.schedule(
+      controller,
+      circle.id,
+      result.purpose,
+      onResult: (err, detail) {
+        if (err == null) return;
+        messenger?.showSnackBar(SnackBar(
+            content: Text(
+                t.purposeApplyFailed(purposeReasonText(t, err, detail)))));
+      },
+    );
     // 空闲时立刻去登记,好尽快拿到圈主钥匙(在别的房间里就等第一次进圈)
     controller.ensureRegistered(circle.id);
     if (!context.mounted) return;
@@ -510,8 +569,9 @@ class _CircleTile extends StatelessWidget {
         controller.circleId == circle.id && controller.phase != RoomPhase.idle;
     // 大厅摘要优先(未进房也可见);当前房间用房间快照兜底
     final summary = controller.circlePresence[circle.id];
+    // AI 语音助手(u_ai_*)不算人(服务器的 circle_summary 已经不算它)
     final online = isCurrentRoom
-        ? controller.members.length
+        ? humanMemberCount(controller.members)
         : (summary?.count ?? 0);
     final names = summary?.names ?? const <String>[];
     // 挂着「有空」的人:还没进任何房间,但等着谁来找。
@@ -566,7 +626,23 @@ class _CircleTile extends StatelessWidget {
             ],
           ],
         ),
-        subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+            // 用途:一行淡淡的小字,不抢圈名
+            if (controller.circlePurpose[circle.id] case final p?)
+              Text(
+                purposeSummary(t, p),
+                key: ValueKey('circle-purpose-${circle.id}'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -648,6 +724,14 @@ class _CircleTile extends StatelessWidget {
           title: Text(t.homeOwnerPending),
         ),
       if (owner) ...[
+        // 用途 + 功能开关(features-purpose-contract §1–§3)
+        if (registered)
+          FeaturesOwnerTiles(
+            controller: controller,
+            circleId: circle.id,
+            hostContext: context,
+            onBeforeOpen: () => Navigator.pop(ctx),
+          ),
         if (registered && e2ee != null)
           _OwnerE2EETile(circle: circle, controller: controller, e2ee: e2ee!),
         // 转写记录开关 + 机器人 token(transcript-bot-contract §3)
@@ -665,6 +749,17 @@ class _CircleTile extends StatelessWidget {
             circleId: circle.id,
             focusSettingsBuilder:
                 PluginScope.maybeScopeOf(context)?.focusSettingsBuilder,
+            e2ee: controller.circleInfo[circle.id]?.e2ee == true,
+            onBeforeOpen: () => Navigator.pop(ctx),
+          ),
+        // 活动提醒(plugin-focus-contract §9.5):推送只有 iOS 有,别的平台不给入口
+        if (registered &&
+            PlatformInfo.current == 'ios' &&
+            FocusStudyScope.maybeOf(context) != null)
+          OwnerPushTriggersTile(
+            activity: FocusStudyScope.maybeOf(context)!.activity,
+            circleId: circle.id,
+            hostContext: context,
             onBeforeOpen: () => Navigator.pop(ctx),
           ),
         ListTile(
@@ -962,7 +1057,7 @@ class _CircleTile extends StatelessWidget {
             // 按圈关通知:只在 iOS(推送只有它有)且总开关开着时出现 ——
             // 总开关关了,这里的开也不会有通知,显示出来就是误导。
             if (PlatformInfo.current == 'ios' && settings.pushEnabled)
-              _pushMuteTile(ctx, t),
+              CirclePushLevelTile(settings: settings, circleId: circle.id),
             if (circle.id != CircleStore.defaultCircle.id)
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded),
@@ -978,21 +1073,6 @@ class _CircleTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _pushMuteTile(BuildContext ctx, AppLocalizations t) {
-    final muted = settings.isCirclePushMuted(circle.id);
-    return ListTile(
-      leading: Icon(
-        muted ? Icons.notifications_off_outlined : Icons.notifications_rounded,
-      ),
-      title: Text(muted ? t.homeCirclePushOff : t.homeCirclePushOn),
-      onTap: () {
-        // 只改本机设置;PushService 监听到变化会把新名单发给服务器
-        unawaited(settings.setCirclePushMuted(circle.id, !muted));
-        Navigator.pop(ctx);
-      },
     );
   }
 

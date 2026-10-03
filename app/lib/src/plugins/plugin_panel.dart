@@ -446,7 +446,65 @@ class _Unsupported extends StatelessWidget {
   }
 }
 
-/// 房间头部的「插件」按钮:列出本圈启用且有网页入口的插件。
+/// 本圈启用且带网页入口的插件。[thirdParty] = false(圈主关了「插件」功能)
+/// 时只留内置插件(features-purpose-contract §1:客户端隐藏第三方插件入口)。
+List<PluginView> roomEntryPlugins(
+  PluginService service,
+  String circleId, {
+  bool thirdParty = true,
+}) => [
+  for (final p in service.pluginsFor(circleId))
+    if (p.enabled && p.hasEntry && (thirdParty || p.builtin)) p,
+];
+
+/// 弹出插件选择表,选中即打开插件面板。房间「更多」与 [RoomPluginsButton] 共用。
+Future<void> pickAndOpenRoomPlugin(
+  BuildContext context, {
+  required List<PluginView> items,
+  required PluginService service,
+  required RoomController controller,
+  required String circleId,
+  required String circleName,
+  ChatService? chat,
+  CaptionController? captions,
+  TranscriptService? transcripts,
+}) async {
+  if (items.isEmpty) return;
+  final picked = await showModalBottomSheet<PluginView>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final p in items)
+            ListTile(
+              key: ValueKey('room-plugin-${p.id}'),
+              leading: const Icon(Icons.extension_outlined),
+              title: Text(p.name),
+              subtitle: p.description.isEmpty
+                  ? null
+                  : Text(p.description,
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
+              onTap: () => Navigator.of(ctx).pop(p),
+            ),
+        ],
+      ),
+    ),
+  );
+  if (picked == null || !context.mounted) return;
+  await openPluginPanel(context,
+      plugin: picked,
+      circleId: circleId,
+      circleName: circleName,
+      controller: controller,
+      plugins: service,
+      chat: chat,
+      captions: captions,
+      transcripts: transcripts);
+}
+
+/// 「插件」按钮:列出本圈启用且有网页入口的插件。
+/// (房间页现在走「更多」里的插件格;此按钮保留给其它入口 / 测试。)
 class RoomPluginsButton extends StatelessWidget {
   const RoomPluginsButton({
     super.key,
@@ -476,49 +534,22 @@ class RoomPluginsButton extends StatelessWidget {
     return ListenableBuilder(
       listenable: service,
       builder: (context, _) {
-        final items = [
-          for (final p in service.pluginsFor(circleId))
-            if (p.enabled && p.hasEntry) p,
-        ];
+        final items = roomEntryPlugins(service, circleId);
         if (items.isEmpty) return const SizedBox.shrink();
         final t = AppLocalizations.of(context);
         return IconButton(
           key: const ValueKey('room-plugins'),
           tooltip: t.pluginTitle,
           icon: const Icon(Icons.extension_outlined),
-          onPressed: () async {
-            final picked = await showModalBottomSheet<PluginView>(
-              context: context,
-              builder: (ctx) => SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final p in items)
-                      ListTile(
-                        key: ValueKey('room-plugin-${p.id}'),
-                        leading: const Icon(Icons.extension_outlined),
-                        title: Text(p.name),
-                        subtitle: p.description.isEmpty
-                            ? null
-                            : Text(p.description,
-                                maxLines: 2, overflow: TextOverflow.ellipsis),
-                        onTap: () => Navigator.of(ctx).pop(p),
-                      ),
-                  ],
-                ),
-              ),
-            );
-            if (picked == null || !context.mounted) return;
-            await openPluginPanel(context,
-                plugin: picked,
-                circleId: circleId,
-                circleName: circleName,
-                controller: controller,
-                plugins: service,
-                chat: chat,
-                captions: captions,
-                transcripts: transcripts);
-          },
+          onPressed: () => pickAndOpenRoomPlugin(context,
+              items: items,
+              service: service,
+              controller: controller,
+              circleId: circleId,
+              circleName: circleName,
+              chat: chat,
+              captions: captions,
+              transcripts: transcripts),
         );
       },
     );

@@ -2117,4 +2117,802 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get focusSettingsPrivacy =>
       'Focus status (who is focusing, time away, the leaderboard) is visible to the server, even in encrypted circles';
+
+  @override
+  String get featureCaptions => 'Live captions';
+
+  @override
+  String get featureTranscript => 'Transcript';
+
+  @override
+  String get featureVoiceNotes => 'Voice notes';
+
+  @override
+  String get featureMap => 'Location map';
+
+  @override
+  String get featureRecording => 'Recording';
+
+  @override
+  String get featurePlugins => 'Plugins';
+
+  @override
+  String get featureFocus => 'Focus study';
+
+  @override
+  String get featureP2p => 'Direct peer-to-peer';
+
+  @override
+  String get featureDevTools => 'Developer readouts';
+
+  @override
+  String get roomMore => 'More';
+
+  @override
+  String get roomMoreOn => 'On';
+
+  @override
+  String get roomMoreOff => 'Off';
+
+  @override
+  String get roomMoreVoiceNotesHint => 'Hold to record';
+
+  @override
+  String roomMoreVoiceNotesPending(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count to hear · hold to record',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get roomMoreVoiceNotesRecording => 'Release to send';
+
+  @override
+  String get roomTranscriptNotice => 'This circle keeps a transcript';
+
+  @override
+  String get roomTranscriptNoticeOpen => 'View transcript';
+
+  @override
+  String get ownerFeaturesTitle => 'Features';
+
+  @override
+  String get ownerFeaturesEntryDesc =>
+      'What this circle has on, and what it is for';
+
+  @override
+  String get ownerFeaturesHint =>
+      'Voice and text chat are always on. Turn the rest on as needed — only for this circle.';
+
+  @override
+  String get ownerFeatureCaptionsDesc =>
+      'Live speech-to-text; audio is sent to a cloud recognizer';
+
+  @override
+  String get ownerFeatureTranscriptDesc =>
+      'Keeps a text record members can look back on';
+
+  @override
+  String get ownerFeatureVoiceNotesDesc =>
+      'Leave a short voice message for the circle';
+
+  @override
+  String get ownerFeatureMapDesc =>
+      'Those who want to can share their location on a map';
+
+  @override
+  String get ownerFeatureRecordingDesc =>
+      'Record the room, with everyone\'s consent';
+
+  @override
+  String get ownerFeatureRecordingUnavailable =>
+      'Recording isn\'t in this build yet — this sets it for later';
+
+  @override
+  String get ownerFeaturePluginsDesc => 'Allow third-party plugins';
+
+  @override
+  String get ownerFeatureFocusDesc => 'Pomodoro timer and shared focus board';
+
+  @override
+  String get ownerFeatureP2pDesc =>
+      'Connect directly when few are in, for lower latency';
+
+  @override
+  String get ownerFeatureDevToolsDesc =>
+      'Show join timing and other debug readouts';
+
+  @override
+  String ownerFeatureToggleFailed(String feature, String reason) {
+    return 'Couldn\'t change \"$feature\": $reason';
+  }
+
+  @override
+  String get purposeTitle => 'Purpose';
+
+  @override
+  String get purposeNone => 'Not set';
+
+  @override
+  String get purposePickerTitle => 'What is this circle for?';
+
+  @override
+  String get purposeChat => 'Hang out';
+
+  @override
+  String get purposeChatDesc =>
+      'Just talk. Voice notes on; captions and transcript off';
+
+  @override
+  String get purposeStudy => 'Study';
+
+  @override
+  String get purposeStudyDesc =>
+      'Focus together with a pomodoro timer, fewer distractions';
+
+  @override
+  String get purposeMeeting => 'Meeting';
+
+  @override
+  String get purposeMeetingDesc =>
+      'Live captions and a transcript to look back on';
+
+  @override
+  String get purposeCustom => 'Custom';
+
+  @override
+  String get purposeCustomDesc =>
+      'Pick features and plugins yourself, or use a share code';
+
+  @override
+  String get purposeCreateLabel => 'Purpose';
+
+  @override
+  String get purposeCreateHint =>
+      'Applied once the circle is registered; you can change it any time';
+
+  @override
+  String purposeApplied(String name) {
+    return 'Switched to \"$name\"';
+  }
+
+  @override
+  String purposeApplyFailed(String reason) {
+    return 'Couldn\'t change the purpose: $reason';
+  }
+
+  @override
+  String purposeReasonBad(String detail) {
+    return 'something in it is off ($detail)';
+  }
+
+  @override
+  String purposeReasonManifest(String detail) {
+    return 'a plugin manifest is off ($detail)';
+  }
+
+  @override
+  String get purposeReasonFetch => 'a plugin address couldn\'t be reached';
+
+  @override
+  String get purposeReasonTooMany => 'more than 10 plugins';
+
+  @override
+  String get purposeReasonFeatureOff => 'plugins are off in this circle';
+
+  @override
+  String get purposeReasonUnknownBuiltin =>
+      'the server doesn\'t know that built-in plugin';
+
+  @override
+  String get purposeReasonNotRegistered =>
+      'the circle is still being registered; try again shortly';
+
+  @override
+  String get purposeExport => 'Export share code';
+
+  @override
+  String get purposeImport => 'Import share code';
+
+  @override
+  String get purposeExportFailed => 'Couldn\'t export; try again shortly';
+
+  @override
+  String get purposeCodeTitle => 'Share code';
+
+  @override
+  String get purposeCodeHint =>
+      'Paste this into \"Import share code\" to use the same setup. It has no passcode or plugin secrets.';
+
+  @override
+  String get purposeCodeCopied => 'Share code copied';
+
+  @override
+  String get purposeCodeErrPrefix =>
+      'That doesn\'t look like a share code — it starts with lares-purpose:';
+
+  @override
+  String get purposeCodeErrBroken =>
+      'The code looks cut off; it may not have copied fully';
+
+  @override
+  String get purposeCodeErrTooLarge => 'That code is too large';
+
+  @override
+  String get purposeCodeErrJson => 'Couldn\'t read what\'s inside that code';
+
+  @override
+  String get purposeImportTitle => 'Import share code';
+
+  @override
+  String get purposeImportFieldHint => 'Paste lares-purpose:… here';
+
+  @override
+  String get purposeImportApply => 'Apply';
+
+  @override
+  String get purposeImportFill => 'Fill in';
+
+  @override
+  String get purposePreviewNoChange => 'No feature changes';
+
+  @override
+  String purposePreviewTurnsOn(String list) {
+    return 'Turns on: $list';
+  }
+
+  @override
+  String purposePreviewTurnsOff(String list) {
+    return 'Turns off: $list';
+  }
+
+  @override
+  String purposePreviewPlugins(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Touches $count plugins',
+      one: 'Touches 1 plugin',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String purposePreviewSettings(String list) {
+    return 'Circle settings: $list';
+  }
+
+  @override
+  String get purposeEditorTitle => 'Custom purpose';
+
+  @override
+  String get purposeEditorFormat => 'Format';
+
+  @override
+  String get purposeEditorImport => 'Import from share code';
+
+  @override
+  String get purposeEditorCopyCode => 'Copy share code';
+
+  @override
+  String get purposeEditorFormatFailed => 'Fix the syntax error first';
+
+  @override
+  String get purposeEditorValid => 'Looks good';
+
+  @override
+  String get purposeEditorChecking => 'Checking…';
+
+  @override
+  String purposeEditorLine(int line) {
+    return 'line $line';
+  }
+
+  @override
+  String get purposeEditorApply => 'Apply';
+
+  @override
+  String purposeErrSyntax(int line, int column) {
+    return 'JSON syntax error (line $line, column $column)';
+  }
+
+  @override
+  String get purposeErrNotObject => 'The top level must be a JSON object';
+
+  @override
+  String get purposeErrTooLarge => 'Too large — 32 KB at most';
+
+  @override
+  String get purposeErrUnknownKey => 'Unknown key';
+
+  @override
+  String get purposeErrVersion => 'v must be 1';
+
+  @override
+  String get purposeErrId => 'id: lowercase letters, digits, - and _, up to 32';
+
+  @override
+  String get purposeErrName => 'Name is required, up to 24 characters';
+
+  @override
+  String get purposeErrIcon => 'Icon should be a single emoji';
+
+  @override
+  String get purposeErrDescription => 'Description is 200 characters at most';
+
+  @override
+  String get purposeErrNotBool => 'Must be true or false';
+
+  @override
+  String get purposeErrNotObjectField => 'This must be a JSON object';
+
+  @override
+  String get purposeErrNotArray => 'This must be a JSON list';
+
+  @override
+  String get purposeErrTooManyPlugins => '10 plugins at most';
+
+  @override
+  String get purposeErrPluginSource =>
+      'Use exactly one of id, manifest, manifestUrl';
+
+  @override
+  String get purposeErrPluginId => 'Invalid plugin id';
+
+  @override
+  String get purposeErrConfigTooLarge => 'Plugin config is 4 KB at most';
+
+  @override
+  String get purposeErrManifestUrl => 'Must be an https:// address';
+
+  @override
+  String purposeErrManifest(String field) {
+    return 'Plugin manifest: \"$field\" is invalid';
+  }
+
+  @override
+  String purposeErrConflict(String field) {
+    return 'Conflicts with $field';
+  }
+
+  @override
+  String get purposeErrDuplicate => 'Same plugin listed twice';
+
+  @override
+  String get privacySheetTitle => 'Privacy in this circle';
+
+  @override
+  String get privacySheetTranscript =>
+      'Transcript on (speech is recognized by Alibaba Cloud; the text and nicknames stay on the server until the owner clears them)';
+
+  @override
+  String get privacySheetTranscriptE2ee =>
+      'Transcript on (speech is recognized by Alibaba Cloud; the server only relays ciphertext, records live on each member\'s device)';
+
+  @override
+  String get privacySheetCaptions =>
+      'Live captions available (when someone turns captions on, snippets of your speech go to Alibaba Cloud for recognition; the app keeps none of it)';
+
+  @override
+  String privacySheetPlugins(int count, String names) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count plugins',
+      one: '1 plugin',
+    );
+    return '$_temp0 ($names)';
+  }
+
+  @override
+  String privacySheetPluginDetail(String name, String perms) {
+    return '$name: $perms';
+  }
+
+  @override
+  String get privacySheetPluginNoPerms => 'no permissions';
+
+  @override
+  String get privacySheetPluginThirdParty =>
+      ' · data is sent to the plugin author\'s server (third party)';
+
+  @override
+  String get privacySheetSeparator => ', ';
+
+  @override
+  String get privacySheetFocus =>
+      'Focus tracking on (the circle can see who\'s focusing and how long they\'ve been away)';
+
+  @override
+  String get privacySheetMap =>
+      'Location sharing available (only shared when you turn it on yourself)';
+
+  @override
+  String get privacySheetRecording =>
+      'Recording on (everyone in the room sees a notice while recording)';
+
+  @override
+  String get privacySheetNothing =>
+      'Nothing here processes your data beyond voice and chat — no transcript, no plugins';
+
+  @override
+  String get privacySheetE2eeOn => 'End-to-end encryption: yes';
+
+  @override
+  String get privacySheetE2eeOff => 'End-to-end encryption: no';
+
+  @override
+  String get privacySheetE2eeUnset =>
+      'End-to-end encryption: no circle-wide rule, each member\'s own setting applies';
+
+  @override
+  String get privacySheetAi =>
+      'AI assistant on (voice in the room is sent to Alibaba Cloud Model Studio DashScope for recognition and replies)';
+
+  @override
+  String get aiVoicePluginName => 'AI assistant';
+
+  @override
+  String get aiVoicePluginDesc =>
+      'A talking assistant in the room — call it and it answers';
+
+  @override
+  String get aiVoiceSettingsTitle => 'AI assistant settings';
+
+  @override
+  String get aiVoicePrivacyNote =>
+      'When on, voice in the room is sent to Alibaba Cloud Model Studio (DashScope) for recognition, and an AI writes and speaks the reply. Replies are AI-generated and can be wrong. Not available in end-to-end encrypted circles.';
+
+  @override
+  String get aiVoiceE2eeBlocked =>
+      'This circle uses end-to-end encryption, so the server can\'t hear voice and the AI assistant can\'t work';
+
+  @override
+  String get aiVoiceFieldName => 'Name (also the wake word)';
+
+  @override
+  String get aiVoiceFieldNameEmpty => 'Give it a name';
+
+  @override
+  String get aiVoiceFieldWakeWords => 'Other names';
+
+  @override
+  String get aiVoiceFieldWakeWordsHint => 'Separate with commas or spaces';
+
+  @override
+  String get aiVoiceFieldPersona => 'Persona';
+
+  @override
+  String get aiVoicePersonaReset => 'Reset to default';
+
+  @override
+  String get aiVoiceFieldTrigger => 'When it answers';
+
+  @override
+  String get aiVoiceTriggerWake => 'By name';
+
+  @override
+  String get aiVoiceTriggerAlways => 'Always';
+
+  @override
+  String get aiVoiceTriggerPtt => '@ only';
+
+  @override
+  String get aiVoiceTriggerWakeDesc =>
+      'Answers only when someone says its name or another wake word';
+
+  @override
+  String get aiVoiceTriggerAlwaysDesc =>
+      'Answers whenever someone finishes speaking — good for one person chatting with it';
+
+  @override
+  String aiVoiceTriggerPttDesc(String name) {
+    return 'Doesn\'t listen to voice; answers only chat messages starting with @$name';
+  }
+
+  @override
+  String get aiVoiceFieldVoice => 'Voice';
+
+  @override
+  String get aiVoiceFieldInterrupt => 'Stop when someone talks over it';
+
+  @override
+  String get aiVoiceAdvanced => 'Advanced';
+
+  @override
+  String get aiVoiceFieldModel => 'Chat model';
+
+  @override
+  String get aiVoiceFieldModelInvalid =>
+      'Letters, digits, dots, dashes and underscores only';
+
+  @override
+  String get aiVoiceFieldMaxReplyChars => 'Max characters per reply';
+
+  @override
+  String get aiVoiceFieldMaxTurnsPerHour => 'Max answers per hour';
+
+  @override
+  String get aiVoiceFieldMaxTurnsPerDay => 'Max answers per day';
+
+  @override
+  String aiVoiceRangeHint(int min, int max) {
+    return '$min–$max';
+  }
+
+  @override
+  String aiVoiceRangeError(int min, int max) {
+    return 'Must be between $min and $max';
+  }
+
+  @override
+  String get aiVoiceSaved => 'Saved';
+
+  @override
+  String aiVoiceSaveFailed(String reason) {
+    return 'Couldn\'t save: $reason';
+  }
+
+  @override
+  String get aiVoiceSeatStatus => 'AI assistant';
+
+  @override
+  String get aiVoiceSeatBadge => 'AI';
+
+  @override
+  String get aiVoiceModerationHint =>
+      'This is the AI assistant. The owner can turn it off under Plugins';
+
+  @override
+  String get roomMoreAi => 'AI assistant';
+
+  @override
+  String roomMoreAiTitle(String name) {
+    return 'AI assistant “$name”';
+  }
+
+  @override
+  String roomMoreAiHowWake(String name) {
+    return 'Say “$name”, then your question';
+  }
+
+  @override
+  String get roomMoreAiHowAlways => 'Finish speaking and it will answer';
+
+  @override
+  String roomMoreAiHowPtt(String name) {
+    return 'Type @$name in the chat';
+  }
+
+  @override
+  String get roomMoreAiPrivacy =>
+      'Voice in the room is sent to Alibaba Cloud Model Studio (DashScope) for recognition. Replies are AI-generated and can be wrong.';
+
+  @override
+  String get purposeMeetingAiSwitch => 'Add the AI assistant';
+
+  @override
+  String get purposeMeetingAiDesc =>
+      'Call it by name during the meeting to ask questions; voice is sent to Alibaba Cloud DashScope';
+
+  @override
+  String get purposeMeetingAiE2ee =>
+      'This circle uses end-to-end encryption, so the AI assistant isn\'t available';
+
+  @override
+  String get purposeMeetingAiConfirm => 'Use Meeting';
+
+  @override
+  String get privacySheetFullPolicy => 'Full privacy policy';
+
+  @override
+  String get pushLevelTitle => 'Notify me';
+
+  @override
+  String get pushLevelAll => 'Everything';
+
+  @override
+  String get pushLevelAllDesc =>
+      'Focus sessions, a lively room, or the owner calling';
+
+  @override
+  String get pushLevelCalled => 'Only when called';
+
+  @override
+  String get pushLevelCalledDesc => 'Only when the owner calls everyone in';
+
+  @override
+  String get pushLevelOff => 'Off';
+
+  @override
+  String get pushLevelOffDesc => 'No notifications from this circle';
+
+  @override
+  String pushLevelTile(String level) {
+    return 'Notify me: $level';
+  }
+
+  @override
+  String get pushQuietTitle => 'Quiet hours for pushes';
+
+  @override
+  String get pushQuietOffSub => 'Off — circle activity can reach you any time';
+
+  @override
+  String pushQuietOnSub(String range) {
+    return 'No circle activity pushes $range';
+  }
+
+  @override
+  String get pushQuietSwitch => 'Quiet hours';
+
+  @override
+  String get pushQuietHint =>
+      'Uses this phone\'s time zone. Owner calls and weekly summaries wait too.';
+
+  @override
+  String get pushQuietDone => 'Done';
+
+  @override
+  String get pushTriggersTitle => 'Activity alerts';
+
+  @override
+  String get pushTriggersSub =>
+      'Tell members who aren\'t in the room when something\'s happening';
+
+  @override
+  String get pushTriggerFocus => 'Someone starts focusing';
+
+  @override
+  String get pushTriggerFocusDesc => '\"Aman started focusing — join in?\"';
+
+  @override
+  String get pushTriggerCrowd => 'The room gets lively';
+
+  @override
+  String pushTriggerCrowdDesc(int count) {
+    return '\"$count people are already talking\" — once per session';
+  }
+
+  @override
+  String get pushTriggerCrowdN => 'Alert at';
+
+  @override
+  String pushTriggerCrowdNValue(int count) {
+    return '$count people';
+  }
+
+  @override
+  String get pushTriggerArrive => 'Someone enters an empty room';
+
+  @override
+  String get pushTriggerArriveDesc =>
+      '\"Lulu is here\" — off by default, it can get noisy';
+
+  @override
+  String get pushTriggersReset => 'Restore purpose defaults';
+
+  @override
+  String get pushTriggersPurpose =>
+      'Using the defaults for this circle\'s purpose';
+
+  @override
+  String pushTriggersLimits(int cooldown, int cap) {
+    return 'Each person gets at most one alert per circle every $cooldown min and $cap a day; anyone in the room or who just left isn\'t notified.';
+  }
+
+  @override
+  String get pushTriggersLoading => 'Loading…';
+
+  @override
+  String get pushTriggersFailed => 'Couldn\'t save — try again later';
+
+  @override
+  String get summonButton => 'Call everyone';
+
+  @override
+  String summonCooldown(int minutes) {
+    return 'You can call again in $minutes min';
+  }
+
+  @override
+  String summonCooldownShort(int minutes) {
+    return '${minutes}m';
+  }
+
+  @override
+  String summonSent(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Called $count people',
+      one: 'Called 1 person',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get summonNobody =>
+      'Nobody to call right now (notifications off or quiet hours)';
+
+  @override
+  String get summonFailed => 'Couldn\'t call everyone — try again later';
+
+  @override
+  String get summonConfirmTitle => 'Call everyone in?';
+
+  @override
+  String summonConfirmBody(String name, int minutes) {
+    return 'Members who aren\'t here get \"$name is calling you to the circle\". Once every $minutes min.';
+  }
+
+  @override
+  String focusRoundAllIn(int count) {
+    return 'All $count stayed the whole round 🎉';
+  }
+
+  @override
+  String get focusRoundSolo => 'Full round 🎉';
+
+  @override
+  String focusRoundPartial(int full, int total) {
+    return '$full/$total stayed the whole round';
+  }
+
+  @override
+  String focusRoundAway(String name, int minutes) {
+    return '$name away $minutes min';
+  }
+
+  @override
+  String focusRoundAwayBrief(String name) {
+    return '$name stepped away';
+  }
+
+  @override
+  String focusRoundMore(int count) {
+    return '+$count more';
+  }
+
+  @override
+  String focusRoundTitle(int round) {
+    return 'Round $round done';
+  }
+
+  @override
+  String get focusRoundDismiss => 'Dismiss';
+
+  @override
+  String focusStreakTooltip(int days) {
+    return '$days-day focus streak';
+  }
+
+  @override
+  String get focusWeeklyTitle => 'Last week\'s focus';
+
+  @override
+  String focusWeeklyTime(String time) {
+    return 'You focused for $time';
+  }
+
+  @override
+  String focusWeeklyRank(int rank, int of) {
+    return '#$rank of $of in the circle';
+  }
+
+  @override
+  String focusWeeklyStreak(int days) {
+    return '$days-day streak 🔥';
+  }
+
+  @override
+  String focusWeeklyTotal(String time) {
+    return 'Circle total $time';
+  }
+
+  @override
+  String get focusWeeklyDismiss => 'Got it';
 }

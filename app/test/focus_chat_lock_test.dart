@@ -129,7 +129,9 @@ void main() {
     });
     await tester.pump();
     expect(find.byType(ChatPanel), findsOneWidget);
-    expect(find.byIcon(Icons.voicemail_rounded), findsOneWidget);
+    // 专注那一套收起:排行榜键不在了,控件排回到「离开 · 麦 · 聊天」
+    expect(find.byKey(const ValueKey('focus-board')), findsNothing);
+    expect(find.byType(ChatToggleButton), findsOneWidget);
     expect(find.byKey(const ValueKey('focus-timer-card')), findsNothing);
     // snackbar 告知
     await tester.pump(const Duration(milliseconds: 100));

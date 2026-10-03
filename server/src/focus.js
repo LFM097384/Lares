@@ -8,10 +8,11 @@
 //   这样 [since, now] 这段一定是按「专注」记过账的,回溯改记成「离开」是精确的。
 // 排行榜只累计专注时长(不含离开),按本地日(LARES_FOCUS_TZ_OFFSET_MIN,默认 UTC+8)分桶。
 
-import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync } from 'node:fs';
 import { mkdir, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { TokenBuckets } from './ratelimit.js';
+import { isAiUserId } from './ai_voice_supervisor.js';
 
 export const FOCUS_PLUGIN_ID = 'lares.focus';
 export const FOCUS_DEFAULTS = Object.freeze({ focusMin: 25, breakMin: 5, rounds: 4, graceSec: 10, membersCanStart: false });
@@ -105,6 +106,7 @@ export function createFocusEngine({
       board: loadBoard(circleId),
       dirty: false,
       timer: null,
+      round: null, // 本轮出勤账:{startedAt, focus:{uid:ms}, names:{uid:name}}(focus_social.js 消费 round_end)
     };
     // 重启后恢复番茄钟(存在 lares.focus 的共享状态里)
     const saved = p.state?.pomodoro;
@@ -146,7 +148,7 @@ export function createFocusEngine({
         const d = t - m.lastSettle;
         if (counting(c)) {
           if (m.away) m.awayMs += d;
-          else { m.focusMs += d; credit(c, uid, m.lastSettle, t); }
+          else { m.focusMs += d; credit(c, uid, m.lastSettle, t); roundCredit(c, uid, m, d); }
         }
         m.lastSettle = t;
       }
@@ -176,6 +178,7 @@ export function createFocusEngine({
         m.focusMs = Math.max(0, m.focusMs - retro);
         m.awayMs += retro;
         credit(c, uid, s, t, -1);
+        roundCredit(c, uid, m, -retro);
       }
       m.away = true;
       m.awaySince = s;
@@ -196,6 +199,8 @@ export function createFocusEngine({
 
   // ── 进出房(index.js 的 join/leave 钩子)──
   function join(circleId, userId, deviceId, name) {
+    // AI 语音助手(u_ai_*)不是真人:不计时、不进成员表 / 排行榜、不触发离开提示
+    if (isAiUserId(userId)) return;
     const c = circle(circleId);
     const t = now();
     catchUp(c, t);
@@ -207,6 +212,7 @@ export function createFocusEngine({
     m.name = name ?? m.name;
     if (c.board.names[userId] !== name && name) { c.board.names[userId] = name; c.dirty = true; }
     m.devices.set(deviceId, { away: false, since: null });
+    roundCredit(c, userId, m, 0); // 轮中进房:登记进本轮(没赶上的那段算缺勤)
     reevaluate(c, userId, m, t);
     changed(c);
   }
@@ -271,6 +277,7 @@ export function createFocusEngine({
     catchUp(c, t);
     if (c.pomodoro.phase !== 'focus') resumeCounting(c, t);
     c.pomodoro = { phase: 'focus', endsAt: t + c.config.focusMin * 60_000, round: 1, rounds: c.config.rounds, ...(userId ? { startedBy: userId } : {}) };
+    beginRound(c, t);
     notice(c, { kind: 'started', phase: 'focus', round: 1, endsAt: c.pomodoro.endsAt, ...(userId ? { userId } : {}) });
     pomodoroChanged(c);
     changed(c);
@@ -285,6 +292,7 @@ export function createFocusEngine({
     catchUp(c, t);
     const wasRunning = c.pomodoro.phase !== 'idle';
     c.pomodoro = idlePomodoro(c.config.rounds);
+    c.round = null; // 手动停钟:本轮作废,不发出勤
     enterBreak(c, t); // 停钟后不再计时:此刻离开着的人回来也不广播
     if (wasRunning) {
       if (!silent) notice(c, { kind: 'stopped', ...(userId ? { userId } : {}) });
@@ -309,6 +317,32 @@ export function createFocusEngine({
     }
   }
 
+  // ── 每轮出勤(只记账,判定与展示在 focus_social.js)──
+  function beginRound(c, t) {
+    c.round = { startedAt: t, focus: {}, names: {} };
+    for (const [uid, m] of c.members) { c.round.focus[uid] = 0; c.round.names[uid] = m.name; }
+  }
+  function roundCredit(c, uid, m, ms) {
+    if (!c.round || !counting(c)) return;
+    c.round.focus[uid] = Math.max(0, (c.round.focus[uid] ?? 0) + ms);
+    if (m?.name) c.round.names[uid] = m.name;
+  }
+  /// 专注段到点:发 round_end。awayMs = 本轮时长 − 本轮专注(中途进房 / 提前走的缺口都算离开)
+  function endRound(c, at, round, rounds) {
+    const r = c.round;
+    c.round = null;
+    if (!r) return; // 重启恢复的半截轮次:没有完整账,不发
+    const lenMs = Math.max(0, at - r.startedAt);
+    const members = Object.entries(r.focus).filter(([uid]) => !isAiUserId(uid)).map(([userId, f]) => ({
+      userId,
+      name: c.members.get(userId)?.name ?? r.names[userId] ?? c.board.names[userId] ?? userId,
+      focusMs: Math.round(f),
+      awayMs: Math.max(0, Math.round(lenMs - f)),
+      inRoom: c.members.has(userId),
+    }));
+    out(c.id, { type: 'round_end', round: { circleId: c.id, round, rounds, startedAt: r.startedAt, endedAt: at, lenMs, graceMs: (c.config.graceSec ?? 0) * 1000, members } });
+  }
+
   function enterBreak(c, t) {
     for (const m of c.members.values()) {
       if (m.away) m.awayNotified = false; // 休息中回来不发 back
@@ -323,6 +357,7 @@ export function createFocusEngine({
       settle(c, at);
       const p = c.pomodoro;
       if (p.phase === 'focus') {
+        endRound(c, at, p.round, p.rounds);
         if (p.round >= p.rounds) {
           c.pomodoro = idlePomodoro(c.config.rounds);
           enterBreak(c, at);
@@ -335,6 +370,7 @@ export function createFocusEngine({
       } else {
         c.pomodoro = { ...p, phase: 'focus', round: p.round + 1, endsAt: at + c.config.focusMin * 60_000 };
         resumeCounting(c, at);
+        beginRound(c, at);
         notice(c, { kind: 'phase', phase: 'focus', round: c.pomodoro.round, endsAt: c.pomodoro.endsAt });
       }
       moved = true;
@@ -376,6 +412,7 @@ export function createFocusEngine({
       // 圈主停用/卸载:结算、番茄钟清零
       const running = c.pomodoro.phase !== 'idle';
       c.pomodoro = idlePomodoro(c.config.rounds);
+      c.round = null;
       c.enabled = false;
       for (const m of c.members.values()) { m.away = memberAwayNow(m); m.awaySince = m.away ? t : null; m.awayNotified = false; }
       if (byOwner) notice(c, { kind: 'ended_by_owner' });
@@ -396,6 +433,7 @@ export function createFocusEngine({
   function memberRows(c) {
     const rows = [];
     for (const [uid, m] of c.members) {
+      if (isAiUserId(uid)) continue;
       rows.push({
         userId: uid,
         name: m.name,
@@ -420,7 +458,7 @@ export function createFocusEngine({
 
   function rowsOf(c, sums) {
     return Object.entries(sums)
-      .filter(([, ms]) => ms > 0)
+      .filter(([uid, ms]) => ms > 0 && !isAiUserId(uid)) // 老存档里可能残留 AI 记录
       .map(([userId, ms]) => ({ userId, name: c.board.names[userId] ?? c.members.get(userId)?.name ?? userId, ms: Math.round(ms) }))
       .sort((a, b) => b.ms - a.ms || a.userId.localeCompare(b.userId))
       .slice(0, BOARD_MAX);
@@ -539,6 +577,28 @@ export function createFocusEngine({
     return Boolean(circles.get(circleId)?.members.get(userId)?.devices.has(deviceId));
   }
 
+  /// 排行榜原始日桶(周报用):{names, days:{'YYYY-MM-DD':{uid:ms}}}(按引擎时区 tzOffsetMin 分桶)
+  function daysOf(circleId) {
+    const c = circle(circleId);
+    catchUp(c, now());
+    const days = {};
+    for (const [k, v] of Object.entries(c.board.days)) days[k] = { ...v };
+    const out2 = { names: { ...c.board.names }, days };
+    maybeDrop(c);
+    return out2;
+  }
+
+  /// 有排行榜数据的圈(磁盘 + 内存;周报扫描用)
+  function boardCircleIds() {
+    const ids = new Set(circles.keys());
+    if (dir) {
+      try {
+        for (const f of readdirSync(dir)) if (f.endsWith('.json')) ids.add(decodeURIComponent(f.slice(0, -5)));
+      } catch { /* 目录不存在 */ }
+    }
+    return [...ids];
+  }
+
   function isEnabled(circleId) { return circle(circleId).enabled; }
   function configOf(circleId) { return { ...circle(circleId).config }; }
   function pomodoroOf(circleId) { return { ...circle(circleId).pomodoro }; }
@@ -549,7 +609,7 @@ export function createFocusEngine({
 
   return {
     join, leave, away, back, start, stop, tick, setPlugin, status, board,
-    flushAll, flushSync, deleteCircle, activeCircles, inRoom, isEnabled, configOf, pomodoroOf, shutdown,
+    flushAll, flushSync, deleteCircle, activeCircles, inRoom, isEnabled, configOf, pomodoroOf, shutdown, daysOf, boardCircleIds,
   };
 }
 
@@ -591,6 +651,9 @@ export function createFocusWs(d) {
       const n = ev.notice;
       toSessions(circleId, { t: 'focus_notice', ...n });
       d.emit(circleId, 'focus', n);
+      d.onNotice?.(circleId, n); // 活动推送 / 专注社交钩子(index.js 接线)
+    } else if (ev.type === 'round_end') {
+      d.onRoundEnd?.(circleId, ev.round);
     } else if (ev.type === 'status') {
       // 没装专注插件的圈不推(进出房也会触发引擎),装/卸/启停那一下强制推
       if (!ev.force && !d.plugins.focusPlugin(circleId).installed) return;

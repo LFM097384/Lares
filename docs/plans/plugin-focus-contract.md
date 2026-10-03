@@ -173,3 +173,95 @@ Install = { manifest, builtin:bool, enabled:bool, config:{}, state:{}, rev:int,
 - `webhookSecretEnc` 字段名沿用,但如 §2 注明存的是明文 `whsec_…`(plugins.json 0600),未做加密。
 - 插件 token 调 `GET /api/v1/circle` 时 `bot` 对象额外带 `pluginId`。
 - 计时引擎任何结算前先推进到期的番茄钟阶段(防止 tick 迟到把休息记成专注);`pong` 早已带 `now`,未改。
+
+## 9. 活动推送触发器(`server/src/push_triggers.js`)
+
+推送只发给**圈成员且此刻不在房里**的设备。载荷沿用 `aps{alert,sound,category:'LARES_JOIN',thread-id}` + `lares:{circleId,server,kind}`,客户端点通知走原有「一键进圈」。`apns-collapse-id` = circleId,周报为 `w-<circleId>`。
+
+AI 成员 `u_ai_*` / `bot:` 从不触发、不计人数、不收推送。加密圈的正文不带名字(「有人在你的圈子里」)。
+
+### 9.1 触发器
+
+| 触发 | kind | 文案(zh) | 默认 |
+|---|---|---|---|
+| 有人开始专注(`focus_start` 成功);用途 `study` 的圈另含「空房第一个人进来」 | `focus` | 「阿蛮开始专注了,一起学?」/「阿蛮来自习了,一起学?」 | 学习圈开、聊天圈关、无用途开 |
+| 房里真人数达到 N(每次开房一次,房空后重置) | `crowd` | 「圈里已经有 3 个人在聊」 | 学习圈关、其它开;N 默认 3,范围 2–12 |
+| 有人走进空房间 | `active` | 「小鹿来了」 | **关**(`LARES_PUSH_ARRIVE_DEFAULT=1` 改回开) |
+| 圈主手动「叫大家来」 | `summon` | 「X 叫你来圈里」 | 每圈 10 分钟一次(`LARES_PUSH_SUMMON_MS`) |
+| 每周小结(§10.3) | `weekly` | 「上周专注 3.3 小时 · 第 2 名 · 🔥5 · 全圈 9 小时」 | — |
+
+### 9.2 防骚扰(按顺序过滤)
+
+1. 在房里的人、5 分钟内刚离开的人(`LARES_PUSH_RECENT_MS`)不收。
+2. 成员等级:`off` 什么都不收;`called` 只收 `summon` 与老的 `reach`;`all` 全收。
+3. 免打扰时段:按设备上报的 `tzOffsetMin` 算本地时间,默认 23:00–08:00。**设备没报时区就不判免打扰**。
+4. 同一人同一圈 30 分钟冷却(`LARES_PUSH_COOLDOWN_MS`)。只管 `focus/crowd/active`;`summon` 不受此限,但会占用冷却。
+5. 每人每天上限 8 条(`LARES_PUSH_DAILY_CAP`,按其本地日)。
+
+周报不占冷却、不计上限、不看是否在房,但尊重免打扰(顺延,最多 2 天)与 `off`。
+
+冷却和计数在内存里,重启清零。圈主配置落盘 `DATA_DIR/push_triggers.json`(原子写,解散圈子时删记录)。
+
+### 9.3 WS
+
+| 方向 | 消息 |
+|---|---|
+| C→S | `push_cfg_get {circleId}`(圈主) |
+| S→C | `push_cfg {circleId, cfg:{triggers:{focus,crowd,arrive}, crowdN}, custom, defaults, summonReadyAt, now, limits:{cooldownMin,dailyCap,summonMin}}`;set / summon 后也广播给该圈在线的圈主 |
+| C→S | `push_cfg_set {circleId, ownerKey, cfg \| null}`(null = 恢复用途默认)→ `owner_ok {op:'push_cfg_set'}` 或 `owner_error {reason: not_owner \| bad_config(+detail)}` |
+| C→S | `push_summon {circleId, ownerKey}`(必须在房)→ `push_summon_ok {circleId, sent, nextAt}` 或 `owner_error {op:'push_summon', reason: cooldown(+retryAt) \| not_in_room \| not_owner \| not_registered}` |
+
+`push_register` 的扩展:
+
+- `circles[].level ∈ all|called|off`。缺省时按 `muted` 推断:`muted:true` ⇒ `off`。
+- 顶层 `prefs {tzOffsetMin, tz?, quiet:{start,end} \| null}`。时间用分钟表示,范围 0..1439,可跨午夜。有 `prefs` 但没有 `quiet` 字段 ⇒ 默认 1380–480;`quiet:null` ⇒ 不免打扰。
+
+圈主设备的时区同时记为该圈时区(周报用)。
+
+### 9.4 App
+
+- **成员**:圈子菜单里的「通知我:全部 / 只要被叫 / 关」(`SettingsStore.circlePushLevel`)。「关」复用老的静音名单,老服务器照样认。
+- **全局**:设置页推送开关下的「推送免打扰」(开关 + 起止时间)。它和本地敲门横幅的免打扰是两回事。
+- **圈主**:
+  - 圈子菜单「活动提醒」面板(仅 iOS):三个开关、人数 −/+、恢复用途默认,并显示防骚扰上限。
+  - 房间头部「叫大家来」:仅圈主可见;有确认框;冷却中显示剩余分钟并禁用。
+- 代码:`lib/src/focus/activity_push.dart`、`lib/src/ui/push_settings_widgets.dart`。
+
+## 10. 专注社交(`server/src/focus_social.js`)
+
+### 10.1 出勤卡
+
+每轮专注段结束(引擎 round_end)时,服务器给房里广播:
+
+`focus_round {circleId, round, rounds, endedAt, lenMs, total, full, members:[{userId, name, awayMs, full}]}`
+
+- 成员 = 本轮有专注时长或在房的真人。
+- `full` = 离开累计 ≤ 宽限期 + 2 s。
+- App 在计时卡下显示「本轮 4 人全勤 🎉」或「3/4 全勤 · 小鹿离开 2 分钟」(最多列 2 人,余下写「等 N 人」)。卡片可关,下一轮开始时自动收起。
+
+### 10.2 连续打卡
+
+完成过一轮(`full`)的那天记一次打卡。「天」按成员本地日算:其设备时区,否则圈时区,否则引擎时区。相邻天 +1,断一天归零(读取时计算,不必改写)。持久化到 `DATA_DIR/focus_social.json`(含 `best`)。
+
+`focus_social_get {circleId}` 返回两条消息:
+
+- `focus_streaks {circleId, streaks:{userId:n}}`,只含 n>0。每轮结束后服务器也会广播新的 `focus_streaks`。
+- `focus_weekly {circleId, card \| null}`。
+
+App:座位右上角显示「🔥5」,排行榜名字后显示同样的徽标。
+
+### 10.3 每周小结
+
+服务器每分钟 tick 一次(`LARES_FOCUS_SOCIAL_TICK_MS`)。到了圈时区(圈主设备时区,否则 UTC)的**周一**,汇总上周一至周日的专注时长,为每位有时长的成员生成一张卡片:
+
+`card {week:'YYYY-MM-DD'(上周一), focusMs, rank, of, streak, circleTotalMs, createdAt, seen}`
+
+- 同时推一条 `weekly` 推送(按 §9.2 规则)。
+- 卡片保留 7 天。成员下次进圈拉 `focus_social_get` 时看到。
+- 点「知道了」发 `focus_weekly_seen {circleId, week}`,标记已读。
+- 时钟可注入(`createFocusSocial({now})`),测试用假时钟跑完整一周。
+
+### 10.4 App
+
+- `lib/src/focus/focus_social.dart`:状态,挂在 `FocusService.social`。
+- `focus_social_widgets.dart`:出勤卡、🔥 徽标、周报卡、叫大家来按钮。

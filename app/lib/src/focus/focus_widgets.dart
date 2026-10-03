@@ -8,6 +8,7 @@ import '../theme/tokens.dart';
 import 'focus_lock.dart';
 import 'focus_models.dart';
 import 'focus_service.dart';
+import 'focus_social_widgets.dart' show FocusStreakBadge;
 
 /// 把 [FocusService] 挂在树上:房间页按需取,不必沿 HomeScreen 一路加参数。
 /// 没挂(测试 / 老入口)时 [maybeOf] 返回 null,专注 UI 整块不出现。
@@ -847,14 +848,14 @@ class FocusLeaderboardSheet extends StatelessWidget {
             ),
             Expanded(
               child: ListenableBuilder(
-                listenable: focus,
+                listenable: Listenable.merge([focus, focus.social]),
                 builder: (context, _) {
                   final b = focus.leaderboard;
                   return TabBarView(
                     children: [
-                      _BoardList(rows: b.today, me: focus.myUserId?.call()),
-                      _BoardList(rows: b.week, me: focus.myUserId?.call()),
-                      _BoardList(rows: b.all, me: focus.myUserId?.call()),
+                      _BoardList(rows: b.today, me: focus.myUserId?.call(), streakOf: focus.social.streakOf),
+                      _BoardList(rows: b.week, me: focus.myUserId?.call(), streakOf: focus.social.streakOf),
+                      _BoardList(rows: b.all, me: focus.myUserId?.call(), streakOf: focus.social.streakOf),
                     ],
                   );
                 },
@@ -868,10 +869,13 @@ class FocusLeaderboardSheet extends StatelessWidget {
 }
 
 class _BoardList extends StatelessWidget {
-  const _BoardList({required this.rows, this.me});
+  const _BoardList({required this.rows, this.me, this.streakOf});
 
   final List<LeaderboardRow> rows;
   final String? me;
+
+  /// 连续打卡天数(§10.2);排行榜行名字后面挂 🔥N
+  final int Function(String userId)? streakOf;
 
   @override
   Widget build(BuildContext context) {
@@ -942,13 +946,26 @@ class _BoardList extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      mine ? t.focusBoardMe : r.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: mine ? FontWeight.w600 : null,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            mine ? t.focusBoardMe : r.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: mine ? FontWeight.w600 : null,
+                            ),
+                          ),
+                        ),
+                        if ((streakOf?.call(r.userId) ?? 0) > 0) ...[
+                          const SizedBox(width: LaresSpacing.xs + 2),
+                          FocusStreakBadge(
+                            days: streakOf!(r.userId),
+                            badgeKey: ValueKey('focus-board-streak-${r.userId}'),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     ClipRRect(

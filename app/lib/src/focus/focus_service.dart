@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 
+import 'activity_push.dart';
 import 'focus_models.dart';
+import 'focus_social.dart';
 
 /// 本机跑在哪类平台上 —— 只决定「哪些生命周期信号算离开」。
 enum FocusHostKind { mobile, desktop, web }
@@ -39,8 +41,20 @@ class FocusService extends ChangeNotifier {
   }) : _pongOffset = clockOffsetMs,
        _now = now ?? DateTime.now,
        _timer = timerFactory ?? Timer.new {
+    social = FocusSocial(send: send);
+    activity = ActivityPush(
+      send: send,
+      ownerKeyFor: (id) => ownerKeyFor?.call(id),
+      serverNowMs: serverNowMs,
+    );
     _sub = messages.listen(_onMessage);
   }
+
+  /// 出勤卡 / 连续打卡 / 周报(§10)。独立的 ChangeNotifier,UI 单独监听。
+  late final FocusSocial social;
+
+  /// 活动推送配置与「叫大家来」(§9)。
+  late final ActivityPush activity;
 
   final void Function(Map<String, dynamic> msg) send;
   final String? Function(String circleId)? ownerKeyFor;
@@ -160,6 +174,9 @@ class FocusService extends ChangeNotifier {
     _status = null;
     _pomodoro = Pomodoro.idle;
     _board = FocusLeaderboard.empty;
+    // 社交 / 活动推送先拉,focus_get 最后发(老测试按 sent.last 认它)
+    social.setRoom(circleId, fetch: circleId != null && isEnabledIn(circleId));
+    activity.setRoom(circleId);
     if (circleId != null && isEnabledIn(circleId)) {
       send({'t': 'focus_get', 'circleId': circleId});
     }
@@ -264,6 +281,7 @@ class FocusService extends ChangeNotifier {
   // ── 消息 ──
 
   void _onMessage(Map<String, dynamic> msg) {
+    if (social.onMessage(msg) || activity.onMessage(msg)) return;
     switch (msg['t']) {
       case 'welcome':
       case 'circle_settings':
@@ -359,6 +377,7 @@ class FocusService extends ChangeNotifier {
     if (was == on && !force) return;
     if (circleId == _room) {
       if (on && !was) {
+        social.fetch(circleId);
         send({'t': 'focus_get', 'circleId': circleId});
       }
       if (!on) {
@@ -373,6 +392,13 @@ class FocusService extends ChangeNotifier {
   /// 阶段变化后:进休息期不再上报(已发出的 away 服务器自会处理),
   /// 回到专注期而本机仍在离开 → 重新起宽限。
   void _afterPhaseChange() {
+    // 下一轮专注开始了:上一轮的出勤卡收起
+    final last = social.lastRound;
+    if (last != null &&
+        _pomodoro.phase == PomodoroPhase.focus &&
+        _pomodoro.round != last.round) {
+      social.dismissRound();
+    }
     if (!_reportable) {
       _graceTimer?.cancel();
       _graceTimer = null;
@@ -391,6 +417,8 @@ class FocusService extends ChangeNotifier {
   @override
   void dispose() {
     _graceTimer?.cancel();
+    social.dispose();
+    activity.dispose();
     unawaited(_sub.cancel());
     unawaited(_notices.close());
     super.dispose();

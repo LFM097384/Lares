@@ -1,0 +1,289 @@
+# ai_voice_e2e 2026-10-03T16:05:12.257Z
+✓ DashScope key loaded (env only): len=117
+· run dir (logs, not in repo): C:\Users\Liu_F\AppData\Local\Temp\lares-ai-e2e-PeoWZA
+· livekit-server: {"reused":false,"pid":129836}
+✓ server health.rtcConfigured: true
+· prompts (TTS Cherry 24k→48k, cached in temp): {"小助手，请用一句话介绍一下北京。":"2700ms","小助手，上海有什么好吃的？一句话回答。":"4350ms","小助手，推荐一项适合冬天的运动，简短一点。":"4020ms","小助手，请详细讲讲长城的历史，多说一点。":"4110ms","小助手，杭州最有名的景点是哪里？一句话。":"4190ms"}
+· interrupter (syn_0_00.wav 16k→48k): 6050ms
+✓ v2 circle registered: c_hbegf3vgwzkde5ufd33yj7xs
+
+[A] server-managed (builtin plugin lares.ai-voice)
+✓ plugin_install lares.ai-voice: {"id":"lares.ai-voice","enabled":true}
+✓ plugin_config_set: {"t":"owner_ok","op":"plugin_config_set","circleId":"c_hbegf3vgwzkde5ufd33yj7xs","pluginId":"lares.ai-voice"}
+✓ 房里没人时不拉起 AI: true
+✓ human joined + publishing (silence pump): u_bot_3984c8c6
+✓ supervisor spawned AI bot → ready: {"pid":118128,"ready":true}
+✓ A1: bot turn 事件: {"query":"请用一句话介绍一下北京。","reply":"北京是座老城，胡同里藏着历史，高楼间奔着未来。","ttfaMs":1052}
+✓ A1: 真人收到 AI 非静音语音: {"voicedMs":3880,"meanDb":-25,"peakDb":-12,"frames":937,"from":"u_ai_de9dcfe2"}
+✓ A1: lares.chat 收到回复: 北京是座老城，胡同里藏着历史，高楼间奔着未来。
+✓ A1: lares.cap 字幕 partial→final: {"partials":2,"final":"北京是座老城，胡同里藏着历史，高楼间奔着未来。"}
+· A1: 延迟: {"extTtfaMs":2266,"botTtfaMs":1052,"llmFirstTokenMs":387,"firstSentenceMs":423,"ttsFirstAudioMs":1051,"asrFinalAfterSpeechEndMs":1051,"speechMs":2710}
+✓ A1: AI 音频回灌 ASR(qwen3-asr-flash-realtime): {"asr":"北京是座老城，胡同里藏着历史，高楼间奔着未来。","overlapWithReply":1}
+✓ A2: bot turn 事件: {"query":"上海有什么好吃的？一句话回答。","reply":"上海的小笼包汤汁鲜，生煎底脆馅嫩，一口下去满嘴香。","ttfaMs":1554}
+✓ A2: 真人收到 AI 非静音语音: {"voicedMs":4970,"meanDb":-26,"peakDb":-14,"frames":1101,"from":"u_ai_de9dcfe2"}
+✓ A2: lares.chat 收到回复: 上海的小笼包汤汁鲜，生煎底脆馅嫩，一口下去满嘴香。
+✓ A2: lares.cap 字幕 partial→final: {"partials":2,"final":"上海的小笼包汤汁鲜，生煎底脆馅嫩，一口下去满嘴香。"}
+· A2: 延迟: {"extTtfaMs":2853,"botTtfaMs":1554,"llmFirstTokenMs":1037,"firstSentenceMs":1090,"ttsFirstAudioMs":1553,"asrFinalAfterSpeechEndMs":1120,"speechMs":4341}
+✓ A3: bot turn 事件: {"query":"推荐一项适合冬天的运动，简短一点。","reply":"冬天适合滑雪，既暖身又刺激，一滑就上头。","ttfaMs":1078}
+✓ A3: 真人收到 AI 非静音语音: {"voicedMs":3790,"meanDb":-26,"peakDb":-15,"frames":910,"from":"u_ai_de9dcfe2"}
+✓ A3: lares.chat 收到回复: 冬天适合滑雪，既暖身又刺激，一滑就上头。
+✓ A3: lares.cap 字幕 partial→final: {"partials":2,"final":"冬天适合滑雪，既暖身又刺激，一滑就上头。"}
+· A3: 延迟: {"extTtfaMs":2354,"botTtfaMs":1078,"llmFirstTokenMs":381,"firstSentenceMs":432,"ttsFirstAudioMs":1078,"asrFinalAfterSpeechEndMs":1113,"speechMs":4024}
+✓ A4 interrupt: turn.interrupted: {"interrupted":true,"heardChars":8,"replyChars":83}
+✓ A4 interrupt: heardChars < replyChars: {"heard":8,"reply":83}
+✓ A4 interrupt: 插话开始 → 最后一个非静音 AI 帧: {"stopMs":355,"aiVoicedBeforeMs":1500,"aiVoicedAfterMs":350}
+✓ A4 interrupt: 聊天只发听到的部分 + …: {"chat":"长城最早是春秋战…","reply":"长城最早是春秋战国时各国为防敌修的城墙，后来秦始皇统一后连成一体，明朝时大规模重修，加高加厚，成了今天看到的雄伟模样，主要用来防御北方游牧民族入侵，一建就是两千多年。"}
+✓ A4 interrupt: 最终字幕 = 听到的部分: 长城最早是春秋战…
+✓ plugin_set_enabled false: owner_ok
+✓ 停用插件 → AI 进程退出: {"log":"已退出 code=null signal=SIGTERM","pidAlive":false}
+
+[B] standalone (index.mjs --passcode --auth-v2)
+✓ standalone bot ready: {"ev":"ready","userId":"u_ai_de9dcfe2","circleId":"c_hbegf3vgwzkde5ufd33yj7xs","providers":"dashscope","trigger":"wake"}
+✓ B1: bot turn 事件: {"query":"杭州最有名的景点是哪里？一句话。","reply":"西湖，杭州的标志性景点，美得像幅画。","ttfaMs":893}
+✓ B1: 真人收到 AI 非静音语音: {"voicedMs":3220,"meanDb":-27,"peakDb":-12,"frames":832,"from":"u_ai_de9dcfe2"}
+✓ B1: lares.chat 收到回复: 西湖，杭州的标志性景点，美得像幅画。
+✓ B1: lares.cap 字幕 partial→final: {"partials":2,"final":"西湖，杭州的标志性景点，美得像幅画。"}
+· B1: 延迟: {"extTtfaMs":2157,"botTtfaMs":893,"llmFirstTokenMs":478,"firstSentenceMs":513,"ttsFirstAudioMs":891,"asrFinalAfterSpeechEndMs":1076,"speechMs":4196}
+✓ standalone {"cmd":"stop"} → exit 0: {"code":0,"ms":78}
+· modes: {"serverManaged":"worked","standalone":"worked"}
+· latency p50 (ms): {"externalTtfa_speechEnd_to_firstAiAudio":2266,"botTtfa_asrFinal_to_firstFrame":1052,"llmFirstToken":387,"firstSentence":432,"ttsFirstAudio":1051,"asrFinalAfterSpeechEnd":1076,"samples":4}
+· latency raw (ms): {"ext":[2266,2853,2354,2157],"bot":[1052,1554,1078,893],"llm":[387,1037,381,478],"tts":[1051,1553,1078,891],"asr":[1051,1120,1113,1076],"firstSentence":[423,1090,432,513]}
+· real API calls (approx): {"llmTurns":5,"ttsPromptSynthSessions":0,"asrRoundTrip":1,"note":"bot side: 1 ASR session per utterance burst, 1 TTS session used per turn (+ idle warm spares)"}
+
+AI VOICE E2E 全部通过
+
+RESULTS {
+ "DashScope key loaded (env only)": "len=117",
+ "run dir (logs, not in repo)": "C:\\Users\\Liu_F\\AppData\\Local\\Temp\\lares-ai-e2e-PeoWZA",
+ "livekit-server": {
+  "reused": false,
+  "pid": 129836
+ },
+ "server health.rtcConfigured": true,
+ "prompts (TTS Cherry 24k→48k, cached in temp)": {
+  "小助手，请用一句话介绍一下北京。": "2700ms",
+  "小助手，上海有什么好吃的？一句话回答。": "4350ms",
+  "小助手，推荐一项适合冬天的运动，简短一点。": "4020ms",
+  "小助手，请详细讲讲长城的历史，多说一点。": "4110ms",
+  "小助手，杭州最有名的景点是哪里？一句话。": "4190ms"
+ },
+ "interrupter (syn_0_00.wav 16k→48k)": "6050ms",
+ "v2 circle registered": "c_hbegf3vgwzkde5ufd33yj7xs",
+ "plugin_install lares.ai-voice": {
+  "id": "lares.ai-voice",
+  "enabled": true
+ },
+ "plugin_config_set": {
+  "t": "owner_ok",
+  "op": "plugin_config_set",
+  "circleId": "c_hbegf3vgwzkde5ufd33yj7xs",
+  "pluginId": "lares.ai-voice"
+ },
+ "房里没人时不拉起 AI": true,
+ "human joined + publishing (silence pump)": "u_bot_3984c8c6",
+ "supervisor spawned AI bot → ready": {
+  "pid": 118128,
+  "ready": true
+ },
+ "A1: bot turn 事件": {
+  "query": "请用一句话介绍一下北京。",
+  "reply": "北京是座老城，胡同里藏着历史，高楼间奔着未来。",
+  "ttfaMs": 1052
+ },
+ "A1: 真人收到 AI 非静音语音": {
+  "voicedMs": 3880,
+  "meanDb": -25,
+  "peakDb": -12,
+  "frames": 937,
+  "from": "u_ai_de9dcfe2"
+ },
+ "A1: lares.chat 收到回复": "北京是座老城，胡同里藏着历史，高楼间奔着未来。",
+ "A1: lares.cap 字幕 partial→final": {
+  "partials": 2,
+  "final": "北京是座老城，胡同里藏着历史，高楼间奔着未来。"
+ },
+ "A1: 延迟": {
+  "extTtfaMs": 2266,
+  "botTtfaMs": 1052,
+  "llmFirstTokenMs": 387,
+  "firstSentenceMs": 423,
+  "ttsFirstAudioMs": 1051,
+  "asrFinalAfterSpeechEndMs": 1051,
+  "speechMs": 2710
+ },
+ "A1: AI 音频回灌 ASR(qwen3-asr-flash-realtime)": {
+  "asr": "北京是座老城，胡同里藏着历史，高楼间奔着未来。",
+  "overlapWithReply": 1
+ },
+ "A2: bot turn 事件": {
+  "query": "上海有什么好吃的？一句话回答。",
+  "reply": "上海的小笼包汤汁鲜，生煎底脆馅嫩，一口下去满嘴香。",
+  "ttfaMs": 1554
+ },
+ "A2: 真人收到 AI 非静音语音": {
+  "voicedMs": 4970,
+  "meanDb": -26,
+  "peakDb": -14,
+  "frames": 1101,
+  "from": "u_ai_de9dcfe2"
+ },
+ "A2: lares.chat 收到回复": "上海的小笼包汤汁鲜，生煎底脆馅嫩，一口下去满嘴香。",
+ "A2: lares.cap 字幕 partial→final": {
+  "partials": 2,
+  "final": "上海的小笼包汤汁鲜，生煎底脆馅嫩，一口下去满嘴香。"
+ },
+ "A2: 延迟": {
+  "extTtfaMs": 2853,
+  "botTtfaMs": 1554,
+  "llmFirstTokenMs": 1037,
+  "firstSentenceMs": 1090,
+  "ttsFirstAudioMs": 1553,
+  "asrFinalAfterSpeechEndMs": 1120,
+  "speechMs": 4341
+ },
+ "A3: bot turn 事件": {
+  "query": "推荐一项适合冬天的运动，简短一点。",
+  "reply": "冬天适合滑雪，既暖身又刺激，一滑就上头。",
+  "ttfaMs": 1078
+ },
+ "A3: 真人收到 AI 非静音语音": {
+  "voicedMs": 3790,
+  "meanDb": -26,
+  "peakDb": -15,
+  "frames": 910,
+  "from": "u_ai_de9dcfe2"
+ },
+ "A3: lares.chat 收到回复": "冬天适合滑雪，既暖身又刺激，一滑就上头。",
+ "A3: lares.cap 字幕 partial→final": {
+  "partials": 2,
+  "final": "冬天适合滑雪，既暖身又刺激，一滑就上头。"
+ },
+ "A3: 延迟": {
+  "extTtfaMs": 2354,
+  "botTtfaMs": 1078,
+  "llmFirstTokenMs": 381,
+  "firstSentenceMs": 432,
+  "ttsFirstAudioMs": 1078,
+  "asrFinalAfterSpeechEndMs": 1113,
+  "speechMs": 4024
+ },
+ "A4 interrupt: turn.interrupted": {
+  "interrupted": true,
+  "heardChars": 8,
+  "replyChars": 83
+ },
+ "A4 interrupt: heardChars < replyChars": {
+  "heard": 8,
+  "reply": 83
+ },
+ "A4 interrupt: 插话开始 → 最后一个非静音 AI 帧": {
+  "stopMs": 355,
+  "aiVoicedBeforeMs": 1500,
+  "aiVoicedAfterMs": 350
+ },
+ "A4 interrupt: 聊天只发听到的部分 + …": {
+  "chat": "长城最早是春秋战…",
+  "reply": "长城最早是春秋战国时各国为防敌修的城墙，后来秦始皇统一后连成一体，明朝时大规模重修，加高加厚，成了今天看到的雄伟模样，主要用来防御北方游牧民族入侵，一建就是两千多年。"
+ },
+ "A4 interrupt: 最终字幕 = 听到的部分": "长城最早是春秋战…",
+ "interruptStopMs": 355,
+ "plugin_set_enabled false": "owner_ok",
+ "停用插件 → AI 进程退出": {
+  "log": "已退出 code=null signal=SIGTERM",
+  "pidAlive": false
+ },
+ "standalone bot ready": {
+  "ev": "ready",
+  "userId": "u_ai_de9dcfe2",
+  "circleId": "c_hbegf3vgwzkde5ufd33yj7xs",
+  "providers": "dashscope",
+  "trigger": "wake"
+ },
+ "B1: bot turn 事件": {
+  "query": "杭州最有名的景点是哪里？一句话。",
+  "reply": "西湖，杭州的标志性景点，美得像幅画。",
+  "ttfaMs": 893
+ },
+ "B1: 真人收到 AI 非静音语音": {
+  "voicedMs": 3220,
+  "meanDb": -27,
+  "peakDb": -12,
+  "frames": 832,
+  "from": "u_ai_de9dcfe2"
+ },
+ "B1: lares.chat 收到回复": "西湖，杭州的标志性景点，美得像幅画。",
+ "B1: lares.cap 字幕 partial→final": {
+  "partials": 2,
+  "final": "西湖，杭州的标志性景点，美得像幅画。"
+ },
+ "B1: 延迟": {
+  "extTtfaMs": 2157,
+  "botTtfaMs": 893,
+  "llmFirstTokenMs": 478,
+  "firstSentenceMs": 513,
+  "ttsFirstAudioMs": 891,
+  "asrFinalAfterSpeechEndMs": 1076,
+  "speechMs": 4196
+ },
+ "standalone {\"cmd\":\"stop\"} → exit 0": {
+  "code": 0,
+  "ms": 78
+ },
+ "modes": {
+  "serverManaged": "worked",
+  "standalone": "worked"
+ },
+ "latency p50 (ms)": {
+  "externalTtfa_speechEnd_to_firstAiAudio": 2266,
+  "botTtfa_asrFinal_to_firstFrame": 1052,
+  "llmFirstToken": 387,
+  "firstSentence": 432,
+  "ttsFirstAudio": 1051,
+  "asrFinalAfterSpeechEnd": 1076,
+  "samples": 4
+ },
+ "latency raw (ms)": {
+  "ext": [
+   2266,
+   2853,
+   2354,
+   2157
+  ],
+  "bot": [
+   1052,
+   1554,
+   1078,
+   893
+  ],
+  "llm": [
+   387,
+   1037,
+   381,
+   478
+  ],
+  "tts": [
+   1051,
+   1553,
+   1078,
+   891
+  ],
+  "asr": [
+   1051,
+   1120,
+   1113,
+   1076
+  ],
+  "firstSentence": [
+   423,
+   1090,
+   432,
+   513
+  ]
+ },
+ "real API calls (approx)": {
+  "llmTurns": 5,
+  "ttsPromptSynthSessions": 0,
+  "asrRoundTrip": 1,
+  "note": "bot side: 1 ASR session per utterance burst, 1 TTS session used per turn (+ idle warm spares)"
+ }
+}

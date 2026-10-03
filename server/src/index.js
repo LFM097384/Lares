@@ -23,6 +23,12 @@ import { createTranscriptWs } from './transcript_ws.js';
 import { createPlugins, createPluginStore } from './plugins.js';
 import { createWebhookDispatcher } from './plugin_webhooks.js';
 import { createFocusEngine, createFocusWs } from './focus.js';
+// 功能开关 + 用途预设(契约 docs/plans/features-purpose-contract.md)
+import { createFeaturesWs, resolveFeatures, purposeView, NEW_CIRCLE_FEATURES } from './features.js';
+import { createAiVoiceSupervisor, isAiUserId } from './ai_voice_supervisor.js'; // lares.ai-voice
+// 活动推送触发器 + 专注社交(契约 plugin-focus-contract.md §9 / §10;逻辑全在这两个模块)
+import { createPushTriggers, parseLevel, parseSubPrefs } from './push_triggers.js';
+import { createFocusSocial } from './focus_social.js';
 
 const PORT = Number(process.env.LARES_PORT ?? 8787);
 const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
@@ -362,10 +368,28 @@ async function loadSettings() {
 }
 
 function saveSettings() {
-  mkdir(DATA_DIR, { recursive: true })
-    .then(() => writeFile(SETTINGS_FILE, JSON.stringify(circleSettings)))
-    .catch((e) => console.error('[settings] 保存失败:', e));
+  saveSettingsNow().catch((e) => console.error('[settings] 保存失败:', e));
 }
+
+/// 可 await 的原子落盘(tmp + rename),串行化:后一次写一定落在前一次之后。
+/// 用途 / 功能开关要知道到底写没写成(失败要回滚)。
+let settingsWriteChain = Promise.resolve();
+function saveSettingsNow() {
+  const run = settingsWriteChain.catch(() => {}).then(async () => {
+    await mkdir(DATA_DIR, { recursive: true });
+    const tmp = `${SETTINGS_FILE}.${process.pid}.tmp`;
+    await writeFile(tmp, JSON.stringify(circleSettings));
+    await rename(tmp, SETTINGS_FILE);
+  });
+  settingsWriteChain = run;
+  return run;
+}
+
+/// 圈子当前的功能表(9 键全量)
+function circleFeatures(circleId) {
+  return resolveFeatures(circleSettings[circleId], { focusOn: pluginsSvc ? pluginsSvc.isEnabled(circleId, 'lares.focus') : false });
+}
+const featureOn = (circleId, key) => circleFeatures(circleId)[key] === true;
 
 // ── 圈子注册表(客户端自建圈)─────────────────────────────────────────────
 //
@@ -544,6 +568,9 @@ function circleInfo(circleId) {
     transcript: s.transcript === true,
     // 已装插件的公开视图(契约 plugin-focus-contract §3)
     plugins: pluginsSvc ? pluginsSvc.views(circleId) : [],
+    // 功能开关(9 键全量)+ 当前用途(features-purpose-contract §1)
+    features: circleFeatures(circleId),
+    purpose: purposeView(s),
   };
 }
 
@@ -594,6 +621,13 @@ const VALID_STATUS = new Set(['free', 'busy', 'ears', 'away']);
 function getCircle(circleId) {
   if (!circles.has(circleId)) circles.set(circleId, new Map());
   return circles.get(circleId);
+}
+
+/// 房里的真人数(不算 AI 语音助手 u_ai_*)
+function humansIn(circle) {
+  let n = 0;
+  for (const uid of circle?.keys() ?? []) if (!isAiUserId(uid)) n++;
+  return n;
 }
 
 function memberSnapshot(member) {
@@ -711,18 +745,23 @@ function clearAvailable(userId) {
 }
 
 function circleSummaryMsg(circleId) {
-  const members = [...(circles.get(circleId)?.values() ?? [])];
+  const all = [...(circles.get(circleId)?.values() ?? [])];
+  // count / names 是「几个人在」:AI 语音助手(u_ai_*)不算人;另报 ai 个数(新增字段,老客户端忽略)
+  const members = all.filter((m) => !isAiUserId(m.userId));
   return {
     t: 'circle_summary',
     circleId,
     count: members.length,
     names: members.map((m) => m.name),
+    ai: all.length - members.length,
     knockRequired: circleSettings[circleId]?.knockRequired === true,
     // 新增字段,老客户端忽略
     registered: Boolean(registeredCircle(circleId)),
     e2ee: typeof circleSettings[circleId]?.e2ee === 'boolean' ? circleSettings[circleId].e2ee : null,
     transcript: circleSettings[circleId]?.transcript === true,
     plugins: pluginsSvc ? pluginsSvc.summary(circleId) : [],
+    features: circleFeatures(circleId),
+    purpose: purposeView(circleSettings[circleId]),
   };
 }
 
@@ -734,6 +773,20 @@ function broadcastCircleSettings(circleId) {
     if (ws._laresSession && !circleAllowed(ws._laresSession, circleId)) continue;
     if (ws.readyState === ws.OPEN) ws.send(data);
   }
+}
+
+/// AI 语音助手身份(u_ai_*)凭证。密钥 = HMAC(进程级随机钥匙, circleId),只经子进程 env 下发(不进 argv)。
+/// hello.aiAuth = {circleId, proof: HMAC(密钥, nonce:userId:circleId)}:绑一次性 nonce,不能重放。
+const AI_MEMBER_KEY = String(process.env.LARES_AI_MEMBER_KEY ?? '').trim() || crypto.randomBytes(32).toString('hex');
+const aiMemberSecret = (circleId) => hmacHex(AI_MEMBER_KEY, `lares-ai-member:${circleId}`);
+const aiUserIdFor = (circleId) => `u_ai_${crypto.createHash('sha256').update(circleId).digest('hex').slice(0, 8)}`;
+function aiMemberOk(msg, nonce) {
+  const a = msg.aiAuth;
+  if (!a || typeof a.circleId !== 'string' || !a.circleId || typeof a.proof !== 'string' || typeof nonce !== 'string') return false;
+  if (msg.userId !== aiUserIdFor(a.circleId)) return false; // id 必须是这个圈的派生 id
+  // circle 模式:凭证的圈必须就是本次握手证明的圈(否则拿 A 圈凭证进 B 圈)
+  if (AUTH_REQUIRED && msg.auth?.mode === 'circle' && msg.auth?.circleId !== a.circleId) return false;
+  return safeEqualStr(a.proof.toLowerCase(), hmacHex(aiMemberSecret(a.circleId), `${nonce}:${msg.userId}:${a.circleId}`));
 }
 
 /// 该连接对这个圈有没有圈主权:握手时带过正确的钥匙,或本条消息带了。
@@ -751,6 +804,8 @@ function broadcastLobbySummary(circleId) {
     if (ws._laresSession && !circleAllowed(ws._laresSession, circleId)) continue;
     if (ws.readyState === ws.OPEN) ws.send(data);
   }
+  // lares.ai-voice:进房/出房/踢人/插件变更/E2EE 开关都会走到这里 —— 唯一的 reconcile 挂点
+  aiVoice?.reconcile(circleId);
 }
 
 async function mintLiveKitToken(circleId, userId, name) {
@@ -879,6 +934,7 @@ async function loadPushSubs() {
         env: e.env === 'sandbox' ? 'sandbox' : 'production',
         lang: e.lang === 'zh' ? 'zh' : 'en',
         circles: e.circles && typeof e.circles === 'object' ? e.circles : {},
+        prefs: parseSubPrefs(e.prefs),
         updatedAt: Number(e.updatedAt) || 0,
       };
     }
@@ -972,9 +1028,11 @@ function handlePushRegister(session, msg) {
       if (!rejected.includes(id)) rejected.push(id);
       continue;
     }
+    const level = parseLevel(c); // 「通知我」:all / called / off(老客户端只有 muted)
     next[id] = {
       name: typeof c.name === 'string' ? c.name.trim().slice(0, 64) : '',
-      muted: c.muted === true,
+      muted: level === 'off',
+      level,
     };
   }
   // 同一台设备(userId + deviceId)的 token 轮换了:删掉旧 token,否则一台手机收两条
@@ -989,11 +1047,14 @@ function handlePushRegister(session, msg) {
     env: msg.env,
     lang,
     circles: next,
+    // 时区 + 免打扰(活动推送用;没带 prefs 的老客户端不套免打扰)
+    prefs: parseSubPrefs(msg.prefs),
     updatedAt: Date.now(),
   };
   pushSubs[token] = entry;
   session.pushToken = token;
   savePushSubs();
+  pushTriggers.onRegister(session, entry);
   return pushRegisteredMsg(entry, rejected);
 }
 
@@ -1012,8 +1073,10 @@ function pushContent(entry, circleId, kind, causerName) {
   return { title, body };
 }
 
-function sendPush(token, entry, circleId, kind, causerName) {
-  const { title, body } = pushContent(entry, circleId, kind, causerName);
+/// content(可选,push_triggers.js 给):{kind, title, body, collapseId} —— 文案在那边算好
+function sendPush(token, entry, circleId, kind, causerName, content = null) {
+  const { title, body } = content ?? pushContent(entry, circleId, kind, causerName);
+  if (content) kind = content.kind;
   const payload = {
     aps: {
       alert: { title, body },
@@ -1029,7 +1092,7 @@ function sendPush(token, entry, circleId, kind, causerName) {
     'apns-push-type': 'alert',
     'apns-priority': '10',
     // 同一个圈的通知互相覆盖,锁屏上不堆一串
-    'apns-collapse-id': circleId,
+    'apns-collapse-id': content?.collapseId ?? circleId,
     // 一小时后还没送到就别送了:过时的「X 在圈里」只会骗人白跑一趟
     'apns-expiration': String(Math.floor(Date.now() / 1000) + 3600),
   };
@@ -1063,6 +1126,8 @@ function pushRecipients(circleId, causerUserId) {
 }
 
 /// 空圈来了第一个人。调用方已经把他放进房间了(所以「在房里」过滤天然排除他自己)。
+/// (2026-11 起)「空圈来人」并入活动推送触发器 arrive(push_triggers.js),默认关;
+/// 圈主可开,运维可用 LARES_PUSH_ARRIVE_DEFAULT=1 让没配置过的圈默认开。旧函数留作史料不再调用。
 function pushRoomActive(circleId, session) {
   try {
     if (!apns.enabled) return;
@@ -1078,6 +1143,7 @@ function pushRoomActive(circleId, session) {
     console.error('[push] active 推送出错:', e);
   }
 }
+void pushRoomActive;
 
 /// 「去找 ta」:只推被找者自己的设备。在 joinCircle 之前调用,
 /// 此时被找者还不在房里,不需要「在房里」过滤。
@@ -1093,7 +1159,7 @@ function pushReach(circleId, targetUserId, caller) {
     for (const [token, entry] of Object.entries(pushSubs)) {
       if (entry.userId !== targetUserId) continue;
       const sub = entry.circles[circleId];
-      if (!sub || sub.muted) continue;
+      if (!sub || !pushTriggers.allowsCalled(entry, circleId)) continue; // 「通知我」= 关 才不推
       sendPush(token, entry, circleId, 'reach', caller.name);
       sent = true;
     }
@@ -1137,6 +1203,9 @@ function handleConnection(ws, req) {
     if (await transcriptWs.handle(ws, session, msg)) return;
     if (await pluginsSvc.handle(ws, session, msg)) return;
     if (await focusWs.handle(ws, session, msg)) return;
+    if (await featuresWs.handle(ws, session, msg)) return;
+    if (await pushTriggers.handle(ws, session, msg)) return; // push_cfg_* / push_summon
+    if (await focusSocial.handle(ws, session, msg)) return; // focus_social_get / focus_weekly_seen
 
     switch (msg.t) {
       case 'hello': {
@@ -1144,6 +1213,9 @@ function handleConnection(ws, req) {
         // `bot:` 前缀专属服务器代发的机器人身份(转写署名 / speak 的 LiveKit identity):
         // 成员自报这种 userId 就能在记录里冒充机器人、或用同名 identity 把说话机器人踢出房
         if (msg.userId.startsWith('bot:')) return send(ws, { t: 'error', message: 'userId_reserved' });
+        // `u_ai_` 前缀专属服务器托管的语音助手:自报这种 id 就能在人数 / 推送 / 转写名单里隐身。
+        // 只认 supervisor 发的圈级凭证(aiAuth),且 id 必须是该圈的派生 id、该圈也必须是本连接鉴权的圈
+        if (isAiUserId(msg.userId) && !aiMemberOk(msg, session.nonce)) return send(ws, { t: 'error', message: 'userId_reserved' });
         // 订阅表先读进来(通常早已就绪,只是重启后头几个连接要等一下)
         await ensurePushLoaded();
         // 鉴权闸门:先验证再落任何会话状态,失败即断,用 4401 让客户端能区分
@@ -1185,6 +1257,9 @@ function handleConnection(ws, req) {
               return ws.close(4403, 'register_failed');
             }
             recordCreate(ip);
+            // 新圈的功能默认(features-purpose-contract §1):地图 / 录音 / P2P / 开发者读数默认关
+            circleSettings[r.circleId] = { ...(circleSettings[r.circleId] ?? {}), features: { ...NEW_CIRCLE_FEATURES } };
+            saveSettings();
             // 服务器从头到尾没见过钥匙明文;登记者就是圈主(register 里带着 ownerHash)
             session.createdCircle = true;
           } else if (!r.ok) {
@@ -1246,7 +1321,8 @@ function handleConnection(ws, req) {
         // circle 模式只证明了某一个圈子的口令,越界进别的圈子必须拒绝
         if (!circleAllowed(session, circleId)) return send(ws, { t: 'error', message: 'auth_scope' });
         // 敲门模式:圈内有人时需里面的人放行;空房直接进(没人可问)
-        if (circleSettings[circleId]?.knockRequired && getCircle(circleId).size > 0) {
+        // 只剩 AI 语音助手(u_ai_*)也算空房:它不会放行
+        if (circleSettings[circleId]?.knockRequired && humansIn(getCircle(circleId)) > 0) {
           if (!pendingKnocks.has(circleId)) pendingKnocks.set(circleId, new Map());
           pendingKnocks.get(circleId).set(session.userId, { ws, session });
           send(ws, { t: 'knock_waiting', circleId });
@@ -1321,6 +1397,7 @@ function handleConnection(ws, req) {
         const toId = typeof msg.to === 'string' ? msg.to : '';
         const payload = typeof msg.payload === 'string' ? msg.payload : '';
         if (!toId || !payload) return;
+        if (!featureOn(session.circleId, 'p2p')) return send(ws, { t: 'error', message: 'feature_off' });
         // 体积上限:一份压缩后的连接码实测约 700 字节,给 8KB 余量。
         // 不设上限的话这条消息就成了免费的任意大小中继通道。
         if (payload.length > 8192) {
@@ -1415,6 +1492,7 @@ function handleConnection(ws, req) {
           send(tws, { t: 'kicked', circleId, by: actor.name });
         }
         circle.delete(targetId);
+        pushTriggers.onLeave(circleId, targetId); // 同正常出房:清 crowd 会话、记「刚在房」
         broadcast(circleId, { t: 'member_left', circleId, userId: targetId });
         if (circle.size === 0) circles.delete(circleId);
         broadcastLobbySummary(circleId);
@@ -1429,6 +1507,7 @@ function handleConnection(ws, req) {
       case 'loc': {
         // 位置共享(Snapchat 式):仅转发给同房成员,不落盘
         if (!session.circleId || !session.userId) return;
+        if (!featureOn(session.circleId, 'map')) return send(ws, { t: 'error', message: 'feature_off' });
         const member = getCircle(session.circleId).get(session.userId);
         if (!member) return;
         const lat = Number(msg.lat), lng = Number(msg.lng);
@@ -1462,6 +1541,8 @@ function handleConnection(ws, req) {
       case 'rec_start': {
         if (!session.circleId || !session.userId) return;
         if (msg.circleId !== session.circleId) return; // 防跨圈误报
+        // 圈主关了录音:不回显 —— 客户端等不到自己的 member_rec 就永不开始采集
+        if (!featureOn(session.circleId, 'recording')) return send(ws, { t: 'rec_error', circleId: session.circleId, reason: 'feature_off' });
         const member = getCircle(session.circleId).get(session.userId);
         if (!member) return;
         // 已在录则只续期,不重置 since —— 重连补发 rec_start 会走到这里,
@@ -1624,6 +1705,8 @@ function handleConnection(ws, req) {
         // 插件安装(插件 token 已随上面的 tokens.deleteCircle 删掉)+ 专注排行榜
         await pluginsSvc.onCircleDeleted(circleId);
         focusEngine.deleteCircle(circleId);
+        pushTriggers.dropCircle(circleId);
+        focusSocial.dropCircle(circleId);
         break;
       }
 
@@ -1665,6 +1748,7 @@ function handleConnection(ws, req) {
           return send(ws, { t: 'push_error', reason: 'not_subscribed' });
         }
         entry.circles[circleId].muted = msg.muted === true;
+        entry.circles[circleId].level = msg.muted === true ? 'off' : 'all';
         entry.updatedAt = Date.now();
         savePushSubs();
         send(ws, pushRegisteredMsg(entry));
@@ -1721,6 +1805,7 @@ function handleConnection(ws, req) {
         if (!session.userId || !session.authed) return send(ws, { t: 'cap_error', reason: 'say_hello_first' });
         if (!CAPTIONS_ENABLED) return send(ws, { t: 'cap_error', reason: 'not_configured' });
         if (!session.circleId) return send(ws, { t: 'cap_error', reason: 'not_in_room' });
+        if (!featureOn(session.circleId, 'captions')) return send(ws, { t: 'cap_error', reason: 'feature_off' });
         // 圈主开了服务端 E2EE:语音要出圈去云端,必须由客户端显式同意(设置里的开关)
         if (circleSettings[session.circleId]?.e2ee === true && msg.e2eeOptIn !== true) {
           return send(ws, { t: 'cap_error', reason: 'e2ee_opt_in_required' });
@@ -1785,7 +1870,8 @@ async function joinCircle(ws, session, circleId) {
   } else {
     // 空圈来了第一个人 = 「房间亮了」,要推给不在线的圈友。先记下,等人真进了房再推,
     // 这样「在房里不推」的过滤天然把他自己排除掉。
-    const becameActive = circle.size === 0;
+    // AI 语音助手不算人:只剩它在房里也算空圈;它自己进房也不算「房间亮了」
+    const becameActive = !isAiUserId(session.userId) && humansIn(circle) === 0;
     const member = {
       userId: session.userId,
       name: session.name,
@@ -1799,7 +1885,8 @@ async function joinCircle(ws, session, circleId) {
     botApi.emit(circleId, 'join', { circleId, userId: member.userId, name: member.name, status: member.status });
     send(ws, roomSnapshot(circleId));
     broadcastLobbySummary(circleId);
-    if (becameActive) pushRoomActive(circleId, session);
+    void becameActive;
+    pushTriggers.onJoin(circleId, session.userId, session.name); // 活动推送:空房来人 / 满 N 人 / 学习圈来自习
   }
   // 转写:记入该圈成员名单(E2EE 离线队列的收件人)并补推积压密文
   transcriptWs.onJoin(ws, session, circleId);
@@ -1844,6 +1931,7 @@ function leaveCircle(ws, session) {
         });
       }
       circle.delete(session.userId);
+      pushTriggers.onLeave(session.circleId, session.userId); // 5 分钟内刚在房的不推
       broadcast(session.circleId, { t: 'member_left', circleId: session.circleId, userId: session.userId });
       botApi.emit(session.circleId, 'leave', { circleId: session.circleId, userId: session.userId, name: member.name });
       if (circle.size === 0) circles.delete(session.circleId);
@@ -1978,6 +2066,18 @@ const pluginsSvc = createPlugins({
   circleAllowed,
   broadcastLobbySummary,
   broadcastCircleSettings,
+  featureOn: (circleId, key) => featureOn(circleId, key),
+  env: process.env,
+});
+const featuresWs = createFeaturesWs({
+  send,
+  settings: () => circleSettings,
+  saveSettingsNow,
+  registeredCircle,
+  ownerKeyOk,
+  plugins: pluginsSvc,
+  broadcastLobbySummary,
+  broadcastCircleSettings,
   env: process.env,
 });
 const FOCUS_TZ_OFFSET_MIN = Number(process.env.LARES_FOCUS_TZ_OFFSET_MIN ?? 480);
@@ -1996,18 +2096,88 @@ focusWs = createFocusWs({
   emit: (...a) => botApi.emit(...a),
   circleAllowed,
   isOwnerFor,
+  // 番茄钟开始 → 活动推送;每轮结束 → 出勤 + 打卡
+  onNotice: (circleId, n) => {
+    if (n.kind === 'started') pushTriggers.onFocusStart(circleId, n.userId ?? null, n.userId ? (circles.get(circleId)?.get(n.userId)?.name ?? null) : null);
+  },
+  onRoundEnd: (circleId, round) => focusSocial.onRoundEnd(circleId, round),
 });
+const pushTriggers = createPushTriggers({
+  dataDir: DATA_DIR,
+  subs: () => pushSubs,
+  roomUsers: (cid) => [...(circles.get(cid)?.keys() ?? [])],
+  purposeOf: (cid) => purposeView(circleSettings[cid])?.id ?? null,
+  featureOn: (cid, key) => featureOn(cid, key), // focus 功能关 → 不发自习 / 专注 / 周报推送
+  e2ee: (cid) => circleSettings[cid]?.e2ee === true,
+  enabled: () => apns.enabled,
+  deliver: (token, entry, cid, content) => sendPush(token, entry, cid, content.kind, null, content),
+  send,
+  broadcast: (cid, msg) => { for (const w of sessionsOfCircle(cid)) send(w, msg); },
+  isOwnerFor,
+  circleAllowed,
+  registeredCircle,
+  opts: {
+    ...(process.env.LARES_PUSH_ARRIVE_DEFAULT === '1' ? { arriveDefault: true } : {}),
+    // 老的 LARES_PUSH_ACTIVE_THROTTLE_MS 仍认:作为活动推送冷却的兜底
+    ...((process.env.LARES_PUSH_COOLDOWN_MS ?? process.env.LARES_PUSH_ACTIVE_THROTTLE_MS)
+      ? { cooldownMs: Number(process.env.LARES_PUSH_COOLDOWN_MS ?? process.env.LARES_PUSH_ACTIVE_THROTTLE_MS) } : {}),
+    ...(process.env.LARES_PUSH_DAILY_CAP ? { dailyCap: Number(process.env.LARES_PUSH_DAILY_CAP) } : {}),
+    ...(process.env.LARES_PUSH_RECENT_MS ? { recentMs: Number(process.env.LARES_PUSH_RECENT_MS) } : {}),
+    ...(process.env.LARES_PUSH_SUMMON_MS ? { summonMs: Number(process.env.LARES_PUSH_SUMMON_MS) } : {}),
+  },
+});
+const focusSocial = createFocusSocial({
+  dataDir: DATA_DIR,
+  engineTz: { offsetMin: Number.isFinite(FOCUS_TZ_OFFSET_MIN) ? FOCUS_TZ_OFFSET_MIN : 480 },
+  daysOf: (cid) => focusEngine.daysOf(cid),
+  circleIds: () => focusEngine.boardCircleIds(),
+  circleTz: (cid) => pushTriggers.circleTz(cid),
+  userTz: (uid) => pushTriggers.userTz(uid),
+  deliver: (uid, cid, card) => pushTriggers.deliverToUser(uid, cid, 'weekly', card),
+  exists: (cid) => !isTombstoned(cid),
+  send,
+  sessionsOfCircle,
+  circleAllowed,
+});
+const focusSocialTimer = setInterval(() => {
+  try { focusSocial.tick(); pushTriggers.sweep(); } catch (e) { console.error('[focus-social] 周期出错:', e); }
+}, Number(process.env.LARES_FOCUS_SOCIAL_TICK_MS ?? 60_000));
+focusSocialTimer.unref?.();
 pluginsSvc.setFocus({ onPluginChanged: (circleId, p) => focusEngine.setPlugin(circleId, p) });
 const focusTimer = setInterval(() => {
   focusWs.periodic().catch((e) => console.error('[focus] 周期落盘失败:', e?.message ?? e));
 }, Number(process.env.LARES_FOCUS_FLUSH_MS ?? 30_000));
 focusTimer.unref?.();
+// lares.ai-voice:服务器托管的语音助手子进程(逻辑全在 ai_voice_supervisor.js;无 RTC 就不启用)
+const aiVoice = RTC_CONFIGURED ? createAiVoiceSupervisor({
+  env: process.env,
+  dataDir: DATA_DIR,
+  botEntry: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bots', 'voice-agent', 'index.mjs'),
+  signalingUrl: `ws://127.0.0.1:${PORT}/ws`,
+  isEnabled: (cid) => pluginsSvc.isEnabled(cid, 'lares.ai-voice'),
+  configOf: (cid) => pluginsSvc.installOf(cid, 'lares.ai-voice')?.config ?? {},
+  humanCount: (cid) => [...(circles.get(cid)?.keys() ?? [])].filter((u) => !isAiUserId(u) && !u.startsWith('bot:')).length,
+  circleE2ee: (cid) => circleSettings[cid]?.e2ee === true,
+  memberSecretFor: (cid) => aiMemberSecret(cid), // u_ai_* 身份凭证,只走子进程 env
+  authFor: (cid) => {
+    if (!AUTH_REQUIRED) return { secret: '', v: 1 }; // 不鉴权:bot 照 challenge.authRequired=false 不带 auth
+    if (!AUTH_MODES.has('circle')) return null; // 纯 token 模式:bot 协议只会 circle 证明
+    if (Object.prototype.hasOwnProperty.call(circleRegistry, cid)) {
+      const rec = registeredCircle(cid); // 墓碑 → null
+      return rec ? { secret: rec.verifier, v: 2 } : null;
+    }
+    const pass = passcodeFor(cid); // env 圈 / 全站兜底口令:v1 = HMAC(口令, …)
+    return pass ? { secret: pass, v: 1 } : null;
+  },
+}) : null;
 let shuttingDown = false;
 function shutdownFlush(sig) {
   if (shuttingDown) return;
   shuttingDown = true;
   try { focusEngine.flushSync(); } catch (e) { console.error('[focus] 关停落盘失败:', e); }
   try { pluginsSvc.flushSync(); } catch (e) { console.error('[plugin] 关停落盘失败:', e); }
+  try { pushTriggers.flushSync(); focusSocial.flushSync(); } catch (e) { console.error('[push-trig] 关停落盘失败:', e); }
+  try { aiVoice?.stopAll(); } catch (e) { console.error('[ai-voice] 关停失败:', e); } // lares.ai-voice
   console.log(`[lares] 收到 ${sig},已落盘,退出`);
   process.exit(0);
 }
@@ -2086,6 +2256,7 @@ const server = http.createServer(async (req, res) => {
       // circleId 在 body 里,只能解析后再校验;凭据必须对得上「这个」圈子,
       // 否则拿 home 的口令就能往 work 圈塞便签并触发圈内广播
       if (!httpAuthOk(req, circleId)) return json(401, { error: 'auth_required' });
+      if (typeof circleId === 'string' && !featureOn(circleId, 'voiceNotes')) return json(403, { error: 'feature_off' });
       if (!userId || !audio || typeof audio !== 'string') return json(400, { error: 'bad_note' });
       if (audio.length > NOTE_MAX_BYTES) return json(413, { error: 'too_large' });
       if ((durationSec ?? 0) > NOTE_MAX_SECONDS + 1) return json(400, { error: 'too_long' });

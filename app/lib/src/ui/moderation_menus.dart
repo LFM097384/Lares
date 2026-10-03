@@ -6,6 +6,7 @@ import '../../l10n/gen/app_localizations.dart';
 import '../chat/chat_message.dart';
 import '../moderation/block_store.dart';
 import '../moderation/report.dart';
+import '../state/ai_member.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../theme/tokens.dart';
@@ -99,6 +100,13 @@ Future<void> showMemberModerationSheet(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           _TargetHeader(name: member.name, userId: member.userId),
+          // AI 语音助手:屏蔽 / 举报照常可用;另告诉大家它能由圈主整个关掉
+          if (isAiMemberId(member.userId))
+            ListTile(
+              key: const ValueKey('moderation-ai-hint'),
+              leading: const Icon(Icons.smart_toy_outlined),
+              title: Text(t.aiVoiceModerationHint),
+            ),
           if (blocked)
             ListTile(
               leading: const Icon(Icons.person_add_alt_1_rounded),

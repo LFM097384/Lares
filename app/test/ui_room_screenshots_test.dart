@@ -25,10 +25,23 @@ import 'package:lares_app/src/captions/caption_controller.dart';
 import 'package:lares_app/src/chat/chat_message.dart';
 import 'package:lares_app/src/focus/focus_lock.dart';
 import 'package:lares_app/src/net/signaling_client.dart';
+import 'package:lares_app/src/plugins/plugin_service.dart';
+import 'package:lares_app/src/privacy/privacy_sheet.dart';
+import 'package:lares_app/src/purpose/purpose_editor.dart';
+import 'package:lares_app/src/purpose/purpose_picker.dart';
 import 'package:lares_app/src/rtc/rtc_service.dart';
+import 'package:lares_app/src/state/location_share_stub.dart'
+    if (dart.library.io) 'package:lares_app/src/state/location_share.dart';
 import 'package:lares_app/src/state/room_controller.dart';
 import 'package:lares_app/src/theme/theme.dart';
+import 'package:lares_app/src/transcript/local_transcript_store.dart';
+import 'package:lares_app/src/transcript/transcript_scope.dart';
+import 'package:lares_app/src/transcript/transcript_service.dart';
+import 'package:lares_app/src/ui/push_settings_widgets.dart';
 import 'package:lares_app/src/ui/room_screen.dart';
+import 'package:lares_app/src/net/secret_vault.dart';
+import 'package:lares_app/src/state/settings_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/caption_fakes.dart';
 import 'helpers/chat_fakes.dart';
@@ -80,12 +93,61 @@ Future<void> _loadFonts() async {
     await _loadFontFamily('MaterialIcons', await f.readAsBytes());
     break;
   }
+  // emoji(用途名牌 💬 / 📚)与等宽(用途编辑器)。
+  // kPurposeMonoStyle = 'monospace' + 后备 [Consolas, Menlo, Courier New]:
+  // 它自带后备表会盖掉主题的后备,所以这里借后两个名字挂中文与 emoji,
+  // 让编辑器里的「自习室」「📚」也能画出来(仅截图脚手架这么做)。
+  Future<void> loadAs(String path, List<String> families) async {
+    final File f = File(path);
+    if (!f.existsSync()) return;
+    final Uint8List bytes = await f.readAsBytes();
+    for (final String fam in families) {
+      await _loadFontFamily(fam, bytes);
+    }
+  }
+
+  await loadAs(r'C:\Windows\Fonts\seguiemj.ttf', <String>[
+    _emoji,
+    'Courier New',
+  ]);
+  await loadAs(r'C:\Windows\Fonts\consola.ttf', <String>[
+    'monospace',
+    'Consolas',
+  ]);
+  await loadAs(r'C:\Windows\Fonts\msyh.ttc', <String>['Menlo']);
 }
 
-ThemeData _withFont(ThemeData t) => t.copyWith(
-      textTheme: t.textTheme.apply(fontFamily: _font),
-      primaryTextTheme: t.primaryTextTheme.apply(fontFamily: _font),
-    );
+const String _emoji = 'SegoeEmoji';
+
+ThemeData _withFont(ThemeData t) {
+  TextStyle? f(TextStyle? s) => s?.copyWith(
+    fontFamily: _font,
+    fontFamilyFallback: const <String>[_emoji],
+  );
+  // 主题里有几处自带 TextStyle(AppBar 标题、FilledButton 字)不走 textTheme,
+  // 测试默认字体下会画成方块 —— 一并换字体。
+  final ButtonStyle? filled = t.filledButtonTheme.style;
+  return t.copyWith(
+    textTheme: t.textTheme.apply(
+      fontFamily: _font,
+      fontFamilyFallback: const <String>[_emoji],
+    ),
+    primaryTextTheme: t.primaryTextTheme.apply(
+      fontFamily: _font,
+      fontFamilyFallback: const <String>[_emoji],
+    ),
+    appBarTheme: t.appBarTheme.copyWith(
+      titleTextStyle: f(t.appBarTheme.titleTextStyle),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: filled?.copyWith(
+        textStyle: WidgetStatePropertyAll<TextStyle?>(
+          f(filled.textStyle?.resolve(<WidgetState>{})),
+        ),
+      ),
+    ),
+  );
+}
 
 // ─────────────────────────── 假实现 ───────────────────────────
 
@@ -123,7 +185,9 @@ class _FakeRtcService implements RtcService {
     _inRoom = true;
     muted = startMuted;
     return RtcJoinResult(
-        elapsed: const Duration(milliseconds: 120), micOn: !startMuted);
+      elapsed: const Duration(milliseconds: 120),
+      micOn: !startMuted,
+    );
   }
 
   @override
@@ -132,13 +196,13 @@ class _FakeRtcService implements RtcService {
 
   @override
   ResolvedAudioTuning previewTuning(AudioTuning tuning) => resolveAudioTuning(
-        tuning,
-        const AudioPlatformCapabilities(
-          platform: 'windows',
-          supportsAudioSession: false,
-          supportsEnhanced: false,
-        ),
-      );
+    tuning,
+    const AudioPlatformCapabilities(
+      platform: 'windows',
+      supportsAudioSession: false,
+      supportsEnhanced: false,
+    ),
+  );
 
   @override
   Future<void> leave() async {
@@ -167,17 +231,21 @@ const Map<String, String> _names = <String, String>{
 };
 
 List<ChatMessage> _chatMessages() {
-  ChatMessage text(String id, String sender, String body, int min,
-          {bool mine = false}) =>
-      ChatMessage.text(
-        id: id,
-        senderId: sender,
-        senderName: _names[sender]!,
-        circleId: 'home',
-        timestamp: DateTime(2026, 1, 1, 21, min),
-        body: body,
-        isMine: mine,
-      );
+  ChatMessage text(
+    String id,
+    String sender,
+    String body,
+    int min, {
+    bool mine = false,
+  }) => ChatMessage.text(
+    id: id,
+    senderId: sender,
+    senderName: _names[sender]!,
+    circleId: 'home',
+    timestamp: DateTime(2026, 1, 1, 21, min),
+    body: body,
+    isMine: mine,
+  );
   return <ChatMessage>[
     text('c1', 'u1', '今晚谁还在?', 1),
     text('c2', 'u2', '我在,刚下班,边做饭边挂着', 2),
@@ -212,7 +280,26 @@ class _Scene {
     this.padBottom = 34,
     this.light = false,
     this.focus,
+    this.kind = _Kind.room,
+    this.circle,
+    this.extras = false,
+    this.overlay,
+    this.social,
   });
+
+  /// 专注社交(§9/§10):'round' / 'round_all' / 'weekly' / 'summon_wait';null = 只有 🔥。
+  final String? social;
+
+  final _Kind kind;
+
+  /// 注入的 circle_settings.circle(功能开关 / 用途);null = 老服务器(全开、无用途)。
+  final Map<String, dynamic>? circle;
+
+  /// 挂上插件 / 地图 / 转写服务(「更多」里才有格子可列)。
+  final bool extras;
+
+  /// 房间上叠的面板:'more' / 'privacy'。
+  final String? overlay;
 
   final String name;
   final int people;
@@ -234,63 +321,304 @@ final List<_Scene> _scenes = <_Scene>[
   _Scene(name: 'a_empty', people: 2),
   _Scene(name: 'b_chat', speaking: <String>{'u1'}, chatMessages: true),
   _Scene(
-      name: 'c_captions',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      captions: true),
+    name: 'c_captions',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    captions: true,
+  ),
   _Scene(
-      name: 'd_keyboard',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      keyboard: true),
+    name: 'd_keyboard',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    keyboard: true,
+  ),
   _Scene(
-      name: 'e_small',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      captions: true,
-      size: const Size(375, 667),
-      padTop: 20,
-      padBottom: 0),
+    name: 'e_small',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    captions: true,
+    size: const Size(375, 667),
+    padTop: 20,
+    padBottom: 0,
+  ),
   _Scene(
-      name: 'f_desktop',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      captions: true,
-      size: const Size(1100, 750),
-      dpr: 1.0,
-      padTop: 0,
-      padBottom: 0),
+    name: 'f_desktop',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    captions: true,
+    size: const Size(1100, 750),
+    dpr: 1.0,
+    padTop: 0,
+    padBottom: 0,
+  ),
   _Scene(
-      name: 'g_light',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      light: true),
+    name: 'g_light',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    light: true,
+  ),
   // 专注段:文字聊天照常(只收地图 / 便签 / 小程序)
   _Scene(
-      name: 'focus_phase',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      focus: 'focus'),
+    name: 'focus_phase',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    focus: 'focus',
+  ),
   _Scene(
-      name: 'focus_break',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      focus: 'break'),
+    name: 'focus_break',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    focus: 'break',
+  ),
   _Scene(name: 'focus_leaderboard', focus: 'board'),
   _Scene(
-      name: 'focus_idle',
-      speaking: <String>{'u1'},
-      chatMessages: true,
-      focus: 'idle'),
+    name: 'focus_idle',
+    speaking: <String>{'u1'},
+    chatMessages: true,
+    focus: 'idle',
+  ),
   _Scene(
-      name: 'focus_phase_360',
-      speaking: <String>{'u1'},
-      captions: true,
-      focus: 'focus',
-      size: const Size(360, 640),
-      padTop: 24,
-      padBottom: 0),
+    name: 'focus_phase_360',
+    speaking: <String>{'u1'},
+    captions: true,
+    focus: 'focus',
+    size: const Size(360, 640),
+    padTop: 24,
+    padBottom: 0,
+  ),
+  // ── 功能收纳 / 用途 / 隐私告知 ──
+  // 常见情形:新注册圈的默认功能 + 用途「闲聊」(字幕、转写关;地图默认关)。
+  _Scene(
+    name: 'minimal_room',
+    people: 4,
+    speaking: <String>{'u1'},
+    extras: true,
+    circle: _circle(_chatFeatures, _chatPurpose),
+  ),
+  // 「更多」面板:圈主开了字幕 / 转写 / 地图 / 插件,才有一排格子可看
+  _Scene(
+    name: 'more_sheet',
+    speaking: <String>{'u1'},
+    extras: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'more',
+  ),
+  _Scene(
+    name: 'more_sheet_light',
+    speaking: <String>{'u1'},
+    extras: true,
+    light: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'more',
+  ),
+  // ── 活动推送 / 专注社交(plugin-focus-contract §9/§10)──
+  _Scene(name: 'focus_round_partial', focus: 'break', social: 'round'),
+  _Scene(name: 'focus_round_allin', focus: 'break', social: 'round_all'),
+  _Scene(name: 'focus_streaks', focus: 'idle', people: 4),
+  _Scene(name: 'focus_weekly', focus: 'idle', social: 'weekly'),
+  _Scene(name: 'summon_cooldown', focus: 'idle', social: 'summon_wait'),
+  _Scene(name: 'push_triggers', focus: 'idle', overlay: 'push_triggers'),
+  _Scene(
+    name: 'push_triggers_light',
+    focus: 'idle',
+    light: true,
+    overlay: 'push_triggers',
+  ),
+  _Scene(name: 'push_level', focus: 'idle', overlay: 'push_level'),
+  _Scene(name: 'push_quiet', focus: 'idle', overlay: 'push_quiet'),
+  _Scene(name: 'purpose_picker', kind: _Kind.picker),
+  _Scene(name: 'purpose_editor', kind: _Kind.editor),
+  _Scene(name: 'purpose_editor_error', kind: _Kind.editorError),
+  _Scene(
+    name: 'privacy_sheet',
+    people: 3,
+    circle: _circle(_chatFeatures, _chatPurpose),
+    overlay: 'privacy',
+  ),
 ];
+
+enum _Kind { room, picker, editor, editorError }
+
+/// 新注册圈默认(features-purpose-contract §1)叠上「闲聊」(§3.2)
+const Map<String, bool> _chatFeatures = <String, bool>{
+  'captions': false,
+  'transcript': false,
+  'voiceNotes': true,
+  'map': false,
+  'recording': false,
+  'plugins': true,
+  'focus': false,
+  'p2p': false,
+  'devTools': false,
+};
+
+final Map<String, bool> _richFeatures = <String, bool>{
+  ..._chatFeatures,
+  'captions': true,
+  'transcript': true,
+  'map': true,
+};
+
+const Map<String, dynamic> _chatPurpose = <String, dynamic>{
+  'id': 'chat',
+  'name': '闲聊',
+  'icon': '💬',
+  'builtin': true,
+};
+
+Map<String, dynamic> _circle(
+  Map<String, bool> features,
+  Map<String, dynamic> purpose, {
+  bool transcript = false,
+}) => <String, dynamic>{
+  'id': 'home',
+  'registered': true,
+  'e2ee': false,
+  'transcript': transcript,
+  'features': features,
+  'purpose': purpose,
+};
+
+const Map<String, dynamic> _studyHall = <String, dynamic>{
+  'v': 1,
+  'id': 'study-hall',
+  'name': '自习室',
+  'icon': '📚',
+  'description': '一起专注,少说话',
+  'features': <String, bool>{
+    'focus': true,
+    'captions': false,
+    'voiceNotes': false,
+  },
+  'plugins': <Map<String, dynamic>>[
+    <String, dynamic>{
+      'id': 'lares.focus',
+      'enabled': true,
+      'config': <String, int>{'focusMin': 50, 'breakMin': 10, 'rounds': 3},
+    },
+  ],
+};
+
+/// 隐私告知示例:转写开、两个插件(一个带 webhook)、专注开、未加密
+const CirclePrivacySummary _privacySample = CirclePrivacySummary(
+  circleId: 'home',
+  transcript: true,
+  e2ee: false,
+  focus: true,
+  plugins: <PrivacyPlugin>[
+    PrivacyPlugin(
+      id: 'lares.focus',
+      name: '专注学习',
+      permissions: <String>['members:read', 'focus:read'],
+    ),
+    PrivacyPlugin(
+      id: 'example.notes',
+      name: '会议纪要',
+      permissions: <String>['transcript:read', 'chat:send'],
+      hasWebhook: true,
+    ),
+  ],
+);
+
+/// 专注社交的推送消息:所有专注场景都带 🔥(座位 / 排行榜),再按 [_Scene.social] 加卡片。
+void _injectSocial(FocusHarness focus, _Scene s) {
+  focus.inject(<String, dynamic>{
+    't': 'focus_streaks',
+    'circleId': 'home',
+    'streaks': <String, int>{'u_me': 3, 'u1': 12, 'u3': 5},
+  });
+  focus.inject(<String, dynamic>{
+    't': 'push_cfg',
+    'circleId': 'home',
+    'cfg': <String, dynamic>{
+      'triggers': <String, bool>{'focus': true, 'crowd': true, 'arrive': false},
+      'crowdN': 4,
+    },
+    'custom': true,
+    'defaults': <String, dynamic>{
+      'triggers': <String, bool>{'focus': true, 'crowd': false, 'arrive': false},
+      'crowdN': 3,
+    },
+    'summonReadyAt': s.social == 'summon_wait' ? kFocusNow + 7 * 60000 : 0,
+    'now': kFocusNow,
+    'limits': <String, int>{'cooldownMin': 30, 'dailyCap': 8, 'summonMin': 10},
+  });
+  if (s.social == 'round' || s.social == 'round_all') {
+    final bool all = s.social == 'round_all';
+    focus.inject(<String, dynamic>{
+      't': 'focus_round',
+      'circleId': 'home',
+      'round': 2,
+      'rounds': 4,
+      'endedAt': kFocusNow,
+      'lenMs': 25 * 60000,
+      'members': <Map<String, dynamic>>[
+        for (final String id in <String>['u_me', 'u1', 'u3'])
+          <String, dynamic>{'userId': id, 'name': _names[id] ?? '我', 'awayMs': 0, 'full': true},
+        <String, dynamic>{
+          'userId': 'u2',
+          'name': _names['u2'],
+          'awayMs': all ? 0 : 133000,
+          'full': all,
+        },
+      ],
+    });
+  }
+  if (s.social == 'weekly') {
+    focus.inject(<String, dynamic>{
+      't': 'focus_weekly',
+      'circleId': 'home',
+      'card': <String, dynamic>{
+        'week': '2026-09-07',
+        'focusMs': 6 * 3600000 + 40 * 60000,
+        'rank': 2,
+        'of': 4,
+        'streak': 3,
+        'circleTotalMs': 21 * 3600000 + 15 * 60000,
+      },
+    });
+  }
+}
+
+/// 通知设置三处:圈主活动提醒面板 / 成员「通知我」/ 推送免打扰。
+Future<void> _openPushOverlay(
+  WidgetTester tester,
+  _Scene s,
+  FocusHarness? focus,
+) async {
+  final BuildContext ctx = tester.element(find.byType(RoomScreen));
+  if (s.overlay == 'push_triggers' && focus != null) {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: ctx,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) =>
+            PushTriggersSheet(activity: focus.service.activity, circleId: 'home'),
+      ),
+    );
+  } else if (s.overlay == 'push_level') {
+    unawaited(
+      showDialog<String>(
+        context: ctx,
+        builder: (_) => const PushLevelDialog(current: 'called'),
+      ),
+    );
+  } else if (s.overlay == 'push_quiet') {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final SettingsStore? settings = await tester.runAsync(
+      () => SettingsStore.load(vault: InMemorySecretVault()),
+    );
+    unawaited(
+      showDialog<void>(
+        context: ctx,
+        builder: (_) => PushQuietDialog(settings: settings!),
+      ),
+    );
+  }
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
 
 // ─────────────────────────── 出图 ───────────────────────────
 
@@ -312,8 +640,9 @@ void _recordError(FlutterErrorDetails d) {
       .take(2)
       .toList();
   final String ctx = d.context?.toDescription() ?? '';
-  final RegExpMatch? m =
-      RegExp(r'lib/src/[^\s:]+\.dart:\d+:\d+').firstMatch(d.toString());
+  final RegExpMatch? m = RegExp(
+    r'lib/src/[^\s:]+\.dart:\d+:\d+',
+  ).firstMatch(d.toString());
   final String creator = m?.group(0) ?? '';
   final String entry =
       '[$_where] ${lines.join(' / ')}  ($ctx${creator.isEmpty ? '' : ' @ $creator'})';
@@ -321,13 +650,18 @@ void _recordError(FlutterErrorDetails d) {
 }
 
 Future<void> _capture(
-    WidgetTester tester, GlobalKey key, String path, double dpr) async {
+  WidgetTester tester,
+  GlobalKey key,
+  String path,
+  double dpr,
+) async {
   final RenderRepaintBoundary boundary =
       key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   await tester.runAsync(() async {
     final ui.Image image = await boundary.toImage(pixelRatio: dpr);
-    final ByteData? bytes =
-        await image.toByteData(format: ui.ImageByteFormat.png);
+    final ByteData? bytes = await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     image.dispose();
     if (bytes == null) throw StateError('toByteData 返回 null:$path');
     final File file = File(path);
@@ -336,13 +670,79 @@ Future<void> _capture(
   });
 }
 
+/// 麦克风偏离正中就记进异常文件(截图里肉眼看不出 1px)。
+void _logMicCentre(WidgetTester tester, _Scene s) {
+  Finder mic = find.byIcon(Icons.mic_rounded);
+  if (mic.evaluate().isEmpty) mic = find.byIcon(Icons.mic_off_rounded);
+  if (mic.evaluate().isEmpty) {
+    _exceptions.add('[${s.name}] mic not found');
+    return;
+  }
+  final double dx = tester.getCenter(mic.last).dx;
+  if ((dx - s.size.width / 2).abs() > 0.5) {
+    _exceptions.add('[${s.name}] mic off-centre: dx=$dx');
+  }
+}
+
+/// 用途选择 / 编辑器:不需要房间,挂在普通 Scaffold 上。
+Future<void> _runPurposeScene(WidgetTester tester, _Scene s) async {
+  final GlobalKey key = GlobalKey();
+  final ThemeData theme = _withFont(
+    s.light ? LaresTheme.light() : LaresTheme.dark(),
+  );
+  final Widget home = switch (s.kind) {
+    _Kind.editor => const PurposeEditorPage(initial: _studyHall),
+    _Kind.editorError => PurposeEditorPage(
+      initial: <String, dynamic>{..._studyHall, 'id': 'Study Hall'},
+    ),
+    _ => Scaffold(
+      appBar: AppBar(title: const Text('圈子设置')),
+      body: Builder(
+        builder: (BuildContext ctx) => Center(
+          child: FilledButton(
+            key: const ValueKey<String>('shots-open-picker'),
+            onPressed: () =>
+                unawaited(showPurposePicker(ctx, current: 'study')),
+            child: const Text('用途'),
+          ),
+        ),
+      ),
+    ),
+  };
+  await tester.pumpWidget(
+    RepaintBoundary(
+      key: key,
+      child: localizedApp(home, theme: theme),
+    ),
+  );
+  await tester.pump();
+  _drainExceptions(tester, s.name, 'mount');
+  if (s.kind == _Kind.picker) {
+    await tester.tap(find.byKey(const ValueKey<String>('shots-open-picker')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+  // 编辑器的即时校验有 300ms 防抖
+  for (int i = 0; i < 3; i++) {
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+  _drainExceptions(tester, s.name, 'settle');
+  await _capture(tester, key, '$_outDir/${_tag}_${s.name}.png', s.dpr);
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump(const Duration(seconds: 1));
+  _drainExceptions(tester, s.name, 'unmount');
+}
+
 Future<void> _runScene(WidgetTester tester, _Scene s) async {
   // 视口:改 tester.view,让真实 MediaQuery 看到尺寸/安全区/键盘
   tester.view.physicalSize = Size(s.size.width * s.dpr, s.size.height * s.dpr);
   tester.view.devicePixelRatio = s.dpr;
-  tester.view.padding =
-      FakeViewPadding(top: s.padTop * s.dpr, bottom: s.padBottom * s.dpr);
+  tester.view.padding = FakeViewPadding(
+    top: s.padTop * s.dpr,
+    bottom: s.padBottom * s.dpr,
+  );
   tester.view.viewInsets = FakeViewPadding.zero;
+  if (s.kind != _Kind.room) return _runPurposeScene(tester, s);
 
   final _FakeSignalingClient signaling = _FakeSignalingClient();
   final _FakeRtcService rtc = _FakeRtcService();
@@ -356,7 +756,12 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   controller.captionsAvailable = true;
   unawaited(controller.join('home').catchError((Object _) {}));
 
-  final List<String> ids = <String>['u_me', 'u1', 'u2', 'u3'].take(s.people).toList();
+  final List<String> ids = <String>[
+    'u_me',
+    'u1',
+    'u2',
+    'u3',
+  ].take(s.people).toList();
   const Map<String, String> statuses = <String, String>{
     'u_me': 'free',
     'u1': 'free',
@@ -376,6 +781,53 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     ],
   });
   await controller.testInjectToken('wss://fake', 'tok');
+  if (s.circle != null) {
+    signaling.testInject(<String, dynamic>{
+      't': 'circle_settings',
+      'circle': s.circle,
+    });
+  }
+
+  // 「更多」里的格子要有服务在背后:插件 / 地图 / 转写
+  PluginService? plugins;
+  StreamController<Map<String, dynamic>>? pluginMsgs;
+  LocationShareService? location;
+  StreamController<Map<String, dynamic>>? transcriptMsgs;
+  TranscriptService? transcripts;
+  if (s.extras) {
+    pluginMsgs = StreamController<Map<String, dynamic>>.broadcast(sync: true);
+    plugins = PluginService(
+      send: (_) {},
+      messages: pluginMsgs.stream,
+      ownerKeyFor: (_) => null,
+    );
+    pluginMsgs.add(<String, dynamic>{
+      't': 'plugins',
+      'circleId': 'home',
+      'items': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'acme.board',
+          'name': '白板',
+          'enabled': true,
+          'entry': <String, dynamic>{'url': 'https://example.com/board'},
+        },
+      ],
+    });
+    location = LocationShareService(room: controller);
+    transcriptMsgs = StreamController<Map<String, dynamic>>.broadcast(
+      sync: true,
+    );
+    transcripts = TranscriptService(
+      send: (_) {},
+      messages: transcriptMsgs.stream,
+      ownerKeyFor: (_) => null,
+      circleKeyFor: (_) async => null,
+      isE2EE: (_) => false,
+      myUserId: () => 'u_me',
+      myName: () => '我',
+      store: LocalTranscriptStore(backend: MemoryTranscriptBackend()),
+    );
+  }
 
   final ShotsChatService chat = ShotsChatService();
   if (s.chatMessages) chat.seed(_chatMessages());
@@ -383,17 +835,20 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   final FakeChannel ch = FakeChannel(localIdentity: 'u_me');
   final FakeTap tap = FakeTap();
   final CaptionController captions = CaptionController(
-    transcriberFactory: ({
-      required onPartial,
-      required onFinal,
-      required onFatal,
-    }) =>
-        FakeTranscriber(onPartial, onFinal, onFatal),
+    transcriberFactory:
+        ({required onPartial, required onFinal, required onFatal}) =>
+            FakeTranscriber(onPartial, onFinal, onFatal),
     nameOf: (String id) => _names[id] ?? id,
   );
   captions.bindSession(ch, tap);
-  captions.updateConditions(const CaptionConditions(
-      available: true, inRoom: true, muted: false, provide: true));
+  captions.updateConditions(
+    const CaptionConditions(
+      available: true,
+      inRoom: true,
+      muted: false,
+      provide: true,
+    ),
+  );
 
   FocusHarness? focus;
   if (s.focus != null) {
@@ -404,40 +859,85 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     final bool idle = s.focus == 'idle';
     focus.status(
       'home',
-      phase: idle ? 'idle' : brk ? 'break' : 'focus',
+      phase: idle
+          ? 'idle'
+          : brk
+          ? 'break'
+          : 'focus',
       endsAt: idle
           ? null
           : kFocusNow + (brk ? 3 * 60 + 42 : 18 * 60 + 27) * 1000,
       round: idle ? 0 : 2,
       rounds: 4,
       members: <Map<String, dynamic>>[
-        focusMember('u_me', '我', idle ? 'idle' : brk ? 'break' : 'focus'),
-        focusMember('u1', _names['u1']!, idle ? 'idle' : brk ? 'break' : 'focus'),
-        focusMember('u2', _names['u2']!, idle ? 'idle' : brk ? 'break' : 'away',
-            awaySince: brk || idle ? null : kFocusNow - 133000),
-        focusMember('u3', _names['u3']!, idle ? 'idle' : brk ? 'break' : 'focus'),
+        focusMember(
+          'u_me',
+          '我',
+          idle
+              ? 'idle'
+              : brk
+              ? 'break'
+              : 'focus',
+        ),
+        focusMember(
+          'u1',
+          _names['u1']!,
+          idle
+              ? 'idle'
+              : brk
+              ? 'break'
+              : 'focus',
+        ),
+        focusMember(
+          'u2',
+          _names['u2']!,
+          idle
+              ? 'idle'
+              : brk
+              ? 'break'
+              : 'away',
+          awaySince: brk || idle ? null : kFocusNow - 133000,
+        ),
+        focusMember(
+          'u3',
+          _names['u3']!,
+          idle
+              ? 'idle'
+              : brk
+              ? 'break'
+              : 'focus',
+        ),
       ],
     );
+    _injectSocial(focus, s);
   }
 
   final GlobalKey key = GlobalKey();
-  final ThemeData theme =
-      _withFont(s.light ? LaresTheme.light() : LaresTheme.dark());
+  final ThemeData theme = _withFont(
+    s.light ? LaresTheme.light() : LaresTheme.dark(),
+  );
 
-  await tester.pumpWidget(RepaintBoundary(
-    key: key,
-    child: localizedApp(
-      RoomScreen(
-        controller: controller,
-        circleName: '我们的圈',
-        chat: chat,
-        captions: captions,
-        focus: focus?.service,
-        focusLock: focus == null ? null : FocusLock(supported: true),
+  final Widget room = RoomScreen(
+    controller: controller,
+    circleName: '我们的圈',
+    chat: chat,
+    captions: captions,
+    plugins: plugins,
+    locationShare: location,
+    focus: focus?.service,
+    focusLock: focus == null ? null : FocusLock(supported: true),
+  );
+  await tester.pumpWidget(
+    RepaintBoundary(
+      key: key,
+      child: localizedApp(
+        transcripts == null
+            ? room
+            : TranscriptScope(service: transcripts, child: room),
+        theme: theme,
       ),
-      theme: theme,
     ),
-  ));
+  );
   await tester.pump();
   _drainExceptions(tester, s.name, 'mount');
 
@@ -453,13 +953,25 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     await tester.pump();
     ch.receive('u1', <String, dynamic>{'t': 'capack', 'on': true});
     ch.receive('u1', <String, dynamic>{
-      't': 'cap', 'id': 'a', 'seq': 1, 'text': '今天晚饭吃的什么呀?', 'final': true,
+      't': 'cap',
+      'id': 'a',
+      'seq': 1,
+      'text': '今天晚饭吃的什么呀?',
+      'final': true,
     });
     ch.receive('u1', <String, dynamic>{
-      't': 'cap', 'id': 'b', 'seq': 2, 'text': '我煮了一锅番茄牛腩,还剩好多。', 'final': true,
+      't': 'cap',
+      'id': 'b',
+      'seq': 2,
+      'text': '我煮了一锅番茄牛腩,还剩好多。',
+      'final': true,
     });
     ch.receive('u1', <String, dynamic>{
-      't': 'cap', 'id': 'c', 'seq': 3, 'text': '要不明天带点给', 'final': false,
+      't': 'cap',
+      'id': 'c',
+      'seq': 3,
+      'text': '要不明天带点给',
+      'final': false,
     });
     // 有人向本机请求字幕 → 「正在为 小鹿 生成字幕」横幅
     ch.remotes.add('u2');
@@ -489,17 +1001,31 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   }
 
   if (s.focus == 'board' && focus != null) {
-    await tester.tap(find.byKey(const ValueKey<String>('focus-board')).first,
-        warnIfMissed: false);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('focus-board')).first,
+      warnIfMissed: false,
+    );
     await tester.pump();
     focus.inject(<String, dynamic>{
       't': 'focus_board',
       'circleId': 'home',
       'today': <Map<String, dynamic>>[
-        <String, dynamic>{'userId': 'u1', 'name': _names['u1'], 'ms': 142 * 60000},
+        <String, dynamic>{
+          'userId': 'u1',
+          'name': _names['u1'],
+          'ms': 142 * 60000,
+        },
         <String, dynamic>{'userId': 'u_me', 'name': '我', 'ms': 96 * 60000},
-        <String, dynamic>{'userId': 'u3', 'name': _names['u3'], 'ms': 75 * 60000},
-        <String, dynamic>{'userId': 'u2', 'name': _names['u2'], 'ms': 31 * 60000},
+        <String, dynamic>{
+          'userId': 'u3',
+          'name': _names['u3'],
+          'ms': 75 * 60000,
+        },
+        <String, dynamic>{
+          'userId': 'u2',
+          'name': _names['u2'],
+          'ms': 31 * 60000,
+        },
       ],
       'week': <Map<String, dynamic>>[],
       'all': <Map<String, dynamic>>[],
@@ -513,6 +1039,28 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   }
   _drainExceptions(tester, s.name, 'settle');
 
+  if (s.overlay == 'more') {
+    await tester.tap(
+      find.byKey(const ValueKey<String>('room-more')).first,
+      warnIfMissed: false,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _drainExceptions(tester, s.name, 'more');
+  } else if (s.overlay == 'privacy') {
+    final BuildContext ctx = tester.element(find.byType(RoomScreen));
+    unawaited(
+      showCirclePrivacySheet(ctx, summary: _privacySample, circleName: '我们的圈'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _drainExceptions(tester, s.name, 'privacy');
+  } else if (s.overlay != null && s.overlay!.startsWith('push_')) {
+    await _openPushOverlay(tester, s, focus);
+    _drainExceptions(tester, s.name, s.overlay!);
+  }
+  if (s.name == 'minimal_room') _logMicCentre(tester, s);
+
   await _capture(tester, key, '$_outDir/${_tag}_${s.name}.png', s.dpr);
 
   // 拆树:停掉无限动画,再收控制器
@@ -521,6 +1069,11 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   _drainExceptions(tester, s.name, 'unmount');
   captions.dispose();
   chat.dispose();
+  plugins?.dispose();
+  await pluginMsgs?.close();
+  await location?.dispose();
+  transcripts?.dispose();
+  await transcriptMsgs?.close();
   controller.dispose();
   await focus?.dispose();
   await tester.pump(const Duration(seconds: 30)); // 放掉残余计时器
@@ -538,26 +1091,33 @@ void main() {
   tearDownAll(() {
     if (_skip) return;
     File('$_outDir/${_tag}_exceptions.txt').writeAsStringSync(
-        _exceptions.isEmpty ? '(none)\n' : '${_exceptions.join('\n\n')}\n');
+      _exceptions.isEmpty ? '(none)\n' : '${_exceptions.join('\n\n')}\n',
+    );
   });
 
   for (final _Scene s in _scenes) {
-    testWidgets('room shot ${s.name}', (WidgetTester tester) async {
-      addTearDown(tester.view.reset);
-      final bool oldBanner = WidgetsApp.debugAllowBannerOverride;
-      WidgetsApp.debugAllowBannerOverride = false;
-      final void Function(FlutterErrorDetails)? oldOnError = FlutterError.onError;
-      _where = '${s.name}/mount';
-      FlutterError.onError = (FlutterErrorDetails d) {
-        _recordError(d);
-        oldOnError?.call(d);
-      };
-      try {
-        await _runScene(tester, s);
-      } finally {
-        FlutterError.onError = oldOnError;
-        WidgetsApp.debugAllowBannerOverride = oldBanner;
-      }
-    }, skip: _skip, timeout: const Timeout(Duration(minutes: 5)));
+    testWidgets(
+      'room shot ${s.name}',
+      (WidgetTester tester) async {
+        addTearDown(tester.view.reset);
+        final bool oldBanner = WidgetsApp.debugAllowBannerOverride;
+        WidgetsApp.debugAllowBannerOverride = false;
+        final void Function(FlutterErrorDetails)? oldOnError =
+            FlutterError.onError;
+        _where = '${s.name}/mount';
+        FlutterError.onError = (FlutterErrorDetails d) {
+          _recordError(d);
+          oldOnError?.call(d);
+        };
+        try {
+          await _runScene(tester, s);
+        } finally {
+          FlutterError.onError = oldOnError;
+          WidgetsApp.debugAllowBannerOverride = oldBanner;
+        }
+      },
+      skip: _skip,
+      timeout: const Timeout(Duration(minutes: 5)),
+    );
   }
 }
