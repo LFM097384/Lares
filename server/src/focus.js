@@ -14,7 +14,10 @@ import path from 'node:path';
 import { TokenBuckets } from './ratelimit.js';
 
 export const FOCUS_PLUGIN_ID = 'lares.focus';
-export const FOCUS_DEFAULTS = Object.freeze({ focusMin: 25, breakMin: 5, rounds: 4, graceSec: 10, membersCanStart: false, chatInBreak: true });
+export const FOCUS_DEFAULTS = Object.freeze({ focusMin: 25, breakMin: 5, rounds: 4, graceSec: 10, membersCanStart: false });
+// 已废弃的旧字段:老客户端 / 老存档里可能还带着,收下即丢,不报错。
+// chatInBreak(2026-10 废弃):文字聊天在专注模式下一直开着,不再有「休息时解锁」。
+const LEGACY_KEYS = new Set(['chatInBreak']);
 const RANGES = { focusMin: [1, 180], breakMin: [1, 60], rounds: [1, 12], graceSec: [0, 300] };
 export const SINCE_MAX_BACK_MS = 10 * 60_000;
 export const KEEP_DAYS = 60;
@@ -26,6 +29,7 @@ export function normalizeFocusConfig(cfg) {
   if (cfg === null || typeof cfg !== 'object' || Array.isArray(cfg)) return { ok: false, detail: 'not_object' };
   const out = { ...FOCUS_DEFAULTS };
   for (const [k, v] of Object.entries(cfg)) {
+    if (LEGACY_KEYS.has(k)) continue;
     if (!Object.prototype.hasOwnProperty.call(FOCUS_DEFAULTS, k)) return { ok: false, detail: `unknown_field:${k}` };
     if (RANGES[k]) {
       const [lo, hi] = RANGES[k];

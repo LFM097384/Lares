@@ -89,14 +89,6 @@ class _FocusSettingsPanelState extends State<FocusSettingsPanel> {
           onChanged: (v) =>
               setState(() => _draft = _draft.copyWith(membersCanStart: v)),
         ),
-        SwitchListTile(
-          key: const ValueKey('focus-settings-chatInBreak'),
-          contentPadding: EdgeInsets.zero,
-          title: Text(t.focusSettingsChatInBreak),
-          value: _draft.chatInBreak,
-          onChanged: (v) =>
-              setState(() => _draft = _draft.copyWith(chatInBreak: v)),
-        ),
         const SizedBox(height: LaresSpacing.xs),
         Text(
           t.focusSettingsPrivacy,

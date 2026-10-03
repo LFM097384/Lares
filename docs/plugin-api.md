@@ -358,12 +358,13 @@ if (!window.lares) {
 | `rounds` | 1..12 | 4 | 轮数 |
 | `graceSec` | 0..300 | 10 | 离开多久才算「离开」(秒) |
 | `membersCanStart` | bool | `false` | 普通成员能否开 / 停番茄钟 |
-| `chatInBreak` | bool | `true` | 休息期解锁文字聊天 |
+
+旧字段 `chatInBreak` 已废弃:服务器收下即丢,不报错。
 
 ### 9.2 语义
 
-- 插件**已装且启用** = 本圈处于专注模式:房间显示专注 UI,文字聊天与发图隐藏。
-- 番茄钟可选。不开番茄钟时一直算专注期。番茄钟 `phase ∈ idle | focus | break`;`break` 期且 `chatInBreak` 时聊天解锁。
+- 插件**已装且启用** = 本圈处于专注模式:房间显示专注 UI。文字聊天与发图**任何时候都开着**。
+- 番茄钟 `phase ∈ idle | focus | break`。只有 `focus` 段算专注:收起地图、语音便签与小程序入口,并计时、报离开;`idle` / `break` 时房间照常。
 - **计时**:专注中 = 启用 ∧ 在房 ∧ 未离开 ∧ phase≠break;离开计时 = 启用 ∧ 在房 ∧ 离开 ∧ phase≠break。休息期离开既不计时也不广播。
 - **离开**由 App 判断(切到后台、锁屏等),过了宽限期 `graceSec` 才上报。一个成员**所有在房设备都离开**才算离开。归属只看连接本身,消息里的 `userId` 被忽略 —— 没法替别人报离开。
 
@@ -408,7 +409,7 @@ curl.exe -s -H "Authorization: Bearer $T" "$B/api/v1/focus"
 ```
 ```json
 {"circleId":"c_…","installed":true,"enabled":true,
- "config":{"focusMin":25,"breakMin":5,"rounds":4,"graceSec":10,"membersCanStart":false,"chatInBreak":true},
+ "config":{"focusMin":25,"breakMin":5,"rounds":4,"graceSec":10,"membersCanStart":false},
  "now":1790000000000,
  "pomodoro":{"phase":"focus","endsAt":1790001200000,"round":1,"rounds":4,"startedBy":"u_owner"},
  "members":[{"userId":"u_…","name":"小明","state":"focus","awaySince":null,"focusMs":600000,"awayMs":0}],

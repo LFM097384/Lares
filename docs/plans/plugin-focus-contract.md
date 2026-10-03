@@ -111,11 +111,12 @@ Install = { manifest, builtin:bool, enabled:bool, config:{}, state:{}, rev:int,
 ## 6. 专注学习(`lares.focus`)
 
 ### 6.1 配置(`plugin_config_set` 的 `config`,严格校验,缺省补默认)
-`{ focusMin:1..180=25, breakMin:1..60=5, rounds:1..12=4, graceSec:0..300=10, membersCanStart:false, chatInBreak:true }`
+`{ focusMin:1..180=25, breakMin:1..60=5, rounds:1..12=4, graceSec:0..300=10, membersCanStart:false }`
+- 旧字段 `chatInBreak`(2026-10 废弃):服务器收到时**容忍并丢弃**(不论取值),不报 `bad_config`;客户端不再发、不再读。
 
 ### 6.2 语义
-- 插件**已装且启用** = 本圈处于「专注模式」:房间显示专注 UI;文字聊天与发图隐藏。
-- 番茄钟 `phase ∈ idle|focus|break`。**只有 `focus` 段算专注**(2026-10 改):收聊天 / 地图 / 便签 / 小程序、计时、报离开、出房记 `left_early`。`idle`(没开钟)时房间照常、聊天开着、不计时,成员 `state = 'idle'`,卡上有醒目的「开始专注」;`break` 且 `chatInBreak` → 聊天解锁。
+- 插件**已装且启用** = 本圈处于「专注模式」:房间显示专注 UI。**文字聊天与发图任何时候都开着**(2026-10 改),专注模式不收它们。
+- 番茄钟 `phase ∈ idle|focus|break`。**只有 `focus` 段算专注**(2026-10 改):收地图 / 语音便签 / 小程序入口、计时、报离开、出房记 `left_early`。`idle`(没开钟)时房间照常、不计时,成员 `state = 'idle'`,卡上有醒目的「开始专注」。
 - 计时:成员「专注中」计时 = 启用 ∧ 在房 ∧ 未离开 ∧ phase≠break。离开(away)计时 = 启用 ∧ 在房 ∧ away ∧ phase≠break。break 期离开不计也不广播离开提示。
 - 多设备:每个(userId, deviceId)连接各自报;该成员**所有在房设备都 away** 才算 away。归属**只看会话**(`session.userId/deviceId`),消息里的 userId 一概忽略 → 无法替别人报离开。
 

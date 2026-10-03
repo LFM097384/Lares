@@ -50,7 +50,9 @@ void main() {
     expect(saved!['focusMin'], 50);
     expect(saved!['graceSec'], 30);
     expect(saved!['membersCanStart'], true);
-    expect(saved!['chatInBreak'], true);
+    // chatInBreak 已废弃:设置里没有这个开关,保存时也不再带它
+    expect(saved!.containsKey('chatInBreak'), isFalse);
+    expect(find.byKey(const ValueKey('focus-settings-chatInBreak')), findsNothing);
     expect(saved!['breakMin'], 5);
   });
 

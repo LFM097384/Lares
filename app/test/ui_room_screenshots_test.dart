@@ -265,7 +265,12 @@ final List<_Scene> _scenes = <_Scene>[
       speaking: <String>{'u1'},
       chatMessages: true,
       light: true),
-  _Scene(name: 'focus_phase', speaking: <String>{'u1'}, focus: 'focus'),
+  // 专注段:文字聊天照常(只收地图 / 便签 / 小程序)
+  _Scene(
+      name: 'focus_phase',
+      speaking: <String>{'u1'},
+      chatMessages: true,
+      focus: 'focus'),
   _Scene(
       name: 'focus_break',
       speaking: <String>{'u1'},

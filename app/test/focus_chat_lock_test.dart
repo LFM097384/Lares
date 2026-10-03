@@ -12,7 +12,6 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ChatPanel), findsOneWidget);
-    expect(find.byKey(const ValueKey('focus-chat-hint')), findsNothing);
     expect(find.byKey(const ValueKey('focus-start')), findsOneWidget);
     expect(find.text('开始专注'), findsOneWidget);
     // 专注插件开着时控件排右侧固定是「排行榜 + 聊天」,便签让位
@@ -20,14 +19,16 @@ void main() {
     await room.close(tester);
   });
 
-  testWidgets('专注期:聊天收起,显示安静提示;分心入口隐藏', (tester) async {
+  testWidgets('专注期:文字聊天与发图照常;只收地图 / 便签 / 小程序', (tester) async {
     final room = await FocusRoom.pump(tester);
     room.focus.status('c1', phase: 'focus', endsAt: kFocusNow + 600000, round: 1);
     await tester.pump();
 
-    expect(find.byType(ChatPanel), findsNothing);
-    expect(find.byType(ChatToggleButton), findsNothing);
-    expect(find.text('专注中,文字聊天已收起 · 休息时再聊'), findsOneWidget);
+    expect(find.byType(ChatPanel), findsOneWidget);
+    expect(find.byType(ChatToggleButton), findsOneWidget);
+    // 发图入口在输入栏里,专注期也在
+    expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+    expect(find.textContaining('文字聊天已收起'), findsNothing);
     // 语音便签收起,离开 / 麦克风还在
     expect(find.byIcon(Icons.voicemail_rounded), findsNothing);
     expect(find.byIcon(Icons.call_end_rounded), findsOneWidget);
@@ -35,7 +36,24 @@ void main() {
     await room.close(tester);
   });
 
-  testWidgets('休息期(chatInBreak):聊天回来', (tester) async {
+  testWidgets('专注期:能打字发消息', (tester) async {
+    final room = await FocusRoom.pump(tester);
+    room.focus.status('c1', phase: 'focus', endsAt: kFocusNow + 600000, round: 1);
+    await tester.pump();
+
+    final field = find.descendant(
+      of: find.byType(ChatPanel),
+      matching: find.byType(TextField),
+    );
+    expect(field, findsOneWidget);
+    await tester.enterText(field, '专注中也能说一句');
+    await tester.pump();
+    expect(find.text('专注中也能说一句'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await room.close(tester);
+  });
+
+  testWidgets('休息期:聊天照常', (tester) async {
     final room = await FocusRoom.pump(tester);
     room.focus.status(
       'c1',
@@ -46,12 +64,11 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ChatPanel), findsOneWidget);
-    expect(find.text('专注中,文字聊天已收起 · 休息时再聊'), findsNothing);
     expect(find.byType(ChatToggleButton), findsOneWidget);
     await room.close(tester);
   });
 
-  testWidgets('休息期但圈主关了 chatInBreak:聊天仍收起', (tester) async {
+  testWidgets('老配置里带 chatInBreak:false:休息期 / 专注期聊天都不收', (tester) async {
     final room = await FocusRoom.pump(tester);
     room.focus.status(
       'c1',
@@ -61,16 +78,49 @@ void main() {
       config: {'chatInBreak': false},
     );
     await tester.pump();
-    expect(find.byType(ChatPanel), findsNothing);
-    expect(find.byKey(const ValueKey('focus-chat-hint')), findsOneWidget);
+    expect(find.byType(ChatPanel), findsOneWidget);
+
+    room.focus.status(
+      'c1',
+      phase: 'focus',
+      endsAt: kFocusNow + 600000,
+      round: 2,
+      config: {'chatInBreak': false},
+    );
+    await tester.pump();
+    expect(find.byType(ChatPanel), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await room.close(tester);
   });
 
+  testWidgets('从休息进入专注段:展开着的聊天不被收起', (tester) async {
+    final room = await FocusRoom.pump(tester);
+    room.focus.status(
+      'c1',
+      phase: 'break',
+      endsAt: kFocusNow + 300000,
+      round: 1,
+    );
+    await tester.pump();
+    final collapsedHeight = tester.getSize(find.byType(ChatPanel)).height;
+    await tester.tap(find.byType(ChatToggleButton));
+    // 背景呼吸 / 计时卡一直在动,不能 pumpAndSettle
+    await tester.pump(const Duration(milliseconds: 600));
+    final expandedHeight = tester.getSize(find.byType(ChatPanel)).height;
+    expect(expandedHeight, greaterThan(collapsedHeight));
+
+    room.focus.status('c1', phase: 'focus', endsAt: kFocusNow + 600000, round: 2);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(ChatPanel), findsOneWidget);
+    expect(tester.getSize(find.byType(ChatPanel)).height, expandedHeight);
+    await room.close(tester);
+  });
   testWidgets('圈主停用专注:一切恢复', (tester) async {
     final room = await FocusRoom.pump(tester);
     room.focus.status('c1', phase: 'focus', endsAt: kFocusNow + 600000, round: 1);
     await tester.pump();
-    expect(find.byType(ChatPanel), findsNothing);
+    expect(find.byType(ChatPanel), findsOneWidget);
+    expect(find.byIcon(Icons.voicemail_rounded), findsNothing);
 
     room.focus.inject({
       't': 'focus_notice',
@@ -79,6 +129,7 @@ void main() {
     });
     await tester.pump();
     expect(find.byType(ChatPanel), findsOneWidget);
+    expect(find.byIcon(Icons.voicemail_rounded), findsOneWidget);
     expect(find.byKey(const ValueKey('focus-timer-card')), findsNothing);
     // snackbar 告知
     await tester.pump(const Duration(milliseconds: 100));
@@ -130,16 +181,33 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey('focus-board')), findsOneWidget);
     expect(find.byKey(const ValueKey('focus-lock')), findsOneWidget);
+    // 锁占了右侧第二格:聊天展开/收起键回到输入栏,聊天照样能展开
+    expect(find.byType(ChatToggleButton), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ChatPanel),
+        matching: find.byType(ChatToggleButton),
+      ),
+      findsOneWidget,
+    );
     await expectMicCentred(tester, 400);
     await room.close(tester);
   });
 
-  testWidgets('不能锁的平台、专注期:麦克风仍正中', (tester) async {
+  testWidgets('不能锁的平台、专注期:右侧排行榜 + 聊天开关,麦克风正中', (tester) async {
     final room = await FocusRoom.pump(tester, size: const Size(400, 800));
     room.focus.status('c1', phase: 'focus', endsAt: kFocusNow + 600000, round: 1);
     await tester.pump();
     expect(find.byKey(const ValueKey('focus-board')), findsOneWidget);
     expect(find.byKey(const ValueKey('focus-lock')), findsNothing);
+    // 聊天开关在控件排(不在输入栏里),且在麦克风右侧
+    final toggle = find.byType(ChatToggleButton);
+    expect(toggle, findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ChatPanel), matching: toggle),
+      findsNothing,
+    );
+    expect(tester.getCenter(toggle).dx, greaterThan(200));
     await expectMicCentred(tester, 400);
     await room.close(tester);
   });

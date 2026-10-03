@@ -2001,13 +2001,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t lock. This device may not support screen pinning';
 
   @override
-  String get focusChatHidden =>
-      'Focusing — text chat is tucked away · chat at the break';
-
-  @override
-  String get focusChatHiddenNoBreak => 'Focusing — text chat is tucked away';
-
-  @override
   String get focusBadgeFocus => 'Focusing';
 
   @override
@@ -2117,9 +2110,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get focusSettingsMembersCanStart => 'Members can start the timer';
-
-  @override
-  String get focusSettingsChatInBreak => 'Open text chat during breaks';
 
   @override
   String get focusSettingsSave => 'Save';

@@ -3278,18 +3278,6 @@ abstract class AppLocalizations {
   /// **'没能锁定,这台设备可能不支持屏幕固定'**
   String get focusLockFailed;
 
-  /// 聊天被收起时的提示
-  ///
-  /// In zh, this message translates to:
-  /// **'专注中,文字聊天已收起 · 休息时再聊'**
-  String get focusChatHidden;
-
-  /// 聊天被收起且休息期也不开放时的提示
-  ///
-  /// In zh, this message translates to:
-  /// **'专注中,文字聊天已收起'**
-  String get focusChatHiddenNoBreak;
-
   /// 座位徽标:专注
   ///
   /// In zh, this message translates to:
@@ -3469,12 +3457,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'成员也能开始番茄钟'**
   String get focusSettingsMembersCanStart;
-
-  /// 休息开放聊天
-  ///
-  /// In zh, this message translates to:
-  /// **'休息时开放文字聊天'**
-  String get focusSettingsChatInBreak;
 
   /// 保存
   ///

@@ -134,7 +134,7 @@ export const BUILTINS = Object.freeze({
       id: FOCUS_ID,
       name: '专注学习',
       version: '1.0.0',
-      description: '一起专注:番茄钟、离开提醒、专注排行榜。启用后房间进入专注模式(隐藏文字聊天)。',
+      description: '一起专注:番茄钟、离开提醒、专注排行榜。启用后房间进入专注模式(专注段收起地图、语音便签与小程序,文字聊天照常)。',
       author: 'Lares',
       permissions: ['circle:read', 'members:read', 'state:read', 'focus:read'],
       settingsSchema: {
@@ -146,7 +146,6 @@ export const BUILTINS = Object.freeze({
           rounds: { type: 'integer', minimum: 1, maximum: 12, default: FOCUS_DEFAULTS.rounds, title: '轮数' },
           graceSec: { type: 'integer', minimum: 0, maximum: 300, default: FOCUS_DEFAULTS.graceSec, title: '离开宽限(秒)' },
           membersCanStart: { type: 'boolean', default: FOCUS_DEFAULTS.membersCanStart, title: '成员可开番茄钟' },
-          chatInBreak: { type: 'boolean', default: FOCUS_DEFAULTS.chatInBreak, title: '休息时解锁聊天' },
         },
       },
     }),

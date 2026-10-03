@@ -18,7 +18,6 @@ class FocusConfig {
     this.rounds = 4,
     this.graceSec = 10,
     this.membersCanStart = false,
-    this.chatInBreak = true,
   });
 
   final int focusMin; // 1..180
@@ -26,7 +25,6 @@ class FocusConfig {
   final int rounds; // 1..12
   final int graceSec; // 0..300
   final bool membersCanStart;
-  final bool chatInBreak;
 
   static const FocusConfig defaults = FocusConfig();
 
@@ -38,7 +36,6 @@ class FocusConfig {
       rounds: _int(raw['rounds'], 4).clamp(1, 12),
       graceSec: _int(raw['graceSec'], 10).clamp(0, 300),
       membersCanStart: raw['membersCanStart'] == true,
-      chatInBreak: raw['chatInBreak'] is bool ? raw['chatInBreak'] as bool : true,
     );
   }
 
@@ -48,7 +45,6 @@ class FocusConfig {
     'rounds': rounds,
     'graceSec': graceSec,
     'membersCanStart': membersCanStart,
-    'chatInBreak': chatInBreak,
   };
 
   FocusConfig copyWith({
@@ -57,14 +53,12 @@ class FocusConfig {
     int? rounds,
     int? graceSec,
     bool? membersCanStart,
-    bool? chatInBreak,
   }) => FocusConfig(
     focusMin: focusMin ?? this.focusMin,
     breakMin: breakMin ?? this.breakMin,
     rounds: rounds ?? this.rounds,
     graceSec: graceSec ?? this.graceSec,
     membersCanStart: membersCanStart ?? this.membersCanStart,
-    chatInBreak: chatInBreak ?? this.chatInBreak,
   );
 
   @override
@@ -74,8 +68,7 @@ class FocusConfig {
       other.breakMin == breakMin &&
       other.rounds == rounds &&
       other.graceSec == graceSec &&
-      other.membersCanStart == membersCanStart &&
-      other.chatInBreak == chatInBreak;
+      other.membersCanStart == membersCanStart;
 
   @override
   int get hashCode => Object.hash(
@@ -84,7 +77,6 @@ class FocusConfig {
     rounds,
     graceSec,
     membersCanStart,
-    chatInBreak,
   );
 }
 

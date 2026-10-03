@@ -1862,12 +1862,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get focusLockFailed => '没能锁定,这台设备可能不支持屏幕固定';
 
   @override
-  String get focusChatHidden => '专注中,文字聊天已收起 · 休息时再聊';
-
-  @override
-  String get focusChatHiddenNoBreak => '专注中,文字聊天已收起';
-
-  @override
   String get focusBadgeFocus => '专注中';
 
   @override
@@ -1976,9 +1970,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get focusSettingsMembersCanStart => '成员也能开始番茄钟';
-
-  @override
-  String get focusSettingsChatInBreak => '休息时开放文字聊天';
 
   @override
   String get focusSettingsSave => '存下';

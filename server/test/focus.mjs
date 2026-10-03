@@ -46,7 +46,14 @@ async function unitTests() {
   console.log('\n[配置]');
   check(normalizeFocusConfig({}).config?.focusMin === 25, '缺省补默认');
   check(!normalizeFocusConfig({ focusMin: 181 }).ok && !normalizeFocusConfig({ rounds: 1.5 }).ok, '越界 / 非整数 -> 拒');
-  check(!normalizeFocusConfig({ evil: 1 }).ok && !normalizeFocusConfig({ chatInBreak: 'yes' }).ok, '未知字段 / 类型错 -> 拒');
+  check(!normalizeFocusConfig({ evil: 1 }).ok && !normalizeFocusConfig({ membersCanStart: 'yes' }).ok, '未知字段 / 类型错 -> 拒');
+  {
+    // 废弃字段 chatInBreak:老客户端 / 老存档还会带,收下即丢(不论取值)
+    const legacy = normalizeFocusConfig({ focusMin: 30, chatInBreak: false });
+    const legacyOdd = normalizeFocusConfig({ chatInBreak: 'yes' });
+    check(legacy.ok && legacy.config.focusMin === 30 && !('chatInBreak' in legacy.config)
+      && legacyOdd.ok && !('chatInBreak' in legacyOdd.config), '旧字段 chatInBreak -> 容忍并丢弃');
+  }
 
   console.log('\n[离开 / 回来计时]');
   {

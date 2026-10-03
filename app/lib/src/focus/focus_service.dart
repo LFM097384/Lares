@@ -95,16 +95,10 @@ class FocusService extends ChangeNotifier {
   /// 是否在休息期。
   bool get inBreak => active && _pomodoro.phase == PomodoroPhase.breakTime;
 
-  /// 文字聊天与发图是否收起。
-  ///
-  /// 契约 §6.2:只在番茄钟的**专注段**收起。没开钟(idle)时房间照常,聊天开着;
-  /// 休息段看 `chatInBreak`(默认开)。
-  bool get chatLocked =>
-      active &&
-      (_pomodoro.phase == PomodoroPhase.focus ||
-          (inBreak && !config.chatInBreak));
-
   /// 是否处于「该收起分心入口」的专注段(番茄钟 focus 阶段)。
+  ///
+  /// 契约 §6.2:专注段只收地图、语音便签与小程序入口。文字聊天与发图**任何时候都开着**
+  /// (2026-10 改),专注模式不再收它们。
   bool get focusing => active && _pomodoro.phase == PomodoroPhase.focus;
 
   /// 本机是否会上报离开(专注期且在房)。

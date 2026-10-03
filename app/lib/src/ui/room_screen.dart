@@ -149,7 +149,6 @@ class _RoomScreenState extends State<RoomScreen> {
       _lock!.stop();
     }
     setState(() {
-      if (f.chatLocked) _chatExpanded = false;
       if (f.focusing) _showMap = false;
     });
   }
@@ -169,10 +168,13 @@ class _RoomScreenState extends State<RoomScreen> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final FocusService? focus = _focus;
-    // 番茄钟专注段收起分心入口:地图、便签、小程序(没开钟时房间照常)
+    // 番茄钟专注段收起分心入口:地图、便签、小程序(没开钟时房间照常)。
+    // 文字聊天与发图**任何时候都开着**,专注模式不收它们。
     final bool focusing = focus?.focusing ?? false;
-    final bool chatLocked = focus?.chatLocked ?? false;
-    final ChatService? chat = chatLocked ? null : widget.chat;
+    final ChatService? chat = widget.chat;
+    // 专注段且能锁(Android):控件排右侧第二格让给「锁定专注」,
+    // 聊天展开/收起键就回到输入栏 —— 不能丢。
+    final bool lockTakesSlot = focusing && (_lock?.supported ?? false);
     // 在 Scaffold **之上**读键盘:Scaffold 会把 body 的 viewInsets 吃掉
     final bool keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     // 键盘弹起时它已盖住 Home 条区域,底座不必再垫安全区
@@ -277,12 +279,10 @@ class _RoomScreenState extends State<RoomScreen> {
                               child: _Dock(
                                 floating: true,
                                 bottomInset: bottomSafe,
-                                child: chatLocked
-                                    ? _focusChatStandIn(focus!, side: true)
-                                    : _chatPanel(
-                                        controller,
-                                        collapsible: false,
-                                      ),
+                                child: _chatPanel(
+                                  controller,
+                                  collapsible: false,
+                                ),
                               ),
                             ),
                           ],
@@ -326,11 +326,9 @@ class _RoomScreenState extends State<RoomScreen> {
                                     controller,
                                     collapsible: true,
                                     // 键盘弹起时主控件排让位,展开/收起键回到输入栏
-                                    showToggle: keyboardOpen,
+                                    showToggle: keyboardOpen || lockTakesSlot,
                                   ),
                                 )
-                              else if (chatLocked)
-                                _focusChatStandIn(focus!)
                               else if (widget.captions != null)
                                 CaptionPanel(
                                   captions: widget.captions!,
@@ -369,25 +367,6 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  /// 专注期聊天收起后,底座 / 侧栏里留下的东西:一行安静提示 + 字幕带(字幕照常)。
-  Widget _focusChatStandIn(FocusService focus, {bool side = false}) {
-    final Widget hint = FocusChatHint(focus: focus);
-    final Widget? band = widget.captions == null
-        ? null
-        : CaptionPanel(captions: widget.captions!, band: true);
-    if (!side) {
-      return Column(mainAxisSize: MainAxisSize.min, children: [?band, hint]);
-    }
-    return Column(
-      children: [
-        hint,
-        const Spacer(),
-        ?band,
-        const SizedBox(height: LaresSpacing.md),
-      ],
     );
   }
 

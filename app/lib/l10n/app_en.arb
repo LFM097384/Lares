@@ -530,8 +530,6 @@
   "focusLockConfirm": "Lock",
   "focusLockCancel": "Not now",
   "focusLockFailed": "Couldn't lock. This device may not support screen pinning",
-  "focusChatHidden": "Focusing — text chat is tucked away · chat at the break",
-  "focusChatHiddenNoBreak": "Focusing — text chat is tucked away",
   "focusBadgeFocus": "Focusing",
   "focusBadgeAway": "Away {time}",
   "focusBadgeBreak": "Break",
@@ -562,7 +560,6 @@
   "focusSettingsGraceValue": "{seconds} s",
   "focusSettingsGraceHint": "How long someone can switch apps before counting as away",
   "focusSettingsMembersCanStart": "Members can start the timer",
-  "focusSettingsChatInBreak": "Open text chat during breaks",
   "focusSettingsSave": "Save",
   "focusSettingsPrivacy": "Focus status (who is focusing, time away, the leaderboard) is visible to the server, even in encrypted circles"
 }

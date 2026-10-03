@@ -192,11 +192,9 @@ void main() {
       h.service.setRoom('c1');
       expect(h.sent.last, {'t': 'focus_get', 'circleId': 'c1'});
       expect(h.service.active, isTrue);
-      // 没开番茄钟:房间照常,聊天开着、不收分心入口
-      expect(h.service.chatLocked, isFalse);
+      // 没开番茄钟:房间照常,不收分心入口
       expect(h.service.focusing, isFalse);
       h.status('c1', phase: 'focus', endsAt: kFocusNow + 60000, round: 1);
-      expect(h.service.chatLocked, isTrue);
       expect(h.service.focusing, isTrue);
 
       final notices = <FocusNotice>[];
@@ -208,7 +206,6 @@ void main() {
       });
       await Future<void>.delayed(Duration.zero);
       expect(h.service.active, isFalse);
-      expect(h.service.chatLocked, isFalse);
       expect(notices.single.kind, FocusNoticeKind.endedByOwner);
       await h.dispose();
     });

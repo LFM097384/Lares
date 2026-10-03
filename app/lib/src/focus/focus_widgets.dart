@@ -672,53 +672,6 @@ Widget withFocusBadge({
   );
 }
 
-// ─────────────────────────── 聊天收起提示 ───────────────────────────
-
-/// 聊天被收起时代替聊天面板的一行安静提示。
-class FocusChatHint extends StatelessWidget {
-  const FocusChatHint({super.key, required this.focus});
-
-  final FocusService focus;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final text = focus.config.chatInBreak
-        ? t.focusChatHidden
-        : t.focusChatHiddenNoBreak;
-    return Padding(
-      key: const ValueKey('focus-chat-hint'),
-      padding: const EdgeInsets.fromLTRB(
-        LaresSpacing.lg,
-        LaresSpacing.sm + 2,
-        LaresSpacing.lg,
-        LaresSpacing.xs,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.spa_outlined,
-            size: 16,
-            color: theme.textTheme.bodyMedium?.color,
-          ),
-          const SizedBox(width: LaresSpacing.sm),
-          Flexible(
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─────────────────────────── 提示 snackbar ───────────────────────────
 
 /// 订阅 [FocusService.notices] 并弹 snackbar。不占位。
