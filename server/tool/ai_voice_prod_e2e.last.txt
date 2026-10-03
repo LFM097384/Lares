@@ -1,0 +1,393 @@
+# ai_voice_prod_e2e 2026-10-03T21:32:18.193Z
+· prod log stream: attached
+✓ health: {"status":200,"rtcConfigured":true}
+✓ register circle: c_7p7qpb4dzoo44umwfo5l77t7
+
+[P] feature probe
+✓ circle_features_set 非圈主 → not_owner: {"t":"owner_error","op":"circle_features_set","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","reason":"not_owner"}
+✓ circle_features_set 错 ownerKey → not_owner: {"t":"owner_error","op":"circle_features_set","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","reason":"not_owner"}
+✓ circle_features_set 圈主 {map,devTools}: {"t":"owner_ok","op":"circle_features_set","circleId":"c_7p7qpb4dzoo44umwfo5l77t7"}
+✓ circle_features_set 未知键 → bad_request: {"t":"owner_error","op":"circle_features_set","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","reason":"bad_request","detail":"features.bogus"}
+✓ circle_purpose_apply 非圈主 → not_owner: {"t":"owner_error","op":"circle_purpose_apply","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","reason":"not_owner"}
+✓ circle_purpose_apply study: {"ack":"owner_ok","purpose":{"id":"study","name":"学习","icon":"📚","builtin":true}}
+✓ GET /api/v1/circle features+purpose: {"status":200,"features":{"captions":false,"transcript":false,"voiceNotes":false,"map":true,"recording":false,"plugins":true,"focus":true,"p2p":false,"devTools":true},"purpose":{"id":"study","name":"学习","icon":"📚","builtin":true}}
+✓ push_cfg_get: {"cfg":{"triggers":{"focus":true,"crowd":false,"arrive":false},"crowdN":3},"custom":false,"limits":{"cooldownMin":30,"dailyCap":8,"summonMin":10}}
+✓ push_cfg_set 圈主: {"t":"owner_ok","op":"push_cfg_set","circleId":"c_7p7qpb4dzoo44umwfo5l77t7"}
+✓ push_cfg_get 回读: {"cfg":{"triggers":{"focus":true,"crowd":true,"arrive":false},"crowdN":5},"custom":true}
+✓ push_cfg_set crowdN=99 → bad_config: {"t":"owner_error","op":"push_cfg_set","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","reason":"bad_config","detail":"crowdN:2..12"}
+✓ push_cfg_set 非圈主 → not_owner: {"t":"owner_error","op":"push_cfg_set","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","reason":"not_owner"}
+✓ push_summon 不在房 → not_in_room: {"t":"owner_error","op":"push_summon","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","reason":"not_in_room"}
+✓ focus_social_get: {"streaks":{},"weekly":{"t":"focus_weekly","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","card":null}}
+
+[A] lares.ai-voice on prod (custom purpose 开会+AI)
+· audio (cached TTS Cherry + syn_0_00.wav interrupter): {"P1":"2700ms","P2":"4350ms","PL":"4110ms","interrupter":"6050ms","wakeWord":"小助手(默认 name)"}
+✓ circle_purpose_apply 开会+AI(含 lares.ai-voice): {"ack":"owner_ok","purpose":{"id":"meeting-ai","name":"开会+AI","icon":"📝","builtin":false}}
+· plugin view lares.ai-voice: {"t":"plugins","circleId":"c_7p7qpb4dzoo44umwfo5l77t7","items":[{"id":"lares.focus","name":"专注学习","version":"1.0.0","description":"一起专注:番茄钟、离开提醒、专注排行榜。启用后房间进入专注模式(专注段收起地图、语音便签与小程序,文字聊天照常)。","author":"Lares","permissions":["circle:read","members:read","state:read","focus:read"],"builtin":true,"enabled":true,"config":{"focusMin":25,"breakMin":5,"rounds":4,"graceSec":10,"membersCanStart":false},"hasWebhook":false,"settingsSchema":{"type":"object","additionalProperties":false,"properties":{"focusMin":{"type":"integer","minimum":1,"maximum":180,"default":25,"title":"专注时长(分钟)"},"breakMin":{"type":"integer","minimum":1,"maximum":60,"default":5,"title":"休息时长(分钟)"},"rounds":{"type":"integer","minimum":1,"maximum":12,"default":4,"title":"轮数"},"graceSec":{"type":"integer","minimum":0,"maximum":300,"default":10,"title":"离开宽限(秒)"},"membersCanStart":{"type":"boolean","default":false,"title":"成员可开番茄钟"}}},"rev":0}]}
+✓ 房里没人时不拉起 AI: true
+✓ human joined + publishing: {"userId":"u_bot_a7cc35bf","ms":1934}
+✓ supervisor spawned AI bot → ready: {"startedMs":496,"readyMs":1426,"pid":"820"}
+✓ circle_summary 出现 AI 成员 (ai≥1, 不计人数): {"count":1,"ai":1,"names":["真人"]}
+✓ docker top: voice-agent 进程在跑: ["2339567 /usr/local/bin/node /app/bots/voice-agent/index.mjs --circle c_7p7qpb4dzoo44umwfo5l77t7 --signaling ws://127.0.0.1:8787/ws"]
+✓ 冒充 u_ai_ hello(无 aiAuth) → userId_reserved: {"t":"error","message":"userId_reserved"}
+✓ 冒充 u_ai_ hello(伪造 aiAuth) → userId_reserved: {"t":"error","message":"userId_reserved"}
+✗ T1: 服务端 turn 日志: timeout
+✓ T2: 服务端 turn 日志: {"trigger":"wake","ttfaMs":1288,"llmFirstTokenMs":718,"heardChars":24,"replyChars":24,"interrupted":false}
+✓ T2: 真人收到 AI 非静音语音: {"voicedMs":4690,"meanDb":-24,"peakDb":-11,"frames":1091}
+✓ T2: lares.chat 收到回复: 上海有小笼包、生煎、葱油拌面，一口下去全是鲜香！
+✓ T2: lares.cap partial→final: {"partials":2,"final":"上海有小笼包、生煎、葱油拌面，一口下去全是鲜香！"}
+· T2: 延迟: {"extTtfaMs":2637,"botTtfaMs":1288,"llmFirstTokenMs":718,"speechMs":4344}
+✓ T3 barge-in: turn interrupted: {"trigger":"wake","ttfaMs":764,"llmFirstTokenMs":360,"heardChars":10,"replyChars":67,"interrupted":true}
+✓ T3 barge-in: heard < reply: {"heard":10,"reply":67}
+✓ T3 barge-in: 插话开始 → 最后一个非静音 AI 帧: {"stopMs":450,"aiVoicedBeforeMs":1510,"aiVoicedAfterMs":400}
+✓ T3 barge-in: 聊天只发听到的部分 + …: 长城是古代为防御北方…
+✓ T3 barge-in: 最终字幕 = 听到的部分: 长城是古代为防御北方…
+· TTFA (ms): {"externalRaw":[2637],"external_p50":2637,"botInternalRaw":[1288],"llmFirstTokenRaw":[718],"bargeInStopMs":450}
+· real LLM turns: 2
+· usage (server log): day=2026-10-03 turns=2 llmIn=308 llmOut=63 tts=90 asrSec=4.2
+✓ 房间清空 → 宽限后停 AI: {"stopAfterMs":20154,"exitAfterMs":20249,"exit":"已退出 code=0 signal="}
+✓ docker top: voice-agent 进程已不在: ["PID COMMAND","2337485 node src/index.js"]
+✓ transcript_clear: owner_ok
+✓ circle_delete: owner_ok
+✓ token after circle_delete → 401: 401
+· prod log lines captured: 16
+· prod log error-ish lines: ["[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] asr socket error: Opening handshake has timed out","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5db1cea492\",\"trigger\":\"wake\",\"asrFinalAt\":1791063086374,\"llmFirstTokenMs\":718,\"firstSentenceMs\":754,\"ttsFirstAudioMs\":1282,\"ttfaMs\":1288,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 turn wake ttfa=764ms llm1=360ms heard=10 reply=67 interrupted","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5e3fb913a9\",\"trigger\":\"wake\",\"asrFinalAt\":1791063101315,\"llmFirstTokenMs\":360,\"firstSentenceMs\":415,\"ttsFirstAudioMs\":764,\"ttfaMs\":764,\"replyChars\":67,\"heardChars\":10,\"interrupted\":true}"]
+· prod ai-voice log: ["[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 已启动 pid=820","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 ready","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] asr socket error: Opening handshake has timed out","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] ASR 出错: Opening handshake has timed out","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=0 llmIn=0 llmOut=0 tts=0 asrSec=4.2","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] asr session live in 501ms (flushing 8 queued chunks)","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=1 llmIn=132 llmOut=20 tts=57 asrSec=4.2","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 turn wake ttfa=1288ms llm1=718ms heard=24 reply=24","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5db1cea492\",\"trigger\":\"wake\",\"asrFinalAt\":1791063086374,\"llmFirstTokenMs\":718,\"firstSentenceMs\":754,\"ttsFirstAudioMs\":1282,\"ttfaMs\":1288,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] 被打断(voice):听到 10/67 字","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=2 llmIn=308 llmOut=63 tts=90 asrSec=4.2","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 turn wake ttfa=764ms llm1=360ms heard=10 reply=67 interrupted","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5e3fb913a9\",\"trigger\":\"wake\",\"asrFinalAt\":1791063101315,\"llmFirstTokenMs\":360,\"firstSentenceMs\":415,\"ttsFirstAudioMs\":764,\"ttfaMs\":764,\"replyChars\":67,\"heardChars\":10,\"interrupted\":true}","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=2 llmIn=308 llmOut=63 tts=90 asrSec=22.5","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 停止(empty)","[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 已退出 code=0 signal="]
+
+AI VOICE PROD E2E 1 FAILED
+
+RESULTS {
+ "prod log stream": "attached",
+ "health": {
+  "status": 200,
+  "rtcConfigured": true
+ },
+ "register circle": "c_7p7qpb4dzoo44umwfo5l77t7",
+ "circle_features_set 非圈主 → not_owner": {
+  "t": "owner_error",
+  "op": "circle_features_set",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "reason": "not_owner"
+ },
+ "circle_features_set 错 ownerKey → not_owner": {
+  "t": "owner_error",
+  "op": "circle_features_set",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "reason": "not_owner"
+ },
+ "circle_features_set 圈主 {map,devTools}": {
+  "t": "owner_ok",
+  "op": "circle_features_set",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7"
+ },
+ "circle_features_set 未知键 → bad_request": {
+  "t": "owner_error",
+  "op": "circle_features_set",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "reason": "bad_request",
+  "detail": "features.bogus"
+ },
+ "circle_purpose_apply 非圈主 → not_owner": {
+  "t": "owner_error",
+  "op": "circle_purpose_apply",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "reason": "not_owner"
+ },
+ "circle_purpose_apply study": {
+  "ack": "owner_ok",
+  "purpose": {
+   "id": "study",
+   "name": "学习",
+   "icon": "📚",
+   "builtin": true
+  }
+ },
+ "GET /api/v1/circle features+purpose": {
+  "status": 200,
+  "features": {
+   "captions": false,
+   "transcript": false,
+   "voiceNotes": false,
+   "map": true,
+   "recording": false,
+   "plugins": true,
+   "focus": true,
+   "p2p": false,
+   "devTools": true
+  },
+  "purpose": {
+   "id": "study",
+   "name": "学习",
+   "icon": "📚",
+   "builtin": true
+  }
+ },
+ "push_cfg_get": {
+  "cfg": {
+   "triggers": {
+    "focus": true,
+    "crowd": false,
+    "arrive": false
+   },
+   "crowdN": 3
+  },
+  "custom": false,
+  "limits": {
+   "cooldownMin": 30,
+   "dailyCap": 8,
+   "summonMin": 10
+  }
+ },
+ "push_cfg_set 圈主": {
+  "t": "owner_ok",
+  "op": "push_cfg_set",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7"
+ },
+ "push_cfg_get 回读": {
+  "cfg": {
+   "triggers": {
+    "focus": true,
+    "crowd": true,
+    "arrive": false
+   },
+   "crowdN": 5
+  },
+  "custom": true
+ },
+ "push_cfg_set crowdN=99 → bad_config": {
+  "t": "owner_error",
+  "op": "push_cfg_set",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "reason": "bad_config",
+  "detail": "crowdN:2..12"
+ },
+ "push_cfg_set 非圈主 → not_owner": {
+  "t": "owner_error",
+  "op": "push_cfg_set",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "reason": "not_owner"
+ },
+ "push_summon 不在房 → not_in_room": {
+  "t": "owner_error",
+  "op": "push_summon",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "reason": "not_in_room"
+ },
+ "focus_social_get": {
+  "streaks": {},
+  "weekly": {
+   "t": "focus_weekly",
+   "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+   "card": null
+  }
+ },
+ "audio (cached TTS Cherry + syn_0_00.wav interrupter)": {
+  "P1": "2700ms",
+  "P2": "4350ms",
+  "PL": "4110ms",
+  "interrupter": "6050ms",
+  "wakeWord": "小助手(默认 name)"
+ },
+ "circle_purpose_apply 开会+AI(含 lares.ai-voice)": {
+  "ack": "owner_ok",
+  "purpose": {
+   "id": "meeting-ai",
+   "name": "开会+AI",
+   "icon": "📝",
+   "builtin": false
+  }
+ },
+ "plugin view lares.ai-voice": {
+  "t": "plugins",
+  "circleId": "c_7p7qpb4dzoo44umwfo5l77t7",
+  "items": [
+   {
+    "id": "lares.focus",
+    "name": "专注学习",
+    "version": "1.0.0",
+    "description": "一起专注:番茄钟、离开提醒、专注排行榜。启用后房间进入专注模式(专注段收起地图、语音便签与小程序,文字聊天照常)。",
+    "author": "Lares",
+    "permissions": [
+     "circle:read",
+     "members:read",
+     "state:read",
+     "focus:read"
+    ],
+    "builtin": true,
+    "enabled": true,
+    "config": {
+     "focusMin": 25,
+     "breakMin": 5,
+     "rounds": 4,
+     "graceSec": 10,
+     "membersCanStart": false
+    },
+    "hasWebhook": false,
+    "settingsSchema": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "focusMin": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 180,
+       "default": 25,
+       "title": "专注时长(分钟)"
+      },
+      "breakMin": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 60,
+       "default": 5,
+       "title": "休息时长(分钟)"
+      },
+      "rounds": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 12,
+       "default": 4,
+       "title": "轮数"
+      },
+      "graceSec": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 300,
+       "default": 10,
+       "title": "离开宽限(秒)"
+      },
+      "membersCanStart": {
+       "type": "boolean",
+       "default": false,
+       "title": "成员可开番茄钟"
+      }
+     }
+    },
+    "rev": 0
+   }
+  ]
+ },
+ "房里没人时不拉起 AI": true,
+ "human joined + publishing": {
+  "userId": "u_bot_a7cc35bf",
+  "ms": 1934
+ },
+ "supervisor spawned AI bot → ready": {
+  "startedMs": 496,
+  "readyMs": 1426,
+  "pid": "820"
+ },
+ "circle_summary 出现 AI 成员 (ai≥1, 不计人数)": {
+  "count": 1,
+  "ai": 1,
+  "names": [
+   "真人"
+  ]
+ },
+ "docker top: voice-agent 进程在跑": [
+  "2339567 /usr/local/bin/node /app/bots/voice-agent/index.mjs --circle c_7p7qpb4dzoo44umwfo5l77t7 --signaling ws://127.0.0.1:8787/ws"
+ ],
+ "冒充 u_ai_ hello(无 aiAuth) → userId_reserved": {
+  "t": "error",
+  "message": "userId_reserved"
+ },
+ "冒充 u_ai_ hello(伪造 aiAuth) → userId_reserved": {
+  "t": "error",
+  "message": "userId_reserved"
+ },
+ "T1: 服务端 turn 日志": "timeout",
+ "T2: 服务端 turn 日志": {
+  "trigger": "wake",
+  "ttfaMs": 1288,
+  "llmFirstTokenMs": 718,
+  "heardChars": 24,
+  "replyChars": 24,
+  "interrupted": false
+ },
+ "T2: 真人收到 AI 非静音语音": {
+  "voicedMs": 4690,
+  "meanDb": -24,
+  "peakDb": -11,
+  "frames": 1091
+ },
+ "T2: lares.chat 收到回复": "上海有小笼包、生煎、葱油拌面，一口下去全是鲜香！",
+ "T2: lares.cap partial→final": {
+  "partials": 2,
+  "final": "上海有小笼包、生煎、葱油拌面，一口下去全是鲜香！"
+ },
+ "T2: 延迟": {
+  "extTtfaMs": 2637,
+  "botTtfaMs": 1288,
+  "llmFirstTokenMs": 718,
+  "speechMs": 4344
+ },
+ "T3 barge-in: turn interrupted": {
+  "trigger": "wake",
+  "ttfaMs": 764,
+  "llmFirstTokenMs": 360,
+  "heardChars": 10,
+  "replyChars": 67,
+  "interrupted": true
+ },
+ "T3 barge-in: heard < reply": {
+  "heard": 10,
+  "reply": 67
+ },
+ "T3 barge-in: 插话开始 → 最后一个非静音 AI 帧": {
+  "stopMs": 450,
+  "aiVoicedBeforeMs": 1510,
+  "aiVoicedAfterMs": 400
+ },
+ "T3 barge-in: 聊天只发听到的部分 + …": "长城是古代为防御北方…",
+ "T3 barge-in: 最终字幕 = 听到的部分": "长城是古代为防御北方…",
+ "TTFA (ms)": {
+  "externalRaw": [
+   2637
+  ],
+  "external_p50": 2637,
+  "botInternalRaw": [
+   1288
+  ],
+  "llmFirstTokenRaw": [
+   718
+  ],
+  "bargeInStopMs": 450
+ },
+ "real LLM turns": 2,
+ "usage (server log)": "day=2026-10-03 turns=2 llmIn=308 llmOut=63 tts=90 asrSec=4.2",
+ "房间清空 → 宽限后停 AI": {
+  "stopAfterMs": 20154,
+  "exitAfterMs": 20249,
+  "exit": "已退出 code=0 signal="
+ },
+ "docker top: voice-agent 进程已不在": [
+  "PID COMMAND",
+  "2337485 node src/index.js"
+ ],
+ "transcript_clear": "owner_ok",
+ "circle_delete": "owner_ok",
+ "token after circle_delete → 401": 401,
+ "prod log lines captured": 16,
+ "prod log error-ish lines": [
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] asr socket error: Opening handshake has timed out",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5db1cea492\",\"trigger\":\"wake\",\"asrFinalAt\":1791063086374,\"llmFirstTokenMs\":718,\"firstSentenceMs\":754,\"ttsFirstAudioMs\":1282,\"ttfaMs\":1288,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 turn wake ttfa=764ms llm1=360ms heard=10 reply=67 interrupted",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5e3fb913a9\",\"trigger\":\"wake\",\"asrFinalAt\":1791063101315,\"llmFirstTokenMs\":360,\"firstSentenceMs\":415,\"ttsFirstAudioMs\":764,\"ttfaMs\":764,\"replyChars\":67,\"heardChars\":10,\"interrupted\":true}"
+ ],
+ "prod ai-voice log": [
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 已启动 pid=820",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 ready",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] asr socket error: Opening handshake has timed out",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] ASR 出错: Opening handshake has timed out",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=0 llmIn=0 llmOut=0 tts=0 asrSec=4.2",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] asr session live in 501ms (flushing 8 queued chunks)",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=1 llmIn=132 llmOut=20 tts=57 asrSec=4.2",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 turn wake ttfa=1288ms llm1=718ms heard=24 reply=24",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5db1cea492\",\"trigger\":\"wake\",\"asrFinalAt\":1791063086374,\"llmFirstTokenMs\":718,\"firstSentenceMs\":754,\"ttsFirstAudioMs\":1282,\"ttfaMs\":1288,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] 被打断(voice):听到 10/67 字",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=2 llmIn=308 llmOut=63 tts=90 asrSec=4.2",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 turn wake ttfa=764ms llm1=360ms heard=10 reply=67 interrupted",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_5e3fb913a9\",\"trigger\":\"wake\",\"asrFinalAt\":1791063101315,\"llmFirstTokenMs\":360,\"firstSentenceMs\":415,\"ttsFirstAudioMs\":764,\"ttfaMs\":764,\"replyChars\":67,\"heardChars\":10,\"interrupted\":true}",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 usage day=2026-10-03 turns=2 llmIn=308 llmOut=63 tts=90 asrSec=22.5",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 停止(empty)",
+  "[ai-voice] c_7p7qpb4dzoo44umwfo5l77t7 已退出 code=0 signal="
+ ]
+}

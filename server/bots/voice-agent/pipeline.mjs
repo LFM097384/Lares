@@ -152,23 +152,30 @@ class SpeakerAsr {
     this.session = null;
     this.idleTimer = null;
     this.armedUntil = 0; // 只喊了唤醒词:接下来一句直接当问题
+    this.live = false; // 当前会话已握手成功
+    this.unacked = []; // 当前会话 live 之前送出的全部音频(握手失败时重送)
+    this.unackedSamples = 0;
+    this.attempt = 0; // 握手重试次数
+    this.retryTimer = null;
+    this.gaveUp = false; // 重试用尽:这句不再开连接
   }
 
   push(pcm16k, durMs) {
     const v = this.vad.push(pcm16k, durMs);
     const asrOn = this.agent._asrAllowed();
     if (v.onset && asrOn) this.agent._onSpeechOnset(this.identity);
-    if (asrOn && (v.active || v.ended)) {
-      if (!this.session) this._open();
+    if (asrOn && (v.active || v.ended) && !this.gaveUp) {
+      if (!this.session && !this.retryTimer) this._open();
       if (this.preroll.length) {
-        for (const p of this.preroll) this.session.send(p);
+        for (const p of this.preroll) this._send(p);
         this.preroll = [];
         this.prerollSamples = 0;
       }
-      this.session.send(pcm16k);
+      this._send(pcm16k);
       this._armIdle();
     } else {
-      if (!asrOn && this.session) this.close();
+      if (!v.active) this.gaveUp = false; // 重试用尽后:等这句说完,下一句重新开连接
+      if (!asrOn && (this.session || this.retryTimer)) this.close();
       this.preroll.push(pcm16k);
       this.prerollSamples += pcm16k.length;
       const max = (ASR_RATE * (this.agent.opts.prerollMs ?? 300)) / 1000;
@@ -177,18 +184,40 @@ class SpeakerAsr {
     if (v.voiced) this.agent._onHumanVoice(this.identity, v.runMs);
   }
 
+  /// 送一块音频。会话还没 live(握手中 / 重试退避中)时另存一份:握手失败重开时整段重送,
+  /// pre-roll 和开口第一个字都不丢。
+  _send(pcm) {
+    if (!this.live) {
+      this.unacked.push(pcm);
+      this.unackedSamples += pcm.length;
+      const max = ASR_RATE * (this.agent.opts.asrBufferSec ?? 8); // = DashscopeAsr 握手队列上限
+      while (this.unackedSamples > max && this.unacked.length > 1) this.unackedSamples -= this.unacked.shift().length;
+    }
+    this.session?.send(pcm);
+  }
+
   _open() {
     const a = this.agent;
     let s = null;
+    const markLive = () => {
+      if (!s || s._live) return;
+      s._live = true;
+      if (this.session === s) { this.live = true; this.unacked = []; this.unackedSamples = 0; this.attempt = 0; }
+    };
+    this.live = false;
     s = a.providers.asr.open({
       identity: this.identity,
+      onOpen: () => markLive(),
       onPartial: () => {},
-      onFinal: (text) => a._onAsrFinal(this.identity, text),
+      onFinal: (text) => { markLive(); a._onAsrFinal(this.identity, text); },
       onClose: () => this._closed(s),
       onError: (e) => a.log(`ASR 出错: ${e.message}`),
     });
     s.openedAt = a.now();
     this.session = s;
+    // 重试时:上一次连接丢掉的全部音频(含 pre-roll)先送进新连接(provider 握手期间自己排队)
+    for (const p of this.unacked) s.send(p);
+    if (s.live) markLive();
   }
 
   _armIdle() {
@@ -198,18 +227,53 @@ class SpeakerAsr {
   }
 
   /// 每个会话只记一次账;只在它还是当前会话时才清空(关旧会话不影响新开的)。
+  /// 当前会话没 live 就断了(握手超时等)且不是我们自己关的:退避后重开,最多 asrRetries 次。
   _closed(s) {
     if (!s || s._accounted) return;
     s._accounted = true;
-    if (this.session === s) { this.session = null; clearTimeout(this.idleTimer); }
-    this.agent.guard.addUsage({ asrSec: s.audioSec ?? 0 });
+    const failedOpen = this.session === s && !s._live && !s._byUs && !s.live;
+    if (this.session === s) this.session = null;
+    this.agent.guard.addUsage({ asrSec: failedOpen ? 0 : (s.audioSec ?? 0) });
+    if (!failedOpen) { if (!this.session && !this.retryTimer) clearTimeout(this.idleTimer); return; }
+    const a = this.agent;
+    const max = a.opts.asrRetries ?? 2;
+    if (a.closed || this.attempt >= max) {
+      if (!a.closed) {
+        a.log(`ASR 连接失败,重试 ${this.attempt} 次后放弃这句;下一句重新连接`);
+        a.emit({ ev: 'error', where: 'asr', message: 'asr_open_failed' });
+        this.gaveUp = true;
+      }
+      this._reset();
+      return;
+    }
+    this.attempt += 1;
+    const backoff = (a.opts.asrRetryBackoffMs ?? 250) * this.attempt;
+    a.log(`ASR 握手失败,${backoff}ms 后重试(第 ${this.attempt}/${max} 次,保留 ${Math.round((this.unackedSamples / ASR_RATE) * 1000)}ms 音频)`);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (a.closed || !a._asrAllowed()) { this._reset(); return; }
+      this._open();
+    }, backoff);
+    this.retryTimer.unref?.();
+  }
+
+  _reset() {
+    clearTimeout(this.retryTimer);
+    clearTimeout(this.idleTimer);
+    this.retryTimer = null;
+    this.session = null;
+    this.live = false;
+    this.attempt = 0;
+    this.unacked = [];
+    this.unackedSamples = 0;
   }
 
   close() {
     clearTimeout(this.idleTimer);
     const s = this.session;
+    this._reset(); // 立刻摘下:收尾期间不再往它送音频;退避中的重试也取消
     if (!s) return;
-    this.session = null; // 立刻摘下:收尾期间不再往它送音频
+    s._byUs = true;
     Promise.resolve(s.finish?.()).catch(() => {}).finally(() => { try { s.close(); } catch { /* */ } this._closed(s); });
   }
 }
@@ -257,7 +321,13 @@ export class VoiceAgent {
       log: this.log,
       maxIdleMs: o.ttsMaxIdleMs ?? 50_000,
     });
-    if (o.warm !== false) this.pool.start();
+    if (o.warm !== false) {
+      this.pool.start();
+      // ASR 冷握手在生产上偶发卡满超时:启动时先握一次手就断(不送音频、不计费),第一句话走热路径
+      if (this.config.trigger !== 'ptt') {
+        Promise.resolve().then(() => this.providers.asr.warmup?.()).catch((e) => this.log(`ASR 预热失败: ${e?.message ?? e}`));
+      }
+    }
     this._asrAllowed(); // 起始状态(ptt / 已到上限)也记一行
   }
 

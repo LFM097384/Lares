@@ -17,21 +17,47 @@ function openWs(url, apiKey, timeoutMs = 10000) {
 export const ASR_MODEL = 'qwen3-asr-flash-realtime';
 const ASR_CHUNK_BYTES = 3200; // 100ms @ 16k
 const ASR_MAX_QUEUED = 80; // 握手期间最多攒 8s
+// 冷启动第一次握手在生产上偶发卡满 10s(之后的握手 ~500ms):短超时 + pipeline 侧重试(保留音频)比干等划算
+export const ASR_HANDSHAKE_TIMEOUT_MS = 4000;
 
 /**
  * 一个说话人一条连接。由 pipeline 的 SpeakerAsr 管理开合:有声才开,空闲 ~20s 关。
  * open() 立即返回句柄;握手完成前送来的音频先排队(保住 pre-roll 和开口第一个字)。
  */
 export class DashscopeAsr {
-  constructor({ apiKey, model = ASR_MODEL, vadThreshold = 0.2, silenceMs = 800 } = {}) {
+  constructor({ apiKey, model = ASR_MODEL, vadThreshold = 0.2, silenceMs = 800, handshakeTimeoutMs = ASR_HANDSHAKE_TIMEOUT_MS } = {}) {
     if (!apiKey) throw new Error('dashscope_api_key_missing');
-    Object.assign(this, { apiKey, model, vadThreshold, silenceMs });
+    Object.assign(this, { apiKey, model, vadThreshold, silenceMs, handshakeTimeoutMs });
     this.sessions = 0;
   }
 
-  open({ identity, onPartial, onFinal, onClose, onError }) {
+  _url() { return `wss://${HOST()}/api-ws/v1/realtime?model=${encodeURIComponent(this.model)}`; }
+
+  /**
+   * 预热:bot 启动时开一条连接,WebSocket 握手完成(DNS + TLS + 鉴权)立刻断开。
+   * 不发 session.update、不送任何音频 → 不计费。只为让第一句话不撞上冷握手;失败无所谓(resolve false)。
+   */
+  warmup(timeoutMs = this.handshakeTimeoutMs) {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      let done = false;
+      const ws = openWs(this._url(), this.apiKey, timeoutMs);
+      const end = (ok, why) => {
+        if (done) return;
+        done = true;
+        log(`asr warm-up ${ok ? 'ok' : `failed (${why})`} in ${Date.now() - t0}ms`);
+        try { ws.terminate(); } catch { /* */ }
+        resolve(ok);
+      };
+      ws.on('open', () => end(true));
+      ws.on('error', (e) => end(false, e.code ?? e.message));
+      ws.on('close', () => end(false, 'closed'));
+    });
+  }
+
+  open({ identity, onPartial, onFinal, onClose, onError, onOpen }) {
     this.sessions += 1;
-    const ws = openWs(`wss://${HOST()}/api-ws/v1/realtime?model=${encodeURIComponent(this.model)}`, this.apiKey);
+    const ws = openWs(this._url(), this.apiKey, this.handshakeTimeoutMs);
     const openedAt = Date.now();
     let live = false;
     let closed = false;
@@ -66,6 +92,7 @@ export class DashscopeAsr {
             },
           }));
           live = true;
+          onOpen?.();
           log(`asr session live in ${Date.now() - openedAt}ms (flushing ${queue.length} queued chunks)`);
           for (const c of queue.splice(0)) sendChunk(c);
           break;

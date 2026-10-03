@@ -252,7 +252,7 @@ async function audioTests() {
 }
 
 // ── 完整回合(mock) ────────────────────────────────────────────────────────
-function makeHarness({ config = {}, llm = {}, tts = {}, asr = {}, paceScale = 0.25, usageFile = null } = {}) {
+function makeHarness({ config = {}, llm = {}, tts = {}, asr = {}, paceScale = 0.25, usageFile = null, agentOpts = {} } = {}) {
   const frames = [];
   const caps = [];
   const chats = [];
@@ -270,6 +270,7 @@ function makeHarness({ config = {}, llm = {}, tts = {}, asr = {}, paceScale = 0.
     emit: (e) => events.push(e),
     guard: new CostGuard({ config: cfg, usageFile, emit: (e) => events.push(e) }),
     paceScale,
+    ...agentOpts,
   });
   agent.setName('u_alice', 'Alice');
   return { agent, frames, caps, chats, events, providers, sink, get cleared() { return cleared; } };
@@ -535,6 +536,41 @@ async function pipelineTests() {
     await speak(h, 'u_alice', 400);
     const turn = await untilEv(h, (e) => e.ev === 'turn');
     check(turn?.ttsFailed === true && h.chats[0] === '你好呀。' && h.frames.length === 0, 'TTS 失败 → 只发文字', { turn, chats: h.chats });
+    await h.agent.close();
+  }
+  {
+    // ASR 冷握手超时:失败一次后重试成功,整句音频(含 pre-roll)一样不少,照样出定稿并回答
+    const opts = { config: { trigger: 'always' }, asr: { script: ['今天吃什么好呢'], handshakeMs: 40 }, llm: { reply: '好。' }, agentOpts: { asrRetryBackoffMs: 30 } };
+    const base = makeHarness(opts);
+    await wait(5);
+    check(base.providers.asr.warmups === 1 && base.providers.asr.sessions === 0, '启动时 ASR 预热一次(不开会话、不送音频)', base.providers.asr);
+    await speak(base, 'u_alice', 500);
+    const t0 = await untilEv(base, (e) => e.ev === 'turn');
+    const want = base.providers.asr.liveSamples;
+    await base.agent.close();
+    const h = makeHarness({ ...opts, asr: { ...opts.asr, failOpen: 1 } });
+    await speak(h, 'u_alice', 500);
+    const t1 = await untilEv(h, (e) => e.ev === 'turn');
+    check(!!t0 && want > 16000, 'ASR 基线:握手后出定稿', { want, t0 });
+    check(h.providers.asr.failedOpens === 1 && h.providers.asr.sessions === 2, 'ASR 握手失败一次 → 自动重开', h.providers.asr);
+    check(!!t1 && h.providers.llm.calls[0]?.messages.at(-1).content === 'Alice: 今天吃什么好呢', '重试后照样出定稿并回答', h.providers.llm.calls[0]?.messages.at(-1));
+    check(h.providers.asr.liveSamples === want, `重试不丢音频(含 pre-roll):${h.providers.asr.liveSamples}/${want} 样本`);
+    await h.agent.close();
+  }
+  {
+    // ASR 握手次次失败:重试 2 次后干净放弃(不残留会话 / 计时器),下一句照常重新连接
+    const logs = [];
+    const h = makeHarness({ config: { trigger: 'always' }, asr: { script: ['第一句', '第二句'], handshakeMs: 20, failOpen: 99 }, llm: { reply: '好。' }, agentOpts: { asrRetryBackoffMs: 20, log: (m) => logs.push(m) } });
+    await speak(h, 'u_alice', 500);
+    await wait(300);
+    const sp = h.agent.speakers.get('u_alice');
+    check(h.providers.asr.sessions === 3 && h.providers.asr.failedOpens === 3, '一直失败:首连 + 2 次重试后停', h.providers.asr);
+    check(sp && sp.session === null && sp.retryTimer === null && sp.unacked.length === 0 && !h.events.some((e) => e.ev === 'turn'), '放弃后清干净,不回答', sp && { session: sp.session, retry: sp.retryTimer, unacked: sp.unacked.length });
+    check(h.events.some((e) => e.ev === 'error' && e.where === 'asr') && logs.some((m) => m.includes('放弃')), '放弃时发 error 事件并记日志(不含正文)', logs);
+    h.providers.asr.failOpen = 0;
+    await speak(h, 'u_alice', 500);
+    const t = await untilEv(h, (e) => e.ev === 'turn');
+    check(h.providers.asr.sessions === 4 && !!t, '放弃之后下一句照常识别并回答', { sessions: h.providers.asr.sessions, t });
     await h.agent.close();
   }
   {
