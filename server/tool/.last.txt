@@ -1,0 +1,29 @@
+✓ register circle: c_mhqfzajpsrwxdktx5ff323zr
+
+[1] captions off + transcript on
+✓ circle_purpose_apply study: {"ack":"owner_ok","purpose":"study"}
+✓ member A joined room: {"members":2}
+✓ captions off + transcript off → feature_off (baseline): {"t":"cap_error","reason":"feature_off"}
+✓ circle_transcript_set on: {"t":"owner_ok"}
+✓ captions off + transcript on → cap_token issued: {"t":"cap_token","hasToken":true,"expiresInS":299,"url":"wss://dashscope.aliyuncs.com/api-ws/v1/realtime","model":"qwen3-asr-flash-realtime"}
+[ai-voice] asr session live in 1117ms (flushing 19 queued chunks)
+✓ real DashScope ASR with issued temp token: {"text":"我最近换了工作，主要是因为通勤太远了，每天来回差不多三个小时。","err":null,"ms":5712}
+✓ transcript_append own final line: {"t":"transcript_appended","seq":1}
+✓ sender sees own transcript_line live: {"userId":"self","text":"我最近换了工作，主要是因为通勤太远了，每天来回差不多三个小时。","seq":1}
+✓ other member (owner) also sees the line live: true
+✓ sender transcript_get contains own line: ["1:成员甲:我最近换了工作，主要是因为通勤太远了，每天来回差不多三个小时。"]
+
+[2] profile_set
+✓ A gets profile_ok: {"t":"profile_ok","name":"甲·新名","emoji":"🔥","bio":"生产验证中 ✨"}
+✓ B receives member_updated with new values: {"userId":"u_e2e_a_bf38c9","name":"甲·新名","status":"free","deviceCount":1,"emoji":"🔥","bio":"生产验证中 ✨","joinedAt":1791099759680,"platform":"e2e"}
+✓ invalid emoji → invalid: {"t":"profile_error","reason":"invalid"}
+✓ invalid update not broadcast: none
+✓ control chars stripped (profile_ok + member_updated): {"ok":{"name":"控制符","bio":"第一行 第二 行"},"upd":{"name":"控制符","bio":"第一行 第二 行"}}
+✓ rate_limited after 10 updates/minute: {"attempt":11,"retryMs":4560,"burstSuccesses":7,"totalSent":11}
+✓ room snapshot for newcomer carries A profile: {"name":"名6","emoji":"🔥","bio":"第一行 第二 行"}
+
+[3] cleanup
+✓ transcript_clear: {"t":"owner_ok"}
+✓ circle_delete: {"t":"owner_ok"}
+
+PROD E2E ALL PASS
