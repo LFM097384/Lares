@@ -4909,6 +4909,156 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'不清楚就别改'**
   String get aiVoiceFieldModelHelper;
+
+  /// 资料面板(自己):标题
+  ///
+  /// In zh, this message translates to:
+  /// **'我的资料'**
+  String get profileOwnTitle;
+
+  /// 资料面板(自己):名字输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'名字'**
+  String get profileNameLabel;
+
+  /// 资料面板(自己):头像 emoji 一排选项的小标题
+  ///
+  /// In zh, this message translates to:
+  /// **'头像'**
+  String get profileEmojiLabel;
+
+  /// 资料面板(自己):不用 emoji,头像显示名字首字
+  ///
+  /// In zh, this message translates to:
+  /// **'不用'**
+  String get profileEmojiNone;
+
+  /// 资料面板(自己):一句话签名输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'一句话'**
+  String get profileBioLabel;
+
+  /// 资料面板(自己):签名输入框的占位示例
+  ///
+  /// In zh, this message translates to:
+  /// **'比如:在赶论文'**
+  String get profileBioHint;
+
+  /// 资料面板(自己):签名字数计数
+  ///
+  /// In zh, this message translates to:
+  /// **'{count}/{max}'**
+  String profileBioCounter(int count, int max);
+
+  /// 资料保存后的轻提示
+  ///
+  /// In zh, this message translates to:
+  /// **'存好了'**
+  String get profileSaved;
+
+  /// 服务器拒绝资料:内容不合规
+  ///
+  /// In zh, this message translates to:
+  /// **'这份资料存不了,换个写法试试'**
+  String get profileErrorInvalid;
+
+  /// 服务器拒绝资料:改太频繁
+  ///
+  /// In zh, this message translates to:
+  /// **'改得有点勤,{seconds} 秒后再试'**
+  String profileErrorRateLimited(int seconds);
+
+  /// 服务器拒绝资料:不允许
+  ///
+  /// In zh, this message translates to:
+  /// **'现在改不了资料'**
+  String get profileErrorNotAllowed;
+
+  /// 服务器拒绝资料:还没完成握手
+  ///
+  /// In zh, this message translates to:
+  /// **'还没连上,稍后再存'**
+  String get profileErrorNotConnected;
+
+  /// 别人的资料面板:对方正在说话
+  ///
+  /// In zh, this message translates to:
+  /// **'在说话'**
+  String get profileSpeaking;
+
+  /// 别人的资料面板:状态为暂时离开
+  ///
+  /// In zh, this message translates to:
+  /// **'有事先走'**
+  String get profileStatusAway;
+
+  /// 别人的资料面板:今天专注时长
+  ///
+  /// In zh, this message translates to:
+  /// **'今天专注 {time}'**
+  String profileFocusToday(String time);
+
+  /// 别人的资料面板:本周专注时长
+  ///
+  /// In zh, this message translates to:
+  /// **'本周 {time}'**
+  String profileFocusWeek(String time);
+
+  /// 别人的资料面板:连续专注天数
+  ///
+  /// In zh, this message translates to:
+  /// **'🔥 连续 {days} 天'**
+  String profileStreak(int days);
+
+  /// 别人的资料面板:不到一分钟前进房
+  ///
+  /// In zh, this message translates to:
+  /// **'刚进来'**
+  String get profileJoinedJustNow;
+
+  /// 别人的资料面板:一小时内进房
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分钟前进来'**
+  String profileJoinedMinutes(int minutes);
+
+  /// 别人的资料面板:进房时刻(HH:mm)
+  ///
+  /// In zh, this message translates to:
+  /// **'{time} 进来的'**
+  String profileJoinedAt(String time);
+
+  /// 别人的资料面板:在聊天框里 @ 对方
+  ///
+  /// In zh, this message translates to:
+  /// **'@Ta'**
+  String get profileMention;
+
+  /// 别人的资料面板:只在本机静音对方
+  ///
+  /// In zh, this message translates to:
+  /// **'听不到 Ta'**
+  String get profileMuteForMe;
+
+  /// 别人的资料面板:本机静音的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'只对你生效,对方不会知道'**
+  String get profileMuteForMeHint;
+
+  /// 别人的资料面板:取消本机静音
+  ///
+  /// In zh, this message translates to:
+  /// **'重新听到 Ta'**
+  String get profileUnmuteForMe;
+
+  /// 别人的资料面板:圈主把对方移出(破坏性操作)
+  ///
+  /// In zh, this message translates to:
+  /// **'移出圈子'**
+  String get profileKick;
 }
 
 class _AppLocalizationsDelegate

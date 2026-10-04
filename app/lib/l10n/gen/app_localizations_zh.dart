@@ -2805,4 +2805,93 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiVoiceFieldModelHelper => '不清楚就别改';
+
+  @override
+  String get profileOwnTitle => '我的资料';
+
+  @override
+  String get profileNameLabel => '名字';
+
+  @override
+  String get profileEmojiLabel => '头像';
+
+  @override
+  String get profileEmojiNone => '不用';
+
+  @override
+  String get profileBioLabel => '一句话';
+
+  @override
+  String get profileBioHint => '比如:在赶论文';
+
+  @override
+  String profileBioCounter(int count, int max) {
+    return '$count/$max';
+  }
+
+  @override
+  String get profileSaved => '存好了';
+
+  @override
+  String get profileErrorInvalid => '这份资料存不了,换个写法试试';
+
+  @override
+  String profileErrorRateLimited(int seconds) {
+    return '改得有点勤,$seconds 秒后再试';
+  }
+
+  @override
+  String get profileErrorNotAllowed => '现在改不了资料';
+
+  @override
+  String get profileErrorNotConnected => '还没连上,稍后再存';
+
+  @override
+  String get profileSpeaking => '在说话';
+
+  @override
+  String get profileStatusAway => '有事先走';
+
+  @override
+  String profileFocusToday(String time) {
+    return '今天专注 $time';
+  }
+
+  @override
+  String profileFocusWeek(String time) {
+    return '本周 $time';
+  }
+
+  @override
+  String profileStreak(int days) {
+    return '🔥 连续 $days 天';
+  }
+
+  @override
+  String get profileJoinedJustNow => '刚进来';
+
+  @override
+  String profileJoinedMinutes(int minutes) {
+    return '$minutes 分钟前进来';
+  }
+
+  @override
+  String profileJoinedAt(String time) {
+    return '$time 进来的';
+  }
+
+  @override
+  String get profileMention => '@Ta';
+
+  @override
+  String get profileMuteForMe => '听不到 Ta';
+
+  @override
+  String get profileMuteForMeHint => '只对你生效,对方不会知道';
+
+  @override
+  String get profileUnmuteForMe => '重新听到 Ta';
+
+  @override
+  String get profileKick => '移出圈子';
 }

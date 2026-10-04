@@ -6,7 +6,20 @@ import 'package:livekit_client/livekit_client.dart';
 import '../audio/audio_processor_provider.dart';
 import '../platform/platform_info.dart'
     if (dart.library.io) '../platform/platform_info_io.dart';
+import 'mic_mute.dart';
 import 'rtc_service.dart';
+
+class _LiveKitMicPort implements MicPort {
+  _LiveKitMicPort(this._local);
+  final LocalParticipant _local;
+
+  @override
+  Future<void> setEnabled(bool enabled) =>
+      _local.setMicrophoneEnabled(enabled);
+
+  @override
+  bool get live => LiveKitRtcService.micLive(_local);
+}
 
 /// LiveKit 实现。进房默认静音(设计.md §2.1-4:想来就来,不打扰)。
 class LiveKitRtcService implements RtcService {
@@ -245,6 +258,7 @@ class LiveKitRtcService implements RtcService {
       ),
     );
     _room = room;
+    _micDriver = null;
 
     _cancelEvents = room.events.listen((event) {
       switch (event) {
@@ -286,7 +300,8 @@ class LiveKitRtcService implements RtcService {
         micFailure = classifyMicError(e);
       }
       // 结果以底层的真实状态为准,不以「有没有抛异常」推断。
-      micOn = room.localParticipant?.isMicrophoneEnabled() ?? false;
+      final lp = room.localParticipant;
+      micOn = lp != null && micLive(lp);
       if (!micOn) micFailure ??= MicFailure.unavailable;
     }
 
@@ -310,26 +325,34 @@ class LiveKitRtcService implements RtcService {
       }
       return;
     }
-    try {
-      await local.setMicrophoneEnabled(!muted);
-      if (!muted) {
-        // 进房默认静音的常规路径:首次开麦才真正发布麦克风轨道,
-        // 增强降噪处理器在这里补挂。
-        await _publishProcessorIfNeeded(room);
-      }
-    } catch (e) {
-      debugPrint('[lares] 切换麦克风失败(原始异常): $e');
-      throw MicException(
-        classifyMicError(e),
-        micOnNow: local.isMicrophoneEnabled(),
-        cause: e,
-      );
+    // ⚠️ 以前这里 await setMicrophoneEnabled 之后用 isMicrophoneEnabled() 核对。
+    // 那个值读的是 publication.muted,SDK 靠一个**异步**广播事件才更新它
+    // (livekit_client track.dart updateMuted -> track_publication.dart
+    // _onTrackMuteUpdatedEvent),await 返回时它还是旧值 —— 于是每一次
+    // 真正改变状态的切换都被判成失败:第一次静音报「静音失败」而麦其实已关;
+    // 之后开麦报「没打开」而麦其实已开。改为读轨道上同步更新的 track.muted。
+    final driver = _micDriver ??= MicMuteDriver(
+      _LiveKitMicPort(local),
+      classify: classifyMicError,
+    );
+    await driver.setMuted(muted);
+    if (!muted) {
+      // 进房默认静音的常规路径:首次开麦才真正发布麦克风轨道,
+      // 增强降噪处理器在这里补挂。
+      await _publishProcessorIfNeeded(room);
     }
-    // 不抛异常不等于成功:再对一次真实状态。
-    final nowOn = local.isMicrophoneEnabled();
-    if (nowOn == muted) {
-      throw MicException(MicFailure.unavailable, micOnNow: nowOn);
-    }
+  }
+
+  /// 每个 Room 一个;[leave] 时清掉。
+  MicMuteDriver? _micDriver;
+
+  /// 麦克风此刻是否真的在发布且未静音 —— 读同步更新的 `track.muted`。
+  @visibleForTesting
+  static bool micLive(LocalParticipant local) {
+    final pub = local.getTrackPublicationBySource(TrackSource.microphone);
+    final track = pub?.track;
+    if (track == null) return false;
+    return !track.muted;
   }
 
   /// 把底层五花八门的异常归成两类。
@@ -354,6 +377,7 @@ class LiveKitRtcService implements RtcService {
   Future<void> leave() async {
     final room = _room;
     _room = null;
+    _micDriver = null;
     _cancelEvents?.call();
     _cancelEvents = null;
     _activeTuning = null;

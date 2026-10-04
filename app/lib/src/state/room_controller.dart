@@ -9,7 +9,8 @@ import '../p2p/host_election.dart';
 import '../rtc/rtc_service.dart';
 import 'ai_state.dart';
 import 'circle_features.dart';
-import 'identity.dart' show capNickname;
+import '../text/grapheme_text.dart' show capGraphemes;
+import 'identity.dart' show Identity, capBio, capNickname;
 import 'join_error.dart';
 import 'mic_notice.dart';
 import 'models.dart';
@@ -28,6 +29,8 @@ class RoomController extends ChangeNotifier {
     required this.userId,
     required this.deviceId,
     required this.userName,
+    this.myEmoji,
+    this.myBio,
     this.settings,
     this.isOnWifi,
   })  : _signaling = signaling,
@@ -168,6 +171,32 @@ class RoomController extends ChangeNotifier {
   /// 最后落地的结果与界面显示对不上。
   bool _micBusy = false;
   MemberStatus myStatus = MemberStatus.free;
+
+  /// 我的头像 emoji / 一句话签名(成员资料)。null = 没设。
+  /// 与 [userName] 同样以本地为准:main.dart 从 Identity 读入,[setProfile] 改。
+  String? myEmoji;
+  String? myBio;
+
+  /// 改资料被服务器拒了(profile_error)。资料面板据此弹一句提示,
+  /// 弹完调 `profileError.value = null`。
+  final ValueNotifier<({String reason, int? retryMs})?> profileError =
+      ValueNotifier<({String reason, int? retryMs})?>(null);
+
+  /// 最近一次服务器认过的资料(profile_ok);还没认过时 = 第一次未确认改动之前的值。
+  /// profile_error invalid 时退回到这里(内存 + 落盘),不让一份被拒的资料留在本机。
+  ({String name, String? emoji, String? bio})? _confirmedProfile;
+
+  /// 「听不到 Ta」:只对本机生效的静音名单(不落盘、不告诉任何人,
+  /// 退出 App 就忘)。真正去压远端音轨的是 BlockAudioEnforcer 的 extraMuted。
+  final Set<String> _locallyMuted = {};
+  Set<String> get locallyMuted => Set.unmodifiable(_locallyMuted);
+  bool isLocallyMuted(String id) => _locallyMuted.contains(id);
+
+  void toggleLocalMute(String targetUserId) {
+    if (targetUserId.isEmpty || targetUserId == userId) return;
+    if (!_locallyMuted.remove(targetUserId)) _locallyMuted.add(targetUserId);
+    notifyListeners();
+  }
 
   final List<Member> _members = [];
   final Set<String> _speakingIds = {};
@@ -1170,9 +1199,90 @@ class RoomController extends ChangeNotifier {
     _signaling.updateIdentityName(trimmed);
     _upsertMember(
       userId,
-      member: Member(userId: userId, name: trimmed, status: myStatus),
+      member: Member(
+        userId: userId,
+        name: trimmed,
+        status: myStatus,
+        emoji: myEmoji,
+        bio: myBio,
+      ),
     );
     notifyListeners();
+  }
+
+  /// 改资料(昵称 / 头像 emoji / 一句话签名):本地立即生效,发 `profile_set`。
+  ///
+  /// 参数 null = 这一项不动;[emoji] / [bio] 传空串 = 清掉。
+  /// 名字变了的话**另外**补发一帧老的 `profile`:老服务器不认识 `profile_set`
+  /// 会直接忽略,改名至少不丢;新服务器两帧都认,结果相同(幂等)。
+  /// 服务器说资料不合规:名字 / emoji / 签名退回最近一次被认过的值,落盘的也退。
+  void _revertProfile() {
+    final ({String name, String? emoji, String? bio})? c = _confirmedProfile;
+    if (c == null) return;
+    final bool nameChanged = c.name != userName;
+    userName = c.name;
+    myEmoji = c.emoji;
+    myBio = c.bio;
+    if (nameChanged) _signaling.updateIdentityName(userName);
+    _signaling.updateIdentityProfile(emoji: myEmoji ?? '', bio: myBio ?? '');
+    unawaited(Identity.saveName(userName));
+    unawaited(Identity.saveProfile(emoji: myEmoji ?? '', bio: myBio ?? ''));
+    _upsertMember(
+      userId,
+      member: Member(
+        userId: userId,
+        name: userName,
+        status: myStatus,
+        emoji: myEmoji,
+        bio: myBio,
+      ),
+    );
+    notifyListeners();
+  }
+
+  void setProfile({String? name, String? emoji, String? bio}) {
+    final String? newName = name == null ? null : capNickname(name);
+    final bool nameChanged =
+        newName != null && newName.isNotEmpty && newName != userName;
+    final String? newEmoji = emoji == null ? null : _cleanEmoji(emoji);
+    final String? newBio = bio == null ? null : capBio(bio);
+    final bool emojiChanged = newEmoji != null && newEmoji != (myEmoji ?? '');
+    final bool bioChanged = newBio != null && newBio != (myBio ?? '');
+    if (!nameChanged && !emojiChanged && !bioChanged) return;
+
+    _confirmedProfile ??= (name: userName, emoji: myEmoji, bio: myBio);
+    if (nameChanged) userName = newName;
+    if (emojiChanged) myEmoji = newEmoji.isEmpty ? null : newEmoji;
+    if (bioChanged) myBio = newBio.isEmpty ? null : newBio;
+
+    _signaling.send({
+      't': 'profile_set',
+      'name': userName,
+      'emoji': myEmoji ?? '',
+      'bio': myBio ?? '',
+    });
+    if (nameChanged) {
+      _signaling.send({'t': 'profile', 'name': userName});
+      _signaling.updateIdentityName(userName);
+    }
+    _signaling.updateIdentityProfile(emoji: myEmoji ?? '', bio: myBio ?? '');
+    _upsertMember(
+      userId,
+      member: Member(
+        userId: userId,
+        name: userName,
+        status: myStatus,
+        emoji: myEmoji,
+        bio: myBio,
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// 头像 emoji 只取一个字素簇;空白 = 清掉。真正的「是不是 emoji」由服务器判。
+  static String _cleanEmoji(String raw) {
+    final String s = raw.trim();
+    return s.isEmpty ? '' : capGraphemes(s, 1);
   }
 
   void _onSignalingMessage(Map<String, dynamic> msg) {
@@ -1281,6 +1391,34 @@ class RoomController extends ChangeNotifier {
         // 别人改名:覆盖除自己外的成员记录(自己的名字以本地为准)
         if (m.userId != userId) _upsertMember(m.userId, member: m);
         notifyListeners();
+      case 'profile_ok':
+        // 服务器清洗后的版本(去控制符、截断)。名字仍以本地为准(理由同上),
+        // emoji / 签名照服务器的来 —— 它可能把一个不合规的 emoji 拒成空。
+        final Object? e = msg['emoji'];
+        final Object? b = msg['bio'];
+        if (e is String) myEmoji = e.isEmpty ? null : e;
+        if (b is String) myBio = b.isEmpty ? null : b;
+        _confirmedProfile = (name: userName, emoji: myEmoji, bio: myBio);
+        // 服务器可能清洗过 emoji / 签名:落盘的那份跟着对齐
+        unawaited(Identity.saveProfile(emoji: myEmoji ?? '', bio: myBio ?? ''));
+        _upsertMember(
+          userId,
+          member: Member(
+            userId: userId,
+            name: userName,
+            status: myStatus,
+            emoji: myEmoji,
+            bio: myBio,
+          ),
+        );
+        notifyListeners();
+      case 'profile_error':
+        final Object? reason = msg['reason'];
+        profileError.value = (
+          reason: reason is String ? reason : 'invalid',
+          retryMs: (msg['retryMs'] as num?)?.toInt(),
+        );
+        if (profileError.value!.reason == 'invalid') _revertProfile();
       case 'note_added':
         if (msg['circleId'] != circleId) return;
         noteBumpCounter++;
@@ -1751,6 +1889,10 @@ class RoomController extends ChangeNotifier {
         latencyMs: (member?.latencyMs ?? -1) >= 0
             ? member!.latencyMs
             : existing.latencyMs,
+        // 资料:服务器快照是权威(没带 = 已清空);只改 status 时原样保留
+        emoji: member != null ? member.emoji : existing.emoji,
+        bio: member != null ? member.bio : existing.bio,
+        joinedAt: member?.joinedAt ?? existing.joinedAt,
       );
     } else if (member != null) {
       _members.add(member);
@@ -1774,6 +1916,7 @@ class RoomController extends ChangeNotifier {
     _rtcDropSub?.cancel();
     aiStates.removeListener(notifyListeners);
     aiStates.dispose();
+    profileError.dispose();
     super.dispose();
   }
 }

@@ -26,6 +26,8 @@ import { createFocusEngine, createFocusWs } from './focus.js';
 // 功能开关 + 用途预设(契约 docs/plans/features-purpose-contract.md)
 import { createFeaturesWs, resolveFeatures, purposeView, NEW_CIRCLE_FEATURES } from './features.js';
 import { createAiVoiceSupervisor, isAiUserId } from './ai_voice_supervisor.js'; // lares.ai-voice
+import { cleanName, cleanBio, cleanEmoji, profileSetAllowed } from './profile.js';
+import { TokenBuckets } from './ratelimit.js';
 // 活动推送触发器 + 专注社交(契约 plugin-focus-contract.md §9 / §10;逻辑全在这两个模块)
 import { createPushTriggers, parseLevel, parseSubPrefs } from './push_triggers.js';
 import { createFocusSocial } from './focus_social.js';
@@ -205,7 +207,11 @@ function recordAuthFailure(ip) {
 
 function clearAuthFailures(ip) { authFailures.delete(ip); }
 
+// profile_set:每人每分钟约 10 次(桶容量 10,匀速补)
+const profileRate = new TokenBuckets({ capacity: 10, perSec: 10 / 60 });
+
 function sweepRateLimits() {
+  profileRate.sweep();
   const now = Date.now();
   for (const [ip, rec] of authFailures) {
     const dead = rec.blockedUntil ? now >= rec.blockedUntil : now - rec.first > RL_WINDOW_MS;
@@ -636,6 +642,10 @@ function memberSnapshot(member) {
     name: member.name,
     status: member.status,
     deviceCount: member.devices.size,
+    // 资料:有则带上(新增字段,老客户端忽略)
+    ...(member.emoji ? { emoji: member.emoji } : {}),
+    ...(member.bio ? { bio: member.bio } : {}),
+    ...(member.joinedAt ? { joinedAt: member.joinedAt } : {}),
     // 位置共享:有则带上(后进房的人也能看到)
     ...(member.loc ? { loc: member.loc } : {}),
     // 录音态:有则带上 —— 后进房的人必须立刻知道房间正在被录(伦理红线)
@@ -753,6 +763,7 @@ function circleSummaryMsg(circleId) {
     circleId,
     count: members.length,
     names: members.map((m) => m.name),
+    emojis: members.map((m) => m.emoji || null),
     ai: all.length - members.length,
     knockRequired: circleSettings[circleId]?.knockRequired === true,
     // 新增字段,老客户端忽略
@@ -1279,7 +1290,10 @@ function handleConnection(ws, req) {
         }
         session.userId = msg.userId;
         session.deviceId = typeof msg.deviceId === 'string' && msg.deviceId ? msg.deviceId : crypto.randomUUID();
-        session.name = typeof msg.name === 'string' && msg.name ? msg.name.slice(0, 24) : '圈友';
+        session.name = cleanName(msg.name) ?? '圈友';
+        // 资料(可选):无效就当没带,不让 hello 失败
+        { const e = cleanEmoji(msg.emoji); session.emoji = e || ''; }
+        session.bio = typeof msg.bio === 'string' ? cleanBio(msg.bio) : '';
         session.platform = typeof msg.platform === 'string' ? msg.platform : 'unknown';
         // circle 字段是新增的嵌套对象:老客户端(build 36)不认识,原样忽略。
         const welcome = {
@@ -1775,8 +1789,8 @@ function handleConnection(ws, req) {
 
       case 'profile': {
         // 改名:更新会话与房间成员记录,广播给同房成员与大厅
-        if (typeof msg.name !== 'string' || !msg.name.trim()) return;
-        const name = msg.name.trim().slice(0, 24);
+        const name = cleanName(msg.name);
+        if (!name) return;
         session.name = name;
         if (session.circleId && session.userId) {
           const member = getCircle(session.circleId).get(session.userId);
@@ -1786,6 +1800,44 @@ function handleConnection(ws, req) {
             broadcastLobbySummary(session.circleId);
           }
         }
+        break;
+      }
+
+      case 'profile_set': {
+        // 资料:{name?, emoji?, bio?};缺省 = 不变,emoji/bio 传 '' = 清空
+        const fail = (reason, extra = {}) => send(ws, { t: 'profile_error', reason, ...extra });
+        if (!session.userId) return fail('say_hello_first');
+        if (!profileSetAllowed(session.userId) || isAiUserId(session.userId)) return fail('not_allowed');
+        const wait = profileRate.take(session.userId);
+        if (wait > 0) return fail('rate_limited', { retryMs: wait });
+        let name, emoji, bio;
+        if (msg.name !== undefined) {
+          name = cleanName(msg.name);
+          if (!name) return fail('invalid');
+        }
+        if (msg.emoji !== undefined) {
+          emoji = cleanEmoji(msg.emoji);
+          if (emoji === null) return fail('invalid');
+        }
+        if (msg.bio !== undefined) {
+          if (typeof msg.bio !== 'string') return fail('invalid');
+          bio = cleanBio(msg.bio);
+        }
+        if (name !== undefined) session.name = name;
+        if (emoji !== undefined) session.emoji = emoji;
+        if (bio !== undefined) session.bio = bio;
+        if (session.circleId) {
+          const member = getCircle(session.circleId).get(session.userId);
+          if (member) {
+            member.name = session.name;
+            member.emoji = session.emoji || '';
+            member.bio = session.bio || '';
+            broadcast(session.circleId, { t: 'member_updated', circleId: session.circleId, member: memberSnapshot(member) });
+            broadcastLobbySummary(session.circleId);
+            botApi.emit(session.circleId, 'presence', { circleId: session.circleId, userId: session.userId, name: member.name, status: member.status });
+          }
+        }
+        send(ws, { t: 'profile_ok', name: session.name, emoji: session.emoji || '', bio: session.bio || '' });
         break;
       }
 
@@ -1805,7 +1857,11 @@ function handleConnection(ws, req) {
         if (!session.userId || !session.authed) return send(ws, { t: 'cap_error', reason: 'say_hello_first' });
         if (!CAPTIONS_ENABLED) return send(ws, { t: 'cap_error', reason: 'not_configured' });
         if (!session.circleId) return send(ws, { t: 'cap_error', reason: 'not_in_room' });
-        if (!featureOn(session.circleId, 'captions')) return send(ws, { t: 'cap_error', reason: 'feature_off' });
+        // 实时字幕关了、但圈主开着转写记录:愿意被转写的人仍要识别自己的话去归档
+        // (否则转写记录里永远没有任何人的话 —— TestFlight 46 的「自己的话不进记录」)
+        if (!featureOn(session.circleId, 'captions') && circleSettings[session.circleId]?.transcript !== true) {
+          return send(ws, { t: 'cap_error', reason: 'feature_off' });
+        }
         // 圈主开了服务端 E2EE:语音要出圈去云端,必须由客户端显式同意(设置里的开关)
         if (circleSettings[session.circleId]?.e2ee === true && msg.e2eeOptIn !== true) {
           return send(ws, { t: 'cap_error', reason: 'e2ee_opt_in_required' });
@@ -1864,6 +1920,8 @@ async function joinCircle(ws, session, circleId) {
   if (existing) {
     existing.devices.set(session.deviceId, ws);
     existing.name = session.name;
+    existing.emoji = session.emoji || '';
+    existing.bio = session.bio || '';
     // 平台可能变了(同一个人换设备进来),跟着刷新
     existing.platform = session.platform;
     send(ws, roomSnapshot(circleId));
@@ -1875,6 +1933,9 @@ async function joinCircle(ws, session, circleId) {
     const member = {
       userId: session.userId,
       name: session.name,
+      emoji: session.emoji || '',
+      bio: session.bio || '',
+      joinedAt: Date.now(),
       status: 'free',
       // 选主机要用:桌面端优先扛转发(见客户端 host_election.dart)
       platform: session.platform,

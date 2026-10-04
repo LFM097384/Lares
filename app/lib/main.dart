@@ -142,6 +142,8 @@ Future<void> main() async {
     userId: identity.userId,
     deviceId: identity.deviceId,
     userName: identity.name,
+    myEmoji: identity.emoji,
+    myBio: identity.bio,
     settings: settings,
     isOnWifi: () async {
       final results = await Connectivity().checkConnectivity();
@@ -255,6 +257,8 @@ Future<void> main() async {
     deviceId: identity.deviceId,
     name: identity.name,
     platform: LaresConfig.platformName,
+    emoji: identity.emoji,
+    bio: identity.bio,
   );
   // 把心跳测到的延迟报给同房的人,供多人直连时选主机。
   // 复用既有的 20 秒心跳,零额外网络开销;controller 内部会节流,

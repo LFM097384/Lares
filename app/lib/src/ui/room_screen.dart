@@ -33,6 +33,7 @@ import '../plugins/plugin_scope.dart';
 import '../plugins/plugin_service.dart';
 import 'ai_hint_card.dart';
 import 'moderation_menus.dart';
+import 'profile_sheets.dart';
 import 'room_more_sheet.dart';
 import 'widgets/ai_orb.dart';
 import 'widgets/avatar_orb.dart';
@@ -243,7 +244,13 @@ class _RoomScreenState extends State<RoomScreen> {
     final bool mapOn =
         _showMap && widget.locationShare != null && features.map;
     final RoomMoreModel more = _moreModel();
-    return Scaffold(
+    // 座位上的资料面板从这里拿「@Ta」接到聊天框、以及设置
+    return ProfileRoomScope(
+      onMention: chat == null
+          ? null
+          : (Member m) => _chatKey.currentState?.insertMention(m.name),
+      settings: widget.settings,
+      child: Scaffold(
       body: Stack(
         children: [
           // 地图铺满时这层完全被盖住 —— 停掉,别白烧 60fps。
@@ -439,6 +446,7 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1528,8 +1536,30 @@ Widget _seat(
   final Map<String, dynamic>? aiConfig = (ai && cid != null)
       ? plugins?.plugin(cid, aiVoicePluginId)?.config
       : null;
+  // 成员资料:点自己 = 改资料;点别人(非 AI)= 看资料,处置都收在资料面板里。
+  // AI 座位不变(说明卡 / 处置菜单),它没有「资料」可言。
+  final ProfileRoomScope? scope = ProfileRoomScope.maybeOf(context);
+  final void Function(Member)? mention = scope?.onMention;
   VoidCallback? openMenu;
-  if (!isMe && blocks != null) {
+  if (isMe) {
+    openMenu = () => showOwnProfileSheet(
+      context,
+      controller: controller,
+      settings: scope?.settings,
+    );
+  } else if (!ai) {
+    openMenu = () => showMemberProfileSheet(
+      context,
+      controller: controller,
+      member: m,
+      blocks: blocks,
+      focus: focus,
+      onMention: mention == null ? null : () => mention(m),
+      onKick: canKick
+          ? () => confirmProfileKick(context, controller: controller, member: m)
+          : null,
+    );
+  } else if (blocks != null) {
     openMenu = () => showMemberModerationSheet(
       context,
       controller: controller,
@@ -1567,9 +1597,10 @@ Widget _seat(
     // AvatarOrb 自己 excludeSemantics: true,读屏用户更摸不到,
     // 而「能屏蔽」这件事必须让人找得到(审核指南 1.2)。
     onTap: openMenu,
-    onLongPress:
-        openMenu ??
-        (isMe || !canKick ? null : () => _confirmKick(context, controller, m)),
+    // 没接屏蔽名单时长按别人仍是老样子:直接踢人确认
+    onLongPress: (!isMe && !ai && blocks == null)
+        ? (canKick ? () => _confirmKick(context, controller, m) : openMenu)
+        : openMenu,
     child: withStreakBadge(
       seat: withFocusBadge(
         seat: blocked ? _BlockedOverlay(child: orb) : orb,

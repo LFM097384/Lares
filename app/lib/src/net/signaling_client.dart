@@ -869,6 +869,8 @@ class SignalingClient {
     required String deviceId,
     required String name,
     required String platform,
+    String? emoji,
+    String? bio,
   }) =>
       send({
         't': 'hello',
@@ -876,6 +878,9 @@ class SignalingClient {
         'deviceId': deviceId,
         'name': name,
         'platform': platform,
+        // 资料(可选):没设就不带,老服务器也不认识这两个字段
+        if (emoji != null && emoji.isNotEmpty) 'emoji': emoji,
+        if (bio != null && bio.isNotEmpty) 'bio': bio,
       });
 
   /// 改名后刷新 hello 快照里的名字。
@@ -895,6 +900,19 @@ class SignalingClient {
     final identity = _identity;
     if (identity == null) return; // 还没 hello 过,等上层调时自然带的就是新名字
     identity['name'] = name;
+  }
+
+  /// 改资料后刷新 hello 快照里的 emoji / 签名(理由同 [updateIdentityName])。
+  /// null = 这一项不动;空串 = 清掉(重连时就不再带)。
+  void updateIdentityProfile({String? emoji, String? bio}) {
+    final identity = _identity;
+    if (identity == null) return;
+    if (emoji != null) {
+      emoji.isEmpty ? identity.remove('emoji') : identity['emoji'] = emoji;
+    }
+    if (bio != null) {
+      bio.isEmpty ? identity.remove('bio') : identity['bio'] = bio;
+    }
   }
 
   void join(String circleId) => send({'t': 'join', 'circleId': circleId});

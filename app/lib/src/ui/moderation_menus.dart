@@ -95,7 +95,6 @@ Future<void> showMemberModerationSheet(
   ReportDelivery? delivery,
   Map<String, dynamic>? aiConfig,
 }) {
-  final bool blocked = blocks.isBlocked(member.userId);
   final AppLocalizations t = AppLocalizations.of(context);
   final bool ai = isAiMemberId(member.userId);
   return showModalBottomSheet<void>(
@@ -122,44 +121,13 @@ Future<void> showMemberModerationSheet(
               leading: const Icon(Icons.power_settings_new_rounded),
               title: Text(t.aiVoiceModerationHint),
             ),
-          if (blocked)
-            ListTile(
-              leading: const Icon(Icons.person_add_alt_1_rounded),
-              title: Text(t.moderationUnblock),
-              subtitle: Text(t.moderationUnblockHint),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await blocks.unblock(member.userId);
-              },
-            )
-          else
-            ListTile(
-              leading: const Icon(Icons.block_rounded),
-              title: Text(t.moderationBlock),
-              subtitle: Text(t.moderationBlockHint),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await blocks.block(member.userId);
-              },
-            ),
-          ListTile(
-            leading: const Icon(Icons.flag_outlined),
-            title: Text(t.reportAction),
-            subtitle: Text(t.reportActionHint),
-            onTap: () async {
-              // 先关菜单再办事,并且用**外层** context ——
-              // ctx 随菜单一起消失,拿它去开对话框会撞 deactivated widget。
-              Navigator.pop(ctx);
-              await showReportFlow(
-                context,
-                blocks: blocks,
-                targetUserId: member.userId,
-                targetName: member.name,
-                circleId: controller.circleId ?? '',
-                reporterUserId: controller.userId,
-                delivery: delivery,
-              );
-            },
+          ...memberSafetyTiles(
+            context,
+            ctx,
+            controller: controller,
+            blocks: blocks,
+            member: member,
+            delivery: delivery,
           ),
           if (onKick != null)
             ListTile(
@@ -176,6 +144,65 @@ Future<void> showMemberModerationSheet(
       ),
     ),
   );
+}
+
+/// 「屏蔽 / 解除屏蔽」+「举报」两行(审核指南 1.2)。
+///
+/// 处置菜单和成员资料面板([showMemberProfileSheet])共用这一份,
+/// 免得两处各写一套、日后改一处漏一处。
+/// [hostContext] 是弹面板之前的外层 context(举报对话框要用它开 ——
+/// [sheetContext] 会随面板一起消失);[sheetContext] 只用来关面板。
+List<Widget> memberSafetyTiles(
+  BuildContext hostContext,
+  BuildContext sheetContext, {
+  required RoomController controller,
+  required BlockStore blocks,
+  required Member member,
+  ReportDelivery? delivery,
+}) {
+  final AppLocalizations t = AppLocalizations.of(sheetContext);
+  final bool blocked = blocks.isBlocked(member.userId);
+  return <Widget>[
+    if (blocked)
+      ListTile(
+        leading: const Icon(Icons.person_add_alt_1_rounded),
+        title: Text(t.moderationUnblock),
+        subtitle: Text(t.moderationUnblockHint),
+        onTap: () async {
+          Navigator.pop(sheetContext);
+          await blocks.unblock(member.userId);
+        },
+      )
+    else
+      ListTile(
+        leading: const Icon(Icons.block_rounded),
+        title: Text(t.moderationBlock),
+        subtitle: Text(t.moderationBlockHint),
+        onTap: () async {
+          Navigator.pop(sheetContext);
+          await blocks.block(member.userId);
+        },
+      ),
+    ListTile(
+      leading: const Icon(Icons.flag_outlined),
+      title: Text(t.reportAction),
+      subtitle: Text(t.reportActionHint),
+      onTap: () async {
+        // 先关菜单再办事,并且用**外层** context ——
+        // sheetContext 随菜单一起消失,拿它去开对话框会撞 deactivated widget。
+        Navigator.pop(sheetContext);
+        await showReportFlow(
+          hostContext,
+          blocks: blocks,
+          targetUserId: member.userId,
+          targetName: member.name,
+          circleId: controller.circleId ?? '',
+          reporterUserId: controller.userId,
+          delivery: delivery,
+        );
+      },
+    ),
+  ];
 }
 
 /// 长按一条别人发的消息后的处置菜单。

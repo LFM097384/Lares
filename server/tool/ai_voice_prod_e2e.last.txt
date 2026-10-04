@@ -1,61 +1,61 @@
-# ai_voice_prod_e2e 2026-10-03T22:35:45.238Z
+# ai_voice_prod_e2e 2026-10-04T03:56:25.090Z
 · prod log stream: attached
 ✓ health: {"status":200,"rtcConfigured":true}
-✓ register circle: c_oewsb43f2unyjqyezzcw4hng
+✓ register circle: c_usatr7kyncbqudwwtjuodb3k
 
 [P] feature probe
-✓ circle_features_set 非圈主 → not_owner: {"t":"owner_error","op":"circle_features_set","circleId":"c_oewsb43f2unyjqyezzcw4hng","reason":"not_owner"}
-✓ circle_features_set 错 ownerKey → not_owner: {"t":"owner_error","op":"circle_features_set","circleId":"c_oewsb43f2unyjqyezzcw4hng","reason":"not_owner"}
-✓ circle_features_set 圈主 {map,devTools}: {"t":"owner_ok","op":"circle_features_set","circleId":"c_oewsb43f2unyjqyezzcw4hng"}
-✓ circle_features_set 未知键 → bad_request: {"t":"owner_error","op":"circle_features_set","circleId":"c_oewsb43f2unyjqyezzcw4hng","reason":"bad_request","detail":"features.bogus"}
-✓ circle_purpose_apply 非圈主 → not_owner: {"t":"owner_error","op":"circle_purpose_apply","circleId":"c_oewsb43f2unyjqyezzcw4hng","reason":"not_owner"}
+✓ circle_features_set 非圈主 → not_owner: {"t":"owner_error","op":"circle_features_set","circleId":"c_usatr7kyncbqudwwtjuodb3k","reason":"not_owner"}
+✓ circle_features_set 错 ownerKey → not_owner: {"t":"owner_error","op":"circle_features_set","circleId":"c_usatr7kyncbqudwwtjuodb3k","reason":"not_owner"}
+✓ circle_features_set 圈主 {map,devTools}: {"t":"owner_ok","op":"circle_features_set","circleId":"c_usatr7kyncbqudwwtjuodb3k"}
+✓ circle_features_set 未知键 → bad_request: {"t":"owner_error","op":"circle_features_set","circleId":"c_usatr7kyncbqudwwtjuodb3k","reason":"bad_request","detail":"features.bogus"}
+✓ circle_purpose_apply 非圈主 → not_owner: {"t":"owner_error","op":"circle_purpose_apply","circleId":"c_usatr7kyncbqudwwtjuodb3k","reason":"not_owner"}
 ✓ circle_purpose_apply study: {"ack":"owner_ok","purpose":{"id":"study","name":"学习","icon":"📚","builtin":true}}
 ✓ GET /api/v1/circle features+purpose: {"status":200,"features":{"captions":false,"transcript":false,"voiceNotes":false,"map":true,"recording":false,"plugins":true,"focus":true,"p2p":false,"devTools":true},"purpose":{"id":"study","name":"学习","icon":"📚","builtin":true}}
 ✓ push_cfg_get: {"cfg":{"triggers":{"focus":true,"crowd":false,"arrive":false},"crowdN":3},"custom":false,"limits":{"cooldownMin":30,"dailyCap":8,"summonMin":10}}
-✓ push_cfg_set 圈主: {"t":"owner_ok","op":"push_cfg_set","circleId":"c_oewsb43f2unyjqyezzcw4hng"}
+✓ push_cfg_set 圈主: {"t":"owner_ok","op":"push_cfg_set","circleId":"c_usatr7kyncbqudwwtjuodb3k"}
 ✓ push_cfg_get 回读: {"cfg":{"triggers":{"focus":true,"crowd":true,"arrive":false},"crowdN":5},"custom":true}
-✓ push_cfg_set crowdN=99 → bad_config: {"t":"owner_error","op":"push_cfg_set","circleId":"c_oewsb43f2unyjqyezzcw4hng","reason":"bad_config","detail":"crowdN:2..12"}
-✓ push_cfg_set 非圈主 → not_owner: {"t":"owner_error","op":"push_cfg_set","circleId":"c_oewsb43f2unyjqyezzcw4hng","reason":"not_owner"}
-✓ push_summon 不在房 → not_in_room: {"t":"owner_error","op":"push_summon","circleId":"c_oewsb43f2unyjqyezzcw4hng","reason":"not_in_room"}
-✓ focus_social_get: {"streaks":{},"weekly":{"t":"focus_weekly","circleId":"c_oewsb43f2unyjqyezzcw4hng","card":null}}
+✓ push_cfg_set crowdN=99 → bad_config: {"t":"owner_error","op":"push_cfg_set","circleId":"c_usatr7kyncbqudwwtjuodb3k","reason":"bad_config","detail":"crowdN:2..12"}
+✓ push_cfg_set 非圈主 → not_owner: {"t":"owner_error","op":"push_cfg_set","circleId":"c_usatr7kyncbqudwwtjuodb3k","reason":"not_owner"}
+✓ push_summon 不在房 → not_in_room: {"t":"owner_error","op":"push_summon","circleId":"c_usatr7kyncbqudwwtjuodb3k","reason":"not_in_room"}
+✓ focus_social_get: {"streaks":{},"weekly":{"t":"focus_weekly","circleId":"c_usatr7kyncbqudwwtjuodb3k","card":null}}
 
 [A] lares.ai-voice on prod (custom purpose 开会+AI)
 · audio (cached TTS Cherry + syn_0_00.wav interrupter): {"P1":"2700ms","P2":"4350ms","PL":"4110ms","interrupter":"6050ms","wakeWord":"小助手(默认 name)"}
 ✓ circle_purpose_apply 开会+AI(含 lares.ai-voice): {"ack":"owner_ok","purpose":{"id":"meeting-ai","name":"开会+AI","icon":"📝","builtin":false}}
-· plugin view lares.ai-voice: {"t":"plugins","circleId":"c_oewsb43f2unyjqyezzcw4hng","items":[{"id":"lares.focus","name":"专注学习","version":"1.0.0","description":"一起专注:番茄钟、离开提醒、专注排行榜。启用后房间进入专注模式(专注段收起地图、语音便签与小程序,文字聊天照常)。","author":"Lares","permissions":["circle:read","members:read","state:read","focus:read"],"builtin":true,"enabled":true,"config":{"focusMin":25,"breakMin":5,"rounds":4,"graceSec":10,"membersCanStart":false},"hasWebhook":false,"settingsSchema":{"type":"object","additionalProperties":false,"properties":{"focusMin":{"type":"integer","minimum":1,"maximum":180,"default":25,"title":"专注时长(分钟)"},"breakMin":{"type":"integer","minimum":1,"maximum":60,"default":5,"title":"休息时长(分钟)"},"rounds":{"type":"integer","minimum":1,"maximum":12,"default":4,"title":"轮数"},"graceSec":{"type":"integer","minimum":0,"maximum":300,"default":10,"title":"离开宽限(秒)"},"membersCanStart":{"type":"boolean","default":false,"title":"成员可开番茄钟"}}},"rev":0}]}
+· plugin view lares.ai-voice: {"t":"plugins","circleId":"c_usatr7kyncbqudwwtjuodb3k","items":[{"id":"lares.focus","name":"专注学习","version":"1.0.0","description":"一起专注:番茄钟、离开提醒、专注排行榜。启用后房间进入专注模式(专注段收起地图、语音便签与小程序,文字聊天照常)。","author":"Lares","permissions":["circle:read","members:read","state:read","focus:read"],"builtin":true,"enabled":true,"config":{"focusMin":25,"breakMin":5,"rounds":4,"graceSec":10,"membersCanStart":false},"hasWebhook":false,"settingsSchema":{"type":"object","additionalProperties":false,"properties":{"focusMin":{"type":"integer","minimum":1,"maximum":180,"default":25,"title":"专注时长(分钟)"},"breakMin":{"type":"integer","minimum":1,"maximum":60,"default":5,"title":"休息时长(分钟)"},"rounds":{"type":"integer","minimum":1,"maximum":12,"default":4,"title":"轮数"},"graceSec":{"type":"integer","minimum":0,"maximum":300,"default":10,"title":"离开宽限(秒)"},"membersCanStart":{"type":"boolean","default":false,"title":"成员可开番茄钟"}}},"rev":0}]}
 ✓ 房里没人时不拉起 AI: true
-✓ human joined + publishing: {"userId":"u_bot_f281c3c1","ms":1771}
-✓ supervisor spawned AI bot → ready: {"startedMs":512,"readyMs":2417,"pid":"33"}
+✓ human joined + publishing: {"userId":"u_bot_48acb1df","ms":1167}
+✓ supervisor spawned AI bot → ready: {"startedMs":545,"readyMs":1224,"pid":"32"}
 ✓ circle_summary 出现 AI 成员 (ai≥1, 不计人数): {"count":1,"ai":1,"names":["真人"]}
-✓ docker top: voice-agent 进程在跑: ["2347744 /usr/local/bin/node /app/bots/voice-agent/index.mjs --circle c_oewsb43f2unyjqyezzcw4hng --signaling ws://127.0.0.1:8787/ws"]
+✓ docker top: voice-agent 进程在跑: ["2383491 /usr/local/bin/node /app/bots/voice-agent/index.mjs --circle c_usatr7kyncbqudwwtjuodb3k --signaling ws://127.0.0.1:8787/ws"]
 ✓ 冒充 u_ai_ hello(无 aiAuth) → userId_reserved: {"t":"error","message":"userId_reserved"}
 ✓ 冒充 u_ai_ hello(伪造 aiAuth) → userId_reserved: {"t":"error","message":"userId_reserved"}
-✓ T1: 服务端 turn 日志: {"trigger":"wake","ttfaMs":802,"llmFirstTokenMs":390,"heardChars":24,"replyChars":24,"interrupted":false}
-✓ T1: 真人收到 AI 非静音语音: {"voicedMs":3990,"meanDb":-24,"peakDb":-13,"frames":971}
-✓ T1: lares.chat 收到回复: 北京是古都，有故宫、天安门，还有胡同里的烟火气。
-✓ T1: lares.cap partial→final: {"partials":2,"final":"北京是古都，有故宫、天安门，还有胡同里的烟火气。"}
-· T1: 延迟: {"extTtfaMs":1994,"botTtfaMs":802,"llmFirstTokenMs":390,"speechMs":2701}
-✓ T2: 服务端 turn 日志: {"trigger":"wake","ttfaMs":1085,"llmFirstTokenMs":703,"heardChars":24,"replyChars":24,"interrupted":false}
-✓ T2: 真人收到 AI 非静音语音: {"voicedMs":4770,"meanDb":-26,"peakDb":-14,"frames":1072}
-✓ T2: lares.chat 收到回复: 上海的小笼包、生煎和葱油拌面，一口下去全是鲜香！
-✓ T2: lares.cap partial→final: {"partials":2,"final":"上海的小笼包、生煎和葱油拌面，一口下去全是鲜香！"}
-· T2: 延迟: {"extTtfaMs":2363,"botTtfaMs":1085,"llmFirstTokenMs":703,"speechMs":4357}
-✓ T3 barge-in: turn interrupted: {"trigger":"wake","ttfaMs":1240,"llmFirstTokenMs":709,"heardChars":9,"replyChars":66,"interrupted":true}
-✓ T3 barge-in: heard < reply: {"heard":9,"reply":66}
-✓ T3 barge-in: 插话开始 → 最后一个非静音 AI 帧: {"stopMs":451,"aiVoicedBeforeMs":1520,"aiVoicedAfterMs":450}
-✓ T3 barge-in: 聊天只发听到的部分 + …: 长城最早是春秋战国…
-✓ T3 barge-in: 最终字幕 = 听到的部分: 长城最早是春秋战国…
-· TTFA (ms): {"externalRaw":[1994,2363],"external_p50":1994,"botInternalRaw":[802,1085],"llmFirstTokenRaw":[390,703],"bargeInStopMs":451}
+✓ T1: 服务端 turn 日志: {"trigger":"wake","ttfaMs":1155,"llmFirstTokenMs":705,"heardChars":29,"replyChars":29,"interrupted":false}
+✓ T1: 真人收到 AI 非静音语音: {"voicedMs":4540,"meanDb":-25,"peakDb":-15,"frames":1064}
+✓ T1: lares.chat 收到回复: 北京是座古老又现代的城市，胡同里藏着历史，高楼间奔着未来。
+✓ T1: lares.cap partial→final: {"partials":2,"final":"北京是座古老又现代的城市，胡同里藏着历史，高楼间奔着未来。"}
+· T1: 延迟: {"extTtfaMs":2527,"botTtfaMs":1155,"llmFirstTokenMs":705,"speechMs":2703}
+✓ T2: 服务端 turn 日志: {"trigger":"wake","ttfaMs":1099,"llmFirstTokenMs":638,"heardChars":30,"replyChars":30,"interrupted":false}
+✓ T2: 真人收到 AI 非静音语音: {"voicedMs":5990,"meanDb":-26,"peakDb":-13,"frames":1195}
+✓ T2: lares.chat 收到回复: 上海的小笼包汤汁鲜，生煎外脆里嫩，还有那口鲜掉眉毛的本帮菜。
+✓ T2: lares.cap partial→final: {"partials":2,"final":"上海的小笼包汤汁鲜，生煎外脆里嫩，还有那口鲜掉眉毛的本帮菜。"}
+· T2: 延迟: {"extTtfaMs":2392,"botTtfaMs":1099,"llmFirstTokenMs":638,"speechMs":4353}
+✓ T3 barge-in: turn interrupted: {"trigger":"wake","ttfaMs":1067,"llmFirstTokenMs":616,"heardChars":10,"replyChars":69,"interrupted":true}
+✓ T3 barge-in: heard < reply: {"heard":10,"reply":69}
+✓ T3 barge-in: 插话开始 → 最后一个非静音 AI 帧: {"stopMs":467,"aiVoicedBeforeMs":1510,"aiVoicedAfterMs":470}
+✓ T3 barge-in: 聊天只发听到的部分 + …: 长城最早是春秋战国时…
+✓ T3 barge-in: 最终字幕 = 听到的部分: 长城最早是春秋战国时…
+· TTFA (ms): {"externalRaw":[2527,2392],"external_p50":2392,"botInternalRaw":[1155,1099],"llmFirstTokenRaw":[705,638],"bargeInStopMs":467}
 · real LLM turns: 3
-· usage (server log): day=2026-10-03 turns=3 llmIn=511 llmOut=80 tts=148 asrSec=15
-✓ 房间清空 → 宽限后停 AI: {"stopAfterMs":20140,"exitAfterMs":20223,"exit":"已退出 code=0 signal="}
-✓ docker top: voice-agent 进程已不在: ["PID COMMAND","2347611 node src/index.js"]
+· usage (server log): day=2026-10-04 turns=3 llmIn=520 llmOut=95 tts=323 asrSec=15
+✓ 房间清空 → 宽限后停 AI: {"stopAfterMs":20146,"exitAfterMs":20243,"exit":"已退出 code=0 signal="}
+✓ docker top: voice-agent 进程已不在: ["PID COMMAND","2383359 node src/index.js"]
 ✓ transcript_clear: owner_ok
 ✓ circle_delete: owner_ok
 ✓ token after circle_delete → 401: 401
 · prod log lines captured: 19
-· prod log error-ish lines: ["[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_091b633a38\",\"trigger\":\"wake\",\"asrFinalAt\":1791066879182,\"llmFirstTokenMs\":390,\"firstSentenceMs\":426,\"ttsFirstAudioMs\":797,\"ttfaMs\":802,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_06325643f6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066893335,\"llmFirstTokenMs\":703,\"firstSentenceMs\":737,\"ttsFirstAudioMs\":1085,\"ttfaMs\":1085,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}","[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=1240ms llm1=709ms heard=9 reply=66 interrupted","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_2849a06ed6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066908218,\"llmFirstTokenMs\":709,\"firstSentenceMs\":834,\"ttsFirstAudioMs\":1239,\"ttfaMs\":1240,\"replyChars\":66,\"heardChars\":9,\"interrupted\":true}"]
-· prod ai-voice log: ["[ai-voice] c_oewsb43f2unyjqyezzcw4hng 已启动 pid=33","[ai-voice] c_oewsb43f2unyjqyezzcw4hng ready","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] asr warm-up ok in 2124ms","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] asr session live in 502ms (flushing 8 queued chunks)","[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=1 llmIn=130 llmOut=18 tts=55 asrSec=0","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_091b633a38\",\"trigger\":\"wake\",\"asrFinalAt\":1791066879182,\"llmFirstTokenMs\":390,\"firstSentenceMs\":426,\"ttsFirstAudioMs\":797,\"ttfaMs\":802,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}","[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=802ms llm1=390ms heard=24 reply=24","[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=2 llmIn=299 llmOut=37 tts=113 asrSec=0","[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=1085ms llm1=703ms heard=24 reply=24","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_06325643f6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066893335,\"llmFirstTokenMs\":703,\"firstSentenceMs\":737,\"ttsFirstAudioMs\":1085,\"ttfaMs\":1085,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}","[ai-voice] c_oewsb43f2unyjqyezzcw4hng cap_reached scope=hourly","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] ASR 暂停:回答次数到上限,窗口腾出前不识别;本地 VAD 打断照常","[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=3 llmIn=299 llmOut=37 tts=113 asrSec=15","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] 被打断(voice):听到 9/66 字","[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=3 llmIn=511 llmOut=80 tts=148 asrSec=15","[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=1240ms llm1=709ms heard=9 reply=66 interrupted","[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_2849a06ed6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066908218,\"llmFirstTokenMs\":709,\"firstSentenceMs\":834,\"ttsFirstAudioMs\":1239,\"ttfaMs\":1240,\"replyChars\":66,\"heardChars\":9,\"interrupted\":true}","[ai-voice] c_oewsb43f2unyjqyezzcw4hng 停止(empty)","[ai-voice] c_oewsb43f2unyjqyezzcw4hng 已退出 code=0 signal="]
+· prod log error-ish lines: ["[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_cdbf562792\",\"trigger\":\"wake\",\"asrFinalAt\":1791086115971,\"llmFirstTokenMs\":705,\"firstSentenceMs\":757,\"ttsFirstAudioMs\":1149,\"ttfaMs\":1155,\"replyChars\":29,\"heardChars\":29,\"interrupted\":false}","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_ece468f29b\",\"trigger\":\"wake\",\"asrFinalAt\":1791086130903,\"llmFirstTokenMs\":638,\"firstSentenceMs\":739,\"ttsFirstAudioMs\":1098,\"ttfaMs\":1099,\"replyChars\":30,\"heardChars\":30,\"interrupted\":false}","[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1067ms llm1=616ms heard=10 reply=69 interrupted","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_801378e389\",\"trigger\":\"wake\",\"asrFinalAt\":1791086147034,\"llmFirstTokenMs\":616,\"firstSentenceMs\":726,\"ttsFirstAudioMs\":1066,\"ttfaMs\":1067,\"replyChars\":69,\"heardChars\":10,\"interrupted\":true}"]
+· prod ai-voice log: ["[ai-voice] c_usatr7kyncbqudwwtjuodb3k 已启动 pid=32","[ai-voice] c_usatr7kyncbqudwwtjuodb3k ready","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] asr warm-up ok in 867ms","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] asr session live in 504ms (flushing 8 queued chunks)","[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=1 llmIn=130 llmOut=19 tts=80 asrSec=0","[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1155ms llm1=705ms heard=29 reply=29","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_cdbf562792\",\"trigger\":\"wake\",\"asrFinalAt\":1791086115971,\"llmFirstTokenMs\":705,\"firstSentenceMs\":757,\"ttsFirstAudioMs\":1149,\"ttfaMs\":1155,\"replyChars\":29,\"heardChars\":29,\"interrupted\":false}","[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=2 llmIn=300 llmOut=45 tts=156 asrSec=0","[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1099ms llm1=638ms heard=30 reply=30","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_ece468f29b\",\"trigger\":\"wake\",\"asrFinalAt\":1791086130903,\"llmFirstTokenMs\":638,\"firstSentenceMs\":739,\"ttsFirstAudioMs\":1098,\"ttfaMs\":1099,\"replyChars\":30,\"heardChars\":30,\"interrupted\":false}","[ai-voice] c_usatr7kyncbqudwwtjuodb3k cap_reached scope=hourly","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] ASR 暂停:回答次数到上限,窗口腾出前不识别;本地 VAD 打断照常","[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=3 llmIn=300 llmOut=45 tts=156 asrSec=15","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] 被打断(voice):听到 10/69 字","[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=3 llmIn=520 llmOut=95 tts=323 asrSec=15","[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1067ms llm1=616ms heard=10 reply=69 interrupted","[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_801378e389\",\"trigger\":\"wake\",\"asrFinalAt\":1791086147034,\"llmFirstTokenMs\":616,\"firstSentenceMs\":726,\"ttsFirstAudioMs\":1066,\"ttfaMs\":1067,\"replyChars\":69,\"heardChars\":10,\"interrupted\":true}","[ai-voice] c_usatr7kyncbqudwwtjuodb3k 停止(empty)","[ai-voice] c_usatr7kyncbqudwwtjuodb3k 已退出 code=0 signal="]
 
 AI VOICE PROD E2E ALL PASS
 
@@ -65,35 +65,35 @@ RESULTS {
   "status": 200,
   "rtcConfigured": true
  },
- "register circle": "c_oewsb43f2unyjqyezzcw4hng",
+ "register circle": "c_usatr7kyncbqudwwtjuodb3k",
  "circle_features_set 非圈主 → not_owner": {
   "t": "owner_error",
   "op": "circle_features_set",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "reason": "not_owner"
  },
  "circle_features_set 错 ownerKey → not_owner": {
   "t": "owner_error",
   "op": "circle_features_set",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "reason": "not_owner"
  },
  "circle_features_set 圈主 {map,devTools}": {
   "t": "owner_ok",
   "op": "circle_features_set",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng"
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k"
  },
  "circle_features_set 未知键 → bad_request": {
   "t": "owner_error",
   "op": "circle_features_set",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "reason": "bad_request",
   "detail": "features.bogus"
  },
  "circle_purpose_apply 非圈主 → not_owner": {
   "t": "owner_error",
   "op": "circle_purpose_apply",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "reason": "not_owner"
  },
  "circle_purpose_apply study": {
@@ -144,7 +144,7 @@ RESULTS {
  "push_cfg_set 圈主": {
   "t": "owner_ok",
   "op": "push_cfg_set",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng"
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k"
  },
  "push_cfg_get 回读": {
   "cfg": {
@@ -160,27 +160,27 @@ RESULTS {
  "push_cfg_set crowdN=99 → bad_config": {
   "t": "owner_error",
   "op": "push_cfg_set",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "reason": "bad_config",
   "detail": "crowdN:2..12"
  },
  "push_cfg_set 非圈主 → not_owner": {
   "t": "owner_error",
   "op": "push_cfg_set",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "reason": "not_owner"
  },
  "push_summon 不在房 → not_in_room": {
   "t": "owner_error",
   "op": "push_summon",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "reason": "not_in_room"
  },
  "focus_social_get": {
   "streaks": {},
   "weekly": {
    "t": "focus_weekly",
-   "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+   "circleId": "c_usatr7kyncbqudwwtjuodb3k",
    "card": null
   }
  },
@@ -202,7 +202,7 @@ RESULTS {
  },
  "plugin view lares.ai-voice": {
   "t": "plugins",
-  "circleId": "c_oewsb43f2unyjqyezzcw4hng",
+  "circleId": "c_usatr7kyncbqudwwtjuodb3k",
   "items": [
    {
     "id": "lares.focus",
@@ -271,13 +271,13 @@ RESULTS {
  },
  "房里没人时不拉起 AI": true,
  "human joined + publishing": {
-  "userId": "u_bot_f281c3c1",
-  "ms": 1771
+  "userId": "u_bot_48acb1df",
+  "ms": 1167
  },
  "supervisor spawned AI bot → ready": {
-  "startedMs": 512,
-  "readyMs": 2417,
-  "pid": "33"
+  "startedMs": 545,
+  "readyMs": 1224,
+  "pid": "32"
  },
  "circle_summary 出现 AI 成员 (ai≥1, 不计人数)": {
   "count": 1,
@@ -287,7 +287,7 @@ RESULTS {
   ]
  },
  "docker top: voice-agent 进程在跑": [
-  "2347744 /usr/local/bin/node /app/bots/voice-agent/index.mjs --circle c_oewsb43f2unyjqyezzcw4hng --signaling ws://127.0.0.1:8787/ws"
+  "2383491 /usr/local/bin/node /app/bots/voice-agent/index.mjs --circle c_usatr7kyncbqudwwtjuodb3k --signaling ws://127.0.0.1:8787/ws"
  ],
  "冒充 u_ai_ hello(无 aiAuth) → userId_reserved": {
   "t": "error",
@@ -299,129 +299,129 @@ RESULTS {
  },
  "T1: 服务端 turn 日志": {
   "trigger": "wake",
-  "ttfaMs": 802,
-  "llmFirstTokenMs": 390,
-  "heardChars": 24,
-  "replyChars": 24,
+  "ttfaMs": 1155,
+  "llmFirstTokenMs": 705,
+  "heardChars": 29,
+  "replyChars": 29,
   "interrupted": false
  },
  "T1: 真人收到 AI 非静音语音": {
-  "voicedMs": 3990,
-  "meanDb": -24,
-  "peakDb": -13,
-  "frames": 971
+  "voicedMs": 4540,
+  "meanDb": -25,
+  "peakDb": -15,
+  "frames": 1064
  },
- "T1: lares.chat 收到回复": "北京是古都，有故宫、天安门，还有胡同里的烟火气。",
+ "T1: lares.chat 收到回复": "北京是座古老又现代的城市，胡同里藏着历史，高楼间奔着未来。",
  "T1: lares.cap partial→final": {
   "partials": 2,
-  "final": "北京是古都，有故宫、天安门，还有胡同里的烟火气。"
+  "final": "北京是座古老又现代的城市，胡同里藏着历史，高楼间奔着未来。"
  },
  "T1: 延迟": {
-  "extTtfaMs": 1994,
-  "botTtfaMs": 802,
-  "llmFirstTokenMs": 390,
-  "speechMs": 2701
+  "extTtfaMs": 2527,
+  "botTtfaMs": 1155,
+  "llmFirstTokenMs": 705,
+  "speechMs": 2703
  },
  "T2: 服务端 turn 日志": {
   "trigger": "wake",
-  "ttfaMs": 1085,
-  "llmFirstTokenMs": 703,
-  "heardChars": 24,
-  "replyChars": 24,
+  "ttfaMs": 1099,
+  "llmFirstTokenMs": 638,
+  "heardChars": 30,
+  "replyChars": 30,
   "interrupted": false
  },
  "T2: 真人收到 AI 非静音语音": {
-  "voicedMs": 4770,
+  "voicedMs": 5990,
   "meanDb": -26,
-  "peakDb": -14,
-  "frames": 1072
+  "peakDb": -13,
+  "frames": 1195
  },
- "T2: lares.chat 收到回复": "上海的小笼包、生煎和葱油拌面，一口下去全是鲜香！",
+ "T2: lares.chat 收到回复": "上海的小笼包汤汁鲜，生煎外脆里嫩，还有那口鲜掉眉毛的本帮菜。",
  "T2: lares.cap partial→final": {
   "partials": 2,
-  "final": "上海的小笼包、生煎和葱油拌面，一口下去全是鲜香！"
+  "final": "上海的小笼包汤汁鲜，生煎外脆里嫩，还有那口鲜掉眉毛的本帮菜。"
  },
  "T2: 延迟": {
-  "extTtfaMs": 2363,
-  "botTtfaMs": 1085,
-  "llmFirstTokenMs": 703,
-  "speechMs": 4357
+  "extTtfaMs": 2392,
+  "botTtfaMs": 1099,
+  "llmFirstTokenMs": 638,
+  "speechMs": 4353
  },
  "T3 barge-in: turn interrupted": {
   "trigger": "wake",
-  "ttfaMs": 1240,
-  "llmFirstTokenMs": 709,
-  "heardChars": 9,
-  "replyChars": 66,
+  "ttfaMs": 1067,
+  "llmFirstTokenMs": 616,
+  "heardChars": 10,
+  "replyChars": 69,
   "interrupted": true
  },
  "T3 barge-in: heard < reply": {
-  "heard": 9,
-  "reply": 66
+  "heard": 10,
+  "reply": 69
  },
  "T3 barge-in: 插话开始 → 最后一个非静音 AI 帧": {
-  "stopMs": 451,
-  "aiVoicedBeforeMs": 1520,
-  "aiVoicedAfterMs": 450
+  "stopMs": 467,
+  "aiVoicedBeforeMs": 1510,
+  "aiVoicedAfterMs": 470
  },
- "T3 barge-in: 聊天只发听到的部分 + …": "长城最早是春秋战国…",
- "T3 barge-in: 最终字幕 = 听到的部分": "长城最早是春秋战国…",
+ "T3 barge-in: 聊天只发听到的部分 + …": "长城最早是春秋战国时…",
+ "T3 barge-in: 最终字幕 = 听到的部分": "长城最早是春秋战国时…",
  "TTFA (ms)": {
   "externalRaw": [
-   1994,
-   2363
+   2527,
+   2392
   ],
-  "external_p50": 1994,
+  "external_p50": 2392,
   "botInternalRaw": [
-   802,
-   1085
+   1155,
+   1099
   ],
   "llmFirstTokenRaw": [
-   390,
-   703
+   705,
+   638
   ],
-  "bargeInStopMs": 451
+  "bargeInStopMs": 467
  },
  "real LLM turns": 3,
- "usage (server log)": "day=2026-10-03 turns=3 llmIn=511 llmOut=80 tts=148 asrSec=15",
+ "usage (server log)": "day=2026-10-04 turns=3 llmIn=520 llmOut=95 tts=323 asrSec=15",
  "房间清空 → 宽限后停 AI": {
-  "stopAfterMs": 20140,
-  "exitAfterMs": 20223,
+  "stopAfterMs": 20146,
+  "exitAfterMs": 20243,
   "exit": "已退出 code=0 signal="
  },
  "docker top: voice-agent 进程已不在": [
   "PID COMMAND",
-  "2347611 node src/index.js"
+  "2383359 node src/index.js"
  ],
  "transcript_clear": "owner_ok",
  "circle_delete": "owner_ok",
  "token after circle_delete → 401": 401,
  "prod log lines captured": 19,
  "prod log error-ish lines": [
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_091b633a38\",\"trigger\":\"wake\",\"asrFinalAt\":1791066879182,\"llmFirstTokenMs\":390,\"firstSentenceMs\":426,\"ttsFirstAudioMs\":797,\"ttfaMs\":802,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_06325643f6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066893335,\"llmFirstTokenMs\":703,\"firstSentenceMs\":737,\"ttsFirstAudioMs\":1085,\"ttfaMs\":1085,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=1240ms llm1=709ms heard=9 reply=66 interrupted",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_2849a06ed6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066908218,\"llmFirstTokenMs\":709,\"firstSentenceMs\":834,\"ttsFirstAudioMs\":1239,\"ttfaMs\":1240,\"replyChars\":66,\"heardChars\":9,\"interrupted\":true}"
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_cdbf562792\",\"trigger\":\"wake\",\"asrFinalAt\":1791086115971,\"llmFirstTokenMs\":705,\"firstSentenceMs\":757,\"ttsFirstAudioMs\":1149,\"ttfaMs\":1155,\"replyChars\":29,\"heardChars\":29,\"interrupted\":false}",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_ece468f29b\",\"trigger\":\"wake\",\"asrFinalAt\":1791086130903,\"llmFirstTokenMs\":638,\"firstSentenceMs\":739,\"ttsFirstAudioMs\":1098,\"ttfaMs\":1099,\"replyChars\":30,\"heardChars\":30,\"interrupted\":false}",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1067ms llm1=616ms heard=10 reply=69 interrupted",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_801378e389\",\"trigger\":\"wake\",\"asrFinalAt\":1791086147034,\"llmFirstTokenMs\":616,\"firstSentenceMs\":726,\"ttsFirstAudioMs\":1066,\"ttfaMs\":1067,\"replyChars\":69,\"heardChars\":10,\"interrupted\":true}"
  ],
  "prod ai-voice log": [
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng 已启动 pid=33",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng ready",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] asr warm-up ok in 2124ms",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] asr session live in 502ms (flushing 8 queued chunks)",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=1 llmIn=130 llmOut=18 tts=55 asrSec=0",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_091b633a38\",\"trigger\":\"wake\",\"asrFinalAt\":1791066879182,\"llmFirstTokenMs\":390,\"firstSentenceMs\":426,\"ttsFirstAudioMs\":797,\"ttfaMs\":802,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=802ms llm1=390ms heard=24 reply=24",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=2 llmIn=299 llmOut=37 tts=113 asrSec=0",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=1085ms llm1=703ms heard=24 reply=24",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_06325643f6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066893335,\"llmFirstTokenMs\":703,\"firstSentenceMs\":737,\"ttsFirstAudioMs\":1085,\"ttfaMs\":1085,\"replyChars\":24,\"heardChars\":24,\"interrupted\":false}",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng cap_reached scope=hourly",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] ASR 暂停:回答次数到上限,窗口腾出前不识别;本地 VAD 打断照常",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=3 llmIn=299 llmOut=37 tts=113 asrSec=15",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] 被打断(voice):听到 9/66 字",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng usage day=2026-10-03 turns=3 llmIn=511 llmOut=80 tts=148 asrSec=15",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng turn wake ttfa=1240ms llm1=709ms heard=9 reply=66 interrupted",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_2849a06ed6\",\"trigger\":\"wake\",\"asrFinalAt\":1791066908218,\"llmFirstTokenMs\":709,\"firstSentenceMs\":834,\"ttsFirstAudioMs\":1239,\"ttfaMs\":1240,\"replyChars\":66,\"heardChars\":9,\"interrupted\":true}",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng 停止(empty)",
-  "[ai-voice] c_oewsb43f2unyjqyezzcw4hng 已退出 code=0 signal="
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k 已启动 pid=32",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k ready",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] asr warm-up ok in 867ms",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] asr session live in 504ms (flushing 8 queued chunks)",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=1 llmIn=130 llmOut=19 tts=80 asrSec=0",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1155ms llm1=705ms heard=29 reply=29",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_cdbf562792\",\"trigger\":\"wake\",\"asrFinalAt\":1791086115971,\"llmFirstTokenMs\":705,\"firstSentenceMs\":757,\"ttsFirstAudioMs\":1149,\"ttfaMs\":1155,\"replyChars\":29,\"heardChars\":29,\"interrupted\":false}",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=2 llmIn=300 llmOut=45 tts=156 asrSec=0",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1099ms llm1=638ms heard=30 reply=30",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_ece468f29b\",\"trigger\":\"wake\",\"asrFinalAt\":1791086130903,\"llmFirstTokenMs\":638,\"firstSentenceMs\":739,\"ttsFirstAudioMs\":1098,\"ttfaMs\":1099,\"replyChars\":30,\"heardChars\":30,\"interrupted\":false}",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k cap_reached scope=hourly",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] ASR 暂停:回答次数到上限,窗口腾出前不识别;本地 VAD 打断照常",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=3 llmIn=300 llmOut=45 tts=156 asrSec=15",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] 被打断(voice):听到 10/69 字",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k usage day=2026-10-04 turns=3 llmIn=520 llmOut=95 tts=323 asrSec=15",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k turn wake ttfa=1067ms llm1=616ms heard=10 reply=69 interrupted",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k [ai-voice] turn-metrics {\"ev\":\"turn\",\"id\":\"t_801378e389\",\"trigger\":\"wake\",\"asrFinalAt\":1791086147034,\"llmFirstTokenMs\":616,\"firstSentenceMs\":726,\"ttsFirstAudioMs\":1066,\"ttfaMs\":1067,\"replyChars\":69,\"heardChars\":10,\"interrupted\":true}",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k 停止(empty)",
+  "[ai-voice] c_usatr7kyncbqudwwtjuodb3k 已退出 code=0 signal="
  ]
 }

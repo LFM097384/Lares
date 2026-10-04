@@ -12,7 +12,7 @@
 
 | 键 | 含义 | 存储 | 服务端闸门 |
 |---|---|---|---|
-| `captions` | 实时字幕(云端 ASR) | `features.captions` | `cap_token` → `cap_error{reason:'feature_off'}` |
+| `captions` | 实时字幕(云端 ASR) | `features.captions` | `cap_token` → `cap_error{reason:'feature_off'}`(**例外**:圈开着 `transcript` 时照常签发 —— 转写记录也走这条识别链路;客户端此时只归档、不发 `cap` 帧) |
 | `transcript` | 转写记录 | **就是**既有 `circleSettings[cid].transcript`,不另存 | 既有 `transcript_append` → `off` |
 | `voiceNotes` | 语音便签 | `features.voiceNotes` | `POST /notes` → 403 `{error:'feature_off'}` |
 | `map` | 位置共享 / 地图 | `features.map` | `loc` 静默丢弃,回 `{t:'error', message:'feature_off'}` |

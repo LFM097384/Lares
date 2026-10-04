@@ -231,21 +231,39 @@ class CaptionWiring {
       if (old != null) unawaited(old.dispose());
     }
 
-    captions.updateConditions(CaptionConditions(
-      // 圈主关了「实时字幕」:本机不再替任何人出字幕(服务器 cap_token 也会拒)
-      available: controller.captionsAvailable &&
-          kSttSocketSupported &&
-          (controller.circleId == null ||
-              controller.isFeatureOn(
-                  controller.circleId!, CircleFeature.captions)),
+    captions.updateConditions(conditionsFor(
+      controller: controller,
       inRoom: inRoom && room != null,
-      muted: controller.muted,
       provide: settings.captionsProvide,
       encrypted: _encrypted,
       e2eeCloud: settings.captionsE2eeCloud,
-      archive: controller.circleId != null &&
-          controller.isTranscriptOn(controller.circleId!),
     ));
+  }
+
+  /// 把房间 / 设置汇总成 [CaptionConditions](纯函数,测试直接调)。
+  @visibleForTesting
+  static CaptionConditions conditionsFor({
+    required RoomController controller,
+    required bool inRoom,
+    required bool provide,
+    required bool encrypted,
+    required bool e2eeCloud,
+    bool sttSupported = kSttSocketSupported,
+  }) {
+    final String? cid = controller.circleId;
+    return CaptionConditions(
+      available: controller.captionsAvailable && sttSupported,
+      // 圈主关了「实时字幕」:本机不再替任何人出实时字幕。但这**不**关转写记录 ——
+      // 以前把它并进 available,导致「字幕关 + 转写开」的圈谁的话都进不了记录。
+      liveCaptions:
+          cid == null || controller.isFeatureOn(cid, CircleFeature.captions),
+      inRoom: inRoom,
+      muted: controller.muted,
+      provide: provide,
+      encrypted: encrypted,
+      e2eeCloud: e2eeCloud,
+      archive: cid != null && controller.isTranscriptOn(cid),
+    );
   }
 
   void dispose() {

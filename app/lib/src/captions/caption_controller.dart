@@ -58,13 +58,19 @@ class CaptionConditions {
     this.encrypted = false,
     this.e2eeCloud = false,
     this.archive = false,
+    this.liveCaptions = true,
   });
 
   /// 圈主开了「转写记录」(circleInfo.transcript):愿意的人一开麦就转写,
-  /// 不再要求有人请求字幕。
+  /// 不再要求有人请求字幕。与 [liveCaptions] 无关 —— 实时字幕关着也照样归档。
   final bool archive;
 
-  /// 服务器提供字幕(welcome.captions)。
+  /// 圈级功能「实时字幕」开着(features.captions)。只管**实时字幕**这条路
+  /// (别人的 capreq、我自己开字幕、cap 帧外发);关着时只剩转写记录还能触发识别。
+  final bool liveCaptions;
+
+  /// 服务器提供识别(welcome.captions)且本平台能开识别连接。
+  /// **不含**圈级「实时字幕」开关:那个开关关了,转写记录照样要识别(见 [liveCaptions])。
   final bool available;
   final bool inRoom;
 
@@ -92,11 +98,12 @@ class CaptionConditions {
       other.provide == provide &&
       other.encrypted == encrypted &&
       other.e2eeCloud == e2eeCloud &&
-      other.archive == archive;
+      other.archive == archive &&
+      other.liveCaptions == liveCaptions;
 
   @override
-  int get hashCode => Object.hash(
-      available, inRoom, muted, provide, encrypted, e2eeCloud, archive);
+  int get hashCode => Object.hash(available, inRoom, muted, provide, encrypted,
+      e2eeCloud, archive, liveCaptions);
 }
 
 /// 面板上的一行字幕。
@@ -510,8 +517,11 @@ class CaptionController extends ChangeNotifier {
     _notify();
   }
 
-  /// 有没有人需要我的话:远端请求者、我自己开着字幕、或圈子开着转写记录。
-  bool get _needed => _requesters.isNotEmpty || _want || _cond.archive;
+  /// 有没有人需要我的话:远端请求者、我自己开着字幕(仅当圈里实时字幕开着)、
+  /// 或圈子开着转写记录(单凭这一条就够,不论实时字幕开没开)。
+  bool get _needed =>
+      (_cond.liveCaptions && (_requesters.isNotEmpty || _want)) ||
+      _cond.archive;
 
   bool get _shouldTranscribe =>
       _channel != null &&
@@ -716,7 +726,8 @@ class CaptionController extends ChangeNotifier {
       _applyCaption(_selfIdentity, c, name: '', isSelf: true);
       _notify();
     }
-    if (_requesters.isEmpty) return;
+    // 圈主关了实时字幕(只为转写记录在识别):字幕帧不外发
+    if (_requesters.isEmpty || !_cond.liveCaptions) return;
     unawaited(_publish(c));
   }
 

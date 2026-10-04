@@ -264,7 +264,9 @@ class BlockAudioEnforcer {
         remotes.values.map((RemoteParticipant p) => p.identity).toList();
 
     final Set<String> desired = selectIdentitiesToMute(
-      blockedIds: _blocks.blockedIds,
+      // 「听不到 Ta」(只对本机、不屏蔽)走同一条压轨路径;屏蔽名单的语义不变。
+      // controller 每次 notify 都会触发 _onPhase → 补扫,所以切换立刻生效。
+      blockedIds: <String>{..._blocks.blockedIds, ..._controller.locallyMuted},
       presentIdentities: present,
     );
     final Set<String> restore = selectIdentitiesToRestore(

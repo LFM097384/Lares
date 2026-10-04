@@ -33,3 +33,24 @@ Future<String?> saveMyNickname(RoomController controller, String raw) async {
   await Identity.saveName(name);
   return name;
 }
+
+/// 保存整份资料(昵称 + 头像 emoji + 一句话签名):规整 → 广播 → 落盘。
+///
+/// 与 [saveMyNickname] 同一套纪律:截断只走 [capNickname] / [capBio],
+/// 落盘的是**规整后**的值。[name] 去掉空白后为空时名字不动(其余照存)。
+/// [emoji] / [bio] 传空串 = 清掉;null = 不动。
+Future<void> saveMyProfile(
+  RoomController controller, {
+  String? name,
+  String? emoji,
+  String? bio,
+}) async {
+  final String? capped = name == null ? null : capNickname(name);
+  final String? keptName = capped == null || capped.isEmpty ? null : capped;
+  controller.setProfile(name: keptName, emoji: emoji, bio: bio);
+  if (keptName != null) await Identity.saveName(controller.userName);
+  await Identity.saveProfile(
+    emoji: emoji == null ? null : (controller.myEmoji ?? ''),
+    bio: bio == null ? null : (controller.myBio ?? ''),
+  );
+}

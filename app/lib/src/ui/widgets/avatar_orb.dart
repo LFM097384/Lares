@@ -102,8 +102,9 @@ class AvatarOrb extends StatelessWidget {
                           : null,
                     ),
                     alignment: Alignment.center,
+                    // 设了头像 emoji 就画它,否则画名字首字
                     child: Text(
-                      _initial(member.name),
+                      orbGlyph(member),
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontSize: size * 0.36,
                       ),
@@ -250,4 +251,11 @@ class AvatarOrb extends StatelessWidget {
 
   static String _initial(String name) =>
       name.isEmpty ? '?' : name.characters.first;
+
+  /// 头像球中间那个字:头像 emoji 优先,否则名字首字。资料面板的大头像也用它。
+  static String orbGlyph(Member member) {
+    final String? e = member.emoji;
+    if (e != null && e.isNotEmpty) return e;
+    return _initial(member.name);
+  }
 }

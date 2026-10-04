@@ -3011,4 +3011,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiVoiceFieldModelHelper => 'Leave it unless you know';
+
+  @override
+  String get profileOwnTitle => 'My profile';
+
+  @override
+  String get profileNameLabel => 'Name';
+
+  @override
+  String get profileEmojiLabel => 'Avatar';
+
+  @override
+  String get profileEmojiNone => 'None';
+
+  @override
+  String get profileBioLabel => 'One line';
+
+  @override
+  String get profileBioHint => 'e.g. finishing a paper';
+
+  @override
+  String profileBioCounter(int count, int max) {
+    return '$count/$max';
+  }
+
+  @override
+  String get profileSaved => 'Saved';
+
+  @override
+  String get profileErrorInvalid =>
+      'That can\'t be saved. Try wording it differently';
+
+  @override
+  String profileErrorRateLimited(int seconds) {
+    return 'That\'s a lot of changes. Try again in ${seconds}s';
+  }
+
+  @override
+  String get profileErrorNotAllowed =>
+      'You can\'t change your profile right now';
+
+  @override
+  String get profileErrorNotConnected =>
+      'Not connected yet. Save again in a moment';
+
+  @override
+  String get profileSpeaking => 'Speaking';
+
+  @override
+  String get profileStatusAway => 'Stepped away';
+
+  @override
+  String profileFocusToday(String time) {
+    return 'Focused today: $time';
+  }
+
+  @override
+  String profileFocusWeek(String time) {
+    return 'This week: $time';
+  }
+
+  @override
+  String profileStreak(int days) {
+    return '🔥 $days-day streak';
+  }
+
+  @override
+  String get profileJoinedJustNow => 'Just joined';
+
+  @override
+  String profileJoinedMinutes(int minutes) {
+    return 'Joined $minutes min ago';
+  }
+
+  @override
+  String profileJoinedAt(String time) {
+    return 'Joined at $time';
+  }
+
+  @override
+  String get profileMention => 'Mention';
+
+  @override
+  String get profileMuteForMe => 'Mute for me';
+
+  @override
+  String get profileMuteForMeHint => 'Only on your side. They won\'t know';
+
+  @override
+  String get profileUnmuteForMe => 'Hear them again';
+
+  @override
+  String get profileKick => 'Remove from circle';
 }

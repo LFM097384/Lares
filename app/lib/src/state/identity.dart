@@ -30,6 +30,15 @@ const int maxNicknameGraphemes = 24;
 String capNickname(String raw) =>
     capGraphemes(raw.trim(), maxNicknameGraphemes);
 
+/// 一句话签名的上限(字素簇),与服务器 `PROFILE_BIO_MAX` 同口径。
+const int maxBioGraphemes = 40;
+
+/// 签名规整:换行压成空格、去首尾空白、按字素簇截断。空串 = 清空。
+String capBio(String raw) => capGraphemes(
+      raw.replaceAll(RegExp(r'[\r\n\t]+'), ' ').trim(),
+      maxBioGraphemes,
+    ).trim();
+
 /// 本地身份:MVP 无账号体系,userId/deviceId 本地生成并持久化。
 ///
 /// ## 跨设备是同一个「人」
@@ -45,7 +54,13 @@ String capNickname(String raw) =>
 ///
 /// 后续接入真实账号体系时只需替换本类的 [load]。
 class Identity {
-  Identity({required this.userId, required this.deviceId, required this.name});
+  Identity({
+    required this.userId,
+    required this.deviceId,
+    required this.name,
+    this.emoji,
+    this.bio,
+  });
 
   final String userId;
 
@@ -56,9 +71,16 @@ class Identity {
 
   final String name;
 
+  /// 头像 emoji 与一句话签名(成员资料)。null = 没设。只存本机,
+  /// 不进身份码 —— 身份码只管「我是谁」,资料是换台设备也能重填的东西。
+  final String? emoji;
+  final String? bio;
+
   static const _kUserId = 'lares.userId';
   static const _kDeviceId = 'lares.deviceId';
   static const _kName = 'lares.name';
+  static const _kEmoji = 'lares.emoji';
+  static const _kBio = 'lares.bio';
 
   /// 身份码的前缀。带上它是为了让用户一眼看出这串东西是什么,
   /// 也方便将来扩展格式(v2 前缀不同,老客户端会明确拒绝而不是误解析)。
@@ -80,7 +102,24 @@ class Identity {
       userId: userId,
       deviceId: deviceId,
       name: prefs.getString(_kName) ?? '我',
+      emoji: _orNull(prefs.getString(_kEmoji)),
+      bio: _orNull(prefs.getString(_kBio)),
     );
+  }
+
+  static String? _orNull(String? v) => v == null || v.isEmpty ? null : v;
+
+  /// 落盘头像 emoji / 签名。null = 这一项不动;空串 = 清掉。
+  static Future<void> saveProfile({String? emoji, String? bio}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (emoji != null) {
+      emoji.isEmpty
+          ? await prefs.remove(_kEmoji)
+          : await prefs.setString(_kEmoji, emoji);
+    }
+    if (bio != null) {
+      bio.isEmpty ? await prefs.remove(_kBio) : await prefs.setString(_kBio, bio);
+    }
   }
 
   static Future<void> saveName(String name) async {

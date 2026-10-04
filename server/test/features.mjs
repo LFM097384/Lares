@@ -197,6 +197,22 @@ async function main() {
     await fs({ captions: false });
     r = await capReq(alice);
     check(r?.t === 'cap_error' && r.reason === 'feature_off', 'captions 关:cap_error feature_off', r);
+    // TestFlight 46 回归:实时字幕关、转写记录开 → 仍须签 token(否则谁的话都进不了记录),
+    // 且本人追加的行本人实时收到、历史里也有
+    r = await owner.req({ t: 'circle_transcript_set', circleId: cid, ownerKey, on: true }, ownerReply('circle_transcript_set'));
+    check(r?.t === 'owner_ok', 'captions 关时开转写记录', r);
+    r = await capReq(alice);
+    check(r?.t === 'cap_token', 'captions 关 + transcript 开:cap_token 照样签发', r);
+    alice.drain(() => true);
+    r = await alice.req({ t: 'transcript_append', circleId: cid, id: 'own-1', text: '我自己说的话' }, (m) => m.t === 'transcript_appended' || m.t === 'transcript_error');
+    check(r?.t === 'transcript_appended', 'captions 关 + transcript 开:transcript_append 成功', r);
+    const ownLine = await alice.waitFor((m) => m.t === 'transcript_line' && m.item?.id === 'own-1');
+    check(ownLine?.item?.userId === 'u_a', '发送者本人实时收到自己的 transcript_line', ownLine);
+    r = await alice.req({ t: 'transcript_get', circleId: cid }, (m) => m.t === 'transcript_page' || m.t === 'transcript_error');
+    check(r?.items?.some((it) => it.id === 'own-1' && it.userId === 'u_a'), '发送者本人的历史里有自己的话', r);
+    r = await owner.req({ t: 'circle_transcript_set', circleId: cid, ownerKey, on: false }, ownerReply('circle_transcript_set'));
+    r = await capReq(alice);
+    check(r?.t === 'cap_error' && r.reason === 'feature_off', 'captions 关 + transcript 关:又回到 feature_off', r);
     // voiceNotes
     const postNote = () => fetch(`${BASE}/notes`, {
       method: 'POST', headers: { authorization: `Bearer ${verifier}`, 'content-type': 'application/json' },

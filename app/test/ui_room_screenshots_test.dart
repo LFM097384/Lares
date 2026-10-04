@@ -46,6 +46,7 @@ import 'package:lares_app/src/transcript/transcript_scope.dart';
 import 'package:lares_app/src/transcript/transcript_service.dart';
 import 'package:lares_app/src/ui/push_settings_widgets.dart';
 import 'package:lares_app/src/ui/room_screen.dart';
+import 'package:lares_app/src/ui/widgets/avatar_orb.dart';
 import 'package:lares_app/src/net/secret_vault.dart';
 import 'package:lares_app/src/state/settings_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -338,7 +339,11 @@ class _Scene {
     this.aiCaptions = false,
     this.pickerChoice,
     this.height,
+    this.profile,
   });
+
+  /// 成员资料面板:'own'(改自己)/ 'other'(看别人,非圈主)/ 'owner'(圈主看别人)。
+  final String? profile;
 
   /// 房里加一个 AI 语音助手成员([_aiId] / 小助手),并给本圈装上 `lares.ai-voice`。
   final bool ai;
@@ -558,6 +563,25 @@ final List<_Scene> _scenes = <_Scene>[
     height: 1560,
   ),
   _Scene(name: 'ai_purpose_picker', kind: _Kind.picker, pickerChoice: 'meeting'),
+  // ── 成员资料 ──
+  _Scene(name: 'profile_own_edit', people: 3, profile: 'own'),
+  _Scene(
+    name: 'profile_other_dark',
+    speaking: <String>{'u1'},
+    focus: 'focus',
+    profile: 'other',
+  ),
+  _Scene(
+    name: 'profile_other_light_360',
+    speaking: <String>{'u1'},
+    focus: 'focus',
+    profile: 'other',
+    light: true,
+    size: const Size(360, 640),
+    padTop: 24,
+    padBottom: 0,
+  ),
+  _Scene(name: 'profile_owner_kick', people: 3, profile: 'owner'),
   _Scene(
     name: 'ai_light_360',
     people: 2,
@@ -912,6 +936,64 @@ Future<void> _applyAiState(
   await tester.pump();
 }
 
+/// 打开成员资料面板。别人的面板要先喂排行榜(今天 / 本周),专注统计才有数。
+Future<void> _openProfile(
+  WidgetTester tester,
+  _Scene s,
+  FocusHarness? focus,
+) async {
+  SharedPreferences.setMockInitialValues(<String, Object>{});
+  if (focus != null) {
+    focus.inject(<String, dynamic>{
+      't': 'focus_board',
+      'circleId': 'home',
+      'today': <Map<String, dynamic>>[
+        <String, dynamic>{'userId': 'u1', 'name': _names['u1'], 'ms': 142 * 60000},
+      ],
+      'week': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'userId': 'u1',
+          'name': _names['u1'],
+          'ms': 11 * 3600000 + 20 * 60000,
+        },
+      ],
+      'all': <Map<String, dynamic>>[],
+    });
+    await tester.pump();
+  }
+  final String who = s.profile == 'own' ? 'u_me' : 'u1';
+  final Finder orb = find.byWidgetPredicate(
+    (Widget w) => w is AvatarOrb && w.member.userId == who,
+  );
+  if (orb.evaluate().isEmpty) {
+    _exceptions.add('[${s.name}] orb $who not found');
+    return;
+  }
+  await tester.tap(orb.first, warnIfMissed: false);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+  if (s.profile == 'own') {
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('profile-name-field')),
+      '小林',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('profile-emoji-🌙')),
+      warnIfMissed: false,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('profile-bio-field')),
+      '晚上十点后在',
+    );
+    // 截图里不要光标和键盘:收起焦点
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    // 等点按的水波纹褪完,不然它会糊在选中的格子上
+    await tester.pump(const Duration(seconds: 2));
+  }
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
 Future<void> _runScene(WidgetTester tester, _Scene s) async {
   // 视口:改 tester.view,让真实 MediaQuery 看到尺寸/安全区/键盘
   tester.view.physicalSize = Size(
@@ -967,9 +1049,22 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
           'userId': id,
           'name': _names[id],
           'status': statuses[id],
+          // 资料场景:阿蛮带头像 emoji、签名、进房时刻
+          if (s.profile != null && id == 'u1') ...<String, dynamic>{
+            'emoji': '🦊',
+            'bio': '在赶论文,有事喊我',
+            'joinedAt': DateTime.now()
+                .subtract(const Duration(minutes: 12))
+                .millisecondsSinceEpoch,
+          },
         },
     ],
   });
+  // 非圈主看别人:注册圈 + 没有圈主钥匙 → 没有「移出圈子」
+  if (s.profile == 'other') {
+    controller.circleInfo['home'] =
+        (registered: true, e2ee: null, transcript: false);
+  }
   await controller.testInjectToken('wss://fake', 'tok');
   if (s.circle != null) {
     signaling.testInject(<String, dynamic>{
@@ -1287,6 +1382,7 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     _drainExceptions(tester, s.name, s.overlay!);
   }
   if (s.name == 'minimal_room') _logMicCentre(tester, s);
+  if (s.profile != null) await _openProfile(tester, s, focus);
 
   await _capture(tester, key, '$_outDir/${_tag}_${s.name}.png', s.dpr);
 

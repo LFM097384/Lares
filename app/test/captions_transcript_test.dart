@@ -11,10 +11,13 @@ import 'package:lares_app/src/captions/caption_controller.dart';
 import 'package:lares_app/src/captions/caption_protocol.dart';
 import 'package:lares_app/src/captions/caption_wiring.dart';
 import 'package:lares_app/src/captions/transcript_sink.dart';
+import 'package:lares_app/src/state/circle_features.dart';
+import 'package:lares_app/src/state/room_controller.dart';
 import 'package:lares_app/src/ui/caption_panel.dart';
 
 import 'helpers/caption_fakes.dart';
 import 'helpers/localized_app.dart';
+import 'room_screen_test.dart' show FakeRtcService, FakeSignalingClient;
 
 /// stop/dispose 由测试手动放行的识别器:用来证明「旧的没关完绝不开新的」。
 class SlowTranscriber implements CaptionTranscriber {
@@ -358,6 +361,118 @@ void main() {
       expect(enc, ['b']);
       sink.appendFinal(circleId: 'open', id: 'c', text: 'z', startedAt: now);
       expect(plain.single['id'], 'c');
+    });
+  });
+
+  // TestFlight 46 回归:圈主关了「实时字幕」(chat / study 用途的默认)、只开转写记录 ——
+  // 以前 captions 功能位并进了 available → willing=false → 识别从不启动,自己的话进不了记录。
+  group('转写记录独立于「实时字幕」功能位', () {
+    RoomController roomWith({required bool captionsFeature, required bool transcript}) {
+      final sig = FakeSignalingClient();
+      final c = RoomController(
+          signaling: sig, rtc: FakeRtcService(), userId: 'u_me', deviceId: 'd', userName: '我');
+      unawaited(c.join('c1').catchError((Object _) {}));
+      sig.testInject({
+        't': 'room',
+        'circleId': 'c1',
+        'members': [
+          {'userId': 'u_me', 'name': '我', 'status': 'free'},
+        ],
+      });
+      c.captionsAvailable = true;
+      sig.testInject({
+        't': 'circle_settings',
+        'circle': {
+          'id': 'c1',
+          'registered': true,
+          'transcript': transcript,
+          'features': {'captions': captionsFeature, 'transcript': transcript},
+        },
+      });
+      return c;
+    }
+
+    CaptionConditions condsOf(RoomController c, {bool provide = true}) =>
+        CaptionWiring.conditionsFor(
+            controller: c,
+            inRoom: true,
+            provide: provide,
+            encrypted: false,
+            e2eeCloud: false,
+            sttSupported: true);
+
+    test('胶水层:字幕功能关 + 转写开 → 仍 willing、archive 开', () async {
+      final c = roomWith(captionsFeature: false, transcript: true);
+      await pumpEventQueue();
+      expect(c.circleId, 'c1');
+      expect(c.isFeatureOn('c1', CircleFeature.captions), isFalse);
+      final cond = condsOf(c);
+      expect(cond.liveCaptions, isFalse);
+      expect(cond.archive, isTrue);
+      expect(cond.willing, isTrue, reason: '实时字幕开关不该否决转写记录');
+      expect(condsOf(c, provide: false).willing, isFalse, reason: '本人「提供字幕」关 → 绝不转写');
+      c.dispose();
+    });
+
+    test('字幕功能关 + 转写开:识别启动,自己的定稿进 sink;不发 cap 帧给请求者', () {
+      fakeAsync((async) {
+        final sent = <Map<String, dynamic>>[];
+        final h = H()
+          ..bind(const CaptionConditions(
+              available: true,
+              inRoom: true,
+              muted: false,
+              provide: true,
+              archive: true,
+              liveCaptions: false));
+        h.captions.onOwnFinal = CaptionWiring.ownFinalHandler(
+          circleId: () => 'c1',
+          archiveOn: (_) => true,
+          sink: RoutingTranscriptSink(
+              plain: SignalingTranscriptSink(sent.add), isEncrypted: (_) => false),
+        );
+        expect(h.active, isNotNull, reason: '转写记录开着就该识别');
+        h.ch.remotes.add('u1');
+        h.ch.receive('u1', {'t': 'capreq', 'on': true});
+        async.flushMicrotasks();
+        h.active!.onFinal('i1', '我自己说的话。');
+        async.flushMicrotasks();
+        expect(sent.single['text'], '我自己说的话。');
+        expect(h.ch.published.where((p) => p.msg['t'] == 'cap'), isEmpty,
+            reason: '实时字幕关:字幕帧不外发');
+        h.captions.dispose();
+      });
+    });
+
+    test('字幕功能关 + 转写开 + 本人不提供 → 不识别、不进记录', () {
+      fakeAsync((async) {
+        final h = H()
+          ..bind(const CaptionConditions(
+              available: true,
+              inRoom: true,
+              muted: false,
+              provide: false,
+              archive: true,
+              liveCaptions: false));
+        expect(h.active, isNull);
+        h.captions.dispose();
+      });
+    });
+
+    test('字幕功能关 + 转写关:有人请求也不识别', () {
+      fakeAsync((async) {
+        final h = H()
+          ..bind(const CaptionConditions(
+              available: true, inRoom: true, muted: false, provide: true, liveCaptions: false));
+        h.ch.remotes.add('u1');
+        h.ch.receive('u1', {'t': 'capreq', 'on': true});
+        unawaited(h.captions.setWantCaptions(true));
+        async.flushMicrotasks();
+        expect(h.active, isNull);
+        h.captions.setWantCaptions(false);
+        async.flushMicrotasks();
+        h.captions.dispose();
+      });
     });
   });
 

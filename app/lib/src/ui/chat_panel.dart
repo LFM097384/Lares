@@ -324,6 +324,22 @@ class ChatPanelState extends State<ChatPanel> {
     _toggleExpanded();
   }
 
+  /// 资料面板的「@Ta」:在输入框末尾补上 `@名字 `,展开面板并把光标放进去。
+  /// 已经写了半句也不覆盖 —— 只追加,中间垫一个空格。
+  void insertMention(String name) {
+    final String n = name.trim();
+    if (n.isEmpty) return;
+    final String cur = _controller.text;
+    final String sep = cur.isEmpty || cur.endsWith(' ') ? '' : ' ';
+    final String next = '$cur$sep@$n ';
+    _controller.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+    if (widget.collapsible && !_expanded) _toggleExpanded();
+    _focus.requestFocus();
+  }
+
   void _toggleExpanded() {
     setState(() {
       _expanded = !_expanded;

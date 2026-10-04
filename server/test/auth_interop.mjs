@@ -184,7 +184,9 @@ async function main() {
   await new Promise((r) => setTimeout(r, 200));
 
   console.log(`\n通过 ${pass} / 失败 ${fail}`);
-  process.exit(fail === 0 ? 0 : 1);
+  // Node 24/Windows: process.exit() 遇到正在关闭的句柄会触发 libuv 断言崩溃;改为设退出码,稍后再退
+  process.exitCode = fail === 0 ? 0 : 1;
+  setTimeout(() => process.exit(), 300).unref();
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

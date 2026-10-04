@@ -246,10 +246,10 @@ void main() {
 
       expect(find.text('屏蔽这个人'), findsOneWidget);
       expect(find.text('举报'), findsOneWidget);
-      // 踢人没有消失,只是从「长按直达」变成菜单里的一行
-      expect(find.text('请出房间'), findsOneWidget);
+      // 踢人没有消失,只是从「长按直达」变成资料面板里的一行
+      expect(find.text('移出圈子'), findsOneWidget);
       // 头部露出稳定 id:屏蔽认的是它,不是随时能改的昵称
-      expect(find.text('u_other'), findsOneWidget);
+      expect(find.text('ID · _other'), findsOneWidget);
       await _disposeRoom(tester, controller);
     });
 
