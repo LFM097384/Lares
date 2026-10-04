@@ -4229,8 +4229,14 @@ abstract class AppLocalizations {
   /// AI 助手设置:额外唤醒词的填写提示
   ///
   /// In zh, this message translates to:
-  /// **'用逗号、顿号或空格隔开'**
+  /// **'可以不填,叫名字它就会应;多个用逗号或顿号隔开'**
   String get aiVoiceFieldWakeWordsHint;
+
+  /// AI 助手设置:额外唤醒词为空时框里的示例占位字
+  ///
+  /// In zh, this message translates to:
+  /// **'比如:小福、福仔'**
+  String get aiVoiceFieldWakeWordsEmpty;
 
   /// AI 助手设置:人设(系统提示)字段
   ///
@@ -4358,10 +4364,10 @@ abstract class AppLocalizations {
   /// **'没存上:{reason}'**
   String aiVoiceSaveFailed(String reason);
 
-  /// 房间座位上 AI 成员名字下方代替「随时聊 / 在忙」的标签
+  /// 房间座位上 AI 成员闲着时名字下方的状态字(前面已有「AI」小牌,别再写 AI 助手)
   ///
   /// In zh, this message translates to:
-  /// **'AI 助手'**
+  /// **'等你叫它'**
   String get aiVoiceSeatStatus;
 
   /// 房间座位上 AI 成员头像角上的小徽标
@@ -4411,6 +4417,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'房间里的语音会发到阿里云百炼 DashScope 识别,回答由 AI 生成,可能出错。'**
   String get roomMoreAiPrivacy;
+
+  /// 房间「更多」里 AI 助手一行的副标题:现在的触发方式
+  ///
+  /// In zh, this message translates to:
+  /// **'{mode} · 点开看怎么叫它'**
+  String roomMoreAiMode(String mode);
 
   /// 选用途「开会」时的可选开关:顺带装上 AI 助手
   ///
@@ -4753,6 +4765,150 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'知道了'**
   String get focusWeeklyDismiss;
+
+  /// AI 助手座位状态字:在听(等人叫它 / 一直听)
+  ///
+  /// In zh, this message translates to:
+  /// **'在听'**
+  String get aiStateListening;
+
+  /// AI 助手座位状态字:听完了正在想回答
+  ///
+  /// In zh, this message translates to:
+  /// **'在想…'**
+  String get aiStateThinking;
+
+  /// AI 助手座位状态字:正在念回答
+  ///
+  /// In zh, this message translates to:
+  /// **'在说话'**
+  String get aiStateSpeaking;
+
+  /// 读屏:AI 助手座位。state 是在听 / 在想… / 在说话 / AI 助手
+  ///
+  /// In zh, this message translates to:
+  /// **'{name},AI 助手,{state}'**
+  String aiOrbSemantics(String name, String state);
+
+  /// 点 AI 座位的说明卡:叫名字模式怎么提问
+  ///
+  /// In zh, this message translates to:
+  /// **'叫它「{name}」就能提问'**
+  String aiHintAskWake(String name);
+
+  /// 说明卡:一直听模式怎么提问
+  ///
+  /// In zh, this message translates to:
+  /// **'直接说就行,它一直在听'**
+  String get aiHintAskAlways;
+
+  /// 说明卡:只回 @它 模式怎么提问
+  ///
+  /// In zh, this message translates to:
+  /// **'在聊天里 @AI 提问'**
+  String get aiHintAskPtt;
+
+  /// 说明卡:除名字外的别的叫法(唤醒词)
+  ///
+  /// In zh, this message translates to:
+  /// **'也可以叫它:{words}'**
+  String aiHintAlsoCall(String words);
+
+  /// 说明卡(ptt 模式):@名字 / @别的叫法 也能触发。names 形如 @小助手、@阿福
+  ///
+  /// In zh, this message translates to:
+  /// **'{names} 也行'**
+  String aiHintAlsoAt(String names);
+
+  /// 说明卡里列举多个叫法时的分隔符
+  ///
+  /// In zh, this message translates to:
+  /// **'、'**
+  String get aiHintListSep;
+
+  /// 说明卡(叫名字 / 一直听):聊天 @AI 同样能提问
+  ///
+  /// In zh, this message translates to:
+  /// **'在聊天里 @AI 也能问'**
+  String get aiHintChatToo;
+
+  /// 说明卡:用一句话说清当前触发方式。mode 是触发方式名,desc 是那一行说明
+  ///
+  /// In zh, this message translates to:
+  /// **'现在是「{mode}」:{desc}'**
+  String aiHintMode(String mode, String desc);
+
+  /// 说明卡的隐私一行(会听语音的模式)
+  ///
+  /// In zh, this message translates to:
+  /// **'它会把语音发到阿里云处理,回答是 AI 生成的,可能出错'**
+  String get aiHintPrivacy;
+
+  /// 说明卡的隐私一行(ptt 模式:只发文字,不发语音)
+  ///
+  /// In zh, this message translates to:
+  /// **'这个模式不听语音,只把 @它 的文字发到阿里云处理'**
+  String get aiHintPrivacyPtt;
+
+  /// 聊天里 AI 的回答以「…」结尾(说到一半被人打断)时,后面跟的淡色小注
+  ///
+  /// In zh, this message translates to:
+  /// **'(被打断)'**
+  String get chatAiInterrupted;
+
+  /// AI 助手设置分组:名字、别的叫法、什么时候回答
+  ///
+  /// In zh, this message translates to:
+  /// **'叫它'**
+  String get aiVoiceSectionCall;
+
+  /// AI 助手设置分组:音色、人设、插话就停
+  ///
+  /// In zh, this message translates to:
+  /// **'它怎么说话'**
+  String get aiVoiceSectionVoice;
+
+  /// AI 助手设置分组:次数 / 字数上限和对话模型(折叠)
+  ///
+  /// In zh, this message translates to:
+  /// **'用量'**
+  String get aiVoiceSectionUsage;
+
+  /// AI 助手设置:名字字段的帮助字
+  ///
+  /// In zh, this message translates to:
+  /// **'大家喊这个名字,它就会应'**
+  String get aiVoiceFieldNameHelper;
+
+  /// AI 助手设置:人设字段的帮助字
+  ///
+  /// In zh, this message translates to:
+  /// **'告诉它用什么口气、说多长'**
+  String get aiVoiceFieldPersonaHelper;
+
+  /// AI 助手设置:音色下拉的帮助字
+  ///
+  /// In zh, this message translates to:
+  /// **'它念回答时用的声音'**
+  String get aiVoiceFieldVoiceHelper;
+
+  /// AI 助手设置:插话就停开关的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'它说着话时有人开口,它就先停下来听'**
+  String get aiVoiceFieldInterruptHelper;
+
+  /// AI 助手设置:用量分组(折叠)的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'限一下次数和字数,免得费用跑太多'**
+  String get aiVoiceUsageHelper;
+
+  /// AI 助手设置:对话模型字段的帮助字
+  ///
+  /// In zh, this message translates to:
+  /// **'不清楚就别改'**
+  String get aiVoiceFieldModelHelper;
 }
 
 class _AppLocalizationsDelegate

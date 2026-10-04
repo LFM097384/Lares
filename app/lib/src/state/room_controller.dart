@@ -7,6 +7,7 @@ import '../net/signaling_client.dart';
 import '../recording/recording_consent.dart';
 import '../p2p/host_election.dart';
 import '../rtc/rtc_service.dart';
+import 'ai_state.dart';
 import 'circle_features.dart';
 import 'identity.dart' show capNickname;
 import 'join_error.dart';
@@ -31,6 +32,7 @@ class RoomController extends ChangeNotifier {
     this.isOnWifi,
   })  : _signaling = signaling,
         _rtc = rtc {
+    aiStates.addListener(notifyListeners);
     _msgSub = _signaling.messages.listen(_onSignalingMessage);
     _speakingSub = _rtc.speakingIdentities.listen((ids) {
       _speakingIds
@@ -577,6 +579,28 @@ class RoomController extends ChangeNotifier {
 
   List<Member> get members => List.unmodifiable(_members);
   Set<String> get speakingIds => Set.unmodifiable(_speakingIds);
+
+  /// AI 语音助手的状态(数据 topic `lares.ai`,规则见 ai_state.dart)。
+  ///
+  /// 帧由 `rtc/livekit_ai_state_wiring.dart` 从 LiveKit 房间喂进来 ——
+  /// 本类保持与厂商无关。它一变本控制器就 notify,座位跟着重画。
+  final AiStateHolder aiStates = AiStateHolder();
+
+  /// 某个 AI 成员此刻该画成什么状态。
+  ///
+  /// [trigger] = 插件配置里的触发方式(`wake` / `always` / `ptt`),只在一帧
+  /// 状态都没收到过时用来推断(ptt → idle,其余 → listening);在说话一律 speaking。
+  AiActivity aiState(String userId, {String? trigger}) => aiStates.resolve(
+        userId,
+        speaking: _speakingIds.contains(userId),
+        trigger: trigger,
+      );
+
+  /// 测试 / 截图替身:把某个 AI 成员钉在 [state](null = 取消,回到按帧推断)。
+  /// 钉住的状态不过期、不随换房清掉。生产代码不要调。
+  @visibleForTesting
+  void debugSetAiState(String userId, AiActivity? state) =>
+      aiStates.force(userId, state);
   bool get isInRoom => phase == RoomPhase.inRoom;
   String get signalingUrl => _signaling.url;
 
@@ -695,6 +719,7 @@ class RoomController extends ChangeNotifier {
     // 直接进 joining:语义也更准 —— 我们确实正在进房。
     phase = RoomPhase.joining;
     errorMessage = null;
+    if (circleId != targetCircleId) aiStates.clear();
     circleId = targetCircleId;
     notifyListeners();
 
@@ -794,6 +819,7 @@ class RoomController extends ChangeNotifier {
     await _rtc.leave();
     _members.clear();
     _speakingIds.clear();
+    aiStates.clear();
     muted = true;
     notifyListeners();
   }
@@ -1241,6 +1267,8 @@ class RoomController extends ChangeNotifier {
         if (msg['circleId'] != circleId) return;
         _members.removeWhere((m) => m.userId == msg['userId']);
         _speakingIds.remove(msg['userId']);
+        final Object? leftId = msg['userId'];
+        if (leftId is String) aiStates.remove(leftId);
         notifyListeners();
       case 'member_status':
         if (msg['circleId'] != circleId) return;
@@ -1744,6 +1772,8 @@ class RoomController extends ChangeNotifier {
     _msgSub?.cancel();
     _speakingSub?.cancel();
     _rtcDropSub?.cancel();
+    aiStates.removeListener(notifyListeners);
+    aiStates.dispose();
     super.dispose();
   }
 }

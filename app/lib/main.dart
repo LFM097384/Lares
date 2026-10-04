@@ -38,6 +38,7 @@ import 'src/platform/tray_service_stub.dart'
 import 'src/platform/window_setup.dart'
     if (dart.library.io) 'src/platform/window_setup_io.dart';
 import 'src/privacy/privacy_gate.dart';
+import 'src/rtc/livekit_ai_state_wiring.dart';
 import 'src/rtc/livekit_rtc_service.dart';
 import 'src/state/circle_store.dart';
 import 'src/state/dev_mode_store.dart';
@@ -527,6 +528,9 @@ Future<void> main() async {
     onTokenSourceReset: captionTokens.clear,
     transcriptSink: transcriptSink,
   );
+  // AI 语音助手的状态帧(lares.ai)→ controller.aiStates。与 App 同生命周期。
+  // ignore: unused_local_variable
+  final aiStateWiring = LiveKitAiStateWiring(controller: controller, rtc: rtc);
   // 转写记录:历史(服务器 / 本机)、E2EE 密文收发、圈主开关与机器人 token。
   final transcripts = TranscriptService(
     send: signaling.send,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../theme/tokens.dart';
+import '../ui/widgets/ai_orb.dart';
 import 'purpose_schema.dart';
 
 /// 「自定义」的选项 id(不是服务端预设:选了它由调用方打开编辑器)。
@@ -58,49 +59,59 @@ class _PurposePickerSheetState extends State<_PurposePickerSheet> {
     final theme = Theme.of(context);
     final extra = !_meeting
         ? null
+        // 收在「开会」底下:左边与「开会」的标题列对齐(选项行内缩 + 图标位 + 间距),
+        // 一眼看出这是「开会」的子选项,不是第五个选项。
         : Padding(
             padding: const EdgeInsets.fromLTRB(
-              LaresSpacing.lg,
+              _subIndent,
               0,
-              LaresSpacing.lg,
+              LaresSpacing.sm + LaresSpacing.md,
               LaresSpacing.sm,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SwitchListTile(
                   key: const ValueKey('purpose-meeting-ai-switch'),
                   contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.smart_toy_outlined),
-                  title: Text(t.purposeMeetingAiSwitch),
+                  // 与房间座位上的 AI 光球同形同色
+                  secondary: AiOrbMini(
+                    size: 28,
+                    dim: widget.aiUnavailable,
+                  ),
+                  title: Text(
+                    t.purposeMeetingAiSwitch,
+                    style: theme.textTheme.bodyLarge,
+                  ),
                   subtitle: Text(
                     widget.aiUnavailable
                         ? t.purposeMeetingAiE2ee
                         : t.purposeMeetingAiDesc,
-                    style: theme.textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                   value: _withAi && !widget.aiUnavailable,
                   onChanged: widget.aiUnavailable
                       ? null
                       : (v) => setState(() => _withAi = v),
                 ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    key: const ValueKey('purpose-meeting-confirm'),
-                    onPressed: () => Navigator.pop(
-                      context,
-                      _withAi && !widget.aiUnavailable
-                          ? kPurposeMeetingAiChoice
-                          : 'meeting',
-                    ),
-                    child: Text(t.purposeMeetingAiConfirm),
+                const SizedBox(height: LaresSpacing.xs),
+                // 与开关同一条左边线
+                FilledButton(
+                  key: const ValueKey('purpose-meeting-confirm'),
+                  onPressed: () => Navigator.pop(
+                    context,
+                    _withAi && !widget.aiUnavailable
+                        ? kPurposeMeetingAiChoice
+                        : 'meeting',
                   ),
+                  child: Text(t.purposeMeetingAiConfirm),
                 ),
               ],
             ),
-          );
-    return SafeArea(
+          );    return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: LaresSpacing.md),
         child: Column(
@@ -248,3 +259,7 @@ class PurposeChips extends StatelessWidget {
     );
   }
 }
+
+/// 「开会」子选项的左缩进 = 选项行外边距 + 内边距 + 图标位 + ListTile 标题间距,
+/// 与选项标题对齐。
+const double _subIndent = LaresSpacing.sm + LaresSpacing.md + 32 + 16;

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../captions/caption_controller.dart';
+import '../state/ai_member.dart';
 import '../theme/tokens.dart';
+import 'widgets/ai_orb.dart';
 
 /// 顶栏的「字幕」开关。服务器没配字幕时整个不出现。
 class CaptionToggleButton extends StatelessWidget {
@@ -311,15 +313,36 @@ class _CaptionPanelState extends State<CaptionPanel> {
   /// 一行字幕:「名字: 文字」。名字余烬色加粗,partial 同色降透明度。
   /// 面板与字幕带共用,保证 key 与 TextSpan 结构只有一份定义。
   Widget _line(AppLocalizations t, CaptionLine l, TextStyle? baseStyle,
-          Color dim) =>
-      Text.rich(
+          Color dim) {
+    // AI 的标签色:深色底上用光球的杏色,浅色底上用梅紫(杏色在浅底上看不清)
+    final Color aiColor = Theme.of(context).brightness == Brightness.dark
+        ? LaresColors.aiGlow
+        : LaresColors.aiPlum;
+    return Text.rich(
     TextSpan(
       children: [
+        // AI 助手说的话:名字前一颗小星芒(与座位光球同一个图形),一眼分清人和 AI
+        if (isAiMemberId(l.identity))
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 2),
+              child: Icon(
+                kAiGlyph,
+                key: ValueKey('cap-ai-${l.itemId}'),
+                size: (baseStyle?.fontSize ?? 14) * 0.8,
+                color: aiColor,
+              ),
+            ),
+          ),
         TextSpan(
           text: '${_speaker(t, l)}: ',
           style: baseStyle?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: LaresColors.ember,
+            // 人名余烬色加粗;AI 的名字换成光球的梅紫 / 杏色、字重轻一档,不和人抢
+            fontWeight: isAiMemberId(l.identity)
+                ? FontWeight.w500
+                : FontWeight.w600,
+            color: isAiMemberId(l.identity) ? aiColor : LaresColors.ember,
           ),
         ),
         TextSpan(
@@ -330,6 +353,7 @@ class _CaptionPanelState extends State<CaptionPanel> {
     ),
     key: ValueKey('cap-${l.identity}-${l.itemId}'),
   );
+  }
 
   /// 说话人:自己 →「我」;机器人 → 名字 +「机器人」。
   static String _speaker(AppLocalizations t, CaptionLine l) => l.isSelf
@@ -419,21 +443,56 @@ class _CaptionPanelState extends State<CaptionPanel> {
                     ),
                 ],
               ),
-              const SizedBox(height: LaresSpacing.xs),
+              const SizedBox(height: LaresSpacing.sm),
               Flexible(
                 child: lines.isEmpty
                     ? Text(
                         t.captionsPanelEmpty,
                         style: theme.textTheme.bodyMedium,
                       )
-                    : ListView.builder(
-                        controller: _scroll,
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: lines.length,
-                        itemBuilder: (context, i) => Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: _line(t, lines[i], baseStyle, dim),
+                    // 滚到底时最上面那行只露一半:顶上淡出,不让半截字贴着状态行
+                    // 像是压在上一行上(只有真的往上还有内容时才淡)
+                    : ListenableBuilder(
+                        listenable: _scroll,
+                        builder: (context, child) {
+                          final bool clipped =
+                              _scroll.hasClients && _scroll.offset > 0.5;
+                          // 始终包一层(只换渐变),免得树形变化把列表重建、滚动位置丢掉
+                          return ShaderMask(
+                            key: const ValueKey('caption-band-fade'),
+                            blendMode: BlendMode.dstIn,
+                            shaderCallback: (Rect r) => LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: <Color>[
+                                clipped
+                                    ? const Color(0x00000000)
+                                    : const Color(0xFF000000),
+                                clipped
+                                    ? const Color(0x00000000)
+                                    : const Color(0xFF000000),
+                                const Color(0xFF000000),
+                              ],
+                              // 最上面一小段全透明(藏住被切的半行),再很快淡入
+                              stops: <double>[
+                                0,
+                                (_bandFadeHeight * 0.4 / r.height)
+                                    .clamp(0.0, 1.0),
+                                (_bandFadeHeight / r.height).clamp(0.0, 1.0),
+                              ],
+                            ).createShader(r),
+                            child: child,
+                          );
+                        },
+                        child: ListView.builder(
+                          controller: _scroll,
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          itemCount: lines.length,
+                          itemBuilder: (context, i) => Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: _line(t, lines[i], baseStyle, dim),
+                          ),
                         ),
                       ),
               ),
@@ -450,6 +509,9 @@ const double _bandFontSize = 18;
 
 /// 字幕带最高高度:状态行 + 约三行字幕。再多就在带内滚动,不挤语音区。
 const double _bandMaxHeight = 128;
+
+/// 字幕带列表顶部淡出的高度(约半行字)。
+const double _bandFadeHeight = 22;
 
 /// 字幕带底色的余烬浓度、左侧强调线宽度、CC 小图标尺寸。
 const double _bandTintAlpha = 0.08;

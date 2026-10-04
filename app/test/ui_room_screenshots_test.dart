@@ -6,6 +6,9 @@
 // 跑法(app/ 目录下,PowerShell):
 //   $env:LARES_SHOTS='1'; $env:LARES_SHOTS_TAG='before'; flutter test test/ui_room_screenshots_test.dart
 //
+// 只跑某一组(用例名是「room shot <state>」,--plain-name 按子串匹配):
+//   ... flutter test test/ui_room_screenshots_test.dart --plain-name 'room shot ai_'
+//
 // 输出:spike_out/room_shots/<tag>_<state>.png 与 <tag>_exceptions.txt
 //
 // 注意(沿用 tool/palette/render_test.dart 的经验):
@@ -25,7 +28,11 @@ import 'package:lares_app/src/captions/caption_controller.dart';
 import 'package:lares_app/src/chat/chat_message.dart';
 import 'package:lares_app/src/focus/focus_lock.dart';
 import 'package:lares_app/src/net/signaling_client.dart';
+import 'package:lares_app/src/plugins/ai_voice_settings.dart';
+import 'package:lares_app/src/plugins/plugin_models.dart';
 import 'package:lares_app/src/plugins/plugin_service.dart';
+import 'package:lares_app/src/state/ai_member.dart';
+import 'package:lares_app/src/state/ai_state.dart';
 import 'package:lares_app/src/privacy/privacy_sheet.dart';
 import 'package:lares_app/src/purpose/purpose_editor.dart';
 import 'package:lares_app/src/purpose/purpose_picker.dart';
@@ -223,12 +230,52 @@ class _FakeRtcService implements RtcService {
 
 // ─────────────────────────── 场景数据 ───────────────────────────
 
+/// AI 语音助手成员(userId 以 `u_ai_` 开头,见 lib/src/state/ai_member.dart)。
+const String _aiId = 'u_ai_1a2b3c4d';
+
 const Map<String, String> _names = <String, String>{
   'u_me': '我',
   'u1': '阿蛮',
   'u2': '小鹿',
   'u3': '大橘',
+  _aiId: '小助手',
 };
+
+/// 本圈装好的内置 AI 语音助手(默认配置)。
+final Map<String, dynamic> _aiPluginJson = <String, dynamic>{
+  'id': kAiVoicePluginId,
+  'name': 'AI 语音助手',
+  'builtin': true,
+  'enabled': true,
+  'config': Map<String, dynamic>.of(kAiVoiceDefaults),
+};
+
+/// 「问 → 答 → 被打断的答」:AI 的回复就是 AI 成员发的普通聊天消息。
+List<ChatMessage> _aiChatMessages() {
+  ChatMessage text(
+    String id,
+    String sender,
+    String body,
+    int min, {
+    bool mine = false,
+  }) => ChatMessage.text(
+    id: id,
+    senderId: sender,
+    senderName: _names[sender]!,
+    circleId: 'home',
+    timestamp: DateTime(2026, 1, 1, 21, min),
+    body: body,
+    isMine: mine,
+  );
+  return <ChatMessage>[
+    text('a1', 'u1', '小助手,明天几点集合?', 1),
+    text('a2', _aiId, '明天早上八点在东门集合,记得带水。', 1),
+    text('a3', 'u_me', '小助手,长城是什么时候修的?', 2, mine: true),
+    // 被人插话打断:回复截在半句,以「…」收尾
+    text('a4', _aiId, '长城最早是春秋战…', 2),
+    text('a5', 'u1', '先别讲历史了哈哈', 3),
+  ];
+}
 
 List<ChatMessage> _chatMessages() {
   ChatMessage text(
@@ -285,7 +332,32 @@ class _Scene {
     this.extras = false,
     this.overlay,
     this.social,
+    this.ai = false,
+    this.aiState,
+    this.aiChat = false,
+    this.aiCaptions = false,
+    this.pickerChoice,
+    this.height,
   });
+
+  /// 房里加一个 AI 语音助手成员([_aiId] / 小助手),并给本圈装上 `lares.ai-voice`。
+  final bool ai;
+
+  /// AI 此刻的状态:'idle' / 'listening' / 'thinking' / 'speaking'。
+  /// 由 `_applyAiState` 经 `RoomController.debugSetAiState` 钉住。
+  final String? aiState;
+
+  /// 聊天面板换成 [_aiChatMessages](AI 回复 + 被打断的回复)。
+  final bool aiChat;
+
+  /// 字幕里加一行 AI 说的话。
+  final bool aiCaptions;
+
+  /// 用途面板打开后再点一下的选项(如 'meeting' → 展开「加上 AI 助手」)。
+  final String? pickerChoice;
+
+  /// 页面类场景(设置表单)要拉长截全时的高度;null = 用 [size]。
+  final double? height;
 
   /// 专注社交(§9/§10):'round' / 'round_all' / 'weekly' / 'summon_wait';null = 只有 🔥。
   final String? social;
@@ -435,9 +507,71 @@ final List<_Scene> _scenes = <_Scene>[
     circle: _circle(_chatFeatures, _chatPurpose),
     overlay: 'privacy',
   ),
+  // ── AI 语音助手(docs/ai-voice-bot.md)──
+  _Scene(name: 'ai_idle', people: 2, ai: true, aiState: 'idle'),
+  _Scene(name: 'ai_listening', people: 2, ai: true, aiState: 'listening'),
+  _Scene(name: 'ai_thinking', people: 2, ai: true, aiState: 'thinking'),
+  _Scene(
+    name: 'ai_speaking',
+    people: 2,
+    ai: true,
+    aiState: 'speaking',
+    speaking: <String>{_aiId},
+  ),
+  _Scene(
+    name: 'ai_chat',
+    people: 2,
+    ai: true,
+    aiState: 'idle',
+    chatMessages: true,
+    aiChat: true,
+  ),
+  _Scene(
+    name: 'ai_captions',
+    people: 2,
+    ai: true,
+    aiState: 'speaking',
+    speaking: <String>{_aiId},
+    captions: true,
+    aiCaptions: true,
+  ),
+  _Scene(
+    name: 'ai_more_sheet',
+    people: 2,
+    ai: true,
+    extras: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'more',
+  ),
+  _Scene(
+    name: 'ai_info_sheet',
+    people: 2,
+    ai: true,
+    extras: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'ai_info',
+  ),
+  _Scene(name: 'ai_settings', kind: _Kind.aiSettings, height: 1000),
+  _Scene(
+    name: 'ai_settings_advanced',
+    kind: _Kind.aiSettingsAdvanced,
+    height: 1560,
+  ),
+  _Scene(name: 'ai_purpose_picker', kind: _Kind.picker, pickerChoice: 'meeting'),
+  _Scene(
+    name: 'ai_light_360',
+    people: 2,
+    ai: true,
+    aiState: 'speaking',
+    speaking: <String>{_aiId},
+    light: true,
+    size: const Size(360, 640),
+    padTop: 24,
+    padBottom: 0,
+  ),
 ];
 
-enum _Kind { room, picker, editor, editorError }
+enum _Kind { room, picker, editor, editorError, aiSettings, aiSettingsAdvanced }
 
 /// 新注册圈默认(features-purpose-contract §1)叠上「闲聊」(§3.2)
 const Map<String, bool> _chatFeatures = <String, bool>{
@@ -690,7 +824,22 @@ Future<void> _runPurposeScene(WidgetTester tester, _Scene s) async {
   final ThemeData theme = _withFont(
     s.light ? LaresTheme.light() : LaresTheme.dark(),
   );
+  PluginService? aiService;
+  StreamController<Map<String, dynamic>>? aiMsgs;
+  if (s.kind == _Kind.aiSettings || s.kind == _Kind.aiSettingsAdvanced) {
+    aiMsgs = StreamController<Map<String, dynamic>>.broadcast(sync: true);
+    aiService = PluginService(
+      send: (_) {},
+      messages: aiMsgs.stream,
+      ownerKeyFor: (_) => 'ok_home',
+    );
+  }
   final Widget home = switch (s.kind) {
+    _Kind.aiSettings || _Kind.aiSettingsAdvanced => AiVoiceSettingsPage(
+      service: aiService!,
+      circleId: 'home',
+      plugin: PluginView.fromJson(_aiPluginJson)!,
+    ),
     _Kind.editor => const PurposeEditorPage(initial: _studyHall),
     _Kind.editorError => PurposeEditorPage(
       initial: <String, dynamic>{..._studyHall, 'id': 'Study Hall'},
@@ -721,6 +870,22 @@ Future<void> _runPurposeScene(WidgetTester tester, _Scene s) async {
     await tester.tap(find.byKey(const ValueKey<String>('shots-open-picker')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    if (s.pickerChoice != null) {
+      await tester.tap(
+        find.byKey(ValueKey<String>('purpose-option-${s.pickerChoice}')),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+  }
+  if (s.kind == _Kind.aiSettingsAdvanced) {
+    await tester.tap(
+      find.byKey(const ValueKey<String>('ai-voice-advanced')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
   }
   // 编辑器的即时校验有 300ms 防抖
   for (int i = 0; i < 3; i++) {
@@ -731,17 +896,41 @@ Future<void> _runPurposeScene(WidgetTester tester, _Scene s) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump(const Duration(seconds: 1));
   _drainExceptions(tester, s.name, 'unmount');
+  aiService?.dispose();
+  await aiMsgs?.close();
+}
+
+/// 把 [_Scene.aiState] 钉到 AI 成员上(`RoomController.debugSetAiState`),
+/// 覆盖音量/插件推导出来的状态,截图才稳定。
+Future<void> _applyAiState(
+  WidgetTester tester,
+  RoomController controller,
+  _Scene s,
+) async {
+  if (!s.ai || s.aiState == null) return;
+  controller.debugSetAiState(_aiId, AiActivity.values.byName(s.aiState!));
+  await tester.pump();
 }
 
 Future<void> _runScene(WidgetTester tester, _Scene s) async {
   // 视口:改 tester.view,让真实 MediaQuery 看到尺寸/安全区/键盘
-  tester.view.physicalSize = Size(s.size.width * s.dpr, s.size.height * s.dpr);
+  tester.view.physicalSize = Size(
+    s.size.width * s.dpr,
+    (s.height ?? s.size.height) * s.dpr,
+  );
   tester.view.devicePixelRatio = s.dpr;
   tester.view.padding = FakeViewPadding(
     top: s.padTop * s.dpr,
     bottom: s.padBottom * s.dpr,
   );
   tester.view.viewInsets = FakeViewPadding.zero;
+  // AI 场景:开「降低动效」,AI 光球停在静态帧(MaterialApp 的 MediaQuery
+  // 从 platformDispatcher 读 accessibilityFeatures)。
+  if (s.name.startsWith('ai_')) {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+  }
   if (s.kind != _Kind.room) return _runPurposeScene(tester, s);
 
   final _FakeSignalingClient signaling = _FakeSignalingClient();
@@ -761,12 +950,13 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     'u1',
     'u2',
     'u3',
-  ].take(s.people).toList();
+  ].take(s.people).toList()..addAll(<String>[if (s.ai) _aiId]);
   const Map<String, String> statuses = <String, String>{
     'u_me': 'free',
     'u1': 'free',
     'u2': 'busy',
     'u3': 'ears',
+    _aiId: 'free',
   };
   signaling.testInject(<String, dynamic>{
     't': 'room',
@@ -794,7 +984,7 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   LocationShareService? location;
   StreamController<Map<String, dynamic>>? transcriptMsgs;
   TranscriptService? transcripts;
-  if (s.extras) {
+  if (s.extras || s.ai) {
     pluginMsgs = StreamController<Map<String, dynamic>>.broadcast(sync: true);
     plugins = PluginService(
       send: (_) {},
@@ -805,14 +995,18 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
       't': 'plugins',
       'circleId': 'home',
       'items': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'acme.board',
-          'name': '白板',
-          'enabled': true,
-          'entry': <String, dynamic>{'url': 'https://example.com/board'},
-        },
+        if (s.extras)
+          <String, dynamic>{
+            'id': 'acme.board',
+            'name': '白板',
+            'enabled': true,
+            'entry': <String, dynamic>{'url': 'https://example.com/board'},
+          },
+        if (s.ai) _aiPluginJson,
       ],
     });
+  }
+  if (s.extras) {
     location = LocationShareService(room: controller);
     transcriptMsgs = StreamController<Map<String, dynamic>>.broadcast(
       sync: true,
@@ -830,7 +1024,7 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   }
 
   final ShotsChatService chat = ShotsChatService();
-  if (s.chatMessages) chat.seed(_chatMessages());
+  if (s.chatMessages) chat.seed(s.aiChat ? _aiChatMessages() : _chatMessages());
 
   final FakeChannel ch = FakeChannel(localIdentity: 'u_me');
   final FakeTap tap = FakeTap();
@@ -976,8 +1170,28 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     // 有人向本机请求字幕 → 「正在为 小鹿 生成字幕」横幅
     ch.remotes.add('u2');
     ch.receive('u2', <String, dynamic>{'t': 'capreq', 'on': true});
+    if (s.aiCaptions) {
+      // AI 成员也走 lares.cap:它自己发字幕
+      ch.join(_aiId, mic: true);
+      ch.receive(_aiId, <String, dynamic>{'t': 'capack', 'on': true});
+      ch.receive(_aiId, <String, dynamic>{
+        't': 'cap',
+        'id': 'ai1',
+        'seq': 1,
+        'text': '番茄牛腩可以冷藏三天,明天热一下就能带。',
+        'final': true,
+      });
+      ch.receive(_aiId, <String, dynamic>{
+        't': 'cap',
+        'id': 'ai2',
+        'seq': 2,
+        'text': '记得用密封盒装',
+        'final': false,
+      });
+    }
     await tester.pump();
   }
+  await _applyAiState(tester, controller, s);
   _drainExceptions(tester, s.name, 'setup');
 
   if (s.chatMessages || s.keyboard) {
@@ -1039,7 +1253,7 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   }
   _drainExceptions(tester, s.name, 'settle');
 
-  if (s.overlay == 'more') {
+  if (s.overlay == 'more' || s.overlay == 'ai_info') {
     await tester.tap(
       find.byKey(const ValueKey<String>('room-more')).first,
       warnIfMissed: false,
@@ -1047,6 +1261,19 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     _drainExceptions(tester, s.name, 'more');
+    if (s.overlay == 'ai_info') {
+      // 从「更多」里的 AI 格进去:先关面板再开说明面板
+      final Finder tile = find.byKey(const ValueKey<String>('room-ai'));
+      if (tile.evaluate().isEmpty) {
+        _exceptions.add('[${s.name}] AI tile not found in more sheet');
+      } else {
+        await tester.tap(tile.first, warnIfMissed: false);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      _drainExceptions(tester, s.name, 'ai_info');
+    }
   } else if (s.overlay == 'privacy') {
     final BuildContext ctx = tester.element(find.byType(RoomScreen));
     unawaited(

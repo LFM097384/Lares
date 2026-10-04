@@ -65,3 +65,24 @@ display name = `config.name`. It never uses a `bot:` userId (reserved by the ser
 - Stop (SIGTERM, SIGKILL after 5 s) when: room has no human (after 20 s grace), plugin disabled/uninstalled, circle deleted, server shutdown.
 - Respawn on crash with backoff (5 s → 60 s), max 5 per hour; exit code 4 → no respawn until next local day.
 - The bot's own member must not count as "human" (identify by userId prefix `u_ai_`).
+
+## 5. Room data topics (bot → clients)
+
+Besides `lares.chat` (replies as normal text messages) and `lares.cap` (captions, `{t:'cap', id, seq, text, final}`),
+the bot publishes its state on **`lares.ai`** (reliable, JSON UTF-8). No text/content is ever carried on this topic.
+
+```
+{"t":"state","state":"idle"|"listening"|"thinking"|"speaking","seq":<int>}
+```
+
+| state | meaning |
+|---|---|
+| `listening` | in the room, trigger `wake`/`always`, and ASR not paused by the hourly/daily cap |
+| `idle` | not listening to voice (trigger `ptt`, or cap pause) and no turn in progress |
+| `thinking` | a turn was accepted (wake word / `@AI` chat / `always`) and the LLM was requested; no audio played yet |
+| `speaking` | reply audio is playing (from the first frame); when the turn ends or is interrupted → `listening`/`idle` |
+
+- `seq` increases monotonically per bot process (it restarts from 1 when the process respawns).
+- Published only on change, plus once after joining and again whenever a participant connects (late joiners get the current state).
+- Config reload changing `trigger` flips `listening` ↔ `idle` immediately.
+- Clients should treat a `thinking`/`speaking` state older than ~30 s as stale (bot crashed or left mid-turn) and fall back to `idle`.

@@ -2,16 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/gen/app_localizations.dart';
 import '../../state/ai_member.dart';
+import '../../state/ai_state.dart';
 import '../../state/models.dart';
 import '../../theme/tokens.dart';
+import 'ai_orb.dart';
 import 'speaking_ripple.dart';
 
 /// 说话光晕的不透明度与模糊半径(相对头像直径)。
 const double _speakingGlowAlpha = 0.45;
 const double _speakingGlowBlur = 0.28;
 
+/// AI 状态的一句人话(座位状态字 / 读屏)。
+String aiActivityLabel(AppLocalizations t, AiActivity a) => switch (a) {
+      AiActivity.idle => t.aiVoiceSeatStatus,
+      AiActivity.listening => t.aiStateListening,
+      AiActivity.thinking => t.aiStateThinking,
+      AiActivity.speaking => t.aiStateSpeaking,
+    };
+
 /// 成员头像球:状态色环 + 说话波纹 + 静音标记。
 /// 这是房间内 UI 的最小单元,视觉语言是「人」,不是「会」。
+///
+/// AI 语音助手(userId 以 `u_ai_` 开头)换成 [AiOrb]:一团渐变的光,按 [aiActivity]
+/// 呼吸 / 转弧 / 起波纹;状态字是「在听 / 在想… / 在说话 / AI 助手」。
 class AvatarOrb extends StatelessWidget {
   const AvatarOrb({
     super.key,
@@ -21,6 +34,7 @@ class AvatarOrb extends StatelessWidget {
     this.size = 88,
     this.compact = false,
     this.showName = true,
+    this.aiActivity,
   });
 
   final Member member;
@@ -37,15 +51,17 @@ class AvatarOrb extends StatelessWidget {
   /// 键盘弹起、竖向空间极紧时连名字也收起,只留头像球。
   final bool showName;
 
+  /// 仅对 AI 成员有意义:它此刻在干什么。null = 按 [speaking] 推断
+  /// (在说话 → speaking,否则 listening)。房间页传 `controller.aiState(id)`。
+  final AiActivity? aiActivity;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // AI 语音助手:没有「随时聊 / 在忙」这类人的状态,换成「AI 助手」。
     final bool ai = isAiMemberId(member.userId);
-    final t = ai ? AppLocalizations.of(context) : null;
-    final String statusLabel = ai ? t!.aiVoiceSeatStatus : member.status.label;
-    final Color statusColor =
-        ai ? theme.colorScheme.tertiary : member.status.color;
+    if (ai) return _buildAi(context, theme);
+    final String statusLabel = member.status.label;
+    final Color statusColor = member.status.color;
     return Semantics(
       label: '${member.name} · $statusLabel${speaking ? ' · 正在说话' : ''}',
       excludeSemantics: true,
@@ -93,30 +109,6 @@ class AvatarOrb extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (ai)
-                    Positioned(
-                      left: compact ? 0 : 4,
-                      top: compact ? 0 : 4,
-                      child: Container(
-                        key: const ValueKey('seat-ai-badge'),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compact ? 4 : 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.tertiary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          t!.aiVoiceSeatBadge,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onTertiary,
-                            fontSize: compact ? 9 : 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
                   if (muted)
                     Positioned(
                       right: compact ? 2 : 6,
@@ -137,32 +129,123 @@ class AvatarOrb extends StatelessWidget {
                 ],
               ),
             ),
-            if (showName) ...[
-              SizedBox(height: compact ? LaresSpacing.xs : LaresSpacing.sm),
-              Text(
-                member.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: compact
-                    ? theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 13,
-                        color: speaking ? theme.colorScheme.onSurface : null,
-                      )
-                    : theme.textTheme.bodyLarge,
-              ),
-            ],
-            if (!compact)
-              Text(
-                statusLabel,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: statusColor,
-                  fontSize: 12,
-                ),
-              ),
+            ..._nameAndStatus(theme, statusLabel, statusColor),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildAi(BuildContext context, ThemeData theme) {
+    final t = AppLocalizations.of(context);
+    final AiActivity activity = aiActivity ??
+        (speaking ? AiActivity.speaking : AiActivity.listening);
+    final String statusLabel = aiActivityLabel(t, activity);
+    final bool dark = theme.brightness == Brightness.dark;
+    // 状态字:说话时余烬色(与真人说话同色);在听 / 在想用光球的杏色 / 梅紫;闲着淡灰
+    final Color statusColor = switch (activity) {
+      AiActivity.idle => theme.colorScheme.onSurfaceVariant,
+      AiActivity.speaking => LaresColors.ember,
+      _ => dark ? LaresColors.aiGlow : LaresColors.aiPlum,
+    };
+    // 「AI」小牌:不再压在光球的环上,挪到状态字(紧凑时是名字)前面;
+    // 用反色底(深色主题浅底深字、浅色主题深底浅字),两套主题都清楚。
+    final Widget badge = Container(
+      key: const ValueKey('seat-ai-badge'),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 5),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.inverseSurface,
+        borderRadius: BorderRadius.circular(LaresRadii.sm),
+      ),
+      child: Text(
+        t.aiVoiceSeatBadge,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onInverseSurface,
+          fontSize: compact ? 9 : 10,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+        ),
+      ),
+    );
+    return Semantics(
+      label: t.aiOrbSemantics(member.name, statusLabel),
+      excludeSemantics: true,
+      child: SizedBox(
+        width: size + 24,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: size + 16,
+              height: size + 16,
+              child: Center(child: AiOrb(activity: activity, size: size)),
+            ),
+            ..._nameAndStatus(
+              theme,
+              statusLabel,
+              statusColor,
+              statusKey: ValueKey('ai-orb-status-${activity.name}'),
+              speakingName: activity == AiActivity.speaking,
+              badge: badge,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  List<Widget> _nameAndStatus(
+    ThemeData theme,
+    String statusLabel,
+    Color statusColor, {
+    Key? statusKey,
+    bool? speakingName,
+    Widget? badge,
+  }) {
+    final bool lit = speakingName ?? speaking;
+    // 带小牌的一行:小牌 + 文字居中,文字太长时只截文字
+    Widget withBadge(Widget text) => badge == null
+        ? text
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              badge,
+              const SizedBox(width: LaresSpacing.xs),
+              Flexible(child: text),
+            ],
+          );
+    final Widget name = Text(
+      member.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: compact
+          ? theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 13,
+              color: lit ? theme.colorScheme.onSurface : null,
+            )
+          : theme.textTheme.bodyLarge,
+    );
+    final Widget status = Text(
+      statusLabel,
+      key: statusKey,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: statusColor,
+        fontSize: 12,
+      ),
+    );
+    // 小牌跟着状态字走;紧凑(没有状态字)时跟名字;连名字都不显示时单独一行
+    return [
+      if (showName) ...[
+        SizedBox(height: compact ? LaresSpacing.xs : LaresSpacing.sm),
+        compact ? withBadge(name) : name,
+      ],
+      if (!compact) withBadge(status),
+      if (compact && !showName && badge != null) ...[
+        const SizedBox(height: LaresSpacing.xs),
+        badge,
+      ],
+    ];
   }
 
   static String _initial(String name) =>

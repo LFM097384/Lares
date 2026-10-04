@@ -2580,7 +2580,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiVoiceFieldWakeWords => 'Other names';
 
   @override
-  String get aiVoiceFieldWakeWordsHint => 'Separate with commas or spaces';
+  String get aiVoiceFieldWakeWordsHint =>
+      'Optional — its name always works. Separate several with commas';
+
+  @override
+  String get aiVoiceFieldWakeWordsEmpty => 'e.g. Buddy, Pal';
 
   @override
   String get aiVoiceFieldPersona => 'Persona';
@@ -2657,7 +2661,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiVoiceSeatStatus => 'AI assistant';
+  String get aiVoiceSeatStatus => 'Standing by';
 
   @override
   String get aiVoiceSeatBadge => 'AI';
@@ -2690,6 +2694,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get roomMoreAiPrivacy =>
       'Voice in the room is sent to Alibaba Cloud Model Studio (DashScope) for recognition. Replies are AI-generated and can be wrong.';
+
+  @override
+  String roomMoreAiMode(String mode) {
+    return '$mode · tap to see how to call it';
+  }
 
   @override
   String get purposeMeetingAiSwitch => 'Add the AI assistant';
@@ -2915,4 +2924,91 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get focusWeeklyDismiss => 'Got it';
+
+  @override
+  String get aiStateListening => 'Listening';
+
+  @override
+  String get aiStateThinking => 'Thinking…';
+
+  @override
+  String get aiStateSpeaking => 'Speaking';
+
+  @override
+  String aiOrbSemantics(String name, String state) {
+    return '$name, AI assistant, $state';
+  }
+
+  @override
+  String aiHintAskWake(String name) {
+    return 'Say “$name” to ask a question';
+  }
+
+  @override
+  String get aiHintAskAlways => 'Just talk — it\'s always listening';
+
+  @override
+  String get aiHintAskPtt => 'Type @AI in chat to ask';
+
+  @override
+  String aiHintAlsoCall(String words) {
+    return 'Also answers to: $words';
+  }
+
+  @override
+  String aiHintAlsoAt(String names) {
+    return '$names works too';
+  }
+
+  @override
+  String get aiHintListSep => ', ';
+
+  @override
+  String get aiHintChatToo => 'You can also type @AI in chat';
+
+  @override
+  String aiHintMode(String mode, String desc) {
+    return 'Mode: $mode — $desc';
+  }
+
+  @override
+  String get aiHintPrivacy =>
+      'Your voice is sent to Alibaba Cloud for processing; answers are AI-generated and may be wrong';
+
+  @override
+  String get aiHintPrivacyPtt =>
+      'In this mode it doesn\'t listen — only the @ text is sent to Alibaba Cloud';
+
+  @override
+  String get chatAiInterrupted => '(interrupted)';
+
+  @override
+  String get aiVoiceSectionCall => 'Calling it';
+
+  @override
+  String get aiVoiceSectionVoice => 'How it talks';
+
+  @override
+  String get aiVoiceSectionUsage => 'Usage';
+
+  @override
+  String get aiVoiceFieldNameHelper => 'Say this name and it answers';
+
+  @override
+  String get aiVoiceFieldPersonaHelper =>
+      'Tell it what tone to use and how long to talk';
+
+  @override
+  String get aiVoiceFieldVoiceHelper => 'The voice it reads answers in';
+
+  @override
+  String get aiVoiceFieldInterruptHelper =>
+      'If someone starts talking, it stops and listens';
+
+  @override
+  String get aiVoiceUsageHelper =>
+      'Cap turns and length so costs don\'t run away';
+
+  @override
+  String get aiVoiceFieldModelHelper => 'Leave it unless you know';
 }

@@ -12,7 +12,8 @@ import '../../l10n/gen/app_localizations.dart';
 import '../captions/caption_controller.dart';
 import '../chat/chat_service.dart';
 import '../focus/focus_service.dart';
-import '../plugins/ai_voice_settings.dart' show showAiVoiceInfoSheet;
+import '../plugins/ai_voice_settings.dart'
+    show aiVoiceName, aiVoiceTrigger, showAiVoiceInfoSheet;
 import '../plugins/plugin_models.dart';
 import '../plugins/plugin_panel.dart';
 import '../plugins/plugin_service.dart';
@@ -24,6 +25,7 @@ import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
 import '../transcript/transcript_scope.dart';
 import '../transcript/transcript_service.dart';
+import 'widgets/ai_orb.dart' show AiOrbMini;
 
 /// 「更多」面板的输入:房间页每次 build 新建一份(便宜,只是一组引用)。
 class RoomMoreModel {
@@ -179,41 +181,41 @@ class _RoomMoreSheet extends StatelessWidget {
               children: [
                 Text(t.roomMore, style: theme.textTheme.titleMedium),
                 const SizedBox(height: LaresSpacing.md),
-                LayoutBuilder(
-                  builder: (context, box) {
-                    // 一排四格;窄到放不下就三格
-                    final int cols = box.maxWidth < 300 ? 3 : 4;
-                    final double w =
-                        (box.maxWidth - LaresSpacing.sm * (cols - 1)) / cols;
-                    return Wrap(
-                      spacing: LaresSpacing.sm,
-                      runSpacing: LaresSpacing.md,
-                      children: [
-                        for (final f in items)
-                          SizedBox(
-                            key: ValueKey('more-${f.key}'),
-                            width: w,
-                            child: _tile(context, f),
-                          ),
-                        if (ai != null)
-                          SizedBox(
-                            key: const ValueKey('more-ai'),
-                            width: w,
-                            child: _MoreTile(
-                              innerKey: const ValueKey('room-ai'),
-                              icon: Icons.smart_toy_outlined,
-                              label: t.roomMoreAi,
-                              onTap: () {
-                                Navigator.of(context).pop();
-                                if (!host.mounted) return;
-                                showAiVoiceInfoSheet(host, ai.config);
-                              },
+                // AI 助手单独一整行放在格子上面:它是「房里的一个成员」,不是一项开关;
+                // 也免得它在格子末尾孤零零占一排。副标题说清它现在怎么被叫。
+                if (ai != null) ...[
+                  _AiRow(
+                    key: const ValueKey('more-ai'),
+                    config: ai.config,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      if (!host.mounted) return;
+                      showAiVoiceInfoSheet(host, ai.config);
+                    },
+                  ),
+                  if (items.isNotEmpty) const SizedBox(height: LaresSpacing.md),
+                ],
+                if (items.isNotEmpty)
+                  LayoutBuilder(
+                    builder: (context, box) {
+                      // 一排四格;窄到放不下就三格
+                      final int cols = box.maxWidth < 300 ? 3 : 4;
+                      final double w =
+                          (box.maxWidth - LaresSpacing.sm * (cols - 1)) / cols;
+                      return Wrap(
+                        spacing: LaresSpacing.sm,
+                        runSpacing: LaresSpacing.md,
+                        children: [
+                          for (final f in items)
+                            SizedBox(
+                              key: ValueKey('more-${f.key}'),
+                              width: w,
+                              child: _tile(context, f),
                             ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                        ],
+                      );
+                    },
+                  ),
               ],
             ),
           );
@@ -221,7 +223,6 @@ class _RoomMoreSheet extends StatelessWidget {
       ),
     );
   }
-
   Widget _tile(BuildContext context, CircleFeature f) {
     final t = AppLocalizations.of(context);
     final controller = model.controller;
@@ -509,3 +510,70 @@ class RoomTranscriptNotice extends StatelessWidget {
 
 /// 格子里圆形图标底的直径。
 const double _tileIconBox = 52;
+
+/// 「更多」顶上的 AI 助手一行:光球 + 「AI 助手」+ 现在的触发方式。点开 = 说明面板。
+class _AiRow extends StatelessWidget {
+  const _AiRow({super.key, required this.config, required this.onTap});
+
+  final Map<String, dynamic> config;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final String mode = switch (aiVoiceTrigger(config)) {
+      'always' => t.aiVoiceTriggerAlways,
+      'ptt' => t.aiVoiceTriggerPtt,
+      _ => t.aiVoiceTriggerWake,
+    };
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(LaresRadii.md),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const ValueKey('room-ai'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: LaresSpacing.md,
+            vertical: LaresSpacing.sm + 2,
+          ),
+          child: Row(
+            children: [
+              const AiOrbMini(size: _aiRowOrb),
+              const SizedBox(width: LaresSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      t.roomMoreAiTitle(aiVoiceName(config)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    Text(
+                      t.roomMoreAiMode(mode),
+                      key: const ValueKey('more-ai-status'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 「更多」顶上 AI 行的光球直径。
+const double _aiRowOrb = 40;

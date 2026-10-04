@@ -2399,7 +2399,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiVoiceFieldWakeWords => '别的叫法';
 
   @override
-  String get aiVoiceFieldWakeWordsHint => '用逗号、顿号或空格隔开';
+  String get aiVoiceFieldWakeWordsHint => '可以不填,叫名字它就会应;多个用逗号或顿号隔开';
+
+  @override
+  String get aiVoiceFieldWakeWordsEmpty => '比如:小福、福仔';
 
   @override
   String get aiVoiceFieldPersona => '人设';
@@ -2473,7 +2476,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiVoiceSeatStatus => 'AI 助手';
+  String get aiVoiceSeatStatus => '等你叫它';
 
   @override
   String get aiVoiceSeatBadge => 'AI';
@@ -2504,6 +2507,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get roomMoreAiPrivacy => '房间里的语音会发到阿里云百炼 DashScope 识别,回答由 AI 生成,可能出错。';
+
+  @override
+  String roomMoreAiMode(String mode) {
+    return '$mode · 点开看怎么叫它';
+  }
 
   @override
   String get purposeMeetingAiSwitch => '加上 AI 助手';
@@ -2715,4 +2723,86 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get focusWeeklyDismiss => '知道了';
+
+  @override
+  String get aiStateListening => '在听';
+
+  @override
+  String get aiStateThinking => '在想…';
+
+  @override
+  String get aiStateSpeaking => '在说话';
+
+  @override
+  String aiOrbSemantics(String name, String state) {
+    return '$name,AI 助手,$state';
+  }
+
+  @override
+  String aiHintAskWake(String name) {
+    return '叫它「$name」就能提问';
+  }
+
+  @override
+  String get aiHintAskAlways => '直接说就行,它一直在听';
+
+  @override
+  String get aiHintAskPtt => '在聊天里 @AI 提问';
+
+  @override
+  String aiHintAlsoCall(String words) {
+    return '也可以叫它:$words';
+  }
+
+  @override
+  String aiHintAlsoAt(String names) {
+    return '$names 也行';
+  }
+
+  @override
+  String get aiHintListSep => '、';
+
+  @override
+  String get aiHintChatToo => '在聊天里 @AI 也能问';
+
+  @override
+  String aiHintMode(String mode, String desc) {
+    return '现在是「$mode」:$desc';
+  }
+
+  @override
+  String get aiHintPrivacy => '它会把语音发到阿里云处理,回答是 AI 生成的,可能出错';
+
+  @override
+  String get aiHintPrivacyPtt => '这个模式不听语音,只把 @它 的文字发到阿里云处理';
+
+  @override
+  String get chatAiInterrupted => '(被打断)';
+
+  @override
+  String get aiVoiceSectionCall => '叫它';
+
+  @override
+  String get aiVoiceSectionVoice => '它怎么说话';
+
+  @override
+  String get aiVoiceSectionUsage => '用量';
+
+  @override
+  String get aiVoiceFieldNameHelper => '大家喊这个名字,它就会应';
+
+  @override
+  String get aiVoiceFieldPersonaHelper => '告诉它用什么口气、说多长';
+
+  @override
+  String get aiVoiceFieldVoiceHelper => '它念回答时用的声音';
+
+  @override
+  String get aiVoiceFieldInterruptHelper => '它说着话时有人开口,它就先停下来听';
+
+  @override
+  String get aiVoiceUsageHelper => '限一下次数和字数,免得费用跑太多';
+
+  @override
+  String get aiVoiceFieldModelHelper => '不清楚就别改';
 }

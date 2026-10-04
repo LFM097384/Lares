@@ -125,6 +125,7 @@ export async function runVoiceBot(o) {
   room.on('capctl', (id, m) => agent?.onCaptionControl(id, m));
   room.on('names', (id, n) => agent?.setName(id, n));
   room.on('left', (id) => agent?.participantLeft(id));
+  room.on('joined', () => agent?.republishState());
   room.on('disconnected', (why) => {
     if (why === 'circle_deleted') { log('圈子已解散,退出'); stop(EXIT.OK); return; }
     log(`连接断开(${why})`);
@@ -136,7 +137,7 @@ export async function runVoiceBot(o) {
     config,
     providers,
     sink: { captureFrame: () => {}, clear: () => {}, queuedMs: () => 0 }, // 进房后替换
-    room: { publishCaption: (c) => room.publishCaption(c), sendChat: (t) => room.sendChat(t) },
+    room: { publishCaption: (c) => room.publishCaption(c), sendChat: (t) => room.sendChat(t), publishState: (f) => room.publishState(f) },
     selfIdentity: room.userId,
     emit,
     guard,
@@ -146,6 +147,7 @@ export async function runVoiceBot(o) {
   });
   await room.join();
   agent.sink = room.sink();
+  agent.republishState(); // 进房前的初始状态发不出去:进房后补发
   emit({ ev: 'ready', userId: room.userId, circleId: o.circleId, providers: providers.kind ?? 'custom', trigger: config.trigger });
 
   return {

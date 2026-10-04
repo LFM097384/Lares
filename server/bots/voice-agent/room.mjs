@@ -12,6 +12,7 @@ import { ROOM_RATE, FRAME_SAMPLES } from './audio.mjs';
 
 export const CHAT_TOPIC = 'lares.chat';
 export const CAPTION_TOPIC = 'lares.cap';
+export const AI_STATE_TOPIC = 'lares.ai'; // {t:'state', state, seq}(CONTRACT §5)
 const ARGON2 = { parallelism: 1, iterations: 3, memorySize: 64 * 1024, hashLength: 32, outputType: 'hex' };
 const hmacHex = (k, m) => crypto.createHmac('sha256', k).update(m, 'utf8').digest('hex');
 
@@ -73,7 +74,7 @@ export class LaresRoom {
     Object.assign(this, { joinTimeoutMs: 15000, log: () => {}, ...o });
     // 稳定的 deviceId:同一圈的 AI 重启后仍是同一台「设备」
     this.deviceId = `d_ai_${crypto.createHash('sha256').update(`dev:${this.circleId}:${this.userId}`).digest('hex').slice(0, 12)}`;
-    this.handlers = { audio: [], chat: [], capctl: [], left: [], names: [], disconnected: [] };
+    this.handlers = { audio: [], chat: [], capctl: [], left: [], names: [], joined: [], disconnected: [] };
     this.streams = new Map();
     this.closed = false;
   }
@@ -120,7 +121,10 @@ export class LaresRoom {
       const s = this.streams.get(p?.identity);
       if (s) { this.streams.delete(p.identity); s.close?.(); }
     });
-    room.on(RoomEvent.ParticipantConnected, (p) => { if (p?.name) this._fire('names', p.identity, p.name); });
+    room.on(RoomEvent.ParticipantConnected, (p) => {
+      if (p?.name) this._fire('names', p.identity, p.name);
+      if (p?.identity) this._fire('joined', p.identity); // 晚进房的人补发一次 lares.ai 状态
+    });
     room.on(RoomEvent.ParticipantDisconnected, (p) => { this._fire('left', p.identity); });
     room.on(RoomEvent.Disconnected, (r) => { if (!this.closed) this._fire('disconnected', r); });
     room.on(RoomEvent.DataReceived, (payload, p, _kind, topic) => this._data(payload, p?.identity ?? null, topic));
@@ -215,6 +219,12 @@ export class LaresRoom {
   async publishCaption(cap) {
     if (this.closed || !this.room) return;
     await this.room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(cap)), { reliable: true, topic: CAPTION_TOPIC });
+  }
+
+  /// lares.ai 状态帧(reliable, JSON UTF-8)。只含状态与 seq,不含任何文字内容。
+  async publishState(frame) {
+    if (this.closed || !this.room) return;
+    await this.room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(frame)), { reliable: true, topic: AI_STATE_TOPIC });
   }
 
   async sendChat(text) {

@@ -18,6 +18,8 @@ import { resample, firstChannel, EnergyVad, ROOM_RATE, FRAME_SAMPLES, ASR_RATE }
 import { WarmPool } from './providers/index.mjs';
 
 const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// lares.ai 状态帧的 seq:每进程单调递增(CONTRACT §5)。
+let stateSeq = 0;
 const FILLER_ONLY = /^[\s嗯对啊哦呃噢唔额，。！？、,.!?;；:：…~～\-—]*$/u;
 
 /// 去掉回复开头的「<名字>:」/「<名字>：」(LLM 照着「名字: 内容」的历史格式自报家门)。
@@ -283,7 +285,7 @@ export class VoiceAgent {
    * @param {object} o.config        归一化后的 AiVoiceConfig
    * @param {{asr,llm,tts}} o.providers
    * @param {{captureFrame(f:Int16Array):any, clear():void, queuedMs?:()=>number}} o.sink  48k 单声道出口
-   * @param {{publishCaption(cap:object):any, sendChat(text:string):any}} o.room
+   * @param {{publishCaption(cap:object):any, sendChat(text:string):any, publishState?(frame:object):any}} o.room
    * @param {string} [o.selfIdentity]
    * @param {(ev:object)=>void} [o.emit]   stdout 事件
    * @param {CostGuard} [o.guard]
@@ -315,6 +317,8 @@ export class VoiceAgent {
     this.capNoticeAt = 0;
     this.closed = false;
     this.asrGate = 'on'; // 'on' | 'ptt' | 'cap'
+    this.aiState = null; // lares.ai 上最后发出的状态(CONTRACT §5)
+    this.stateFrame = null;
     this.pool = new WarmPool({
       open: () => this.providers.tts.open({ voice: this.config.voice }),
       now: this.now,
@@ -329,6 +333,7 @@ export class VoiceAgent {
       }
     }
     this._asrAllowed(); // 起始状态(ptt / 已到上限)也记一行
+    this._syncState();
   }
 
   setConfig(config) {
@@ -360,8 +365,37 @@ export class VoiceAgent {
       if (gate === 'on') this.log(`ASR 恢复(之前:${prev === 'ptt' ? 'ptt 模式' : '回答次数上限'})`);
       else this.log(`ASR 暂停:${gate === 'ptt' ? 'ptt 模式,语音不上云' : '回答次数到上限,窗口腾出前不识别'};本地 VAD 打断照常`);
       if (gate !== 'on') this._closeAllAsr();
+      // 每小时上限:窗口腾出时主动复查一次,不必等有人开口才从 idle 回到 listening
+      clearTimeout(this._capTimer);
+      if (gate === 'cap' && cap?.reason === 'hourly' && cap.retryInMs > 0) {
+        this._capTimer = setTimeout(() => { if (!this.closed) this._asrAllowed(); }, cap.retryInMs + 50);
+        this._capTimer.unref?.();
+      }
+      this._syncState();
     }
     return gate === 'on';
+  }
+
+  /// lares.ai 状态(CONTRACT §5):进行中的一轮决定 thinking/speaking,否则看 ASR 闸门 listening/idle。
+  _syncState() {
+    const t = this.turn;
+    let s;
+    if (this.closed) s = 'idle';
+    else if (t && !t.ended) s = t.phase;
+    else s = this.asrGate === 'on' ? 'listening' : 'idle';
+    if (s === this.aiState) return; // 只在变化时发
+    this.aiState = s;
+    this._publishState();
+  }
+
+  /// 重发当前状态(进房后 / 有人新进房时调;新 seq)。
+  republishState() { if (this.aiState) this._publishState(); }
+
+  _publishState() {
+    stateSeq += 1;
+    this.stateFrame = { t: 'state', state: this.aiState, seq: stateSeq };
+    const f = this.stateFrame;
+    Promise.resolve().then(() => this.room.publishState?.(f)).catch(() => {});
   }
 
   setName(identity, name) { if (name) this.names.set(identity, String(name).slice(0, 32)); }
@@ -473,7 +507,6 @@ export class VoiceAgent {
   async _startTurn(req) {
     if (!this._capCheck()) return;
     this.guard.recordTurn();
-    this._asrAllowed(); // 这一轮用掉了最后的额度:立刻停 ASR(本地 VAD 打断照常)
     const t = {
       id: `t_${crypto.randomBytes(5).toString('hex')}`,
       capId: `cap_ai_${crypto.randomBytes(6).toString('hex')}`,
@@ -489,8 +522,11 @@ export class VoiceAgent {
       ttsFailed: false,
       marks: {},
       usage: { llmIn: 0, llmOut: 0, ttsChars: 0 },
+      phase: 'thinking', // lares.ai:thinking → speaking(首帧)
     };
     this.turn = t;
+    this._syncState(); // lares.ai → thinking
+    this._asrAllowed(); // 这一轮用掉了最后的额度:立刻停 ASR(本地 VAD 打断照常);进行中不改 lares.ai 状态
     this.history.addUser(`${req.speaker}: ${req.query}`);
     const messages = [{ role: 'system', content: this._systemPrompt() }, ...this.history.messages()];
     const mark = (k) => { if (t.marks[k] === undefined) t.marks[k] = this.now() - req.at; };
@@ -499,7 +535,7 @@ export class VoiceAgent {
       sink: this.sink,
       now: this.now,
       paceScale: this.opts.paceScale ?? 1,
-      onFirstFrame: () => mark('ttfa'),
+      onFirstFrame: () => { mark('ttfa'); if (!t.ended) { t.phase = 'speaking'; this._syncState(); } }, // lares.ai → speaking
       onSegmentStart: (seg) => this._caption(t, this._join(t.chunks.slice(0, seg + 1)), false),
     });
 
@@ -661,6 +697,7 @@ export class VoiceAgent {
     this.emit(ev);
     this.lastTurn = ev;
     if (this.turn === t) this.turn = null;
+    this._syncState(); // lares.ai → listening / idle(正常结束和打断都走这里)
     const next = this.pending;
     this.pending = null;
     if (!this.guard.check().ok && this.guard.check().reason === 'daily') { this.opts.onDailyCap?.(); return; }
@@ -675,7 +712,9 @@ export class VoiceAgent {
 
   async close() {
     this.closed = true;
+    clearTimeout(this._capTimer);
     this.interrupt('shutdown');
+    this._syncState(); // lares.ai → idle(尽力而为;房间可能已关)
     for (const sp of this.speakers.values()) sp.close();
     this.speakers.clear();
     this.pool.stop();

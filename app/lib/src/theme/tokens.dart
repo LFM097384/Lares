@@ -20,6 +20,11 @@ abstract final class LaresColors {
   static const Color ember = Color(0xFFFF8A5C);
   static const Color emberSoft = Color(0x33FF8A5C);
 
+  // ── AI 语音助手的光球:余烬同族,往亮处是杏色、往暗处是梅紫 ──
+  // 刻意不另起色相(不用蓝紫科技色):它是炉边多出来的一团火,不是一块屏幕。
+  static const Color aiGlow = Color(0xFFFFC7A6);
+  static const Color aiPlum = Color(0xFFA4528C);
+
   // ── 轻状态色(presence ring)──
   static const Color statusFree = Color(0xFF6FD08C); // 随时聊
   static const Color statusBusy = Color(0xFFE8B45A); // 在忙

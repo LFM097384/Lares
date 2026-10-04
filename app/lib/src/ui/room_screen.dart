@@ -27,10 +27,14 @@ import 'caption_panel.dart';
 import 'chat_panel.dart';
 import 'map_panel.dart';
 import '../transcript/transcript_scope.dart';
+import '../plugins/ai_voice_settings.dart';
+import '../plugins/plugin_models.dart';
 import '../plugins/plugin_scope.dart';
 import '../plugins/plugin_service.dart';
+import 'ai_hint_card.dart';
 import 'moderation_menus.dart';
 import 'room_more_sheet.dart';
+import 'widgets/ai_orb.dart';
 import 'widgets/avatar_orb.dart';
 import 'widgets/e2ee_badge.dart';
 
@@ -363,6 +367,8 @@ class _RoomScreenState extends State<RoomScreen> {
                         _VoiceStrip(
                           controller: controller,
                           blocks: widget.blocks,
+                          plugins:
+                              widget.plugins ?? PluginScope.maybeOf(context),
                           focus: focus,
                           showMute: keyboardOpen,
                           showNames: !keyboardOpen,
@@ -488,6 +494,7 @@ class _RoomScreenState extends State<RoomScreen> {
               : _MemberGrid(
                   controller: controller,
                   blocks: widget.blocks,
+                  plugins: widget.plugins ?? PluginScope.maybeOf(context),
                   focus: _focus,
                 ),
         ),
@@ -657,6 +664,14 @@ class _SeatMiniAvatar extends StatelessWidget {
             }
           }
           final bool speaking = controller.speakingIds.contains(userId);
+          // AI 的消息:小头像也是那团光,和座位一眼对上
+          if (isAiMemberId(userId)) {
+            return AiOrbMini(
+              key: const ValueKey('chat-ai-avatar'),
+              size: _miniAvatarSize,
+              ring: speaking ? LaresColors.ember : null,
+            );
+          }
           final Color ring = speaking
               ? LaresColors.ember
               : member?.status.color ?? LaresColors.statusAway;
@@ -693,6 +708,7 @@ class _VoiceStrip extends StatelessWidget {
   const _VoiceStrip({
     required this.controller,
     this.blocks,
+    this.plugins,
     this.focus,
     required this.showMute,
     required this.showNames,
@@ -700,6 +716,7 @@ class _VoiceStrip extends StatelessWidget {
 
   final RoomController controller;
   final BlockStore? blocks;
+  final PluginService? plugins;
   final FocusService? focus;
   final bool showMute;
   final bool showNames;
@@ -709,7 +726,7 @@ class _VoiceStrip extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable?>[controller, blocks]),
+      listenable: Listenable.merge(<Listenable?>[controller, blocks, plugins]),
       builder: (context, _) {
         final members = controller.members;
         return SizedBox(
@@ -746,6 +763,7 @@ class _VoiceStrip extends StatelessWidget {
                             controller,
                             blocks,
                             members[i],
+                            plugins: plugins,
                             compact: true,
                             showName: showNames,
                             focus: focus,
@@ -1392,9 +1410,15 @@ Future<void> _confirmKick(
 }
 
 class _MemberGrid extends StatelessWidget {
-  const _MemberGrid({required this.controller, this.blocks, this.focus});
+  const _MemberGrid({
+    required this.controller,
+    this.blocks,
+    this.plugins,
+    this.focus,
+  });
 
   final RoomController controller;
+  final PluginService? plugins;
   final FocusService? focus;
 
   /// 为 null 时整块退回「长按=踢人」的老行为,且不画屏蔽标记
@@ -1407,7 +1431,7 @@ class _MemberGrid extends StatelessWidget {
     return ListenableBuilder(
       // 必须把 blocks 一起并进来:屏蔽是在 BlockStore 上发生的,
       // controller 根本不会为此 notify,不合并就「屏蔽了但画面没变」。
-      listenable: Listenable.merge(<Listenable?>[controller, blocks]),
+      listenable: Listenable.merge(<Listenable?>[controller, blocks, plugins]),
       builder: (context, _) {
         final members = controller.members;
         if (members.isEmpty) {
@@ -1461,6 +1485,7 @@ class _MemberGrid extends StatelessWidget {
                   controller,
                   blocks,
                   members[i],
+                  plugins: plugins,
                   focus: focus,
                   compact: tight,
                   orbSize: tight ? _tightOrbSize : null,
@@ -1481,12 +1506,14 @@ Widget _seat(
   RoomController controller,
   BlockStore? blocks,
   Member m, {
+  PluginService? plugins,
   bool compact = false,
   bool showName = true,
   FocusService? focus,
   double? orbSize,
 }) {
   final isMe = m.userId == controller.userId;
+  final bool ai = isAiMemberId(m.userId);
   final double size = orbSize ?? (compact ? _stripOrbSize : 88);
   final bool blocked = blocks?.isBlocked(m.userId) ?? false;
   // 注册圈里只有圈主能踢:非圈主连这一行都看不到(服务器反正会拒)。
@@ -1496,6 +1523,11 @@ Widget _seat(
 
   // 接了屏蔽名单就走处置菜单(踢人作为其中一行保留);
   // 没接就还是老样子:长按直接踢。
+  // AI 座位:配置(名字 / 别的叫法 / 触发方式)决定说明卡怎么说,
+  // 也决定一帧状态都没收到时座位画成「在听」还是静止。
+  final Map<String, dynamic>? aiConfig = (ai && cid != null)
+      ? plugins?.plugin(cid, aiVoicePluginId)?.config
+      : null;
   VoidCallback? openMenu;
   if (!isMe && blocks != null) {
     openMenu = () => showMemberModerationSheet(
@@ -1504,6 +1536,14 @@ Widget _seat(
       blocks: blocks,
       member: m,
       onKick: canKick ? () => _confirmKick(context, controller, m) : null,
+      aiConfig: aiConfig,
+    );
+  } else if (ai) {
+    // 没接屏蔽名单也要让人点得开说明卡:「怎么叫它」比处置更常用
+    openMenu = () => showAiHintSheet(
+      context,
+      config: aiConfig ?? const <String, dynamic>{},
+      displayName: m.name,
     );
   }
 
@@ -1514,6 +1554,12 @@ Widget _seat(
     size: size,
     compact: compact,
     showName: showName,
+    aiActivity: ai
+        ? controller.aiState(
+            m.userId,
+            trigger: aiConfig == null ? null : aiVoiceTrigger(aiConfig),
+          )
+        : null,
   );
 
   return GestureDetector(

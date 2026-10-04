@@ -10,6 +10,7 @@ import '../state/ai_member.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
 import '../theme/tokens.dart';
+import 'ai_hint_card.dart';
 
 // ── 就地常量 ──
 // tokens.dart 只收录颜色/圆角/间距/断点,没有「输入上限」这类内容约束,
@@ -83,6 +84,8 @@ Future<void> deliverReport(ReportDraft draft) async {
 /// [member] 应当**不是**自己 —— 屏蔽/举报/请出自己都没有意义,调用方负责过滤。
 /// [onKick] 为空时不渲染「请出房间」那一行:与其摆一个点不动的入口,不如不摆。
 /// [delivery] 只给测试注入假实现用,生产代码留空走 [deliverReportToClipboard]。
+/// [aiConfig] 只对 AI 成员有意义:`lares.ai-voice` 的插件配置,顶部说明卡
+/// ([AiHintCard])据此说怎么叫它;null = 按默认值说。
 Future<void> showMemberModerationSheet(
   BuildContext context, {
   required RoomController controller,
@@ -90,21 +93,33 @@ Future<void> showMemberModerationSheet(
   required Member member,
   VoidCallback? onKick,
   ReportDelivery? delivery,
+  Map<String, dynamic>? aiConfig,
 }) {
   final bool blocked = blocks.isBlocked(member.userId);
   final AppLocalizations t = AppLocalizations.of(context);
+  final bool ai = isAiMemberId(member.userId);
   return showModalBottomSheet<void>(
     context: context,
+    // AI 的说明卡比较高:矮屏上允许超过半屏,内容自己滚
+    isScrollControlled: ai,
     builder: (BuildContext ctx) => SafeArea(
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          _TargetHeader(name: member.name, userId: member.userId),
-          // AI 语音助手:屏蔽 / 举报照常可用;另告诉大家它能由圈主整个关掉
-          if (isAiMemberId(member.userId))
+          // AI 语音助手:先说清怎么用它(说明卡),再是屏蔽 / 举报 ——
+          // 这些照常可用;另告诉大家它能由圈主整个关掉
+          if (ai)
+            AiHintCard(
+              config: aiConfig ?? const <String, dynamic>{},
+              displayName: member.name,
+            )
+          else
+            _TargetHeader(name: member.name, userId: member.userId),
+          if (ai)
             ListTile(
               key: const ValueKey('moderation-ai-hint'),
-              leading: const Icon(Icons.smart_toy_outlined),
+              leading: const Icon(Icons.power_settings_new_rounded),
               title: Text(t.aiVoiceModerationHint),
             ),
           if (blocked)
@@ -157,6 +172,7 @@ Future<void> showMemberModerationSheet(
               },
             ),
         ],
+      ),
       ),
     ),
   );

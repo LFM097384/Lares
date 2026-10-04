@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 import '../recording/capture_session.dart'
     show RendererHealth, RendererWatchdog;
 import '../rtc/rtc_service.dart';
+import '../state/ai_member.dart';
 import 'caption_protocol.dart';
 
 /// 面板最多保留的行数。
@@ -262,11 +263,13 @@ class CaptionController extends ChangeNotifier {
   /// 某位远端是否明说不被转写(给成员卡片等处用)。
   bool isDeclined(String identity) => _acks[identity] == false;
 
-  /// 正在给我提供字幕的人(capack on 或已发过字幕)。
+  /// 正在给我提供字幕的人(capack on 或已发过字幕)。AI 助手不算 —— 它的字幕是它自己的话,
+  /// 不是「谁在帮大家出字幕」。
   List<String> get providerNames {
     final Set<String> remote = _channel?.remoteIdentities ?? const {};
     return remote
-        .where((id) => _acks[id] == true || _sentCap.contains(id))
+        .where((id) =>
+            !isAiMemberId(id) && (_acks[id] == true || _sentCap.contains(id)))
         .map(_nameOf)
         .toList(growable: false);
   }
@@ -278,6 +281,7 @@ class CaptionController extends ChangeNotifier {
     if (ch == null) return const [];
     return ch.remoteIdentities
         .where((id) =>
+            !isAiMemberId(id) &&
             ch.isRemoteMicOn(id) &&
             _acks[id] != true &&
             !_sentCap.contains(id))

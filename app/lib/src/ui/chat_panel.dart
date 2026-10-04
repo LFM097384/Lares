@@ -10,6 +10,7 @@ import '../chat/image_source.dart'
     if (dart.library.io) '../chat/image_source_io.dart';
 import '../config.dart';
 import '../moderation/block_store.dart';
+import '../state/ai_member.dart';
 import '../theme/tokens.dart';
 import 'moderation_menus.dart';
 
@@ -686,9 +687,36 @@ class _MessageRow extends StatelessWidget {
     final theme = Theme.of(context);
     final bool mine = message.isMine;
 
+    // AI 语音助手(成员 id 以 u_ai_ 开头):名字旁一枚「AI」,和座位上的徽标同字。
+    final bool ai = !mine && isAiMemberId(message.senderId);
+    final String text = message.text ?? '';
+    // 它说到一半被人打断时,只把听到的部分 + 「…」发进聊天(docs/ai-voice-bot.md §1.3):
+    // 后面跟一句淡色小注,免得人以为它话没说完就卡住了。
+    final bool interrupted = ai && text.trimRight().endsWith('…');
+
     final Widget body = message.kind == ChatMessageKind.image
         ? _ImageThumb(message: message)
-        : Text(message.text ?? '', style: theme.textTheme.bodyLarge);
+        : interrupted
+            ? Text.rich(
+                TextSpan(
+                  children: <InlineSpan>[
+                    TextSpan(text: text),
+                    TextSpan(
+                      text: ' ${AppLocalizations.of(context).chatAiInterrupted}',
+                      // 小注:斜体 + 次要色,只比正文小一号,一眼看得见又不抢正文
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                        fontSize:
+                            (theme.textTheme.bodyLarge?.fontSize ?? 16) - 2,
+                      ),
+                    ),
+                  ],
+                ),
+                key: const ValueKey('chat-ai-interrupted'),
+                style: theme.textTheme.bodyLarge,
+              )
+            : Text(text, style: theme.textTheme.bodyLarge);
 
     final ValueChanged<ChatMessage>? moderate = onModerate;
 
@@ -701,7 +729,7 @@ class _MessageRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: LaresSpacing.xs),
             // bodyMedium 本身已是次要色,时间戳直接用它,不再 copyWith 调色
-            child: message.isBot
+            child: (message.isBot || ai)
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
@@ -713,7 +741,7 @@ class _MessageRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: LaresSpacing.xs),
-                      _BotBadge(),
+                      _BotBadge(ai: ai && !message.isBot),
                       Text(
                         '  ${_formatHm(message.timestamp)}',
                         style: theme.textTheme.bodyMedium,
@@ -814,12 +842,18 @@ class _FailedMark extends StatelessWidget {
 }
 
 /// 机器人消息名字旁的小徽标:一眼分清「这不是人」。
+/// [ai] = AI 语音助手:字换成「AI」(与座位徽标同字),key 换成 `chat-ai-badge`。
 class _BotBadge extends StatelessWidget {
+  const _BotBadge({this.ai = false});
+
+  final bool ai;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = AppLocalizations.of(context);
     return DecoratedBox(
-      key: const ValueKey('chat-bot-badge'),
+      key: ValueKey(ai ? 'chat-ai-badge' : 'chat-bot-badge'),
       decoration: BoxDecoration(
         color: LaresColors.emberSoft,
         borderRadius: BorderRadius.circular(LaresRadii.sm),
@@ -827,7 +861,7 @@ class _BotBadge extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: LaresSpacing.xs),
         child: Text(
-          AppLocalizations.of(context).chatBotBadge,
+          ai ? t.aiVoiceSeatBadge : t.chatBotBadge,
           style: theme.textTheme.labelSmall?.copyWith(
             color: LaresColors.ember,
           ),

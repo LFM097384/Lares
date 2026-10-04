@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lares_app/src/captions/caption_controller.dart';
+import 'package:lares_app/src/chat/chat_message.dart';
 import 'package:lares_app/src/net/secret_vault.dart';
 import 'package:lares_app/src/plugins/ai_voice_settings.dart';
 import 'package:lares_app/src/plugins/plugin_models.dart';
@@ -20,9 +21,11 @@ import 'package:lares_app/src/state/room_controller.dart';
 import 'package:lares_app/src/state/settings_store.dart';
 import 'package:lares_app/src/theme/theme.dart';
 import 'package:lares_app/src/ui/room_screen.dart';
+import 'package:lares_app/src/ui/widgets/ai_orb.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/caption_fakes.dart';
+import 'helpers/chat_fakes.dart';
 import 'helpers/localized_app.dart';
 import 'room_screen_test.dart' as rs show FakeRtcService, FakeSignalingClient;
 import 'support/fake_room.dart';
@@ -153,7 +156,8 @@ void main() {
       expect(msg['pluginId'], aiVoicePluginId);
       expect(msg['config'], {
         'name': '阿福',
-        'wakeWords': '小助手',
+        // 别的叫法默认留空(名字本身永远叫得应);服务端照样宽松归一
+        'wakeWords': '',
         'persona': kAiVoiceDefaultPersona,
         'trigger': 'wake',
         'voice': 'Weird',
@@ -224,7 +228,8 @@ void main() {
 
   group('房间', () {
     Future<(RoomController, PluginService, StreamController<Map<String, dynamic>>, CaptionController)>
-        pumpRoom(WidgetTester tester, {required bool aiEnabled}) async {
+        pumpRoom(WidgetTester tester,
+            {required bool aiEnabled, ShotsChatService? chat}) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -294,6 +299,7 @@ void main() {
           circleName: '我们的圈',
           captions: captions,
           plugins: plugins,
+          chat: chat,
         ),
         theme: LaresTheme.dark(),
       ));
@@ -316,7 +322,9 @@ void main() {
     testWidgets('AI 座位有徽标、没有人的状态;人数不算它;「更多」出 AI 格', (tester) async {
       final r = await pumpRoom(tester, aiEnabled: true);
       expect(find.byKey(const ValueKey('seat-ai-badge')), findsOneWidget);
-      expect(find.text('AI 助手'), findsWidgets);
+      // 叫名字模式、还没收到状态帧:座位是一团「在听」的光,不是人的状态
+      expect(find.byKey(const ValueKey('ai-orb-listening')), findsOneWidget);
+      expect(find.text('在听'), findsOneWidget);
       expect(find.text('2 个人在'), findsOneWidget);
       expect(find.text('3 个人在'), findsNothing);
 
@@ -329,8 +337,59 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byKey(const ValueKey('ai-info-sheet')), findsOneWidget);
-      expect(find.text('叫「小助手」再说问题'), findsOneWidget);
+      expect(find.text('叫它「小助手」就能提问'), findsOneWidget);
+      expect(find.byKey(const ValueKey('ai-info-how')), findsOneWidget);
       expect(find.byKey(const ValueKey('ai-info-privacy')), findsOneWidget);
+      await close(tester, r);
+    });
+
+    testWidgets('「更多」顶上的 AI 一行说清现在的触发方式', (tester) async {
+      final r = await pumpRoom(tester, aiEnabled: true);
+      await tester.tap(find.byKey(const ValueKey('room-more')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const ValueKey('more-ai-status')), findsOneWidget);
+      expect(find.textContaining('叫名字'), findsOneWidget);
+      await close(tester, r);
+    });
+
+    testWidgets('聊天里 AI 的小头像是光球,没有人的状态环', (tester) async {
+      final chat = ShotsChatService()
+        ..seed([
+          ChatMessage.text(
+            id: 'a1',
+            senderId: 'u_ai_c1',
+            senderName: '小助手',
+            circleId: 'c1',
+            timestamp: DateTime(2026, 1, 1, 9),
+            body: '明天下午三点。',
+            isMine: false,
+          ),
+          ChatMessage.text(
+            id: 'h1',
+            senderId: 'u1',
+            senderName: '小鹿',
+            circleId: 'c1',
+            timestamp: DateTime(2026, 1, 1, 9, 1),
+            body: '好的',
+            isMine: false,
+          ),
+        ]);
+      final r = await pumpRoom(tester, aiEnabled: true, chat: chat);
+      final expand = find.byTooltip('展开消息');
+      if (expand.evaluate().isNotEmpty) {
+        await tester.tap(expand.first, warnIfMissed: false);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      final avatar = find.byKey(const ValueKey('chat-ai-avatar'));
+      expect(avatar, findsOneWidget);
+      final orb = tester.widget<AiOrbMini>(avatar);
+      expect(orb.ring, isNull, reason: '不说话时没有任何环,更没有绿色「随时聊」环');
+      // 光球里没有人的首字
+      expect(
+          find.descendant(of: avatar, matching: find.text('小')), findsNothing);
+      chat.dispose();
       await close(tester, r);
     });
 
@@ -345,14 +404,70 @@ void main() {
 
   testWidgets('说明面板按触发方式说怎么叫', (tester) async {
     for (final (cfg, want) in [
-      ({'name': '阿福', 'trigger': 'always'}, '说完它就会回答'),
-      ({'name': '阿福', 'trigger': 'ptt'}, '在聊天里 @阿福'),
-      (<String, dynamic>{}, '叫「小助手」再说问题'),
+      ({'name': '阿福', 'trigger': 'always'}, '直接说就行,它一直在听'),
+      ({'name': '阿福', 'trigger': 'ptt'}, '在聊天里 @AI 提问'),
+      (<String, dynamic>{}, '叫它「小助手」就能提问'),
     ]) {
       await tester.pumpWidget(localizedApp(
           Scaffold(body: AiVoiceInfoSheet(config: cfg))));
       expect(find.text(want), findsOneWidget);
     }
+  });
+
+  testWidgets('说明面板与座位说明卡同一份内容,按内容高度', (tester) async {
+    await tester.pumpWidget(localizedApp(Scaffold(
+        body: AiVoiceInfoSheet(
+            config: const {'name': '阿福', 'wakeWords': '小福', 'trigger': 'wake'}))));
+    final sheet = find.byKey(const ValueKey('ai-info-sheet'));
+    expect(
+        find.descendant(of: sheet, matching: find.byKey(const ValueKey('ai-hint-card'))),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('ai-hint-also')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ai-hint-mode')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ai-info-how')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ai-info-privacy')), findsOneWidget);
+    // 不撑满:面板只有内容那么高
+    expect(tester.getSize(sheet).height, lessThan(400));
+  });
+
+  group('别的叫法', () {
+    String wakeText(WidgetTester tester) => tester
+        .widget<TextField>(find.descendant(
+            of: find.byKey(const ValueKey('ai-voice-wakeWords')),
+            matching: find.byType(TextField)))
+        .controller!
+        .text;
+
+    Future<void> pumpForm(WidgetTester tester, Map<String, dynamic> cfg) async {
+      tall(tester);
+      await tester.pumpWidget(localizedApp(Scaffold(
+        body: SingleChildScrollView(
+          child: AiVoiceSettingsForm(
+            config: cfg,
+            onSave: (_) async => const PluginOpResult(),
+          ),
+        ),
+      )));
+      await tester.pump();
+    }
+
+    testWidgets('默认留空,并提示叫名字就会应', (tester) async {
+      await pumpForm(tester, const {});
+      expect(wakeText(tester), '');
+      expect(find.text('可以不填,叫名字它就会应;多个用逗号或顿号隔开'), findsOneWidget);
+      expect(find.text('比如:小福、福仔'), findsOneWidget);
+    });
+
+    testWidgets('服务端默认「小助手」= 名字:框里不再重复', (tester) async {
+      await pumpForm(tester, const {'name': '小助手', 'wakeWords': '小助手'});
+      expect(wakeText(tester), '');
+    });
+
+    testWidgets('去空、去重、去掉名字,只在显示上', (tester) async {
+      await pumpForm(
+          tester, const {'name': '阿福', 'wakeWords': '阿福,小福，小福、 ;福仔'});
+      expect(wakeText(tester), '小福、福仔');
+    });
   });
 
   group('用途:开会 + AI', () {

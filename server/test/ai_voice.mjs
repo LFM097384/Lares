@@ -257,6 +257,7 @@ function makeHarness({ config = {}, llm = {}, tts = {}, asr = {}, paceScale = 0.
   const caps = [];
   const chats = [];
   const events = [];
+  const states = [];
   let cleared = 0;
   const sink = { captureFrame: (f) => { frames.push(f); }, clear: () => { cleared++; }, queuedMs: () => 0 };
   const providers = { asr: new MockAsr(asr), llm: new MockLlm(llm), tts: new MockTts(tts) };
@@ -265,7 +266,7 @@ function makeHarness({ config = {}, llm = {}, tts = {}, asr = {}, paceScale = 0.
     config: cfg,
     providers,
     sink,
-    room: { publishCaption: (c) => caps.push(c), sendChat: (t) => chats.push(t) },
+    room: { publishCaption: (c) => caps.push(c), sendChat: (t) => chats.push(t), publishState: (s) => states.push(s) },
     selfIdentity: 'u_ai_self',
     emit: (e) => events.push(e),
     guard: new CostGuard({ config: cfg, usageFile, emit: (e) => events.push(e) }),
@@ -273,7 +274,7 @@ function makeHarness({ config = {}, llm = {}, tts = {}, asr = {}, paceScale = 0.
     ...agentOpts,
   });
   agent.setName('u_alice', 'Alice');
-  return { agent, frames, caps, chats, events, providers, sink, get cleared() { return cleared; } };
+  return { agent, frames, caps, chats, events, states, providers, sink, get cleared() { return cleared; } };
 }
 
 /// 以 10ms 帧给 agent 喂一段「人声」:静音 → 有声 ms → 静音
@@ -573,6 +574,7 @@ async function pipelineTests() {
     check(h.providers.asr.sessions === 4 && !!t, '放弃之后下一句照常识别并回答', { sessions: h.providers.asr.sessions, t });
     await h.agent.close();
   }
+  await aiStateTests();
   {
     // Player 绝对时间节拍
     const out = [];
@@ -584,6 +586,78 @@ async function pipelineTests() {
     const dt = Date.now() - t0;
     check(out.length === 30 && dt >= 270 && dt < 450, `Player:24k→48k、30 帧、实时节拍(${dt}ms)`, out.length);
     check(new Set(out.map(([, f]) => f.buffer)).size === out.length, 'Player:每帧独立 buffer(不是 subarray 视图)');
+  }
+}
+
+// ── lares.ai 状态帧(CONTRACT §5) ─────────────────────────────────────────
+async function aiStateTests() {
+  console.log('\n[lares.ai 状态]');
+  const seqOf = (h) => h.states.map((s) => s.state);
+  const seqsUp = (h) => h.states.every((s, i) => i === 0 || s.seq > h.states[i - 1].seq);
+  const noAdjDup = (h) => h.states.every((s, i) => i === 0 || s.state !== h.states[i - 1].state);
+  {
+    const h = makeHarness({ asr: { script: ['小助手，今天天气怎么样？'] }, llm: { reply: '今天天气不错，适合出门散步。' } });
+    await wait(5);
+    check(JSON.stringify(seqOf(h)) === JSON.stringify(['listening']), 'wake:启动即 listening', h.states);
+    await speak(h, 'u_alice', 500);
+    await untilEv(h, (e) => e.ev === 'turn');
+    await wait(5);
+    check(JSON.stringify(seqOf(h)) === JSON.stringify(['listening', 'thinking', 'speaking', 'listening']), 'wake 一轮:listening → thinking → speaking → listening', seqOf(h));
+    check(seqsUp(h), 'seq 单调递增', h.states.map((s) => s.seq));
+    check(h.states.every((s) => s.t === 'state' && Object.keys(s).sort().join() === 'seq,state,t' && Number.isInteger(s.seq)), '帧只含 {t,state,seq},不带正文', h.states);
+    // 去重:同样的配置再设一次 / 换声音不发;有人进房 → 重发当前状态(新 seq)
+    const n = h.states.length;
+    h.agent.setConfig(normalizeAiVoiceConfig({}).config);
+    h.agent.setConfig(normalizeAiVoiceConfig({ voice: 'Ethan' }).config);
+    await wait(5);
+    check(h.states.length === n, '去重:状态不变不发', h.states.slice(n));
+    h.agent.republishState();
+    await wait(5);
+    check(h.states.length === n + 1 && h.states.at(-1).state === 'listening' && h.states.at(-1).seq > h.states[n - 1].seq, '新成员进房:重发当前状态(新 seq)', h.states.at(-1));
+    // 热更新触发方式:wake → ptt → idle,ptt → always → listening;重复设 ptt 不再发
+    h.agent.setConfig(normalizeAiVoiceConfig({ trigger: 'ptt' }).config);
+    h.agent.setConfig(normalizeAiVoiceConfig({ trigger: 'ptt' }).config);
+    h.agent.setConfig(normalizeAiVoiceConfig({ trigger: 'always' }).config);
+    await wait(5);
+    check(JSON.stringify(seqOf(h).slice(n + 1)) === JSON.stringify(['idle', 'listening']), '热更新 trigger:listening ↔ idle', seqOf(h).slice(n + 1));
+    await h.agent.close();
+  }
+  {
+    // ptt:平时 idle;@AI 聊天 → thinking → speaking → idle
+    const h = makeHarness({ config: { trigger: 'ptt' }, llm: { reply: '一加一等于二。' } });
+    await wait(5);
+    check(JSON.stringify(seqOf(h)) === JSON.stringify(['idle']), 'ptt:启动即 idle', h.states);
+    await speak(h, 'u_alice', 300);
+    check(h.states.length === 1, 'ptt:说话不改状态', h.states);
+    h.agent.onChat({ senderId: 'u_bob', senderName: 'Bob', body: '@AI 一加一等于几' });
+    await untilEv(h, (e) => e.ev === 'turn');
+    await wait(5);
+    check(JSON.stringify(seqOf(h)) === JSON.stringify(['idle', 'thinking', 'speaking', 'idle']), 'ptt 一轮:idle → thinking → speaking → idle', seqOf(h));
+    await h.agent.close();
+  }
+  {
+    // 打断:speaking 中插话 → 回到 listening
+    const reply = '好的，我给你讲一个很长很长的故事。从前有座山，山里有座庙，庙里有个老和尚在给小和尚讲故事。讲的是什么呢？';
+    const h = makeHarness({ config: { maxReplyChars: 200 }, asr: { script: ['小助手，讲个故事', '等一下'] }, llm: { reply }, tts: { msPerChar: 60 }, paceScale: 1 });
+    await speak(h, 'u_alice', 400);
+    const t0 = Date.now();
+    while (h.frames.length < 40 && Date.now() - t0 < 5000) await wait(10);
+    check(h.agent.aiState === 'speaking', '播放中:speaking', h.agent.aiState);
+    for (let i = 0; i < 60 && h.cleared === 0; i++) { h.agent.onAudioFrame('u_alice', tone(48000, 10, { freq: 200, amp: 9000 }), 48000, 1); await wait(10); }
+    const turn = await untilEv(h, (e) => e.ev === 'turn');
+    await wait(5);
+    check(turn?.interrupted === true && JSON.stringify(seqOf(h)) === JSON.stringify(['listening', 'thinking', 'speaking', 'listening']), '打断:speaking → listening', { states: seqOf(h), turn });
+    check(noAdjDup(h) && seqsUp(h), '打断路径无重复帧、seq 递增', h.states);
+    await h.agent.close();
+  }
+  {
+    // 回合中用掉最后的每小时额度:轮内保持 thinking/speaking,结束后 idle(ASR 已停)
+    const h = makeHarness({ config: { trigger: 'always', maxTurnsPerHour: 1 }, asr: { script: ['问一下'] }, llm: { reply: '好。' } });
+    await speak(h, 'u_alice', 300);
+    await untilEv(h, (e) => e.ev === 'turn');
+    await wait(5);
+    check(JSON.stringify(seqOf(h)) === JSON.stringify(['listening', 'thinking', 'speaking', 'idle']), '每小时上限:结束后 idle', seqOf(h));
+    await h.agent.close();
   }
 }
 

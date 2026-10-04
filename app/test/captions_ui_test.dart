@@ -89,6 +89,40 @@ void main() {
     expect(captions.lines, isEmpty);
   });
 
+  testWidgets('AI 助手不算「正在提供字幕」/「未开启字幕」;它的行带星芒、不用人名的余烬色',
+      (tester) async {
+    ch.join('u1', mic: true);
+    ch.join('u_ai_c1', mic: true);
+    await tester.pumpWidget(app());
+    await captions.setWantCaptions(true);
+    await tester.pump();
+    // AI 开着麦、还没发字幕:不提示「未开启字幕」
+    expect(find.text('小明 未开启字幕'), findsOneWidget);
+    expect(captions.notProvidingNames, ['小明']);
+
+    ch.receive('u1', {'t': 'capack', 'on': true});
+    ch.receive('u_ai_c1', {'t': 'capack', 'on': true});
+    cap('u1', 'a', 1, '今天', true);
+    cap('u_ai_c1', 'x', 1, '我在', true);
+    await tester.pump();
+    expect(captions.providerNames, ['小明']);
+    expect(find.text('小明 正在提供字幕'), findsOneWidget);
+    expect(find.textContaining('u_ai_c1 正在提供字幕'), findsNothing);
+
+    // AI 的行:有星芒;名字不是人名那种余烬色
+    expect(find.byKey(const ValueKey('cap-ai-x')), findsOneWidget);
+    Color? nameColor(String key) =>
+        ((tester.widget<Text>(find.byKey(ValueKey(key))).textSpan! as TextSpan)
+                .children!
+                .whereType<TextSpan>()
+                .first)
+            .style
+            ?.color;
+    expect(nameColor('cap-u_ai_c1-x'), isNot(nameColor('cap-u1-a')));
+    await captions.setWantCaptions(false);
+    await tester.pump();
+  });
+
   testWidgets('自动滚到底;用户往上翻后不再抢滚动', (tester) async {
     await tester.pumpWidget(app());
     await captions.setWantCaptions(true);
