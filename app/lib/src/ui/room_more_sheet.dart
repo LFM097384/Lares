@@ -41,7 +41,11 @@ class RoomMoreModel {
     this.focus,
     this.showMap = false,
     this.onToggleMap,
+    this.onManage,
   });
+
+  /// 圈主才非 null:面板最上面一行「管理圈子」。
+  final VoidCallback? onManage;
 
   final RoomController controller;
   final String circleName;
@@ -118,8 +122,10 @@ class RoomMoreModel {
     return v != null && v.enabled ? v : null;
   }
 
-  /// 「更多」里至少有一格(功能格或 AI 助手格)。
-  bool get hasAnything => aiPlugin != null || items().isNotEmpty;
+  /// 「更多」里至少有一格(功能格、AI 助手格,或圈主的「管理圈子」)。
+  /// 圈主即使把功能全关了也总有「更多」—— 否则就没处再把它们打开。
+  bool get hasAnything =>
+      onManage != null || aiPlugin != null || items().isNotEmpty;
 }
 
 /// 控件排里的「更多」键。有没有它由调用方按 [RoomMoreModel.items] 决定 ——
@@ -181,6 +187,26 @@ class _RoomMoreSheet extends StatelessWidget {
               children: [
                 Text(t.roomMore, style: theme.textTheme.titleMedium),
                 const SizedBox(height: LaresSpacing.md),
+                // 圈主的「管理圈子」:最上面一行。它不是房里的一项功能,
+                // 是管这些功能的地方 —— 所以不进格子,和 AI 行同一种整行样式。
+                if (model.onManage case final manage?) ...[
+                  _RowEntry(
+                    key: const ValueKey('more-manage'),
+                    leading: Icon(
+                      Icons.settings_outlined,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    title: t.roomManageCircle,
+                    subtitle: t.roomManageCircleDesc,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      if (!host.mounted) return;
+                      manage();
+                    },
+                  ),
+                  if (ai != null || items.isNotEmpty)
+                    const SizedBox(height: LaresSpacing.sm),
+                ],
                 // AI 助手单独一整行放在格子上面:它是「房里的一个成员」,不是一项开关;
                 // 也免得它在格子末尾孤零零占一排。副标题说清它现在怎么被叫。
                 if (ai != null) ...[
@@ -521,19 +547,52 @@ class _AiRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final String mode = switch (aiVoiceTrigger(config)) {
       'always' => t.aiVoiceTriggerAlways,
       'ptt' => t.aiVoiceTriggerPtt,
       _ => t.aiVoiceTriggerWake,
     };
+    return _RowEntry(
+      inkKey: const ValueKey('room-ai'),
+      subtitleKey: const ValueKey('more-ai-status'),
+      leading: const AiOrbMini(size: _aiRowOrb),
+      title: t.roomMoreAiTitle(aiVoiceName(config)),
+      subtitle: t.roomMoreAiMode(mode),
+      onTap: onTap,
+    );
+  }
+}
+
+/// 「更多」顶上的整行入口(AI 助手、圈主的「管理圈子」):
+/// 圆角浅底 + 左图标 + 标题 / 一行副标题 + 右箭头。
+class _RowEntry extends StatelessWidget {
+  const _RowEntry({
+    super.key,
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.inkKey,
+    this.subtitleKey,
+  });
+
+  final Widget leading;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Key? inkKey;
+  final Key? subtitleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Material(
       color: scheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(LaresRadii.md),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        key: const ValueKey('room-ai'),
+        key: inkKey,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -542,7 +601,10 @@ class _AiRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const AiOrbMini(size: _aiRowOrb),
+              SizedBox.square(
+                dimension: _aiRowOrb,
+                child: Center(child: leading),
+              ),
               const SizedBox(width: LaresSpacing.md),
               Expanded(
                 child: Column(
@@ -550,14 +612,14 @@ class _AiRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      t.roomMoreAiTitle(aiVoiceName(config)),
+                      title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall,
                     ),
                     Text(
-                      t.roomMoreAiMode(mode),
-                      key: const ValueKey('more-ai-status'),
+                      subtitle,
+                      key: subtitleKey,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall

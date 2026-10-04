@@ -78,7 +78,6 @@ class _TranscriptOwnerSwitchState extends State<TranscriptOwnerSwitch> {
       subtitle: Text(widget.e2ee
           ? t.transcriptOwnerSwitchDescE2ee
           : t.transcriptOwnerSwitchDesc),
-      isThreeLine: true,
       value: value,
       onChanged: _busy
           ? null

@@ -49,6 +49,7 @@ import 'package:lares_app/src/ui/room_screen.dart';
 import 'package:lares_app/src/ui/widgets/avatar_orb.dart';
 import 'package:lares_app/src/net/secret_vault.dart';
 import 'package:lares_app/src/state/settings_store.dart';
+import 'package:lares_app/src/state/circle_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/caption_fakes.dart';
@@ -340,7 +341,11 @@ class _Scene {
     this.pickerChoice,
     this.height,
     this.profile,
+    this.owner = false,
   });
+
+  /// 本机是这个圈的圈主:头部有齿轮、「更多」顶上有「管理圈子」。
+  final bool owner;
 
   /// 成员资料面板:'own'(改自己)/ 'other'(看别人,非圈主)/ 'owner'(圈主看别人)。
   final String? profile;
@@ -395,6 +400,60 @@ class _Scene {
 }
 
 final List<_Scene> _scenes = <_Scene>[
+  // ── 圈主在房间里管理圈子:圈名旁齿轮 /「更多」顶上一行 / 同一份管理面板 ──
+  _Scene(
+    name: 'owner_header',
+    speaking: <String>{'u1'},
+    extras: true,
+    owner: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+  ),
+  _Scene(
+    name: 'owner_header_360',
+    speaking: <String>{'u1'},
+    extras: true,
+    owner: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    size: const Size(360, 640),
+    padTop: 24,
+    padBottom: 0,
+  ),
+  _Scene(
+    name: 'owner_more_sheet',
+    speaking: <String>{'u1'},
+    extras: true,
+    owner: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'more',
+  ),
+  _Scene(
+    name: 'owner_manage_sheet',
+    speaking: <String>{'u1'},
+    extras: true,
+    owner: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'manage',
+  ),
+  _Scene(
+    name: 'owner_manage_sheet_bottom',
+    speaking: <String>{'u1'},
+    extras: true,
+    owner: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'manage_bottom',
+  ),
+  _Scene(
+    name: 'owner_manage_sheet_light_360',
+    speaking: <String>{'u1'},
+    extras: true,
+    owner: true,
+    light: true,
+    circle: _circle(_richFeatures, _chatPurpose, transcript: true),
+    overlay: 'manage',
+    size: const Size(360, 640),
+    padTop: 24,
+    padBottom: 0,
+  ),
   _Scene(name: 'a_empty', people: 2),
   _Scene(name: 'b_chat', speaking: <String>{'u1'}, chatMessages: true),
   _Scene(
@@ -562,7 +621,11 @@ final List<_Scene> _scenes = <_Scene>[
     kind: _Kind.aiSettingsAdvanced,
     height: 1560,
   ),
-  _Scene(name: 'ai_purpose_picker', kind: _Kind.picker, pickerChoice: 'meeting'),
+  _Scene(
+    name: 'ai_purpose_picker',
+    kind: _Kind.picker,
+    pickerChoice: 'meeting',
+  ),
   // ── 成员资料 ──
   _Scene(name: 'profile_own_edit', people: 3, profile: 'own'),
   _Scene(
@@ -694,7 +757,11 @@ void _injectSocial(FocusHarness focus, _Scene s) {
     },
     'custom': true,
     'defaults': <String, dynamic>{
-      'triggers': <String, bool>{'focus': true, 'crowd': false, 'arrive': false},
+      'triggers': <String, bool>{
+        'focus': true,
+        'crowd': false,
+        'arrive': false,
+      },
       'crowdN': 3,
     },
     'summonReadyAt': s.social == 'summon_wait' ? kFocusNow + 7 * 60000 : 0,
@@ -712,7 +779,12 @@ void _injectSocial(FocusHarness focus, _Scene s) {
       'lenMs': 25 * 60000,
       'members': <Map<String, dynamic>>[
         for (final String id in <String>['u_me', 'u1', 'u3'])
-          <String, dynamic>{'userId': id, 'name': _names[id] ?? '我', 'awayMs': 0, 'full': true},
+          <String, dynamic>{
+            'userId': id,
+            'name': _names[id] ?? '我',
+            'awayMs': 0,
+            'full': true,
+          },
         <String, dynamic>{
           'userId': 'u2',
           'name': _names['u2'],
@@ -751,8 +823,10 @@ Future<void> _openPushOverlay(
         context: ctx,
         isScrollControlled: true,
         showDragHandle: true,
-        builder: (_) =>
-            PushTriggersSheet(activity: focus.service.activity, circleId: 'home'),
+        builder: (_) => PushTriggersSheet(
+          activity: focus.service.activity,
+          circleId: 'home',
+        ),
       ),
     );
   } else if (s.overlay == 'push_level') {
@@ -948,7 +1022,11 @@ Future<void> _openProfile(
       't': 'focus_board',
       'circleId': 'home',
       'today': <Map<String, dynamic>>[
-        <String, dynamic>{'userId': 'u1', 'name': _names['u1'], 'ms': 142 * 60000},
+        <String, dynamic>{
+          'userId': 'u1',
+          'name': _names['u1'],
+          'ms': 142 * 60000,
+        },
       ],
       'week': <Map<String, dynamic>>[
         <String, dynamic>{
@@ -1015,6 +1093,19 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   }
   if (s.kind != _Kind.room) return _runPurposeScene(tester, s);
 
+  // 圈主场景:本机持有 home 的圈主钥匙,圈子列表里有这个圈
+  SettingsStore? ownerSettings;
+  CircleStore? ownerCircles;
+  if (s.owner) {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await tester.runAsync(() async {
+      ownerSettings = await SettingsStore.load(vault: InMemorySecretVault());
+      await ownerSettings!.saveOwnerKey('home', 'ok_home');
+      ownerCircles = await CircleStore.load();
+      await ownerCircles!.add(const Circle(id: 'home', name: '我们的圈'));
+    });
+  }
+
   final _FakeSignalingClient signaling = _FakeSignalingClient();
   final _FakeRtcService rtc = _FakeRtcService();
   final RoomController controller = RoomController(
@@ -1023,6 +1114,7 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     userId: 'u_me',
     deviceId: 'd_1',
     userName: '我',
+    settings: ownerSettings,
   );
   controller.captionsAvailable = true;
   unawaited(controller.join('home').catchError((Object _) {}));
@@ -1062,8 +1154,11 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
   });
   // 非圈主看别人:注册圈 + 没有圈主钥匙 → 没有「移出圈子」
   if (s.profile == 'other') {
-    controller.circleInfo['home'] =
-        (registered: true, e2ee: null, transcript: false);
+    controller.circleInfo['home'] = (
+      registered: true,
+      e2ee: null,
+      transcript: false,
+    );
   }
   await controller.testInjectToken('wss://fake', 'tok');
   if (s.circle != null) {
@@ -1215,6 +1310,8 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
     locationShare: location,
     focus: focus?.service,
     focusLock: focus == null ? null : FocusLock(supported: true),
+    settings: ownerSettings,
+    circleStore: ownerCircles,
   );
   await tester.pumpWidget(
     RepaintBoundary(
@@ -1369,6 +1466,31 @@ Future<void> _runScene(WidgetTester tester, _Scene s) async {
       }
       _drainExceptions(tester, s.name, 'ai_info');
     }
+  } else if (s.overlay == 'manage' || s.overlay == 'manage_bottom') {
+    // 圈主从房间里点圈名旁的齿轮
+    await tester.tap(
+      find.byKey(const ValueKey<String>('room-manage')).first,
+      warnIfMissed: false,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    if (find
+        .byKey(const ValueKey<String>('circle-manage-sheet'))
+        .evaluate()
+        .isEmpty) {
+      _exceptions.add('[${s.name}] manage sheet did not open');
+    }
+    if (s.overlay == 'manage_bottom') {
+      // 翻到底:看「进圈与安全」和红色的「危险操作」
+      await tester.drag(
+        find.byKey(const ValueKey<String>('circle-manage-sheet')),
+        const Offset(0, -2000),
+        warnIfMissed: false,
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+    _drainExceptions(tester, s.name, 'manage');
   } else if (s.overlay == 'privacy') {
     final BuildContext ctx = tester.element(find.byType(RoomScreen));
     unawaited(

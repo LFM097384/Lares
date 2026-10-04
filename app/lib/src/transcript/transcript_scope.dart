@@ -75,7 +75,8 @@ class TranscriptHistoryTile extends StatelessWidget {
     return ListTile(
       key: const ValueKey('transcript-history-tile'),
       leading: const Icon(Icons.subject_rounded),
-      title: Text(t.transcriptTitle),
+      // 「查看」:跟圈主那个同名的「转写记录」开关分开
+      title: Text(t.transcriptViewTitle),
       subtitle: Text(service.isE2EE(circleId)
           ? t.transcriptEntryDescE2ee
           : t.transcriptEntryDesc),
@@ -108,8 +109,6 @@ class TranscriptOwnerTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final nav = Navigator.of(context);
     final e2ee = service.isE2EE(circleId);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -119,22 +118,47 @@ class TranscriptOwnerTiles extends StatelessWidget {
           e2ee: e2ee,
           onSet: (v) => service.setTranscriptOn(circleId, v),
         ),
-        ListTile(
-          key: const ValueKey('bot-tokens-tile'),
-          leading: const Icon(Icons.smart_toy_outlined),
-          title: Text(t.botTokensTitle),
-          subtitle: Text(t.botTokensEntryDesc),
-          onTap: () {
-            onBeforeOpen?.call();
-            nav.push(MaterialPageRoute<void>(
-              builder: (_) => BotTokensScreen(
-                api: ServiceBotTokenApi(service, circleId),
-                e2ee: e2ee,
-              ),
-            ));
-          },
+        TranscriptBotTile(
+          service: service,
+          circleId: circleId,
+          onBeforeOpen: onBeforeOpen,
         ),
       ],
+    );
+  }
+}
+
+/// 圈主菜单项:机器人 token 入口(单独拿出来,好放进「进圈与安全」那一组)。
+class TranscriptBotTile extends StatelessWidget {
+  const TranscriptBotTile({
+    super.key,
+    required this.service,
+    required this.circleId,
+    this.onBeforeOpen,
+  });
+
+  final TranscriptService service;
+  final String circleId;
+  final VoidCallback? onBeforeOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final nav = Navigator.of(context);
+    return ListTile(
+      key: const ValueKey('bot-tokens-tile'),
+      leading: const Icon(Icons.smart_toy_outlined),
+      title: Text(t.botTokensTitle),
+      subtitle: Text(t.botTokensEntryDesc),
+      onTap: () {
+        onBeforeOpen?.call();
+        nav.push(MaterialPageRoute<void>(
+          builder: (_) => BotTokensScreen(
+            api: ServiceBotTokenApi(service, circleId),
+            e2ee: service.isE2EE(circleId),
+          ),
+        ));
+      },
     );
   }
 }

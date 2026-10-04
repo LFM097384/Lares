@@ -20,11 +20,13 @@ import '../state/location_share_stub.dart'
 import '../state/mic_notice.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
+import '../state/circle_store.dart';
 import '../state/settings_store.dart';
 import '../state/voice_notes.dart';
 import '../theme/tokens.dart';
 import 'caption_panel.dart';
 import 'chat_panel.dart';
+import 'circle_manage_sheet.dart';
 import 'map_panel.dart';
 import '../transcript/transcript_scope.dart';
 import '../plugins/ai_voice_settings.dart';
@@ -49,6 +51,10 @@ const double _blockedAvatarOpacity = 0.4;
 /// 被屏蔽角标的图标尺寸,与 AvatarOrb 里的静音标记同量级。
 const double _blockedBadgeIconSize = 16;
 
+/// 圈名旁「管理圈子」齿轮:图标小一号(不抢圈名),点按区仍够一指。
+const double _manageIconSize = 20;
+const double _manageTapBox = 36;
+
 /// 房间内界面(设计.md §3.2-2):极简 —— 头像网格 + 波纹 + 底部两个主按钮。
 /// 文字/图片是安静的副通道(§2.3 已由 owner 显式放开):默认折叠,
 /// 不抢成员网格与主麦克风按钮的位置,语音仍是一等公民。
@@ -69,7 +75,12 @@ class RoomScreen extends StatefulWidget {
     this.plugins,
     this.focus,
     this.focusLock,
+    this.circleStore,
   });
+
+  /// 圈子列表。圈主的「管理圈子」要用它(与首页长按打开的是同一份面板);
+  /// 为 null 时(或没有 [settings])房间里没有这个入口。
+  final CircleStore? circleStore;
 
   /// 专注学习。为 null 时退回树上的 FocusStudyScope;都没有就没有任何专注 UI。
   final FocusService? focus;
@@ -129,6 +140,9 @@ class _RoomScreenState extends State<RoomScreen> {
   CircleFeatures? _lastFeatures;
   RoomController? _boundController;
 
+  /// 房间页最后一次看到的圈子(通话结束时 controller.circleId 可能先被清空)。
+  String? _lastCircleId;
+
   @override
   void initState() {
     super.initState();
@@ -160,6 +174,7 @@ class _RoomScreenState extends State<RoomScreen> {
     final prev = _lastFeatures;
     _lastFeatures = f;
     if (!mounted) return;
+    _closeOverlaysIfSessionEnded();
     final captions = widget.captions;
     final bool dropCaptions =
         captions != null && !f.captions && (prev == null || prev.captions);
@@ -173,9 +188,69 @@ class _RoomScreenState extends State<RoomScreen> {
     });
   }
 
+  /// 这次通话被别人(或圈主自己)结束了:圈子被解散、自己被请出去。
+  ///
+  /// 房间页随后就会被首页换成圈子列表,提示由首页读 dissolvedCircleId /
+  /// kickedBy 弹。这里只收拾**从房间里打开、压在房间上面**的东西
+  /// (管理圈子面板、功能页、对话框、插件页)—— 不然人回到了首页,
+  /// 上面还盖着一张管着一个已经不存在的圈的面板。
+  void _closeOverlaysIfSessionEnded() {
+    final c = widget.controller;
+    final cid = c.circleId;
+    // leave() 可能已经先把 circleId 清掉了:那就认房间页最后看到的那个圈
+    final String? mine = cid ?? _lastCircleId;
+    if (cid != null) _lastCircleId = cid;
+    final bool dissolved =
+        c.dissolvedCircleId != null && c.dissolvedCircleId == mine;
+    if (!dissolved && c.kickedBy == null) return;
+    final route = _route;
+    if (route == null || route.isCurrent) return;
+    // 房间页这一帧之后多半就被首页换掉了:导航器与路由先拿在手里
+    final nav = route.navigator;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (nav != null && route.isActive && !route.isCurrent) {
+        nav.popUntil((r) => r == route);
+      }
+    });
+  }
+
+  /// 房间页所在的路由(在 didChangeDependencies 里取:initState 里还取不了)。
+  ModalRoute<Object?>? _route;
+
+  /// 本机是这个圈「已确认」的圈主,且有能力打开管理面板(有圈子列表与设置)。
+  bool get _canManage {
+    final cid = widget.controller.circleId;
+    return cid != null &&
+        widget.circleStore != null &&
+        widget.settings != null &&
+        canManageCircle(widget.controller, widget.settings, cid);
+  }
+
+  /// 打开与首页长按同一份圈子管理面板(只给圈主)。
+  void _openManage() {
+    final cid = widget.controller.circleId;
+    final store = widget.circleStore;
+    final settings = widget.settings;
+    if (cid == null || store == null || settings == null) return;
+    final circle = store.circles.firstWhere(
+      (c) => c.id == cid,
+      orElse: () => Circle(id: cid, name: widget.circleName),
+    );
+    showCircleManageSheet(
+      context,
+      circle: circle,
+      controller: widget.controller,
+      circleStore: store,
+      settings: settings,
+      e2ee: widget.e2ee,
+      fromRoom: true,
+    );
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _route = ModalRoute.of(context);
     _bindFocus();
   }
 
@@ -241,8 +316,7 @@ class _RoomScreenState extends State<RoomScreen> {
         ? 0
         : MediaQuery.paddingOf(context).bottom;
     final CircleFeatures features = _currentFeatures();
-    final bool mapOn =
-        _showMap && widget.locationShare != null && features.map;
+    final bool mapOn = _showMap && widget.locationShare != null && features.map;
     final RoomMoreModel more = _moreModel();
     // 座位上的资料面板从这里拿「@Ta」接到聊天框、以及设置
     return ProfileRoomScope(
@@ -251,202 +325,206 @@ class _RoomScreenState extends State<RoomScreen> {
           : (Member m) => _chatKey.currentState?.insertMention(m.name),
       settings: widget.settings,
       child: Scaffold(
-      body: Stack(
-        children: [
-          // 地图铺满时这层完全被盖住 —— 停掉,别白烧 60fps。
-          _BreathingBackground(visible: !mapOn),
-          // 麦克风开关失败的提示:与控制条是否可见无关(键盘弹起时控制条会收起)
-          _MicNoticeListener(controller: controller),
-          if (focus != null)
-            FocusNoticeListener(focus: focus, myUserId: controller.userId),
-          SafeArea(
-            // 底部安全区交给底座自己垫:底座的底色要一直铺到屏幕最下沿,
-            // 而不是在 Home 条上方断开、露出一截背景。
-            bottom: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final bool wide =
-                    widget.chat != null &&
-                    constraints.maxWidth >= _wideRoomWidth;
-                // 宽屏里消息区常驻,不存在「展开」;回到窄屏时从收起态开始
-                if (wide) _chatExpanded = false;
-                final bool compact =
-                    !wide && !mapOn && (_chatExpanded || keyboardOpen);
-                return Column(
-                  children: [
-                    _RoomHeader(
-                      controller: controller,
-                      circleName: widget.circleName,
-                      e2ee: widget.e2ee,
-                      onCloseMap: mapOn
-                          ? () => setState(() => _showMap = false)
-                          : null,
-                      // 圈主的「叫大家来」(§9.4):不是圈主时自己不占位
-                      trailing: focus != null && controller.circleId != null
-                          ? SummonButton(
-                              focus: focus,
-                              circleId: controller.circleId!,
-                              myName: controller.userName,
-                            )
-                          : null,
-                    ),
-                    // 本机的语音正在出本机(云端识别):常驻,可一键停
-                    if (widget.captions != null)
-                      CaptionProvidingBanner(captions: widget.captions!),
-                    // 本圈开着转写记录:一行安静的常驻小字(上面横幅在喊时不重复)
-                    RoomTranscriptNotice(
-                      controller: controller,
-                      circleName: widget.circleName,
-                      captions: widget.captions,
-                      transcripts: TranscriptScope.maybeOf(context),
-                    ),
-                    // 「你以为加密了但其实没有」值得一整条横幅,不是一个小角标。
-                    if (widget.e2ee != null)
-                      _E2EERoomBanner(
+        body: Stack(
+          children: [
+            // 地图铺满时这层完全被盖住 —— 停掉,别白烧 60fps。
+            _BreathingBackground(visible: !mapOn),
+            // 麦克风开关失败的提示:与控制条是否可见无关(键盘弹起时控制条会收起)
+            _MicNoticeListener(controller: controller),
+            if (focus != null)
+              FocusNoticeListener(focus: focus, myUserId: controller.userId),
+            SafeArea(
+              // 底部安全区交给底座自己垫:底座的底色要一直铺到屏幕最下沿,
+              // 而不是在 Home 条上方断开、露出一截背景。
+              bottom: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool wide =
+                      widget.chat != null &&
+                      constraints.maxWidth >= _wideRoomWidth;
+                  // 宽屏里消息区常驻,不存在「展开」;回到窄屏时从收起态开始
+                  if (wide) _chatExpanded = false;
+                  final bool compact =
+                      !wide && !mapOn && (_chatExpanded || keyboardOpen);
+                  return Column(
+                    children: [
+                      _RoomHeader(
                         controller: controller,
-                        e2ee: widget.e2ee!,
+                        circleName: widget.circleName,
+                        e2ee: widget.e2ee,
+                        // 圈主专属:圈名旁一个小齿轮(非圈主 null,不占位)
+                        onManage: _canManage ? _openManage : null,
+                        onCloseMap: mapOn
+                            ? () => setState(() => _showMap = false)
+                            : null,
+                        // 圈主的「叫大家来」(§9.4):不是圈主时自己不占位
+                        trailing: focus != null && controller.circleId != null
+                            ? SummonButton(
+                                focus: focus,
+                                circleId: controller.circleId!,
+                                myName: controller.userName,
+                              )
+                            : null,
                       ),
-                    // 「这个圈子要口令」—— 当场补填,不必跑去设置页。
-                    // 放在敲门横幅之前:它是一条**挡路**的错误,
-                    // 而敲门是别人的请求,此刻还轮不到。
-                    _PasscodeRetryBanner(
-                      controller: controller,
-                      settings: widget.settings,
-                    ),
-                    _KnockBanner(
-                      controller: controller,
-                      settings: widget.settings,
-                    ),
-                    // 录音指示器:房间里有人在录音时对**所有人**常驻显示。
-                    // 这是本 App 唯一刻意「吵」的组件 —— 安静的设计 ≠ 藏起来。
-                    // 没人录音时它自己退化成 SizedBox.shrink(),不占位。
-                    //
-                    // 注:录音功能当前整体未开放(LaresConfig.recordingEnabled),
-                    // 故指示器一并隐藏。二者必须同开同关 —— 只要功能可用,
-                    // 指示器就必须在,否则就成了「偷录」。
-                    if (LaresConfig.recordingEnabled &&
-                        widget.recordingConsent != null)
-                      RecordingIndicatorBanner(
-                        controller: widget.recordingConsent!,
+                      // 本机的语音正在出本机(云端识别):常驻,可一键停
+                      if (widget.captions != null)
+                        CaptionProvidingBanner(captions: widget.captions!),
+                      // 本圈开着转写记录:一行安静的常驻小字(上面横幅在喊时不重复)
+                      RoomTranscriptNotice(
+                        controller: controller,
+                        circleName: widget.circleName,
+                        captions: widget.captions,
+                        transcripts: TranscriptScope.maybeOf(context),
                       ),
-                    // 专注学习:计时卡。语音区收成一条时它也收成一行。
-                    if (focus != null)
-                      FocusTimerCard(
-                        focus: focus,
-                        lock: _lock,
-                        slim: compact ||
-                            keyboardOpen ||
-                            MediaQuery.sizeOf(context).height < 700,
+                      // 「你以为加密了但其实没有」值得一整条横幅,不是一个小角标。
+                      if (widget.e2ee != null)
+                        _E2EERoomBanner(
+                          controller: controller,
+                          e2ee: widget.e2ee!,
+                        ),
+                      // 「这个圈子要口令」—— 当场补填,不必跑去设置页。
+                      // 放在敲门横幅之前:它是一条**挡路**的错误,
+                      // 而敲门是别人的请求,此刻还轮不到。
+                      _PasscodeRetryBanner(
+                        controller: controller,
+                        settings: widget.settings,
                       ),
-                    // 专注社交:本轮出勤卡 + 待看的周报卡(§10)
-                    if (focus != null) FocusSocialCards(focus: focus),
-                    if (wide)
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: _stage(
-                                controller,
-                                mapOn: mapOn,
-                                bottomInset: bottomSafe,
-                                withControls: true,
-                              ),
-                            ),
-                            SizedBox(
-                              width: _sidePanelWidth,
-                              child: _Dock(
-                                floating: true,
-                                bottomInset: bottomSafe,
-                                child: _chatPanel(
+                      _KnockBanner(
+                        controller: controller,
+                        settings: widget.settings,
+                      ),
+                      // 录音指示器:房间里有人在录音时对**所有人**常驻显示。
+                      // 这是本 App 唯一刻意「吵」的组件 —— 安静的设计 ≠ 藏起来。
+                      // 没人录音时它自己退化成 SizedBox.shrink(),不占位。
+                      //
+                      // 注:录音功能当前整体未开放(LaresConfig.recordingEnabled),
+                      // 故指示器一并隐藏。二者必须同开同关 —— 只要功能可用,
+                      // 指示器就必须在,否则就成了「偷录」。
+                      if (LaresConfig.recordingEnabled &&
+                          widget.recordingConsent != null)
+                        RecordingIndicatorBanner(
+                          controller: widget.recordingConsent!,
+                        ),
+                      // 专注学习:计时卡。语音区收成一条时它也收成一行。
+                      if (focus != null)
+                        FocusTimerCard(
+                          focus: focus,
+                          lock: _lock,
+                          slim:
+                              compact ||
+                              keyboardOpen ||
+                              MediaQuery.sizeOf(context).height < 700,
+                        ),
+                      // 专注社交:本轮出勤卡 + 待看的周报卡(§10)
+                      if (focus != null) FocusSocialCards(focus: focus),
+                      if (wide)
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: _stage(
                                   controller,
-                                  collapsible: false,
+                                  mapOn: mapOn,
+                                  bottomInset: bottomSafe,
+                                  withControls: true,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else ...[
-                      // 语音区:有空间时是舞台,聊天展开 / 键盘弹起时收成一条 ——
-                      // 但**永远不消失**。谁在说话,任何时候都看得见。
-                      if (compact)
-                        _VoiceStrip(
-                          controller: controller,
-                          blocks: widget.blocks,
-                          plugins:
-                              widget.plugins ?? PluginScope.maybeOf(context),
-                          focus: focus,
-                          showMute: keyboardOpen,
-                          showNames: !keyboardOpen,
-                        )
-                      else
-                        Expanded(
-                          child: _stage(
-                            controller,
-                            mapOn: mapOn,
-                            bottomInset: 0,
-                            withControls: false,
-                          ),
-                        ),
-                      // 底座:聊天、字幕带、输入框、主控件同在一块面上
-                      _maybeExpanded(
-                        expand: compact && _chatExpanded,
-                        spacer: compact && !_chatExpanded,
-                        child: _Dock(
-                          bottomInset: bottomSafe,
-                          child: Column(
-                            mainAxisSize: compact && _chatExpanded
-                                ? MainAxisSize.max
-                                : MainAxisSize.min,
-                            children: [
-                              if (chat != null)
-                                _maybeExpanded(
-                                  expand: compact && _chatExpanded,
+                              SizedBox(
+                                width: _sidePanelWidth,
+                                child: _Dock(
+                                  floating: true,
+                                  bottomInset: bottomSafe,
                                   child: _chatPanel(
                                     controller,
-                                    collapsible: true,
-                                    // 键盘弹起时主控件排让位,展开/收起键回到输入栏
-                                    showToggle: keyboardOpen || lockTakesSlot,
+                                    collapsible: false,
                                   ),
-                                )
-                              else if (widget.captions != null)
-                                CaptionPanel(
-                                  captions: widget.captions!,
-                                  band: true,
                                 ),
-                              // 键盘弹起时主控件让位给输入框;静音键已挪到语音条上
-                              if (!keyboardOpen)
-                                _ControlBar(
-                                  controller: controller,
-                                  more: more,
-                                  focus: focus,
-                                  lock: _lock,
-                                  // 聊天展开/收起键从输入栏挪到这里:与离开/字幕
-                                  // 左右对称,输入框也因此多出一截宽度
-                                  trailing: chat == null
-                                      ? null
-                                      : ChatToggleButton(
-                                          chat: chat,
-                                          expanded: _chatExpanded,
-                                          tonal: true,
-                                          onToggle: () => _chatKey.currentState
-                                              ?.toggleExpanded(),
-                                        ),
-                                ),
+                              ),
                             ],
                           ),
+                        )
+                      else ...[
+                        // 语音区:有空间时是舞台,聊天展开 / 键盘弹起时收成一条 ——
+                        // 但**永远不消失**。谁在说话,任何时候都看得见。
+                        if (compact)
+                          _VoiceStrip(
+                            controller: controller,
+                            blocks: widget.blocks,
+                            plugins:
+                                widget.plugins ?? PluginScope.maybeOf(context),
+                            focus: focus,
+                            showMute: keyboardOpen,
+                            showNames: !keyboardOpen,
+                          )
+                        else
+                          Expanded(
+                            child: _stage(
+                              controller,
+                              mapOn: mapOn,
+                              bottomInset: 0,
+                              withControls: false,
+                            ),
+                          ),
+                        // 底座:聊天、字幕带、输入框、主控件同在一块面上
+                        _maybeExpanded(
+                          expand: compact && _chatExpanded,
+                          spacer: compact && !_chatExpanded,
+                          child: _Dock(
+                            bottomInset: bottomSafe,
+                            child: Column(
+                              mainAxisSize: compact && _chatExpanded
+                                  ? MainAxisSize.max
+                                  : MainAxisSize.min,
+                              children: [
+                                if (chat != null)
+                                  _maybeExpanded(
+                                    expand: compact && _chatExpanded,
+                                    child: _chatPanel(
+                                      controller,
+                                      collapsible: true,
+                                      // 键盘弹起时主控件排让位,展开/收起键回到输入栏
+                                      showToggle: keyboardOpen || lockTakesSlot,
+                                    ),
+                                  )
+                                else if (widget.captions != null)
+                                  CaptionPanel(
+                                    captions: widget.captions!,
+                                    band: true,
+                                  ),
+                                // 键盘弹起时主控件让位给输入框;静音键已挪到语音条上
+                                if (!keyboardOpen)
+                                  _ControlBar(
+                                    controller: controller,
+                                    more: more,
+                                    focus: focus,
+                                    lock: _lock,
+                                    // 聊天展开/收起键从输入栏挪到这里:与离开/字幕
+                                    // 左右对称,输入框也因此多出一截宽度
+                                    trailing: chat == null
+                                        ? null
+                                        : ChatToggleButton(
+                                            chat: chat,
+                                            expanded: _chatExpanded,
+                                            tonal: true,
+                                            onToggle: () => _chatKey
+                                                .currentState
+                                                ?.toggleExpanded(),
+                                          ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -463,6 +541,7 @@ class _RoomScreenState extends State<RoomScreen> {
       transcripts: TranscriptScope.maybeOf(context),
       focus: _focus,
       showMap: _showMap,
+      onManage: _canManage ? _openManage : null,
       onToggleMap: widget.locationShare == null
           ? null
           : () => setState(() => _showMap = !_showMap),
@@ -1228,11 +1307,15 @@ class _RoomHeader extends StatelessWidget {
     this.e2ee,
     this.onCloseMap,
     this.trailing,
+    this.onManage,
   });
 
   final RoomController controller;
   final String circleName;
   final E2EEController? e2ee;
+
+  /// 圈主才非 null:圈名旁出一个小齿轮,打开圈子管理面板。
+  final VoidCallback? onManage;
 
   /// 头部右侧的附加按钮(圈主「叫大家来」)。
   final Widget? trailing;
@@ -1259,8 +1342,9 @@ class _RoomHeader extends StatelessWidget {
             (cid != null && e2ee != null && e2ee!.isCircleManaged(cid)
                 ? e2ee!.previewStatusFor(cid)
                 : null);
-        final CirclePurposeInfo? purpose =
-            cid == null ? null : controller.circlePurpose[cid];
+        final CirclePurposeInfo? purpose = cid == null
+            ? null
+            : controller.circlePurpose[cid];
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             LaresSpacing.lg,
@@ -1294,6 +1378,26 @@ class _RoomHeader extends StatelessWidget {
                           const SizedBox(width: LaresSpacing.sm),
                           E2EEBadge(status: status, compact: true),
                         ],
+                        // 圈主的「管理圈子」:贴着圈名 —— 管的就是这个名字。
+                        // 不放到右侧那一排:那里已经有「叫大家来」、回到房间、
+                        // 进房耗时,360 宽时再挤一颗,圈名就只剩两个字了。
+                        if (onManage != null)
+                          IconButton(
+                            key: const ValueKey('room-manage'),
+                            tooltip: t.roomManageCircle,
+                            onPressed: onManage,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: _manageTapBox,
+                              minHeight: _manageTapBox,
+                            ),
+                            icon: Icon(
+                              Icons.settings_outlined,
+                              size: _manageIconSize,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                       ],
                     ),
                     // 用途名牌:一行淡字,不抢圈名
@@ -1459,9 +1563,11 @@ class _MemberGrid extends StatelessWidget {
             // 一多,第二排大座位会被视口截断,名字落在可见区外。
             final double innerW = box.maxWidth - 2 * LaresSpacing.lg;
             final double cellW = _gridCellWidth(innerW);
-            final int rows =
-                (members.length / _gridColumns(innerW)).ceil().clamp(1, 1 << 20);
-            final double fullH = rows * (cellW / _gridChildAspect) +
+            final int rows = (members.length / _gridColumns(innerW))
+                .ceil()
+                .clamp(1, 1 << 20);
+            final double fullH =
+                rows * (cellW / _gridChildAspect) +
                 (rows - 1) * LaresSpacing.md +
                 2 * LaresSpacing.lg;
             final bool tight = box.maxHeight < fullH;
@@ -1700,11 +1806,7 @@ class _ControlBar extends StatelessWidget {
     final theme = Theme.of(context);
     more.ensureLoaded();
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable?>[
-        more.listenable,
-        focus,
-        lock,
-      ]),
+      listenable: Listenable.merge(<Listenable?>[more.listenable, focus, lock]),
       builder: (context, _) {
         final FocusService? f = focus;
         final bool focusOn = f != null && f.active;
@@ -1847,6 +1949,7 @@ int _gridColumns(double width) {
   if (width <= 0) return 1;
   return (width / (140 + LaresSpacing.sm)).ceil().clamp(1, 1 << 20);
 }
+
 const double _stripHeight = 84;
 const double _stripHeightNoNames = 64;
 

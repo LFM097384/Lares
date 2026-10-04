@@ -2759,13 +2759,13 @@ abstract class AppLocalizations {
   /// 圈主转写记录开关说明(非加密圈)
   ///
   /// In zh, this message translates to:
-  /// **'把大家说的话识别成文字并保存在服务器上,直到你清空或删除圈子。语音经阿里云识别;不想被记录的人可以在设置里关掉「为需要字幕的人生成字幕」'**
+  /// **'把大家说的话记成文字,存在服务器上,直到你清空'**
   String get transcriptOwnerSwitchDesc;
 
   /// 圈主转写记录开关说明(加密圈)
   ///
   /// In zh, this message translates to:
-  /// **'把大家说的话识别成文字,加密后只存在各人设备上。语音会送到阿里云识别'**
+  /// **'把大家说的话记成文字,加密后只存在各人设备上'**
   String get transcriptOwnerSwitchDescE2ee;
 
   /// 加密圈开启转写记录的告知标题
@@ -3530,6 +3530,54 @@ abstract class AppLocalizations {
   /// **'更多'**
   String get roomMore;
 
+  /// 房间里圈主专属的入口(头部齿轮的提示 / 「更多」顶上一行的标题):打开与首页长按同一份圈子管理面板
+  ///
+  /// In zh, this message translates to:
+  /// **'管理圈子'**
+  String get roomManageCircle;
+
+  /// 「更多」顶上「管理圈子」一行的副标题:列出里面有什么
+  ///
+  /// In zh, this message translates to:
+  /// **'功能、用途、插件、加密、邀请、口令'**
+  String get roomManageCircleDesc;
+
+  /// 从房间里打开的圈子管理面板的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'管理「{name}」'**
+  String roomManageCircleTitle(String name);
+
+  /// 圈子管理面板的分组小标题:邀请、查看转写、设为主圈
+  ///
+  /// In zh, this message translates to:
+  /// **'常用'**
+  String get circleManageSectionCommon;
+
+  /// 圈子管理面板的分组小标题:用途、功能、插件、活动提醒、转写开关
+  ///
+  /// In zh, this message translates to:
+  /// **'这个圈怎么用'**
+  String get circleManageSectionUse;
+
+  /// 圈子管理面板的分组小标题:敲门、口令、加密、机器人
+  ///
+  /// In zh, this message translates to:
+  /// **'进圈与安全'**
+  String get circleManageSectionSafety;
+
+  /// 圈子管理面板的分组小标题(红色):解散、删除
+  ///
+  /// In zh, this message translates to:
+  /// **'危险操作'**
+  String get circleManageSectionDanger;
+
+  /// 圈子菜单里打开转写记录列表的入口,与圈主的「转写记录」开关区分
+  ///
+  /// In zh, this message translates to:
+  /// **'查看转写记录'**
+  String get transcriptViewTitle;
+
   /// 「更多」面板里开关类格子(如字幕)的状态:开
   ///
   /// In zh, this message translates to:
@@ -4085,7 +4133,7 @@ abstract class AppLocalizations {
   /// 进圈隐私告知:本圈开了转写记录(非加密圈)
   ///
   /// In zh, this message translates to:
-  /// **'转写记录开(语音经阿里云识别,文字连同昵称存在服务器上,直到圈主清空)'**
+  /// **'转写记录开(语音经阿里云识别,文字连同昵称存在服务器上,直到圈主清空或删除圈子;不想被记录的人可以在设置里关掉「为需要字幕的人生成字幕」)'**
   String get privacySheetTranscript;
 
   /// 进圈隐私告知:本圈开了转写记录(端到端加密圈)

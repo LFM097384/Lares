@@ -1579,12 +1579,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get transcriptEntryDescE2ee => '只存在这台设备上';
 
   @override
-  String get transcriptOwnerSwitchDesc =>
-      '把大家说的话识别成文字并保存在服务器上,直到你清空或删除圈子。语音经阿里云识别;不想被记录的人可以在设置里关掉「为需要字幕的人生成字幕」';
+  String get transcriptOwnerSwitchDesc => '把大家说的话记成文字,存在服务器上,直到你清空';
 
   @override
-  String get transcriptOwnerSwitchDescE2ee =>
-      '把大家说的话识别成文字,加密后只存在各人设备上。语音会送到阿里云识别';
+  String get transcriptOwnerSwitchDescE2ee => '把大家说的话记成文字,加密后只存在各人设备上';
 
   @override
   String get transcriptE2eeWarnTitle => '在加密圈里开启转写记录?';
@@ -2008,6 +2006,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get roomMore => '更多';
 
   @override
+  String get roomManageCircle => '管理圈子';
+
+  @override
+  String get roomManageCircleDesc => '功能、用途、插件、加密、邀请、口令';
+
+  @override
+  String roomManageCircleTitle(String name) {
+    return '管理「$name」';
+  }
+
+  @override
+  String get circleManageSectionCommon => '常用';
+
+  @override
+  String get circleManageSectionUse => '这个圈怎么用';
+
+  @override
+  String get circleManageSectionSafety => '进圈与安全';
+
+  @override
+  String get circleManageSectionDanger => '危险操作';
+
+  @override
+  String get transcriptViewTitle => '查看转写记录';
+
+  @override
   String get roomMoreOn => '开着';
 
   @override
@@ -2322,7 +2346,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get privacySheetTitle => '本圈的隐私设置';
 
   @override
-  String get privacySheetTranscript => '转写记录开(语音经阿里云识别,文字连同昵称存在服务器上,直到圈主清空)';
+  String get privacySheetTranscript =>
+      '转写记录开(语音经阿里云识别,文字连同昵称存在服务器上,直到圈主清空或删除圈子;不想被记录的人可以在设置里关掉「为需要字幕的人生成字幕」)';
 
   @override
   String get privacySheetTranscriptE2ee => '转写记录开(语音经阿里云识别;服务器只转交密文,记录存在各人设备上)';

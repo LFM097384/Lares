@@ -1706,11 +1706,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transcriptOwnerSwitchDesc =>
-      'Turns what people say into text and keeps it on the server until you clear it or delete the circle. Speech is recognized by Alibaba Cloud. Anyone who doesn\'t want to be recorded can turn off captions for others in Settings';
+      'Keeps what people say as text on the server until you clear it';
 
   @override
   String get transcriptOwnerSwitchDescE2ee =>
-      'Turns what people say into text, stored encrypted on each member\'s device. Speech is sent to Alibaba Cloud for recognition';
+      'Keeps what people say as text, encrypted on each member\'s device';
 
   @override
   String get transcriptE2eeWarnTitle =>
@@ -2149,6 +2149,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get roomMore => 'More';
 
   @override
+  String get roomManageCircle => 'Manage circle';
+
+  @override
+  String get roomManageCircleDesc =>
+      'Features, purpose, plugins, encryption, invites, passcode';
+
+  @override
+  String roomManageCircleTitle(String name) {
+    return 'Manage “$name”';
+  }
+
+  @override
+  String get circleManageSectionCommon => 'Common';
+
+  @override
+  String get circleManageSectionUse => 'How this circle works';
+
+  @override
+  String get circleManageSectionSafety => 'Joining & security';
+
+  @override
+  String get circleManageSectionDanger => 'Danger zone';
+
+  @override
+  String get transcriptViewTitle => 'View transcript';
+
+  @override
   String get roomMoreOn => 'On';
 
   @override
@@ -2486,7 +2513,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacySheetTranscript =>
-      'Transcript on (speech is recognized by Alibaba Cloud; the text and nicknames stay on the server until the owner clears them)';
+      'Transcript on (speech is recognized by Alibaba Cloud; the text and nicknames stay on the server until the owner clears them or deletes the circle; anyone who doesn\'t want to be recorded can turn off captions for others in Settings)';
 
   @override
   String get privacySheetTranscriptE2ee =>
