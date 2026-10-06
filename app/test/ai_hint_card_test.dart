@@ -58,7 +58,7 @@ void main() {
     expect(textOf(tester, 'ai-hint-also'), '也可以叫它:小福、福仔');
     expect(find.byKey(const ValueKey('ai-hint-chat')), findsOneWidget);
     expect(textOf(tester, 'ai-hint-mode'), contains('叫名字'));
-    expect(textOf(tester, 'ai-hint-privacy'), contains('它会把语音发到阿里云处理'));
+    expect(textOf(tester, 'ai-hint-privacy'), contains('它会把语音发到阿里云识别,回答由深度求索 DeepSeek 生成'));
   });
 
   testWidgets('一直听模式', (tester) async {
@@ -66,7 +66,7 @@ void main() {
     expect(textOf(tester, 'ai-hint-ask'), '直接说就行,它一直在听');
     expect(find.byKey(const ValueKey('ai-hint-also')), findsNothing);
     expect(textOf(tester, 'ai-hint-mode'), contains('一直听'));
-    expect(textOf(tester, 'ai-hint-privacy'), contains('它会把语音发到阿里云处理'));
+    expect(textOf(tester, 'ai-hint-privacy'), contains('它会把语音发到阿里云识别,回答由深度求索 DeepSeek 生成'));
   });
 
   testWidgets('ptt:在聊天里 @AI 提问;隐私只说文字', (tester) async {

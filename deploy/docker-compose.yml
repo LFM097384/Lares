@@ -116,6 +116,15 @@ services:
       # ── 实时字幕(阿里云百炼 DashScope)。留空 = 字幕禁用,客户端隐藏按钮 ──────
       # 长期 API Key 只留在服务器;客户端每次只拿一张 5 分钟的临时 token。**绝不提交真 Key。**
       LARES_DASHSCOPE_API_KEY: ${LARES_DASHSCOPE_API_KEY:-}
+      # ── AI 语音助手的对话 LLM(OpenAI 兼容)。全留空 = 用 DashScope qwen-flash ──────
+      # DeepSeek:BASE_URL=https://api.deepseek.com,MODEL=deepseek-flash,KEY=sk-…(只放服务器 .env)。
+      # EXTRA_BODY 留空时 DeepSeek 默认 {"thinking":{"type":"disabled"}};DeepSeek 出错自动回退 qwen-flash。
+      LARES_AI_LLM_BASE_URL: ${LARES_AI_LLM_BASE_URL:-}
+      LARES_AI_LLM_KEY: ${LARES_AI_LLM_KEY:-}
+      LARES_AI_LLM_API_KEY: ${LARES_AI_LLM_API_KEY:-}
+      LARES_AI_LLM_MODEL: ${LARES_AI_LLM_MODEL:-}
+      LARES_AI_LLM_EXTRA_BODY: ${LARES_AI_LLM_EXTRA_BODY:-}
+      LARES_AI_LLM_TIMEOUT_MS: ${LARES_AI_LLM_TIMEOUT_MS:-}
     volumes:
       - lares-data:/app/data
       # 用钥匙文件时取消注释(容器内以 node 用户运行,文件需对其可读):

@@ -15,8 +15,9 @@ import { spokenUntilFromPlayback, messagesAsExperienced, splitHeardAndUnsaid, Hi
 import { resample, tone, EnergyVad, ROOM_RATE } from '../bots/voice-agent/audio.mjs';
 import { VoiceAgent, Player } from '../bots/voice-agent/pipeline.mjs';
 import { MockAsr, MockLlm, MockTts } from '../bots/voice-agent/providers/mock.mjs';
-import { WarmPool } from '../bots/voice-agent/providers/index.mjs';
-import { OpenAiCompatLlm } from '../bots/voice-agent/providers/openai_compat.mjs';
+import { WarmPool, createLlm } from '../bots/voice-agent/providers/index.mjs';
+import { OpenAiCompatLlm, resolveExtraBody, DASHSCOPE_COMPAT_BASE } from '../bots/voice-agent/providers/openai_compat.mjs';
+import http from 'node:http';
 import { normalizeAiVoiceConfig, AI_VOICE_DEFAULTS } from '../bots/voice-agent/config.mjs';
 import { parseArgs, loadConfig } from '../bots/voice-agent/index.mjs';
 
@@ -694,6 +695,117 @@ async function miscTests() {
   check(r.code === 2 && lines.every(Boolean) && lines.at(-1).ev === 'exit' && lines.at(-1).code === 2, '缺 --circle → exit 2,stdout 每行 JSON', r);
 }
 
+// ── DeepSeek:extra body / 默认关思考 / reasoning 过滤 / 回退(真 HTTP,本地假服务器) ─────────────
+async function deepseekTests() {
+  console.log('\n[LLM DeepSeek / extra body / 回退]');
+  // resolveExtraBody
+  check(JSON.stringify(resolveExtraBody(undefined, 'https://api.deepseek.com')) === '{"thinking":{"type":"disabled"}}', 'DeepSeek 未设 EXTRA_BODY → 默认关思考');
+  check(JSON.stringify(resolveExtraBody('', 'https://api.deepseek.com/v1')) === '{"thinking":{"type":"disabled"}}', 'DeepSeek /v1 + 空串 → 默认关思考');
+  check(JSON.stringify(resolveExtraBody(undefined, DASHSCOPE_COMPAT_BASE)) === '{}', '非 DeepSeek 未设 → {}');
+  check(JSON.stringify(resolveExtraBody('{"thinking":{"type":"enabled"},"top_p":0.9}', 'https://api.deepseek.com')) === '{"thinking":{"type":"enabled"},"top_p":0.9}', '显式 EXTRA_BODY 覆盖默认');
+  let bad = 0;
+  for (const raw of ['nope', '[1]', '3', 'null']) { try { resolveExtraBody(raw, 'https://api.deepseek.com'); } catch { bad += 1; } }
+  check(bad === 4, '非 JSON 对象 → 报错');
+
+  // 假 OpenAI 兼容服务器:/ds 模拟 DeepSeek(带 reasoning_content),/fail500 /slow 模拟故障,/qwen 作为回退
+  const reqs = [];
+  const sse = (res, events) => {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    for (const e of events) res.write(`data: ${JSON.stringify(e)}\n\n`);
+    res.end('data: [DONE]\n\n');
+  };
+  const srv = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', (d) => { raw += d; });
+    req.on('end', () => {
+      const body = raw ? JSON.parse(raw) : null;
+      reqs.push({ url: req.url, auth: req.headers.authorization, body });
+      if (req.url.startsWith('/ds/')) {
+        return sse(res, [
+          { choices: [{ delta: { role: 'assistant', content: null, reasoning_content: '让我想想' } }] },
+          { choices: [{ delta: { content: null, reasoning_content: '用户在问好' } }] },
+          { choices: [{ delta: { content: '你好' } }] },
+          { choices: [{ delta: { content: '呀。' } }] },
+          { choices: [], usage: { prompt_tokens: 7, completion_tokens: 3 } },
+        ]);
+      }
+      if (req.url.startsWith('/fail500/')) { res.writeHead(500, { 'Content-Type': 'application/json' }); return res.end('{"error":{"code":"boom"}}'); }
+      if (req.url.startsWith('/slow/')) { setTimeout(() => { try { sse(res, [{ choices: [{ delta: { content: '太晚' } }] }]); } catch { /* closed */ } }, 1500); return; }
+      if (req.url.startsWith('/qwen/')) return sse(res, [{ choices: [{ delta: { content: '备用' } }] }, { choices: [], usage: { prompt_tokens: 1, completion_tokens: 1 } }]);
+      res.writeHead(404); res.end();
+    });
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  // 让假服务器「看起来是」api.deepseek.com:改写 URL 的 fetch
+  const route = (map) => (url, init) => {
+    let u = String(url);
+    for (const [from, to] of Object.entries(map)) if (u.startsWith(from)) { u = to + u.slice(from.length); break; }
+    return fetch(u, init);
+  };
+  const collect = async (llm, o = {}) => { const out = []; for await (const ev of llm.stream({ messages: [{ role: 'user', content: '你好' }], model: 'qwen-flash', maxTokens: 64, ...o })) out.push(ev); return out; };
+  const text = (evs) => evs.map((e) => e.delta ?? '').join('');
+  try {
+    // 1) DeepSeek 默认关思考 + 过滤 reasoning
+    const logs = [];
+    const llm = await createLlm({ LARES_DASHSCOPE_API_KEY: 'ds-test-key', LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_KEY: 'sk-deepseek-test' },
+      { log: (m) => logs.push(m), fetchImpl: route({ 'https://api.deepseek.com': `${base}/ds`, [DASHSCOPE_COMPAT_BASE]: `${base}/qwen` }) });
+    let evs = await collect(llm);
+    let r = reqs.at(-1);
+    check(r.url === '/ds/chat/completions' && r.auth === 'Bearer sk-deepseek-test', 'DeepSeek:URL = {base}/chat/completions,用 LARES_AI_LLM_KEY', r);
+    check(r.body.thinking?.type === 'disabled' && r.body.stream === true && r.body.max_tokens === 64 && r.body.stream_options?.include_usage === true, 'DeepSeek 请求体:关思考 + stream + max_tokens', r.body);
+    check(r.body.model === 'deepseek-flash' && !('enable_thinking' in r.body), 'DeepSeek:config.model=qwen-flash 换成 deepseek-flash,不带 DashScope 的 enable_thinking', r.body);
+    check(text(evs) === '你好呀。' && !text(evs).includes('想') && evs.some((e) => e.usage?.out === 3), 'reasoning_content 不出声,只念 content', evs);
+    check(logs.length === 0 && llm.fallbacks === 0, '正常时不回退');
+
+    // 2) extra body 合并,保留字段不被覆盖
+    const llm2 = await createLlm({ LARES_DASHSCOPE_API_KEY: 'ds-test-key', LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_KEY: 'k', LARES_AI_LLM_MODEL: 'deepseek-v4-pro',
+      LARES_AI_LLM_EXTRA_BODY: '{"thinking":{"type":"enabled"},"top_p":0.5,"stream":false,"max_tokens":9999,"model":"evil"}' }, { fetchImpl: route({ 'https://api.deepseek.com': `${base}/ds` }) });
+    await collect(llm2);
+    r = reqs.at(-1).body;
+    check(r.thinking?.type === 'enabled' && r.top_p === 0.5, 'EXTRA_BODY 合并进请求体(显式覆盖默认)', r);
+    check(r.stream === true && r.max_tokens === 64 && r.model === 'deepseek-v4-pro', 'EXTRA_BODY 不能覆盖 model / stream / max_tokens', r);
+
+    // 3) 非 2xx → 回退 DashScope qwen-flash
+    const logs3 = [];
+    const llm3 = await createLlm({ LARES_DASHSCOPE_API_KEY: 'ds-test-key', LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_KEY: 'k' },
+      { log: (m) => logs3.push(m), fetchImpl: route({ 'https://api.deepseek.com': `${base}/fail500`, [DASHSCOPE_COMPAT_BASE]: `${base}/qwen` }) });
+    evs = await collect(llm3);
+    r = reqs.at(-1);
+    check(text(evs) === '备用' && r.url === '/qwen/chat/completions' && r.auth === 'Bearer ds-test-key' && r.body.model === 'qwen-flash' && r.body.enable_thinking === false && !('thinking' in r.body),
+      'DeepSeek 500 → 回退 qwen-flash(DashScope key,关思考,不带 DeepSeek extra body)', { evs, r });
+    check(llm3.fallbacks === 1 && logs3.length === 1 && /llm_http_500/.test(logs3[0]) && /dashscope/.test(logs3[0]), '回退记一行日志', logs3);
+
+    // 4) 超时 → 回退
+    const logs4 = [];
+    const llm4 = await createLlm({ LARES_DASHSCOPE_API_KEY: 'ds-test-key', LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_KEY: 'k', LARES_AI_LLM_TIMEOUT_MS: '300' },
+      { log: (m) => logs4.push(m), fetchImpl: route({ 'https://api.deepseek.com': `${base}/slow`, [DASHSCOPE_COMPAT_BASE]: `${base}/qwen` }) });
+    const t0 = Date.now();
+    evs = await collect(llm4);
+    check(text(evs) === '备用' && Date.now() - t0 < 1200 && /llm_timeout/.test(logs4[0] ?? ''), 'DeepSeek 超时 → 回退 qwen-flash', { ms: Date.now() - t0, logs4 });
+
+    // 5) 没有 DashScope key → 不回退,错误照常抛
+    const llm5 = await createLlm({ LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_KEY: 'k' }, { fetchImpl: route({ 'https://api.deepseek.com': `${base}/fail500` }) });
+    let err = null;
+    try { await collect(llm5); } catch (e) { err = e; }
+    check(llm5 instanceof OpenAiCompatLlm && /llm_http_500/.test(err?.message ?? ''), '无 DashScope key → 不回退,报错', err?.message);
+
+    // 6) 被打断不回退
+    const ac = new AbortController();
+    ac.abort();
+    const before = reqs.length;
+    evs = await collect(llm3, { signal: ac.signal });
+    check(evs.length === 0 && reqs.length === before, '已打断 → 不回退、不再请求', { evs, n: reqs.length - before });
+
+    // 7) 默认 DashScope 主 LLM:不包回退
+    const llm7 = await createLlm({ LARES_DASHSCOPE_API_KEY: 'ds-test-key' });
+    check(llm7 instanceof OpenAiCompatLlm && llm7.isDashscope && !llm7.isDeepseek && JSON.stringify(llm7.extraBody) === '{}', '默认仍是 DashScope,不包回退');
+  } finally {
+    srv.closeAllConnections?.();
+    srv.close();
+  }
+}
+
 async function run() {
   chunkerTests();
   wakeTests();
@@ -702,6 +814,7 @@ async function run() {
   await audioTests();
   await pipelineTests();
   await miscTests();
+  await deepseekTests();
 }
 await run();
 console.log(T.fail === 0 ? `\n全部通过(${T.pass} 通过)` : `\n${T.pass} 通过,${T.fail} 失败`);

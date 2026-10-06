@@ -2396,7 +2396,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get privacySheetE2eeUnset => '端到端加密:圈子没有统一规定,看各人自己的设置';
 
   @override
-  String get privacySheetAi => 'AI 助手开(房间里的语音会发到阿里云百炼 DashScope 识别并生成回答)';
+  String get privacySheetAi => 'AI 助手开(房间里的语音发到阿里云识别、合成,回答由深度求索 DeepSeek 生成)';
 
   @override
   String get aiVoicePluginName => 'AI 助手';
@@ -2409,7 +2409,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiVoicePrivacyNote =>
-      '开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,再由 AI 生成回答并念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。';
+      '开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,识别出的文字交给深度求索 DeepSeek 生成回答,再经阿里云念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。';
 
   @override
   String get aiVoiceE2eeBlocked => '这个圈开着端到端加密,服务器听不到语音,AI 助手没法工作';
@@ -2531,7 +2531,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get roomMoreAiPrivacy => '房间里的语音会发到阿里云百炼 DashScope 识别,回答由 AI 生成,可能出错。';
+  String get roomMoreAiPrivacy => '房间里的语音会发到阿里云识别,回答由深度求索 DeepSeek 生成,可能出错。';
 
   @override
   String roomMoreAiMode(String mode) {
@@ -2542,7 +2542,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get purposeMeetingAiSwitch => '加上 AI 助手';
 
   @override
-  String get purposeMeetingAiDesc => '开会时叫它名字就能提问;语音会发到阿里云百炼 DashScope';
+  String get purposeMeetingAiDesc =>
+      '开会时叫它名字就能提问;语音发到阿里云识别,回答由深度求索 DeepSeek 生成';
 
   @override
   String get purposeMeetingAiE2ee => '这个圈开着端到端加密,用不了 AI 助手';
@@ -2796,10 +2797,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get aiHintPrivacy => '它会把语音发到阿里云处理,回答是 AI 生成的,可能出错';
+  String get aiHintPrivacy => '它会把语音发到阿里云识别,回答由深度求索 DeepSeek 生成,可能出错';
 
   @override
-  String get aiHintPrivacyPtt => '这个模式不听语音,只把 @它 的文字发到阿里云处理';
+  String get aiHintPrivacyPtt => '这个模式不听语音,只把 @它 的文字发给深度求索 DeepSeek 生成回答';
 
   @override
   String get chatAiInterrupted => '(被打断)';

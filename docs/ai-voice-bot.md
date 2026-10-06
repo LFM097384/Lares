@@ -38,7 +38,7 @@
                          │                                                                │
                          │                                                       费用护栏 caps(每时/每日)
                          │                                                                │
-                         │                                         流式 LLM(OpenAI 兼容,qwen-flash)
+                         │                                         流式 LLM(OpenAI 兼容,DeepSeek deepseek-flash;回退 qwen-flash)
                          │                                                                │ token 流
                          │                                               增量断句 chunker(首块 ≥4 字就发)
                          │                                                                │ 每块立即 append+commit
@@ -136,10 +136,12 @@
 
 | 变量 | 作用 |
 |---|---|
-| `LARES_DASHSCOPE_API_KEY` | DashScope API Key(ASR / TTS 必需;LLM 默认也用它)。服务器托管时从服务器环境继承 |
-| `LARES_AI_LLM_BASE_URL` | OpenAI 兼容接口地址,默认 `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| `LARES_AI_LLM_API_KEY` | LLM 的 key,默认同 `LARES_DASHSCOPE_API_KEY` |
-| `LARES_AI_LLM_MODEL` | 强制 LLM 模型,覆盖 `config.model` |
+| `LARES_DASHSCOPE_API_KEY` | DashScope API Key(ASR / TTS 必需;LLM 未另配时也用它,另配时作回退)。服务器托管时从服务器环境继承 |
+| `LARES_AI_LLM_BASE_URL` | OpenAI 兼容接口地址(请求 `{base}/chat/completions`),默认 `https://dashscope.aliyuncs.com/compatible-mode/v1`;生产用 `https://api.deepseek.com` |
+| `LARES_AI_LLM_KEY` | LLM 的 key(`LARES_AI_LLM_API_KEY` 同义,后者优先),默认同 `LARES_DASHSCOPE_API_KEY` |
+| `LARES_AI_LLM_MODEL` | 强制 LLM 模型,覆盖 `config.model`。DeepSeek 用 `deepseek-flash`(不设时 DeepSeek 也默认它;`config.model` 不是 `deepseek*` 会被换掉) |
+| `LARES_AI_LLM_EXTRA_BODY` | JSON 对象,合并进请求体顶层(不能覆盖 `model` / `messages` / `stream` / `max_tokens`)。**未设且 base 主机是 `api.deepseek.com` 时默认 `{"thinking":{"type":"disabled"}}`**(DeepSeek 默认开思考,首 token 慢 ~400ms);非法 JSON 启动即报错 |
+| `LARES_AI_LLM_TIMEOUT_MS` | 有回退时等主 LLM 响应头的上限,默认 6000 |
 | `LARES_AI_TTS_MODEL` | 覆盖 TTS 模型(默认 `qwen3-tts-flash-realtime`) |
 | `LARES_DASHSCOPE_HOST` | 覆盖 ASR / TTS 的 WebSocket 主机(默认 `dashscope.aliyuncs.com`,北京) |
 | `LARES_AI_PROVIDERS` | `dashscope`(默认)或 `mock` |
@@ -167,7 +169,8 @@
 
 ## 4. Provider 与模型
 
-所有云端调用都走阿里云百炼(DashScope)**北京地域**,同一个 API Key。
+语音识别、语音合成走阿里云百炼(DashScope)**北京地域**;生产环境的对话 LLM 走**深度求索 DeepSeek**(`deepseek-flash`,关思考),
+DeepSeek 出错时回退 DashScope `qwen-flash`。不配 `LARES_AI_LLM_*` 时三者都走 DashScope,同一个 API Key。
 
 | 环节 | 默认模型 | 协议 | 文档 |
 |---|---|---|---|
@@ -177,8 +180,13 @@
 
 价格见[模型计费](https://help.aliyun.com/zh/model-studio/model-pricing)。
 
-- **换 LLM**:设 `LARES_AI_LLM_BASE_URL` / `LARES_AI_LLM_API_KEY` / `LARES_AI_LLM_MODEL` 即可接任何 OpenAI 兼容服务;
+- **换 LLM**:设 `LARES_AI_LLM_BASE_URL` / `LARES_AI_LLM_KEY` / `LARES_AI_LLM_MODEL`(可选 `LARES_AI_LLM_EXTRA_BODY`)即可接任何 OpenAI 兼容服务;
   只有 base URL 含 `dashscope` 且模型名以 `qwen` 开头时才加 `enable_thinking:false`。ASR / TTS 仍然要 DashScope key。
+- **DeepSeek**:`LARES_AI_LLM_BASE_URL=https://api.deepseek.com`、`LARES_AI_LLM_KEY=sk-…`、`LARES_AI_LLM_MODEL=deepseek-flash`。
+  默认带 `thinking:{type:"disabled"}`;流里的 `reasoning_content` 一律丢弃,只念 `content`。`max_tokens`、`stream`、`stream_options.include_usage` 照常。
+- **回退**:主 LLM 不是 DashScope 且有 DashScope key 时,主 LLM 非 2xx / 超时(`LARES_AI_LLM_TIMEOUT_MS`)/ 网络错、且还没吐出字,
+  本轮改用 DashScope `qwen-flash` 重答,stderr 记一行「LLM deepseek 失败(…),本轮回退 dashscope」。已吐字后断流不回退(避免重复念)。
+- 监管把 `LARES_AI_LLM_*` 原样放进子进程 **env**(从不进 argv);docker compose 的 `lares-server` 已透传,默认空。
 - **mock**(`--providers mock` 或 `LARES_AI_PROVIDERS=mock`,`providers/mock.mjs`):离线、确定性,不需要任何 key。
   `MockAsr` 每段「有声 → 停」出一句固定台词(默认「小助手，你好」),`MockLlm` 吐固定回复,`MockTts` 输出正弦音。
   用于单测和不想花钱的联调(仍然需要信令 + LiveKit)。服务器设 `LARES_AI_PROVIDERS=mock` 时,监管不要求 DashScope key。

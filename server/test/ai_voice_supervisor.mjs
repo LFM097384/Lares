@@ -66,7 +66,8 @@ function setup(over = {}) {
   };
   const logs = [];
   const sup = createAiVoiceSupervisor({
-    env: { LARES_DASHSCOPE_API_KEY: 'sk-test-SECRET', LIVEKIT_API_SECRET: 'lk-SECRET', LARES_AI_MEMBER_KEY: 'mk-SECRET', PATH: 'x', ...(over.env ?? {}) },
+    env: { LARES_DASHSCOPE_API_KEY: 'sk-test-SECRET', LIVEKIT_API_SECRET: 'lk-SECRET', LARES_AI_MEMBER_KEY: 'mk-SECRET', PATH: 'x',
+      LARES_AI_LLM_KEY: 'sk-llm-SECRET', LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_MODEL: 'deepseek-flash', LARES_AI_LLM_EXTRA_BODY: '{"x":1}', ...(over.env ?? {}) },
     dataDir: '/data',
     botEntry: '/srv/bots/voice-agent/index.mjs',
     botEntryExists: () => true,
@@ -135,6 +136,9 @@ console.log('— 启动条件 / argv 无密钥');
   check(opts.env.LARES_AI_AUTH_SECRET === 'f'.repeat(64) && opts.env.LARES_AI_AUTH_V === '2', 'env 带鉴权 secret / v');
   check(opts.env.LARES_DASHSCOPE_API_KEY === 'sk-test-SECRET', 'env 继承 DashScope key');
   check(!('LIVEKIT_API_SECRET' in opts.env) && !('LARES_AI_MEMBER_KEY' in opts.env), 'env 不泄露 LiveKit secret / 主钥匙');
+  check(opts.env.LARES_AI_LLM_KEY === 'sk-llm-SECRET' && opts.env.LARES_AI_LLM_BASE_URL === 'https://api.deepseek.com'
+    && opts.env.LARES_AI_LLM_MODEL === 'deepseek-flash' && opts.env.LARES_AI_LLM_EXTRA_BODY === '{"x":1}', 'env 继承 LARES_AI_LLM_*(DeepSeek)');
+  check(!argv.includes('sk-llm') && !argv.includes('deepseek'), 'LLM key / 地址不进 argv', args);
   check(opts.env.LARES_AI_MEMBER_SECRET?.startsWith(`member-${CID}`) && !argv.includes('member-'), 'u_ai_ 身份凭证只在 env(按圈),不进 argv');
   check(JSON.parse(opts.env.LARES_AI_CONFIG).name === '阿福', 'env LARES_AI_CONFIG');
   check(/ai_voice_usage[\\/]c_abcdefghijklmnopqrstuvwxyz\.json$/.test(opts.env.LARES_AI_USAGE_FILE), 'usage 文件路径', opts.env.LARES_AI_USAGE_FILE);

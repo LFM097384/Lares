@@ -82,7 +82,7 @@ export async function runVoiceBot(o) {
   let config = nc.config;
   const providers = typeof o.providers === 'object' && o.providers
     ? o.providers
-    : await createProviders(o.providers ?? 'dashscope', { env, mock: o.mock });
+    : await createProviders(o.providers ?? 'dashscope', { env, mock: o.mock, log });
   const room = new LaresRoom({
     circleId: o.circleId,
     // u_ai_* 是服务端保留前缀,只有托管进程(带 LARES_AI_MEMBER_SECRET)能用;独立运行退回普通成员 id

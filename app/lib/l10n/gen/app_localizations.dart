@@ -4223,7 +4223,7 @@ abstract class AppLocalizations {
   /// 进圈隐私告知:本圈启用了内置 AI 语音助手
   ///
   /// In zh, this message translates to:
-  /// **'AI 助手开(房间里的语音会发到阿里云百炼 DashScope 识别并生成回答)'**
+  /// **'AI 助手开(房间里的语音发到阿里云识别、合成,回答由深度求索 DeepSeek 生成)'**
   String get privacySheetAi;
 
   /// 内置 AI 语音助手插件的名字(插件管理 → 添加)
@@ -4247,7 +4247,7 @@ abstract class AppLocalizations {
   /// AI 助手设置页顶部的隐私说明
   ///
   /// In zh, this message translates to:
-  /// **'开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,再由 AI 生成回答并念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。'**
+  /// **'开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,识别出的文字交给深度求索 DeepSeek 生成回答,再经阿里云念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。'**
   String get aiVoicePrivacyNote;
 
   /// E2EE 圈里不能启用 AI 助手的原因
@@ -4463,7 +4463,7 @@ abstract class AppLocalizations {
   /// AI 助手说明面板的隐私提示
   ///
   /// In zh, this message translates to:
-  /// **'房间里的语音会发到阿里云百炼 DashScope 识别,回答由 AI 生成,可能出错。'**
+  /// **'房间里的语音会发到阿里云识别,回答由深度求索 DeepSeek 生成,可能出错。'**
   String get roomMoreAiPrivacy;
 
   /// 房间「更多」里 AI 助手一行的副标题:现在的触发方式
@@ -4481,7 +4481,7 @@ abstract class AppLocalizations {
   /// 「加上 AI 助手」开关的说明
   ///
   /// In zh, this message translates to:
-  /// **'开会时叫它名字就能提问;语音会发到阿里云百炼 DashScope'**
+  /// **'开会时叫它名字就能提问;语音发到阿里云识别,回答由深度求索 DeepSeek 生成'**
   String get purposeMeetingAiDesc;
 
   /// E2EE 圈里「加上 AI 助手」不可用的说明
@@ -4889,13 +4889,13 @@ abstract class AppLocalizations {
   /// 说明卡的隐私一行(会听语音的模式)
   ///
   /// In zh, this message translates to:
-  /// **'它会把语音发到阿里云处理,回答是 AI 生成的,可能出错'**
+  /// **'它会把语音发到阿里云识别,回答由深度求索 DeepSeek 生成,可能出错'**
   String get aiHintPrivacy;
 
   /// 说明卡的隐私一行(ptt 模式:只发文字,不发语音)
   ///
   /// In zh, this message translates to:
-  /// **'这个模式不听语音,只把 @它 的文字发到阿里云处理'**
+  /// **'这个模式不听语音,只把 @它 的文字发给深度求索 DeepSeek 生成回答'**
   String get aiHintPrivacyPtt;
 
   /// 聊天里 AI 的回答以「…」结尾(说到一半被人打断)时,后面跟的淡色小注

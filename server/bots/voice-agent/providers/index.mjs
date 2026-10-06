@@ -8,28 +8,47 @@
 
 import { MockAsr, MockLlm, MockTts } from './mock.mjs';
 
-export function createProviders(kind, { env = process.env, mock = {} } = {}) {
+export function createProviders(kind, { env = process.env, mock = {}, log = () => {} } = {}) {
   if (kind === 'mock') {
     return { kind, asr: new MockAsr(mock.asr), llm: new MockLlm(mock.llm), tts: new MockTts(mock.tts) };
   }
   if (kind !== 'dashscope') throw new Error(`unknown_providers:${kind}`);
   return (async () => {
     const { DashscopeAsr, DashscopeTts } = await import('./dashscope.mjs');
-    const { OpenAiCompatLlm, DASHSCOPE_COMPAT_BASE } = await import('./openai_compat.mjs');
     const key = env.LARES_DASHSCOPE_API_KEY || '';
-    const llmKey = env.LARES_AI_LLM_API_KEY || key;
     if (!key) throw new Error('LARES_DASHSCOPE_API_KEY missing');
     return {
       kind,
       asr: new DashscopeAsr({ apiKey: key }),
-      llm: new OpenAiCompatLlm({
-        baseUrl: env.LARES_AI_LLM_BASE_URL || DASHSCOPE_COMPAT_BASE,
-        apiKey: llmKey,
-        model: env.LARES_AI_LLM_MODEL || null,
-      }),
+      llm: await createLlm(env, { log }),
       tts: new DashscopeTts({ apiKey: key, model: env.LARES_AI_TTS_MODEL || undefined }),
     };
   })();
+}
+
+/**
+ * LLM:LARES_AI_LLM_BASE_URL / LARES_AI_LLM_API_KEY(别名 LARES_AI_LLM_KEY)/ LARES_AI_LLM_MODEL / LARES_AI_LLM_EXTRA_BODY。
+ * 主 LLM 不是 DashScope 且有 DashScope key 时,包一层 FallbackLlm:主 LLM 非 2xx / 超时 → 本轮改用 DashScope qwen-flash。
+ */
+export async function createLlm(env = process.env, { log = () => {}, fetchImpl } = {}) {
+  const { OpenAiCompatLlm, FallbackLlm, DASHSCOPE_COMPAT_BASE, resolveExtraBody } = await import('./openai_compat.mjs');
+  const dsKey = String(env.LARES_DASHSCOPE_API_KEY ?? '').trim();
+  const baseUrl = String(env.LARES_AI_LLM_BASE_URL ?? '').trim() || DASHSCOPE_COMPAT_BASE;
+  const llmKey = String(env.LARES_AI_LLM_API_KEY ?? '').trim() || String(env.LARES_AI_LLM_KEY ?? '').trim() || dsKey;
+  const extraBody = resolveExtraBody(env.LARES_AI_LLM_EXTRA_BODY, baseUrl);
+  const f = fetchImpl ? { fetchImpl } : {};
+  const ms = (name, dflt) => { const n = Number(String(env[name] ?? '').trim() || NaN); return Number.isFinite(n) && n > 0 ? n : dflt; };
+  const primaryIsDashscope = /dashscope/i.test(baseUrl);
+  const canFallback = !primaryIsDashscope && Boolean(dsKey);
+  const primary = new OpenAiCompatLlm({
+    baseUrl, apiKey: llmKey, model: String(env.LARES_AI_LLM_MODEL ?? '').trim() || null, extraBody,
+    // 有备用时,等响应头/首包别等满 20 s:超时就回退
+    headersTimeoutMs: canFallback ? ms('LARES_AI_LLM_TIMEOUT_MS', 6000) : undefined,
+    ...f,
+  });
+  if (!canFallback) return primary;
+  const fallback = new OpenAiCompatLlm({ baseUrl: DASHSCOPE_COMPAT_BASE, apiKey: dsKey, model: 'qwen-flash', name: 'dashscope', ...f });
+  return new FallbackLlm({ primary, fallback, log });
 }
 
 /**

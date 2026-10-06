@@ -25,7 +25,7 @@ Server-managed mode (supervisor) passes secrets ONLY through the child's environ
 | `LARES_AI_CONFIG` | JSON AiVoiceConfig |
 | `LARES_AI_USAGE_FILE` | path of the per-circle usage/caps JSON (persisted daily counters) |
 | `LARES_DASHSCOPE_API_KEY` | inherited from the server env |
-| `LARES_AI_LLM_BASE_URL` / `LARES_AI_LLM_API_KEY` / `LARES_AI_LLM_MODEL` | optional OpenAI-compatible override |
+| `LARES_AI_LLM_BASE_URL` / `LARES_AI_LLM_KEY` (alias `LARES_AI_LLM_API_KEY`) / `LARES_AI_LLM_MODEL` / `LARES_AI_LLM_EXTRA_BODY` / `LARES_AI_LLM_TIMEOUT_MS` | optional OpenAI-compatible override (prod: DeepSeek); inherited via env only, never argv. Falls back to DashScope qwen-flash on failure |
 | `LARES_SIGNALING` | e.g. `ws://127.0.0.1:<port>/ws` |
 
 The bot joins as a **normal visible member** through signaling (userId `u_ai_<8 hex of sha256(circleId)>` unless `--user-id`),

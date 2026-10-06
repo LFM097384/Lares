@@ -14,7 +14,7 @@ import '../state/room_controller.dart';
 /// 专注学习插件的 id(老服务器没发 features 时,靠它推断专注是否开着)。
 const String kFocusPluginId = 'lares.focus';
 
-/// AI 语音助手插件的 id。它在告知里单独成一行(语音送 DashScope 并生成回答),
+/// AI 语音助手插件的 id。它在告知里单独成一行(语音送阿里云识别/合成,回答由 DeepSeek 生成),
 /// 不算进通用的「插件 N 个」。
 const String kAiVoicePrivacyPluginId = 'lares.ai-voice';
 
@@ -81,7 +81,7 @@ class CirclePrivacySummary {
   /// 位置共享 / 地图可用。
   final bool map;
 
-  /// AI 语音助手(内置插件 lares.ai-voice)启用:房里的语音送阿里云百炼识别并生成回答。
+  /// AI 语音助手(内置插件 lares.ai-voice)启用:房里的语音送阿里云百炼识别、合成,回答文字由 DeepSeek 生成。
   /// 不出现在 [plugins] 里。
   final bool ai;
 

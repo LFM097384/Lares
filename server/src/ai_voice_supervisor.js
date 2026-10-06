@@ -87,7 +87,8 @@ export function createAiVoiceSupervisor(d) {
 
   function childEnv(cid, auth) {
     const out = { ...env };
-    // 别把服务端自己的鉴权材料 / LiveKit 密钥漏给子进程:它只需要信令 + DashScope
+    // 别把服务端自己的鉴权材料 / LiveKit 密钥漏给子进程:它只需要信令 + DashScope + LARES_AI_LLM_*(对话 LLM,如 DeepSeek)。
+    // LARES_AI_LLM_* 原样继承(含 key),同样只走 env,绝不进 argv。
     for (const k of Object.keys(out)) {
       if (k.startsWith('LIVEKIT_') || k === 'LARES_AUTH_TOKEN' || k === 'LARES_CIRCLE_PASSCODE'
         || k === 'LARES_CIRCLE_PASSCODES' || k.startsWith('LARES_APNS_') || k === 'LARES_AI_MEMBER_KEY') delete out[k];
