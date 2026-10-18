@@ -82,7 +82,7 @@ extension E2EEStatusX on E2EEStatus {
   /// 不给任何「大概加了吧」的想象空间。
   String get explanation => switch (this) {
         E2EEStatus.disabled =>
-          '这个圈子没有开启端到端加密。服务器能听到内容,炉灵也能用。',
+          '这个圈子没有开启端到端加密。服务器能听到内容,也能转录。',
         E2EEStatus.encrypted =>
           '这个圈子的语音和消息在你的设备上加密,密钥由圈口令派生、从不上传服务器。',
         E2EEStatus.platformUnsupported =>
@@ -116,5 +116,5 @@ E2EEStatus resolveE2EEStatus({
 /// 开启 E2EE 的代价(产品已决定,写死在这里当唯一文案源)。
 /// 开关旁边必须原样展示 —— 用户点下去之前就该知道自己失去什么。
 const String kE2EECostNotice =
-    '开启后:服务器看不到任何内容,因此**无法转录**,'
-    '「AI 炉灵」在这个圈子里也**不可用**(炉灵只在不开加密的圈子工作)。';
+    '开启后:服务器看不到任何内容,因此**无法转录**;'
+    '炉灵助理要经圈主授权才能进房,进房后会在内存里持有本圈媒体密钥。';

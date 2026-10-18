@@ -90,7 +90,7 @@ test('完整流程:ack → 说话 → ask → minutes 草稿 → 审阅 → k �
     await agent.onMessage(BOB.id, b.approve(st, draft));
     const rel = room.last('released');
     assert.ok(rel, 'k=2 后放行');
-    assert.match(rel.text, /^Rule-inspired digest: no attribution\./);
+    assert.ok(rel.text.startsWith('会议纪要 · 不署名 / Minutes · no attribution'));
     assert.doesNotMatch(rel.text, /王建国|李秀梅|\bP\d+\b/);
     const notice = room.server.find((m) => m.t === 'anon_released_notice');
     assert.ok(notice && notice.itemIds.length >= 1, 'anon_released_notice');

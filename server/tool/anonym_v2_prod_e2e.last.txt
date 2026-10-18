@@ -1,11 +1,5 @@
-anonym v2 prod e2e — combined report (run per circle: --only plain, then --only e2ee; prod commit 090a6b6)
-SUMMARY: plain 15/16 steps PASS (FAIL: owner end → not_convener, see BUG-1); e2ee 16/16 PASS.
-BUG-1 (fixed locally, NOT deployed): agent convener = first human seen in LiveKit, not the inviting owner, so the
-  owner's nd is refused with not_convener whenever another member joined LiveKit first. Fix: anonym.js passes the
-  inviter userId to supervisor.invite → env LARES_ANONYM_CONVENER → index.mjs convenerId (fixed convener).
-
-================ RUN 1: plain circle ================anonym v2 prod e2e  2026-10-18T15:13:23.933Z  server=wss://lares.westus.cloudapp.azure.com
-circle[plain]=c_27ulun… (temporary, deleted)
+anonym v2 prod e2e  2026-10-18T16:26:14.109Z  server=wss://lares.westus.cloudapp.azure.com
+circle[plain]=c_zp4poe… (temporary, deleted)
 
 PASS  1. SSH reachable + DashScope key (prod container env, memory only) + TTS synthesis
 PASS  2. [plain] register temporary v2 circle
@@ -20,11 +14,11 @@ PASS  10. [plain] 2 signed approvals → released
 PASS  11. [plain] released content checks
 PASS  12. [plain] mem_list → mem_retract → mem_retracted; memory dir has no retracted text
 PASS  13. [plain] transcript_append refused (anonym_active)
-FAIL  14. [plain] owner end → ended{receipt} → agent leaves  — owner end accepted
+PASS  14. [plain] owner end → ended{receipt} → agent leaves
 PASS  15. [plain] circle_delete → memory dir gone
 PASS  16. server logs (since run start): no utterance text, no agent child errors
 
-1 FAILED  (16 steps)
+ALL PASS  (16 steps)
 
 ── released text [plain] ──
 Rule-inspired digest: no attribution.
@@ -35,19 +29,17 @@ Rule-inspired digest: no attribution.
 **观点 Ideas**
 - 有观点认为，应讨论下半年团队的读书计划。
 
-## 三体与猜疑链
-**观点 Ideas**
-- 近期在读科幻小说。
+## 科幻小说阅读
 **公共事实 Public facts**
 - 《三体》由刘慈欣所写，讨论文明间的猜疑链。
 
 ## 读书会安排
 **观点 Ideas**
-- 有提议提出，从下个月起每两周的周五下午举办一次读书会，首本选读《三体》，每次一小时。
+- 有提议提出，由参与者牵头，自下月起每两周的周五下午举办一次读书会，首本书为《三体》，每次一小时。
 
 ## 读书会主持与笔记
-**观点 Ideas**
-- 有观点支持该提议，并建议读书会轮流主持，每次结束时撰写一页读书笔记共享。
+**决定 Decisions**
+- 与会者同意举办读书会，并建议轮流主持，每次结束时撰写一页读书笔记共享。
 
 ── receipt [plain] ── {"reason":"convener","counts":{"utterances":5,"ledger":5,"drafts":1,"releases":1,"approvals":2}}
 
@@ -58,7 +50,7 @@ Rule-inspired digest: no attribution.
   ✓ TTS synthesised (DashScope qwen3-tts-flash-realtime, 48 kHz): [7.36,9.28,7.6,10,7.04]
 
 [2] [plain] register temporary v2 circle
-  ✓ registered (welcome): c_27ulun… agent=u_ai_anon_e9c80580
+  ✓ registered (welcome): c_zp4poe… agent=u_ai_anon_a3ede0d2
 
 [3] [plain] 3 humans join (signaling + LiveKit)
   ✓ all humans see each other in LiveKit: [2,2,2]
@@ -68,14 +60,14 @@ Rule-inspired digest: no attribution.
   ✓ anon_agent_state{invited} broadcast to members: {"present":false,"active":false,"invited":true}
 
 [5] [plain] agent participant appears → state
-  ✓ agent u_ai_anon_e9c80580 in LiveKit room: {"ms":1270}
+  ✓ agent u_ai_anon_a3ede0d2 in LiveKit room: {"ms":3503}
   · agent display name: 隐名之约 · AI
-  ✓ state received from agent: {"k":2,"active":false,"members":1,"convener":"u_e2e_anon_b_38c254"}
+  ✓ state received from agent: {"k":2,"active":false,"members":1,"convener":"u_e2e_anon_a_426a40"}
 
 [6] [plain] 3× ack (Ed25519 pubKey) → state all acked
   ✓ state: 3 members acked: {"k":2,"active":true,"members":[{"n":"李娜","a":true},{"n":"王强","a":true},{"n":"张伟","a":true}]}
   ✓ state k=2 active: {"k":2,"active":true}
-  · convener is owner?: {"convenerIsOwner":false,"convener":"李娜"}
+  · convener is owner?: {"convenerIsOwner":true,"convener":"张伟"}
   ✓ no ack errors: []
 
 [7] [plain] humans speak (real TTS audio over LiveKit)
@@ -83,17 +75,17 @@ Rule-inspired digest: no attribution.
   ✓ no agent error during speech: null
 
 [8] [plain] ask → answer
-  ✓ answer broadcast: {"t":"answer","ms":3276}
-  ✓ answer names 刘慈欣: 《三体》由刘慈欣所写，这是P2在发言中提到的。
+  ✓ answer broadcast: {"t":"answer","ms":3342}
+  ✓ answer names 刘慈欣: 《三体》由刘慈欣所写，这一点在记录中由P2提到。
   ✓ answer has no participant name: []
 
 [9] [plain] skill minutes → draft
-  ✓ draft broadcast: {"t":"draft","items":6,"k":2,"ms":3208}
-  · draft items: [{"kind":"idea","roleRisk":false,"flags":[],"text":"有观点认为，应讨论下半年团队的读书计划。"},{"kind":"fact","roleRisk":false,"flags":["public-fact"],"text":"《三体》由刘慈欣所写，讨论文明间的猜疑链。"},{"kind":"idea","roleRisk":false,"flags":[],"text":"近期在读科幻小说。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"有观点对星辰科技上季度项目延期三个月一事表达不满。"},{"kind":"idea","roleRisk":false,"flags":[],"text":"有提议提出，从下个月起每两周的周五下午举办一次读书会，首本选读《三体》，每次一小时。"},{"kind":"idea","roleRisk":false,"flags":[],"text":"有观点支持该提议，并建议读书会轮流主持，每次结束时撰写一页读书笔记共享。"}]
+  ✓ draft broadcast: {"t":"draft","items":6,"k":2,"ms":3037}
+  · draft items: [{"kind":"idea","roleRisk":false,"flags":[],"text":"有观点认为，应讨论下半年团队的读书计划。"},{"kind":"fact","roleRisk":false,"flags":["public-fact"],"text":"《三体》由刘慈欣所写，讨论文明间的猜疑链。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"，近期在读科幻小说。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"有观点对某公司上个季度项目延期三个月一事表达负面评价。"},{"kind":"idea","roleRisk":false,"flags":[],"text":"有提议提出，由参与者牵头，自下月起每两周的周五下午举办一次读书会，首本书为《三体》，每次一小时。"},{"kind":"decision","roleRisk":false,"flags":[],"text":"与会者同意举办读书会，并建议轮流主持，每次结束时撰写一页读书笔记共享。"}]
   ✓ draft{sid,draftHash} matches session: {"sidMatch":true}
 
 [10] [plain] 2 signed approvals → released
-  ✓ released broadcast: {"len":330}
+  ✓ released broadcast: {"len":314}
   ✓ no approve errors: []
   · released text: Rule-inspired digest: no attribution.
 
@@ -103,19 +95,17 @@ Rule-inspired digest: no attribution.
 **观点 Ideas**
 - 有观点认为，应讨论下半年团队的读书计划。
 
-## 三体与猜疑链
-**观点 Ideas**
-- 近期在读科幻小说。
+## 科幻小说阅读
 **公共事实 Public facts**
 - 《三体》由刘慈欣所写，讨论文明间的猜疑链。
 
 ## 读书会安排
 **观点 Ideas**
-- 有提议提出，从下个月起每两周的周五下午举办一次读书会，首本选读《三体》，每次一小时。
+- 有提议提出，由参与者牵头，自下月起每两周的周五下午举办一次读书会，首本书为《三体》，每次一小时。
 
 ## 读书会主持与笔记
-**观点 Ideas**
-- 有观点支持该提议，并建议读书会轮流主持，每次结束时撰写一页读书笔记共享。
+**决定 Decisions**
+- 与会者同意举办读书会，并建议轮流主持，每次结束时撰写一页读书笔记共享。
 
 
 [11] [plain] released content checks
@@ -126,21 +116,20 @@ Rule-inspired digest: no attribution.
   ✓ no pseudonyms (P1/P2…): []
 
 [12] [plain] mem_list → mem_retract → mem_retracted; memory dir has no retracted text
-  ✓ mem{items}: {"n":5}
+  ✓ mem{items}: {"n":4}
   · retract target: 有观点认为，应讨论下半年团队的读书计划。
   ✓ before retract: item text present in memory dir: {"exists":true,"files":6}
   ✓ mem_retracted: {"t":"mem_retracted"}
-  ✓ after retract: no retracted text in DATA_DIR/anonym_memory/<cid>/: {"exists":true,"files":["MEMORY.md","items/2026-10.jsonl","links.json","log.jsonl","meetings/02c81922-93e0-4c3b-8dc8-3265fa0d1061.md","releases.jsonl","topics/facts.md","topics/ideas.md"],"hits":[]}
-  ✓ mem_list no longer lists the retracted item: {"n":4}
+  ✓ after retract: no retracted text in DATA_DIR/anonym_memory/<cid>/: {"exists":true,"files":["MEMORY.md","items/2026-10.jsonl","links.json","log.jsonl","meetings/f607c864-2692-49ac-9141-9f188269084c.md","releases.jsonl","topics/decisions.md","topics/facts.md","topics/ideas.md"],"hits":[]}
+  ✓ mem_list no longer lists the retracted item: {"n":3}
 
 [13] [plain] transcript_append refused (anonym_active)
   ✓ transcript_error{reason:anonym_active}: {"t":"transcript_error","reason":"anonym_active"}
 
 [14] [plain] owner end → ended{receipt} → agent leaves
-  ✗ owner end accepted: {"err":"not_convener","ownerIsConvener":false}
-  · fallback: convener end: {"ended":true}
+  ✓ owner end accepted: ended
   ✓ ended{receipt:{sid,counts,releases,sha256}}: {"reason":"convener","counts":{"utterances":5,"ledger":5,"drafts":1,"releases":1,"approvals":2},"releases":1,"sha256":true}
-  ✓ agent participant left the room: {"ms":1825}
+  ✓ agent participant left the room: {"ms":1754}
   ✓ anon_agent_state{present:false,active:false}: {"present":false,"active":false,"invited":true}
   · transcript_append after end: {"t":"transcript_error","reason":"off"}
   ✓ anonym_active cleared after end: {"t":"transcript_error","reason":"off"}
@@ -150,151 +139,8 @@ Rule-inspired digest: no attribution.
   ✓ DATA_DIR/anonym_memory/<cid>/ removed: {"exists":false}
 
 [16] server logs (since run start): no utterance text, no agent child errors
-  ✓ logs fetched: {"lines":13}
-  ✓ no utterance / released text in logs: []
-  · anonym log lines: ["[anonym-agent c_27ulun] 已启动 pid=1386","[anonym c_27ulun] 圈主邀请 agent","[anonym c_27ulun] agent 进房","[anonym c_27ulun] 强制关闭 开","[anonym-agent c_27ulun] ev=session","[anonym-agent c_27ulun] ev=ready","[anonym-agent c_27ulun] ev=released","[anonym c_27ulun] 强制关闭 关","[anonym-agent c_27ulun] ev=ended","[anonym c_27ulun] agent 离房","[anonym-agent c_27ulun] ev=exit","[anonym-agent c_27ulun] 已退出 code=0 signal="]
-  ✓ no agent child errors / crashes: []
-  · log lines containing display names (join/presence, not utterances): 0
-
-================ RUN 2: e2ee circle ================
-anonym v2 prod e2e  2026-10-18T15:16:41.007Z  server=wss://lares.westus.cloudapp.azure.com
-circle[e2ee]=c_s4gjgb… (temporary, deleted)
-
-PASS  1. SSH reachable + DashScope key (prod container env, memory only) + TTS synthesis
-PASS  2. [e2ee] register temporary v2 circle + circle_e2ee_set
-PASS  3. [e2ee] 3 humans join (signaling + LiveKit, passcode-derived E2EE key)
-PASS  4. [e2ee] owner anon_agent_invite k=2 + sealed key
-PASS  5. [e2ee] agent participant appears (after keyreq/seal) → state
-PASS  6. [e2ee] 3× ack (Ed25519 pubKey) → state all acked
-PASS  7. [e2ee] humans speak (real TTS audio over LiveKit)
-PASS  8. [e2ee] ask → answer
-PASS  9. [e2ee] skill minutes → draft
-PASS  10. [e2ee] 2 signed approvals → released
-PASS  11. [e2ee] released content checks
-PASS  12. [e2ee] mem_list → mem_retract → mem_retracted; memory dir has no retracted text
-PASS  13. [e2ee] transcript_append refused (anonym_active)
-PASS  14. [e2ee] owner end → ended{receipt} → agent leaves
-PASS  15. [e2ee] circle_delete → memory dir gone
-PASS  16. server logs (since run start): no utterance text, no agent child errors
-
-ALL PASS  (16 steps)
-
-── released text [e2ee] ──
-Rule-inspired digest: no attribution.
-
-# 会议纪要 Minutes (2026-10-18)
-
-## 下半年读书计划
-**观点 Ideas**
-- 有观点认为，应讨论下半年团队的读书计划。
-
-## 三体与猜疑链
-**公共事实 Public facts**
-- 《三体》由刘慈欣所写。
-
-## 读书会主持与笔记
-**观点 Ideas**
-- 有观点支持该提议，并建议读书会轮流主持，每次结束时撰写一页读书笔记共享。
-
-── receipt [e2ee] ── {"reason":"convener","counts":{"utterances":5,"ledger":5,"drafts":1,"releases":1,"approvals":2}}
-
-── detail ──
-
-[1] SSH reachable + DashScope key (prod container env, memory only) + TTS synthesis
-  ✓ DashScope key read from prod container: {"code":0,"present":true}
-  ✓ TTS synthesised (DashScope qwen3-tts-flash-realtime, 48 kHz): [7.36,9.28,7.6,10,7.04]
-
-[2] [e2ee] register temporary v2 circle + circle_e2ee_set
-  ✓ registered (welcome): c_s4gjgb… agent=u_ai_anon_99713b3b
-  ✓ circle_e2ee_set enabled: {"t":"owner_ok"}
-
-[3] [e2ee] 3 humans join (signaling + LiveKit, passcode-derived E2EE key)
-  ✓ all humans see each other in LiveKit: [2,2,2]
-
-[4] [e2ee] owner anon_agent_invite k=2 + sealed key
-  ✓ anon_agent_invite → anon_ok: {"t":"anon_ok"}
-  ✓ anon_agent_state{invited} broadcast to members: {"present":false,"active":false,"invited":true}
-
-[5] [e2ee] agent participant appears (after keyreq/seal) → state
-  ✓ owner received anon_agent_keyreq: {"x25519PubLen":44}
-  ✓ anon_agent_key forwarded (anon_ok): {"t":"anon_ok"}
-  ✓ agent u_ai_anon_99713b3b in LiveKit room: {"ms":2684}
-  · agent display name: 隐名之约 · AI
-  ✓ state received from agent: {"k":2,"active":false,"members":1,"convener":"u_e2e_anon_a_1fa3d6"}
-
-[6] [e2ee] 3× ack (Ed25519 pubKey) → state all acked
-  ✓ state: 3 members acked: {"k":2,"active":true,"members":[{"n":"张伟","a":true},{"n":"李娜","a":true},{"n":"王强","a":true}]}
-  ✓ state k=2 active: {"k":2,"active":true}
-  · convener is owner?: {"convenerIsOwner":true,"convener":"张伟"}
-  ✓ no ack errors: []
-
-[7] [e2ee] humans speak (real TTS audio over LiveKit)
-  ✓ 5 utterances played: {"seconds":41}
-  ✓ no agent error during speech: null
-
-[8] [e2ee] ask → answer
-  ✓ answer broadcast: {"t":"answer","ms":3624}
-  ✓ answer names 刘慈欣: 《三体》由刘慈欣所写，这是P2在讨论猜疑链时提到的。
-  ✓ answer has no participant name: []
-
-[9] [e2ee] skill minutes → draft
-  ✓ draft broadcast: {"t":"draft","items":6,"k":2,"ms":2500}
-  · draft items: [{"kind":"idea","roleRisk":false,"flags":[],"text":"有观点认为，应讨论下半年团队的读书计划。"},{"kind":"fact","roleRisk":false,"flags":["public-fact"],"text":"《三体》由刘慈欣所写。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"有观点认为，近期在读科幻小说，并讨论文明之间的猜疑链。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"有观点对星辰科技上个季度项目延期三个月表示不满。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"有提议认为，应由参与者牵头，从下个月起每两周的周五下午举办一次读书会，首本选读《三体》，每次一小时。"},{"kind":"idea","roleRisk":false,"flags":[],"text":"有观点支持该提议，并建议读书会轮流主持，每次结束时撰写一页读书笔记共享。"}]
-  ✓ draft{sid,draftHash} matches session: {"sidMatch":true}
-
-[10] [e2ee] 2 signed approvals → released
-  ✓ released broadcast: {"len":227}
-  ✓ no approve errors: []
-  · released text: Rule-inspired digest: no attribution.
-
-# 会议纪要 Minutes (2026-10-18)
-
-## 下半年读书计划
-**观点 Ideas**
-- 有观点认为，应讨论下半年团队的读书计划。
-
-## 三体与猜疑链
-**公共事实 Public facts**
-- 《三体》由刘慈欣所写。
-
-## 读书会主持与笔记
-**观点 Ideas**
-- 有观点支持该提议，并建议读书会轮流主持，每次结束时撰写一页读书笔记共享。
-
-
-[11] [e2ee] released content checks
-  ✓ keeps 《三体》 + 刘慈欣 (public fact): {"三体":true,"刘慈欣":true}
-  ✓ no participant name: []
-  ✓ no organisation: []
-  ✓ sarcasm gone: {"phrases":[],"toneMarker":false}
-  ✓ no pseudonyms (P1/P2…): []
-
-[12] [e2ee] mem_list → mem_retract → mem_retracted; memory dir has no retracted text
-  ✓ mem{items}: {"n":3}
-  · retract target: 有观点认为，应讨论下半年团队的读书计划。
-  ✓ before retract: item text present in memory dir: {"exists":true,"files":6}
-  ✓ mem_retracted: {"t":"mem_retracted"}
-  ✓ after retract: no retracted text in DATA_DIR/anonym_memory/<cid>/: {"exists":true,"files":["MEMORY.md","items/2026-10.jsonl","links.json","log.jsonl","meetings/f65901b8-97e8-4d45-afe4-5a76071bf520.md","releases.jsonl","topics/facts.md","topics/ideas.md"],"hits":[]}
-  ✓ mem_list no longer lists the retracted item: {"n":2}
-
-[13] [e2ee] transcript_append refused (anonym_active)
-  ✓ transcript_error{reason:anonym_active}: {"t":"transcript_error","reason":"anonym_active"}
-
-[14] [e2ee] owner end → ended{receipt} → agent leaves
-  ✓ owner end accepted: ended
-  ✓ ended{receipt:{sid,counts,releases,sha256}}: {"reason":"convener","counts":{"utterances":5,"ledger":5,"drafts":1,"releases":1,"approvals":2},"releases":1,"sha256":true}
-  ✓ agent participant left the room: {"ms":1794}
-  ✓ anon_agent_state{present:false,active:false}: {"present":false,"active":false,"invited":true}
-  · transcript_append after end: {"t":"transcript_error","reason":"e2ee"}
-  ✓ anonym_active cleared after end: {"t":"transcript_error","reason":"e2ee"}
-
-[15] [e2ee] circle_delete → memory dir gone
-  ✓ circle_delete: {"t":"owner_ok"}
-  ✓ DATA_DIR/anonym_memory/<cid>/ removed: {"exists":false}
-
-[16] server logs (since run start): no utterance text, no agent child errors
   ✓ logs fetched: {"lines":20}
   ✓ no utterance / released text in logs: []
-  · anonym log lines: ["[anonym-agent c_27ulun] ev=released","[anonym c_27ulun] 强制关闭 关","[anonym-agent c_27ulun] ev=ended","[anonym c_27ulun] agent 离房","[anonym-agent c_27ulun] ev=exit","[anonym-agent c_27ulun] 已退出 code=0 signal=","[anonym-agent c_s4gjgb] 已启动 pid=1576","[anonym c_s4gjgb] 圈主邀请 agent","[anonym c_s4gjgb] agent 进房","[anonym c_s4gjgb] 密封密钥已转交 agent","[anonym c_s4gjgb] 强制关闭 开","[anonym-agent c_s4gjgb] ev=session","[anonym-agent c_s4gjgb] ev=ready","[anonym-agent c_s4gjgb] ev=released","[anonym c_s4gjgb] 强制关闭 关","[anonym-agent c_s4gjgb] ev=ended","[anonym c_s4gjgb] agent 离房","[anonym-agent c_s4gjgb] ev=exit","[anonym-agent c_s4gjgb] 已退出 code=0 signal="]
+  · anonym log lines: ["[anonym-agent c_zp4poe] 已启动 pid=51","[anonym c_zp4poe] 圈主邀请 agent","[anonym c_zp4poe] agent 进房","[anonym c_zp4poe] 强制关闭 开","[anonym-agent c_zp4poe] ev=session","[anonym-agent c_zp4poe] ev=ready","[anonym-agent c_zp4poe] ev=released","[anonym c_zp4poe] 强制关闭 关","[anonym-agent c_zp4poe] ev=ended","[anonym c_zp4poe] agent 离房","[anonym-agent c_zp4poe] ev=exit","[anonym-agent c_zp4poe] 已退出 code=0 signal="]
   ✓ no agent child errors / crashes: []
   · log lines containing display names (join/presence, not utterances): 0

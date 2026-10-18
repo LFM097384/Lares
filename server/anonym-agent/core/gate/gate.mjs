@@ -6,7 +6,7 @@ import { redactAffiliation } from './l2.mjs';
 import { rewrite, claimKind } from './l3.mjs';
 import { verify } from './l4.mjs';
 
-export const NOTICE = 'Rule-inspired digest: no attribution.';
+export const NOTICE = '会议纪要 · 不署名 / Minutes · no attribution';
 
 function render(sections, sessionDate) {
   const date = String(sessionDate || '').slice(0, 10).match(/^\d{4}-\d{2}-\d{2}$/) ? String(sessionDate).slice(0, 10) : 'undated';

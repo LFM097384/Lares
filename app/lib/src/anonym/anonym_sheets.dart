@@ -1,4 +1,4 @@
-/// 隐名之约的底部面板:圈主邀请 AI([AnonymConveneSheet])、成员同意书
+/// 炉灵助理的底部面板:圈主邀请 AI([AnonymConveneSheet])、成员同意书
 /// ([AnonymConsentSheet])、E2EE 圈的密钥请求确认([AnonymKeyRequestSheet]),
 /// 以及共用的规则卡 / 诚实声明。
 ///
@@ -137,14 +137,13 @@ class _DisclosureLine extends StatelessWidget {
   }
 }
 
-/// 面板头:约印 + 标题 + 「受 Chatham House 规则启发 · 非官方」。
+/// 面板头:约印 + 标题。
 class _SheetHeader extends StatelessWidget {
   const _SheetHeader({required this.title});
   final String title;
 
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return Row(
       children: [
@@ -155,16 +154,6 @@ class _SheetHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(
-                t.anonInspired,
-                key: const ValueKey('anon-inspired'),
-                style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 0.4,
-                  color: LaresColors.ember.withValues(alpha: 0.85),
-                ),
-              ),
             ],
           ),
         ),
@@ -173,6 +162,8 @@ class _SheetHeader extends StatelessWidget {
   }
 }
 
+/// 邀请面板底部唯一的一行出处脚注:受 Chatham House 规则启发 · 非官方 · 无隶属。
+/// 其他页面一律不挂这类标签。
 class _Footer extends StatelessWidget {
   const _Footer();
 
@@ -183,6 +174,7 @@ class _Footer extends StatelessWidget {
       child: Text(
         t.anonNotAffiliated,
         key: const ValueKey('anon-not-affiliated'),
+        textAlign: TextAlign.center,
         style: TextStyle(fontSize: 11, color: Theme.of(context).faint),
       ),
     );
@@ -209,7 +201,7 @@ Widget _sheetFrame(BuildContext context, List<Widget> children) {
 
 // ─────────────────────────── 召集 ───────────────────────────
 
-/// 圈主邀请隐名之约 AI 入房(选好放行门槛 k)。[presentCount] 是此刻在房的真人数(不含 AI 助手)。
+/// 圈主邀请炉灵助理入房(选好放行门槛 k)。[presentCount] 是此刻在房的真人数(不含 AI 助手)。
 Future<void> showAnonymConveneSheet(
   BuildContext context, {
   required AnonymController anonym,
@@ -251,8 +243,6 @@ class _AnonymConveneSheetState extends State<AnonymConveneSheet> {
     final cs = theme.colorScheme;
     return _sheetFrame(context, [
       _SheetHeader(title: t.anonConveneTitle),
-      const SizedBox(height: LaresSpacing.md),
-      const AnonymRuleCard(),
       const SizedBox(height: LaresSpacing.md),
       Text(t.anonKLabel, style: theme.textTheme.titleSmall),
       const SizedBox(height: 4),
@@ -357,8 +347,6 @@ class AnonymConsentSheet extends StatelessWidget {
             : t.anonConsentTitle(name),
       ),
       const SizedBox(height: LaresSpacing.md),
-      const AnonymRuleCard(),
-      const SizedBox(height: LaresSpacing.md),
       Text(
         t.anonConsentBody,
         style: TextStyle(fontSize: 13.5, height: 1.6, color: cs.onSurface),
@@ -391,8 +379,6 @@ class AnonymConsentSheet extends StatelessWidget {
           ),
         ],
       ),
-      const SizedBox(height: LaresSpacing.sm),
-      const _Footer(),
     ]);
   }
 }
@@ -531,8 +517,6 @@ class AnonymKeyRequestSheet extends StatelessWidget {
           ),
         ],
       ),
-      const SizedBox(height: LaresSpacing.sm),
-      const _Footer(),
     ]);
   }
 }

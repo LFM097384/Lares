@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lares_app/src/anonym/anonym_controller.dart';
 import 'package:lares_app/src/anonym/anonym_crypto.dart';
 import 'package:lares_app/src/anonym/anonym_gate.dart';
-import 'package:lares_app/src/anonym/anonym_kit.dart';
 import 'package:lares_app/src/anonym/anonym_room.dart';
 import 'package:lares_app/src/anonym/anonym_sheets.dart';
 
@@ -12,7 +11,7 @@ import '../helpers/localized_app.dart';
 import 'anonym_controller_test.dart' show draftMsg, frame, kAgent, kCid, state;
 
 const String kDisclosure =
-    'AI 作为成员加入，只转写已同意成员的声音；原话在 AI 内部先脱敏，再交给大模型；只有大家放行的去名内容进入记忆';
+    'AI 作为成员加入，只转写已同意成员的声音；原话在 AI 内部先脱敏，再交给大模型';
 
 const String kKeyReqNote =
     '托管 AI 运行期间会在内存里持有本圈媒体密钥；如需完全排除运营方，可在自己的设备上运行独立模式';
@@ -50,10 +49,10 @@ void main() {
     await tall(tester);
     await tester.pumpWidget(localizedScaffold(
         AnonymConveneSheet(anonym: anon, presentCount: 5)));
-    expect(find.text(kRuleEn), findsOneWidget);
-    expect(find.text(kRuleZh), findsOneWidget);
-    expect(find.text('受 Chatham House 规则启发 · 非官方'), findsOneWidget);
-    expect(find.text('与 Chatham House 无隶属'), findsOneWidget);
+    expect(find.text('邀请炉灵助理'), findsOneWidget);
+    // 出处只留邀请面板底部一行小字脚注
+    expect(find.text('受 Chatham House 规则启发 · 非官方 · 与 Chatham House 无隶属'), findsOneWidget);
+    expect(find.textContaining('隐名之约'), findsNothing);
     expect(find.text(kDisclosure), findsOneWidget);
     expect(find.textContaining('严格'), findsNothing);
     expect(find.textContaining('依规则'), findsNothing);
@@ -91,7 +90,8 @@ void main() {
         AnonymRoomHost(anonym: anon, child: const Scaffold(body: SizedBox()))));
     agent(state());
     await tester.pumpAndSettle();
-    expect(find.text('圈主 发起了隐名之约'), findsOneWidget);
+    expect(find.text('圈主 邀请了炉灵助理'), findsOneWidget);
+    expect(find.textContaining('Chatham'), findsNothing);
     expect(find.text(kDisclosure), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('anon-consent-accept')));
     await tester.pumpAndSettle();
@@ -127,8 +127,8 @@ void main() {
     anon.accept();
     agent(state(meAcked: true));
     await tester.pump();
-    expect(find.textContaining('RULE-INSPIRED', findRichText: true), findsOneWidget);
-    expect(find.textContaining('隐名之约 · 非官方', findRichText: true), findsOneWidget);
+    expect(find.textContaining('LARES ASSISTANT', findRichText: true), findsOneWidget);
+    expect(find.textContaining('炉灵助理在场 · 不署名', findRichText: true), findsOneWidget);
     expect(find.text('2/3 已加入'), findsOneWidget);
     expect(find.text('圈主 · 已加入'), findsOneWidget);
     expect(find.text('小三 · 未加入'), findsOneWidget);
@@ -296,8 +296,9 @@ void main() {
     await tester.pumpWidget(localizedScaffold(
         AnonymConveneSheet(anonym: anon, presentCount: 3),
         locale: const Locale('en')));
-    expect(find.text('Inspired by the Chatham House Rule · Unofficial'), findsOneWidget);
-    expect(find.text('Not affiliated with Chatham House'), findsOneWidget);
+    expect(find.text('Invite Lares Assistant'), findsOneWidget);
+    expect(find.text('Inspired by the Chatham House Rule · Unofficial · Not affiliated with Chatham House'),
+        findsOneWidget);
     expect(find.textContaining('under the Rule'), findsNothing);
   });
   testWidgets('band: 导出会议纪要 sends skill minutes and opens the gate', (tester) async {
@@ -380,7 +381,7 @@ void main() {
     )));
     await tester.tap(find.text('go'));
     await tester.pumpAndSettle();
-    expect(find.text('请隐名之约 AI 离开?'), findsOneWidget);
+    expect(find.text('请炉灵助理离开?'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('anon-dismiss-confirm')));
     await tester.pumpAndSettle();
     expect(sent.single, {'t': 'anon_agent_dismiss', 'circleId': kCid});

@@ -162,11 +162,6 @@ class _AnonymMemoryScreenState extends State<AnonymMemoryScreen> {
                 LaresSpacing.xl,
               ),
               children: [
-                Overline(
-                  t.anonInspired,
-                  color: LaresColors.ember.withValues(alpha: 0.85),
-                ),
-                const SizedBox(height: 6),
                 Text(
                   t.anonMemSubtitle(widget.circleName),
                   style: TextStyle(
@@ -177,13 +172,6 @@ class _AnonymMemoryScreenState extends State<AnonymMemoryScreen> {
                 ),
                 const SizedBox(height: LaresSpacing.md),
                 ...body,
-                const SizedBox(height: LaresSpacing.md),
-                Center(
-                  child: Text(
-                    t.anonNotAffiliated,
-                    style: TextStyle(fontSize: 11, color: theme.faint),
-                  ),
-                ),
               ],
             ),
           );

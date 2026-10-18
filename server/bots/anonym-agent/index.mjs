@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 隐名之约 v2 · agent 进程(AGENT-V2.md)。显示名「隐名之约 · AI」。
+// 隐名之约 v2 · agent 进程(AGENT-V2.md)。显示名「炉灵助理」。
 //
 // 独立模式:node server/bots/anonym-agent/index.mjs --circle <cid> --passcode <p> [--auth-v2] [--e2ee] [--signaling ws://…/ws] [--k n] [--memory-dir d]
 //   E2EE 时独立模式用口令派生媒体密钥(同真人客户端);加 --sealed-key 则改走密封密钥流程。

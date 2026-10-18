@@ -93,7 +93,7 @@ test('happy path: draft (mock gate), review changes hash, k=2 approvals with Ed2
   assert.deepEqual(r, { approvals: 2, k: 2, released: true });
 
   const rel = s.released(d0.draftId);
-  assert.ok(rel.text.startsWith('Rule-inspired digest: no attribution.'));
+  assert.ok(rel.text.startsWith('会议纪要 · 不署名 / Minutes · no attribution'));
   assert.equal(rel.items.length, d3.items.length);
   assert.deepEqual(rel.items.map((i) => Object.keys(i).sort()), rel.items.map(() => ['id', 'kind', 'text']));
   for (const p of roster) assert.ok(!rel.text.includes(p.name));
@@ -137,7 +137,7 @@ test('happy path: draft (mock gate), review changes hash, k=2 approvals with Ed2
 test('roleRisk items are not released unless reviewed (fail closed); reason is review-only', async () => {
   const memory = createMemory({ circleId: 'c' });
   const gate = {
-    NOTICE: 'Rule-inspired digest: no attribution.',
+    NOTICE: '会议纪要 · 不署名 / Minutes · no attribution',
     async runGate(transcript, opts) {
       assert.equal(opts.mock, true); assert.equal(opts.llm, null);
       assert.equal(transcript.lines.length, 4);

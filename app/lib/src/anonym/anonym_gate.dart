@@ -89,11 +89,6 @@ class _AnonymGateScreenState extends State<AnonymGateScreen> {
                     LaresSpacing.lg,
                   ),
                   children: [
-                    Overline(
-                      t.anonInspired,
-                      color: LaresColors.ember.withValues(alpha: 0.85),
-                    ),
-                    const SizedBox(height: 6),
                     Text(
                       t.anonGateSubtitle,
                       style: TextStyle(
@@ -574,16 +569,6 @@ class AnonymEndCard extends StatelessWidget {
                           letterSpacing: 8,
                           color: cs.onSurface,
                           height: 1.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: Text(
-                        t.anonInspired,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurfaceVariant,
                         ),
                       ),
                     ),

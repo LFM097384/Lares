@@ -18,7 +18,7 @@ import { SpeakerAsr } from './asr.mjs';
 import { ROUTER_PROMPT, heuristicRoute } from './skills.mjs';
 
 export const ANON_TOPIC = 'lares.anon';
-export const AGENT_NAME = '隐名之约 · AI';
+export const AGENT_NAME = '炉灵助理';
 const ACTIONS = new Set(['keep', 'generalise', 'cut']);
 const KINDS = new Set(['idea', 'decision', 'todo', 'fact']);
 const MAX_Q = 1000;

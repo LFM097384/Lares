@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { canonicalJSON, sha256hex, verifyEd25519, rawPublicKeyB64, approvalMessage } from './crypto.mjs';
 import * as gateModule from './gate/gate.mjs';
 
-const DEFAULT_NOTICE = 'Rule-inspired digest: no attribution.';
+const DEFAULT_NOTICE = '会议纪要 · 不署名 / Minutes · no attribution';
 const KINDS = ['idea', 'decision', 'todo', 'fact'];
 const ACTIONS = ['keep', 'generalise', 'cut'];
 const err = (code, extra) => Object.assign(new Error(code), { code }, extra || {});

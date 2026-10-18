@@ -111,7 +111,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get e2eeCostNotice =>
-      'Once on: the server sees nothing, so **transcription is off**, and the **AI Lares** is **unavailable** in this circle (it only works in circles without encryption).';
+      'Once on: the server sees nothing, so **transcription is off**. Lares Assistant can join only with the owner\'s approval, and while in the room it holds this circle\'s media key in memory.';
 
   @override
   String get e2eeEveryoneNotice =>
@@ -3132,30 +3132,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileKick => 'Remove from circle';
 
   @override
-  String get anonEntryStart => 'Invite the unattributed-meeting AI';
+  String get anonEntryStart => 'Invite Lares Assistant';
 
   @override
   String get anonEntryStartDesc =>
       'The AI joins as a member; ideas may leave, names stay in the room';
 
   @override
-  String get anonEntryEnd => 'End the unattributed meeting';
+  String get anonEntryEnd => 'End this session';
 
   @override
   String get anonEntryEndDesc => 'Everything burns when it ends';
 
   @override
-  String get anonInspired => 'Inspired by the Chatham House Rule · Unofficial';
-
-  @override
-  String get anonNotAffiliated => 'Not affiliated with Chatham House';
+  String get anonNotAffiliated =>
+      'Inspired by the Chatham House Rule · Unofficial · Not affiliated with Chatham House';
 
   @override
   String get anonDisclosure =>
-      'The AI joins as a member and only transcribes members who agreed. What is said is de-identified inside the AI before it reaches the LLM; only unattributed content everyone releases goes into memory';
+      'The AI joins as a member and only transcribes members who agreed. What is said is de-identified inside the AI before it reaches the LLM';
 
   @override
-  String get anonConveneTitle => 'Invite the unattributed-meeting AI';
+  String get anonConveneTitle => 'Invite Lares Assistant';
 
   @override
   String get anonKLabel => 'Release threshold';
@@ -3177,16 +3175,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String anonConsentTitle(String name) {
-    return '$name started an unattributed meeting';
+    return '$name invited Lares Assistant';
   }
 
   @override
   String get anonConsentTitleOwner =>
-      'The circle owner started an unattributed meeting';
+      'The circle owner invited Lares Assistant';
 
   @override
   String get anonConsentBody =>
-      'Only after you join does the unattributed-meeting AI transcribe your voice. What is said is de-identified inside the AI; only a draft that members sign off on can leave, without names. You can stay in the room without joining; the AI will not transcribe you.';
+      'Only after you join does Lares Assistant transcribe your voice. What is said is de-identified inside the AI; only a draft that members sign off on can leave, without names. You can stay in the room without joining; the AI will not transcribe you.';
 
   @override
   String get anonConsentAccept => 'Agree and join';
@@ -3202,10 +3200,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get anonJoinNow => 'Join';
 
   @override
-  String get anonBandLatin => 'RULE-INSPIRED';
+  String get anonBandLatin => 'LARES ASSISTANT';
 
   @override
-  String get anonBandZh => 'Unattributed · Unofficial';
+  String get anonBandZh => 'In the room · No attribution';
 
   @override
   String get anonMemberAcked => 'Joined';
@@ -3314,7 +3312,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get anonEndedOk => 'OK';
 
   @override
-  String get anonEndConfirmTitle => 'End the unattributed meeting?';
+  String get anonEndConfirmTitle => 'End this session?';
 
   @override
   String get anonEndConfirmBody =>
@@ -3325,7 +3323,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String anonError(String code) {
-    return 'Unattributed meeting error: $code';
+    return 'Lares Assistant error: $code';
   }
 
   @override
@@ -3341,14 +3339,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonMemEntryDesc =>
-      'Unattributed content released in unattributed meetings';
+      'Unattributed content everyone released with Lares Assistant';
 
   @override
   String get anonSaveMarkdown => 'Save as Markdown file';
 
   @override
   String get anonMemAgentAbsent =>
-      'Circle memory is kept by the unattributed-meeting AI. Ask the owner to invite the AI into the room, then look again.';
+      'Circle memory is kept by Lares Assistant. Ask the owner to invite it into the room, then look again.';
 
   @override
   String get anonExportMinutes => 'Export minutes';
@@ -3361,16 +3359,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'The session ends with it; nothing unreleased leaves';
 
   @override
-  String get anonDismissConfirmTitle =>
-      'Ask the unattributed-meeting AI to leave?';
+  String get anonDismissConfirmTitle => 'Ask Lares Assistant to leave?';
 
   @override
   String get anonDismissConfirmBody =>
-      'Once the AI leaves, this unattributed meeting ends; what was said and any unreleased drafts are destroyed from its memory right away.';
+      'Once Lares Assistant leaves, this session ends; what was said and any unreleased drafts are destroyed from its memory right away.';
 
   @override
   String get anonKeyReqTitle =>
-      'The unattributed-meeting AI asks to enter the encrypted room';
+      'Lares Assistant asks to enter the encrypted room';
 
   @override
   String get anonKeyReqBody =>
@@ -3391,7 +3388,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String anonMemSubtitle(String circle) {
-    return 'What \"$circle\" released by signed agreement in unattributed meetings. No names; any approver can retract.';
+    return 'What \"$circle\" released by signed agreement. No names; any approver can retract.';
   }
 
   @override
@@ -3447,7 +3444,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonMemEmptyHint =>
-      'When an unattributed meeting\'s draft is released by everyone\'s signatures, the unattributed content stays here. What was said doesn\'t.';
+      'When an outgoing draft is released by everyone\'s signatures, the unattributed content stays here. What was said doesn\'t.';
 
   @override
   String anonMemLoadFailed(String code) {

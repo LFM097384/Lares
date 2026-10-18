@@ -107,7 +107,7 @@ class RuleSeal extends StatelessWidget {
                   ),
                 ),
               Text(
-                '约',
+                'AI',
                 style: TextStyle(
                   fontFamily: ChathamType.serifCjk,
                   fontSize: size * (years ? 0.34 : 0.44),
@@ -167,8 +167,8 @@ class _SealPainter extends CustomPainter {
 class RuleBand extends StatelessWidget {
   const RuleBand({
     super.key,
-    this.latin = 'RULE-INSPIRED',
-    this.zh = '隐名之约 · 非官方',
+    this.latin = 'LARES ASSISTANT',
+    this.zh = '炉灵助理在场 · 不署名',
   });
 
   /// 守则时段传 'CHATHAM HOUSE' / '守则时段';不写 Under the Rule 以免暗示背书。

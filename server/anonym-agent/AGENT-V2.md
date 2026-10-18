@@ -16,7 +16,7 @@ v1 中由服务器处理内容的部分（`server/src/anonym.js` 里的 `anon_*`
 信令服务器：只负责邀请 / 停止 agent、鉴权、转发密封密钥、强制关闭开关
 ```
 - agent 进程：`server/bots/anonym-agent/`，复用 `server/bots/voice-agent/room.mjs` 的 `LaresRoom`（入房、订阅音频、data channel、E2EE `sharedKey`）和它的 DashScope ASR provider。
-- 身份是 `u_ai_*`，复用现有 aiAuth 机制，`deviceId` 前缀区分。显示名「隐名之约 · AI」。
+- 身份是 `u_ai_*`，复用现有 aiAuth 机制，`deviceId` 前缀区分。显示名「炉灵助理」（英文 Lares Assistant）。
 - 托管模式：supervisor 按圈子 spawn 子进程，套路同 `ai_voice_supervisor.js`。独立模式：`node server/bots/anonym-agent/index.mjs --circle --passcode [--e2ee]`。
 - **同一圈子里隐名 agent 和语音 AI bot 互斥**：隐名 agent 在场时，语音 bot 停止。
 
@@ -116,7 +116,7 @@ list()
 目录：`DATA_DIR/anonym_memory/<cid>/`。删除圈子时整个目录删除。撤回必须同时传播到合并摘要（重新生成）。
 
 ## 8. 客户端
-- 圈主在房间「更多」里点「邀请隐名之约 AI」（发 `anon_agent_invite`）；也可以「请 AI 离开」。
+- 圈主在房间「更多」里点「邀请炉灵助理」（发 `anon_agent_invite`）；也可以「请 AI 离开」。
 - E2EE 圈：收到 `keyreq` 后弹确认（附 §2 的诚实声明），再密封密钥发出。
 - 同意页、标识条、问 AI、导出纪要（skill 按钮）、出门稿审核、签名放行、散会、圈子记忆：UI 沿用 v1。传输层从信令 WS 改为 LiveKit data `lares.anon`。
 - 客户端不再把自己的字幕喂给服务器：agent 自己听、自己转写。
