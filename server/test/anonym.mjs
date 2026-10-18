@@ -260,6 +260,7 @@ async function e2e() {
     check(!envValues.includes(env.LARES_AUTH_TOKEN) && !envValues.includes(env.LIVEKIT_API_SECRET) && !envValues.includes(AI_MEMBER_KEY) && !envValues.includes(GLOBAL_PASS),
       'env 值里也找不到主密钥原文');
     check(cenv.LARES_ANONYM_K === '3' && cenv.LARES_ANONYM_USER_ID === anonId && cenv.LARES_ANONYM_E2EE === '0', 'env 带 k=3、u_ai_anon_* 身份、E2EE=0', { k: cenv.LARES_ANONYM_K, u: cenv.LARES_ANONYM_USER_ID });
+    check(cenv.LARES_ANONYM_CONVENER === 'u_owner', 'env 带召集人 = 发邀请的圈主(end 只认圈主)', cenv.LARES_ANONYM_CONVENER);
     check(cenv.LARES_ANONYM_MEMORY_DIR === memDir, 'env 带记忆目录 DATA_DIR/anonym_memory/<cid>', cenv.LARES_ANONYM_MEMORY_DIR);
     check(cenv.LARES_AI_MEMBER_SECRET === hmacHex(AI_MEMBER_KEY, `lares-ai-anon-member:${cid}`)
       && cenv.LARES_AI_MEMBER_SECRET !== hmacHex(AI_MEMBER_KEY, `lares-ai-member:${cid}`), '成员凭证是隐名角色专用派生(≠ 语音助手的)');

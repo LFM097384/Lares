@@ -4,7 +4,7 @@
 // 独立模式:node server/bots/anonym-agent/index.mjs --circle <cid> --passcode <p> [--auth-v2] [--e2ee] [--signaling ws://…/ws] [--k n] [--memory-dir d]
 //   E2EE 时独立模式用口令派生媒体密钥(同真人客户端);加 --sealed-key 则改走密封密钥流程。
 // 托管模式(server/src/anonym_supervisor.js spawn):node index.mjs --circle <cid> --signaling <url>,env:
-//   LARES_ANONYM_HOSTED=1  LARES_ANONYM_USER_ID  LARES_AI_MEMBER_SECRET  LARES_AI_AUTH_SECRET / LARES_AI_AUTH_V
+//   LARES_ANONYM_HOSTED=1  LARES_ANONYM_USER_ID  LARES_ANONYM_CONVENER(发邀请的圈主 userId;只有它能 end)  LARES_AI_MEMBER_SECRET  LARES_AI_AUTH_SECRET / LARES_AI_AUTH_V
 //   LARES_ANONYM_E2EE=1(→ 密封密钥)  LARES_ANONYM_K  LARES_ANONYM_MEMORY_DIR  LARES_DASHSCOPE_API_KEY  LARES_AI_LLM_*
 // stdout:一行一个 JSON 事件(ready / session / released / ended / error / exit),不含任何会话文字。
 // stdin:{"cmd":"stop"} → 散会退出。退出码:0 = 会话结束;2 参数;3 鉴权;1 崩溃(服务器在邀请有效期内重启)。
@@ -111,7 +111,7 @@ export async function runAnonAgent(o) {
   };
 
   agent = new AnonAgent({
-    circleId, selfId: userId, llm, asr, memory, skills, k, convenerId: o.convenerId ?? null, log, emit,
+    circleId, selfId: userId, llm, asr, memory, skills, k, convenerId: o.convenerId ?? (hosted ? (env.LARES_ANONYM_CONVENER || null) : null), log, emit,
     transport: {
       broadcast: (obj) => room.publishAnon(obj),
       sendTo: (id, obj) => room.publishAnon(obj, id),

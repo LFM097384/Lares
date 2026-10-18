@@ -93,6 +93,7 @@ export function createAnonymSupervisor(d) {
     out.LARES_ANONYM_HOSTED = '1';
     out.LARES_ANONYM_E2EE = d.circleE2ee?.(cid) === true ? '1' : '0';
     if (Number.isInteger(s.k)) out.LARES_ANONYM_K = String(s.k); else delete out.LARES_ANONYM_K;
+    if (typeof s.convenerId === 'string' && s.convenerId) out.LARES_ANONYM_CONVENER = s.convenerId; else delete out.LARES_ANONYM_CONVENER;
     const dir = memoryDirFor(d.dataDir, cid);
     if (dir) out.LARES_ANONYM_MEMORY_DIR = dir;
     out.LARES_DATA_DIR = d.dataDir;
@@ -210,13 +211,14 @@ export function createAnonymSupervisor(d) {
   }
 
   /// 圈主邀请。返回 {ok:true} 或 {ok:false, code}
-  function invite(cid, { k = null } = {}) {
+  function invite(cid, { k = null, convenerId = null } = {}) {
     const why = refusal(cid);
     if (why && why !== 'capacity') return { ok: false, code: why === 'empty' ? 'not_in_room' : 'unavailable', why };
     if (why === 'capacity') return { ok: false, code: 'busy', why };
     const s = slotOf(cid);
     s.invited = true;
     s.k = Number.isInteger(k) ? k : null;
+    s.convenerId = typeof convenerId === 'string' && convenerId.length <= 128 ? convenerId : null;
     s.crashes = [];
     s.backoff = BACKOFF_MIN_MS;
     reconcile(cid);

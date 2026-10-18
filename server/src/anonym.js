@@ -129,7 +129,7 @@ export function createAnonym(d) {
         if (!d.supervisor) return err('unavailable'), true;
         if (isInvited(cid) || isPresent(cid)) return err('already_active'), true;
         if (msg.ownerKey) rememberOwner(ws, cid);
-        const r = d.supervisor.invite(cid, { k });
+        const r = d.supervisor.invite(cid, { k, convenerId: session.userId }); // 召集人 = 发邀请的圈主(`end` 只认它)
         if (!r.ok) return err(r.code), true;
         log.log?.(`${tag(cid)} 圈主邀请 agent`);
         d.send(ws, { t: 'anon_ok', circleId: cid, op: t });
