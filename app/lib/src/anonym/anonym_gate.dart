@@ -5,6 +5,10 @@
 /// - 放行后的文本可复制(App 里没有系统分享通道,用剪贴板)。
 library;
 
+import 'dart:convert';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -473,6 +477,14 @@ class _Released extends StatelessWidget {
                 icon: const Icon(Icons.copy_rounded, size: 16),
                 label: Text(t.anonCopy, style: const TextStyle(fontSize: 13)),
               ),
+              if (canSaveReleasedMarkdown)
+                IconButton(
+                  key: const ValueKey('anon-save-released'),
+                  tooltip: t.anonSaveMarkdown,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => saveReleasedMarkdown(text).ignore(),
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                ),
             ],
           ),
           SelectableText(
@@ -786,5 +798,32 @@ class _ReleasedPreview extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// 桌面端可以把放行的 markdown(会议纪要)另存为文件;移动端 / Web 只给「复制」。
+bool get canSaveReleasedMarkdown =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux);
+
+/// 系统「另存为」对话框;用户取消则什么都不做。
+Future<void> saveReleasedMarkdown(String text) async {
+  try {
+    final FileSaveLocation? loc = await getSaveLocation(
+      suggestedName: 'minutes.md',
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Markdown', extensions: ['md']),
+      ],
+    );
+    if (loc == null) return;
+    await XFile.fromData(
+      Uint8List.fromList(utf8.encode(text)),
+      mimeType: 'text/markdown',
+      name: 'minutes.md',
+    ).saveTo(loc.path);
+  } catch (e) {
+    debugPrint('[lares] 保存纪要失败: $e');
   }
 }

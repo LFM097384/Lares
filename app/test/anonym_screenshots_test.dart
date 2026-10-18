@@ -5,6 +5,7 @@
 // 输出:spike_out/chatham/prod_<screen>_dark.png
 //
 // 出图技巧沿用 test/chatham_concept_screenshots_test.dart。
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -79,13 +80,18 @@ ThemeData _withFont(ThemeData t) {
   );
 }
 
+/// agent 经 LiveKit data(topic lares.anon)发来一帧。
+void _agent(AnonymController c, Map<String, Object?> m) =>
+    c.handleData(anonAgentIdentityFor('c1'), utf8.encode(jsonEncode(m)));
+
 AnonymController _session({bool acked = true}) {
   final c = AnonymController(
     send: (_) {},
+    sendData: (_, _) {},
     keyFactory: () => AnonymKeys.fromSeed(List<int>.generate(32, (i) => i)),
   )..bindRoom(circleId: 'c1', inRoom: true, myUserId: 'me');
-  c.handle({
-    't': 'anon_state', 'circleId': 'c1', 'active': true, 'sid': 'S1', 'k': 3,
+  _agent(c, {
+    't': 'state', 'active': true, 'sid': 'S1', 'k': 3,
     'convenerId': 'u1',
     'members': [
       {'id': 'u1', 'name': '林岚', 'acked': true},
@@ -131,8 +137,8 @@ final List<_Shot> _shots = <_Shot>[
       const AnonymConsentSheet(convenerName: '林岚'))),
   _Shot('prod_3_band', (ctx) {
     final c = _session();
-    c.handle({'t': 'anon_answer', 'circleId': 'c1', 'askerName': '周屿',
-        'question': '我们分歧主要在哪?', 'answer': '分歧集中在节奏:一方主张本季度先砍外包预算,另一方担心交付会断档。'});
+    _agent(c, {'t': 'answer', 'qid': 'q1',
+        'q': '我们分歧主要在哪?', 'a': '分歧集中在节奏:一方主张本季度先砍外包预算,另一方担心交付会断档。'});
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
@@ -157,14 +163,14 @@ final List<_Shot> _shots = <_Shot>[
   }),
   _Shot('prod_4_ask', (ctx) {
     final c = _session();
-    c.handle({'t': 'anon_answer', 'circleId': 'c1', 'askerName': '周屿',
-        'question': '我们分歧主要在哪?', 'answer': '分歧集中在节奏:一方主张本季度先砍外包预算,另一方担心交付会断档。双方都同意需要一份过渡计划。'});
+    _agent(c, {'t': 'answer', 'qid': 'q1',
+        'q': '我们分歧主要在哪?', 'a': '分歧集中在节奏:一方主张本季度先砍外包预算,另一方担心交付会断档。双方都同意需要一份过渡计划。'});
     return _sheetLike(ctx, AnonymAskSheet(anonym: c));
   }),
   _Shot('prod_5_gate', (ctx) {
     final c = _session();
-    c.handle({
-      't': 'anon_draft', 'circleId': 'c1',
+    _agent(c, {
+      't': 'draft',
       'draft': {
         'draftId': 'd1', 'draftHash': 'h1',
         'items': [
@@ -176,21 +182,22 @@ final List<_Shot> _shots = <_Shot>[
         'metrics': {'items': 3, 'roleRisk': 1, 'kAnonymity': 3},
       },
     });
-    c.handle({'t': 'anon_approvals', 'circleId': 'c1', 'draftId': 'd1', 'count': 1, 'k': 3});
+    _agent(c, {'t': 'approvals', 'draftId': 'd1', 'count': 1, 'k': 3});
     return AnonymGateScreen(anonym: c);
   }),
   _Shot('prod_5b_released', (ctx) {
     final c = _session();
-    c.handle({
-      't': 'anon_draft', 'circleId': 'c1',
+    _agent(c, {
+      't': 'draft',
       'draft': {'draftId': 'd1', 'draftHash': 'h1', 'items': [
         {'id': 'a', 'text': '有人认为本季度应先压缩外包预算,把节省下来的部分留作过渡。'},
       ]},
     });
-    c.handle({'t': 'anon_released', 'circleId': 'c1', 'draftId': 'd1',
-        'text': '· 有人认为本季度应先压缩外包预算,把节省下来的部分留作过渡。\n· 与会者普遍同意:需要一份两个月的过渡计划。'});
+    _agent(c, {'t': 'released', 'draftId': 'd1',
+        'text': '# 会议纪要\n\n## 议题\n- 外包预算与三月上线\n\n## 观点\n- 有人认为本季度应先压缩外包预算,把节省下来的部分留作过渡。\n\n## 决定\n- 需要一份两个月的过渡计划。\n\n## 待办\n- 下周前整理过渡计划草稿'});
     return AnonymGateScreen(anonym: c);
   }),
+  _Shot('prod_8_keyreq', (ctx) => _sheetLike(ctx, const AnonymKeyRequestSheet())),
   _Shot('prod_6_end', (ctx) => AnonymEndCard(
         receipt: const AnonymReceipt(
           counts: {'utterances': 42, 'drafts': 2, 'released': 1},
@@ -200,8 +207,8 @@ final List<_Shot> _shots = <_Shot>[
       )),
   _Shot('prod_7_memory', (ctx) {
     final c = _session()..loadMemory();
-    c.handle({
-      't': 'anon_mem', 'circleId': 'c1',
+    _agent(c, {
+      't': 'mem',
       'items': [
         {'id': 'm1', 'text': '本季度先压缩外包预算,节省部分留作过渡。', 'kind': 'decision',
           'sid': 'S2', 'releasedAt': '2026-10-18T09:00:00Z', 'approvals': 3, 'canRetract': true},

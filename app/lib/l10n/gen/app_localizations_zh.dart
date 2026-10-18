@@ -2922,10 +2922,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileKick => '移出圈子';
 
   @override
-  String get anonEntryStart => '发起隐名之约';
+  String get anonEntryStart => '邀请隐名之约 AI';
 
   @override
-  String get anonEntryStartDesc => '观点可以出门,名字留在屋里';
+  String get anonEntryStartDesc => 'AI 作为成员入房;观点可以出门,名字留在屋里';
 
   @override
   String get anonEntryEnd => '结束隐名之约';
@@ -2941,10 +2941,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get anonDisclosure =>
-      '本阶段：原话经 Lares 服务器内存与云端识别/大模型（阿里云、DeepSeek）处理，不存储、不写日志、散会即焚；运营方无法被技术性排除';
+      'AI 作为成员加入，只转写已同意成员的声音；原话在 AI 内部先脱敏，再交给大模型；只有大家放行的去名内容进入记忆';
 
   @override
-  String get anonConveneTitle => '发起隐名之约';
+  String get anonConveneTitle => '邀请隐名之约 AI';
 
   @override
   String get anonKLabel => '放行门槛';
@@ -2958,7 +2958,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get anonKHint => '出门稿要有这么多位在场成员签名同意,才会放出去。';
 
   @override
-  String get anonConveneStart => '开始';
+  String get anonConveneStart => '邀请';
 
   @override
   String get anonConveneNeedTwo => '房里至少要有两个人才能发起';
@@ -2973,7 +2973,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get anonConsentBody =>
-      '加入后,你自己的字幕定稿会送进本场会话;能出门的只有大家签名同意的观点稿,不带名字。不加入也可以留在房里,你的话不会被送进去。';
+      '加入后,隐名之约 AI 才会转写你的声音;原话在 AI 内部先脱敏,能出门的只有大家签名同意的稿子,不带名字。不加入也可以留在房里,AI 不会转写你说的话。';
 
   @override
   String get anonConsentAccept => '同意并加入';
@@ -3005,12 +3005,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get anonCaptionsOff => '你关着「为需要的人生成字幕」,你说的话进不了本场会话';
-
-  @override
-  String get anonCaptionsTurnOn => '打开';
-
-  @override
   String get anonAskAi => '问 AI';
 
   @override
@@ -3032,9 +3026,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get anonThinking => '在想…';
-
-  @override
-  String get anonMakeDraft => '生成出门稿';
 
   @override
   String get anonDraftPending => '正在生成出门稿…';
@@ -3061,7 +3052,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get anonActionCut => '删去';
 
   @override
-  String get anonMetricsTitle => '服务器给出的指标';
+  String get anonMetricsTitle => 'AI 给出的指标';
 
   @override
   String anonApprovals(int count, int k) {
@@ -3111,7 +3102,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get anonEndConfirmTitle => '结束隐名之约?';
 
   @override
-  String get anonEndConfirmBody => '服务器内存里的原话会立即销毁,没放行的稿子不会出门。';
+  String get anonEndConfirmBody => 'AI 内存里的原话和脱敏记录会立即销毁,没放行的稿子不会出门。';
 
   @override
   String get anonEndConfirm => '散会';
@@ -3132,6 +3123,44 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get anonMemEntryDesc => '隐名之约里大家放行的去名内容';
+
+  @override
+  String get anonSaveMarkdown => '存为 Markdown 文件';
+
+  @override
+  String get anonMemAgentAbsent => '圈子记忆由隐名之约 AI 保管。请圈主在房里邀请 AI 入房后再看。';
+
+  @override
+  String get anonExportMinutes => '导出会议纪要';
+
+  @override
+  String get anonDismissAi => '请 AI 离开';
+
+  @override
+  String get anonDismissAiDesc => '会话随之结束,没放行的内容不会出门';
+
+  @override
+  String get anonDismissConfirmTitle => '请隐名之约 AI 离开?';
+
+  @override
+  String get anonDismissConfirmBody => 'AI 一走,本场隐名之约就结束;AI 内存里的原话和没放行的稿子立即销毁。';
+
+  @override
+  String get anonKeyReqTitle => '隐名之约 AI 请求进入加密房间';
+
+  @override
+  String get anonKeyReqBody =>
+      '本圈开了端到端加密。AI 要听到同意成员的声音,需要你把本圈媒体密钥密封后交给它:只有这个 AI 进程能解开,服务器只转发密文。';
+
+  @override
+  String get anonKeyReqNote =>
+      '托管 AI 运行期间会在内存里持有本圈媒体密钥；如需完全排除运营方，可在自己的设备上运行独立模式';
+
+  @override
+  String get anonKeyReqAccept => '交给 AI';
+
+  @override
+  String get anonKeyReqDecline => '不给';
 
   @override
   String get anonMemTitle => '圈子记忆';

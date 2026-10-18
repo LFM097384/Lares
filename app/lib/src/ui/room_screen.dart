@@ -240,7 +240,27 @@ class _RoomScreenState extends State<RoomScreen> {
         canManageCircle(widget.controller, widget.settings, cid);
   }
 
-  /// 会话没开 → 召集面板;开着 → 散会确认。
+  /// 「邀请 / 结束」这一行该不该有:会话开着(散会),或 AI 不在、也没在路上(邀请)。
+  /// AI 已在房里但会话还没起来时只留「请 AI 离开」。
+  bool get _anonymEntryShown {
+    final anon = AnonymScope.maybeOf(context);
+    if (anon == null) return false;
+    return anon.active || (!anon.agentPresent && !anon.invitePending);
+  }
+
+  bool get _canDismissAnonymAi {
+    final anon = AnonymScope.maybeOf(context);
+    return _canAnonym &&
+        anon != null &&
+        (anon.agentPresent || anon.invitePending);
+  }
+
+  void _dismissAnonymAi() {
+    final anon = AnonymScope.maybeOf(context);
+    if (anon != null) confirmAnonymDismiss(context, anon);
+  }
+
+  /// 会话没开 → 邀请 AI(选 k);开着 → 散会确认。
   void _openAnonym() {
     final anon = AnonymScope.maybeOf(context);
     if (anon == null) return;
@@ -602,7 +622,8 @@ class _RoomScreenState extends State<RoomScreen> {
       showMap: _showMap,
       onManage: _canManage ? _openManage : null,
       anonym: AnonymScope.maybeOf(context),
-      onAnonym: _canAnonym ? _openAnonym : null,
+      onAnonym: _canAnonym && _anonymEntryShown ? _openAnonym : null,
+      onDismissAi: _canDismissAnonymAi ? _dismissAnonymAi : null,
       onMemory: _canAnonymMemory ? _openAnonymMemory : null,
       onToggleMap: widget.locationShare == null
           ? null

@@ -9,19 +9,31 @@ import 'package:lares_app/src/anonym/anonym_room.dart';
 import 'package:lares_app/src/anonym/anonym_sheets.dart';
 
 import '../helpers/localized_app.dart';
-import 'anonym_controller_test.dart' show draftMsg, kCid, state;
+import 'anonym_controller_test.dart' show draftMsg, frame, kAgent, kCid, state;
 
 const String kDisclosure =
-    '本阶段：原话经 Lares 服务器内存与云端识别/大模型（阿里云、DeepSeek）处理，不存储、不写日志、散会即焚；运营方无法被技术性排除';
+    'AI 作为成员加入，只转写已同意成员的声音；原话在 AI 内部先脱敏，再交给大模型；只有大家放行的去名内容进入记忆';
+
+const String kKeyReqNote =
+    '托管 AI 运行期间会在内存里持有本圈媒体密钥；如需完全排除运营方，可在自己的设备上运行独立模式';
 
 void main() {
   late List<Map<String, Object?>> sent;
+  late List<Map<String, Object?>> data;
   late AnonymController anon;
+
+  /// agent 发来一帧(LiveKit data,topic lares.anon)。
+  void agent(Map<String, dynamic> m) => anon.handleData(kAgent, frame(m));
 
   setUp(() {
     sent = [];
+    data = [];
     anon = AnonymController(
       send: sent.add,
+      sendData: (m, to) {
+        if (to != kAgent) throw StateError('sent to $to');
+        data.add(m);
+      },
       keyFactory: () => AnonymKeys.fromSeed(List<int>.generate(32, (i) => i)),
       nonceFactory: () => 'AAECAwQFBgcICQoLDA0ODw',
     )..bindRoom(circleId: kCid, inRoom: true, myUserId: 'me');
@@ -60,7 +72,8 @@ void main() {
     expect(find.text('2 / 5 人同意才放行'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('anon-convene-start')));
     await tester.pump();
-    expect(sent.single, {'t': 'anon_start', 'circleId': kCid, 'k': 2});
+    expect(sent.single, {'t': 'anon_agent_invite', 'circleId': kCid, 'k': 2});
+    expect(anon.invitePending, isTrue);
   });
 
   testWidgets('convene sheet with fewer than two people cannot start', (tester) async {
@@ -76,16 +89,16 @@ void main() {
     await tall(tester);
     await tester.pumpWidget(localizedApp(
         AnonymRoomHost(anonym: anon, child: const Scaffold(body: SizedBox()))));
-    anon.handle(state());
+    agent(state());
     await tester.pumpAndSettle();
     expect(find.text('圈主 发起了隐名之约'), findsOneWidget);
     expect(find.text(kDisclosure), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('anon-consent-accept')));
     await tester.pumpAndSettle();
-    expect(sent.single['t'], 'anon_ack');
+    expect(data.single['t'], 'ack');
     expect(anon.acked, isTrue);
     // 同一场不再弹第二次
-    anon.handle(state(meAcked: true));
+    agent(state(meAcked: true));
     await tester.pumpAndSettle();
     expect(find.byType(AnonymConsentSheet), findsNothing);
   });
@@ -95,11 +108,11 @@ void main() {
     await tester.pumpWidget(localizedApp(AnonymRoomHost(
         anonym: anon,
         child: Scaffold(body: AnonymRoomBand(anonym: anon)))));
-    anon.handle(state());
+    agent(state());
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('anon-consent-decline')));
     await tester.pumpAndSettle();
-    expect(sent, isEmpty);
+    expect(data, isEmpty);
     expect(anon.declined, isTrue);
     expect(find.byKey(const ValueKey('anon-declined-note')), findsOneWidget);
     expect(find.text('我 · 未加入'), findsOneWidget);
@@ -110,9 +123,9 @@ void main() {
     await tall(tester);
     await tester.pumpWidget(localizedScaffold(AnonymRoomBand(anonym: anon)));
     expect(find.byKey(const ValueKey('anon-band')), findsNothing);
-    anon.handle(state());
+    agent(state());
     anon.accept();
-    anon.handle(state(meAcked: true));
+    agent(state(meAcked: true));
     await tester.pump();
     expect(find.textContaining('RULE-INSPIRED', findRichText: true), findsOneWidget);
     expect(find.textContaining('隐名之约 · 非官方', findRichText: true), findsOneWidget);
@@ -127,13 +140,13 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('anon-ask-field')), '大家主要分歧?');
     await tester.tap(find.byKey(const ValueKey('anon-ask-send')));
     await tester.pump();
-    expect(sent.last, {'t': 'anon_ask', 'circleId': kCid, 'question': '大家主要分歧?'});
+    expect(data.last, {'t': 'ask', 'q': '大家主要分歧?'});
     expect(find.byKey(const ValueKey('anon-thinking')), findsOneWidget);
-    anon.handle({'t': 'anon_answer', 'circleId': kCid, 'askerName': '我', 'question': '大家主要分歧?', 'answer': '在预算节奏上'});
+    agent({'t': 'answer', 'qid': 'q1', 'q': '大家主要分歧?', 'a': '在预算节奏上'});
     await tester.pump();
     expect(find.text('在预算节奏上'), findsWidgets);
     // 散会 → 面板自己关
-    anon.handle({'t': 'anon_ended', 'circleId': kCid, 'receipt': {'sha256': 'x'}});
+    agent({'t': 'ended', 'receipt': {'sha256': 'x'}});
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('anon-ask-sheet')), findsNothing);
     expect(find.byKey(const ValueKey('anon-band')), findsNothing);
@@ -142,10 +155,10 @@ void main() {
   testWidgets('gate review: roleRisk tag + actions, metrics only if given, approve, release copy',
       (tester) async {
     await tall(tester);
-    anon.handle(state());
+    agent(state());
     anon.accept();
-    anon.handle(draftMsg());
-    sent.clear();
+    agent(draftMsg());
+    data.clear();
     String? clip;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform,
         (call) async {
@@ -181,14 +194,14 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('anon-review-i2-cut')));
     await tester.pump();
-    expect(sent.last['action'], 'cut');
+    expect(data.last, {'t': 'review', 'draftId': 'd1', 'itemId': 'i2', 'action': 'cut'});
     expect(find.text('0 / 2 已同意放行'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('anon-approve')));
     await tester.pump();
-    expect(sent.last['t'], 'anon_approve');
+    expect(data.last['t'], 'approve');
     expect(find.text('你已同意,等其他人'), findsOneWidget);
-    anon.handle({'t': 'anon_approvals', 'circleId': kCid, 'draftId': 'd1', 'count': 2, 'k': 2});
-    anon.handle({'t': 'anon_released', 'circleId': kCid, 'draftId': 'd1', 'text': '预算该砍。'});
+    agent({'t': 'approvals', 'draftId': 'd1', 'count': 2, 'k': 2});
+    agent({'t': 'released', 'draftId': 'd1', 'text': '预算该砍。'});
     await tester.pump();
     expect(find.byKey(const ValueKey('anon-released')), findsOneWidget);
     expect(find.byKey(const ValueKey('anon-approve')), findsNothing);
@@ -199,10 +212,10 @@ void main() {
 
   testWidgets('gate without metrics hides the metrics block', (tester) async {
     await tall(tester);
-    anon.handle(state());
+    agent(state());
     anon.accept();
-    anon.handle({
-      't': 'anon_draft', 'circleId': kCid,
+    agent({
+      't': 'draft',
       'draft': {'draftId': 'd', 'draftHash': 'h', 'items': [{'id': 'a', 'text': 'x'}]},
     });
     await tester.pumpWidget(localizedApp(AnonymGateScreen(anonym: anon)));
@@ -215,14 +228,14 @@ void main() {
     await tall(tester);
     await tester.pumpWidget(localizedApp(
         AnonymRoomHost(anonym: anon, child: const Scaffold(body: SizedBox()))));
-    anon.handle(state());
+    agent(state());
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('anon-consent-accept')));
     await tester.pumpAndSettle();
-    anon.handle({'t': 'anon_released', 'circleId': kCid, 'draftId': 'd1', 'text': '出门的话'});
+    agent({'t': 'released', 'draftId': 'd1', 'text': '出门的话'});
     final sha = 'ab12' * 16;
-    anon.handle({
-      't': 'anon_ended', 'circleId': kCid,
+    agent({
+      't': 'ended',
       'receipt': {'counts': {'utterances': 9}, 'sha256': sha},
     });
     await tester.pumpAndSettle();
@@ -244,13 +257,13 @@ void main() {
     await tester.pumpWidget(localizedApp(AnonymRoomHost(
         anonym: anon,
         child: Scaffold(body: AnonymRoomBand(anonym: anon)))));
-    anon.handle(state());
+    agent(state());
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('anon-consent-decline')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('anon-band')), findsOneWidget);
-    anon.handle({
-      't': 'anon_ended', 'circleId': kCid,
+    agent({
+      't': 'ended',
       'receipt': {'counts': {'utterances': 9}, 'sha256': 'ab12' * 16},
     });
     await tester.pumpAndSettle();
@@ -259,9 +272,9 @@ void main() {
     expect(anon.active, isFalse);
   });
 
-  testWidgets('end confirm dialog sends anon_end', (tester) async {
+  testWidgets('end confirm dialog sends end over data', (tester) async {
     await tall(tester);
-    anon.handle(state(convener: 'me'));
+    agent(state(convener: 'me'));
     await tester.pumpWidget(localizedApp(Builder(
       builder: (context) => Scaffold(
         body: TextButton(
@@ -274,7 +287,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('anon-end-confirm')));
     await tester.pumpAndSettle();
-    expect(sent.last, {'t': 'anon_end', 'circleId': kCid});
+    expect(data.last, {'t': 'end'});
+    expect(sent, isEmpty);
   });
 
   testWidgets('English locale renders without the Chinese labels leaking', (tester) async {
@@ -285,5 +299,101 @@ void main() {
     expect(find.text('Inspired by the Chatham House Rule · Unofficial'), findsOneWidget);
     expect(find.text('Not affiliated with Chatham House'), findsOneWidget);
     expect(find.textContaining('under the Rule'), findsNothing);
+  });
+  testWidgets('band: 导出会议纪要 sends skill minutes and opens the gate', (tester) async {
+    await tall(tester);
+    await tester.pumpWidget(localizedApp(Scaffold(body: AnonymRoomBand(anonym: anon))));
+    agent(state());
+    anon.accept();
+    agent(state(meAcked: true));
+    await tester.pump();
+    data.clear();
+    expect(find.text('导出会议纪要'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('anon-minutes')));
+    await tester.pump();
+    expect(data.single, {'t': 'skill', 'name': 'minutes'});
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AnonymGateScreen), findsOneWidget);
+    agent(draftMsg());
+    agent({'t': 'released', 'draftId': 'd1', 'text': '# 会议纪要\n- 预算该砍'});
+    await tester.pump();
+    expect(find.byKey(const ValueKey('anon-released')), findsOneWidget);
+    expect(find.textContaining('会议纪要'), findsWidgets);
+  });
+
+  testWidgets('keyreq sheet: honest note verbatim; accept seals and sends anon_agent_key',
+      (tester) async {
+    await tall(tester);
+    anon.mediaKeyFor = (_) async => 'cd' * 32;
+    await tester.pumpWidget(localizedApp(
+        AnonymRoomHost(anonym: anon, child: const Scaffold(body: SizedBox()))));
+    anon.handle({
+      't': 'anon_agent_keyreq', 'circleId': kCid,
+      'x25519Pub': 'NYBy1jZYgNGu6jKa35EhODhR7SGijjt16WXQ0s0WYlQ=',
+    });
+    await tester.pumpAndSettle();
+    expect(find.byType(AnonymKeyRequestSheet), findsOneWidget);
+    expect(find.text(kKeyReqNote), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('anon-keyreq-accept')));
+    await tester.pumpAndSettle();
+    // 密封是纯 Dart 异步运算:放到真实事件循环里跑完
+    await tester.runAsync(() async {
+      for (var i = 0; i < 100 && sent.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+    expect(sent.single['t'], 'anon_agent_key');
+    expect(sent.single['circleId'], kCid);
+    expect(sent.single['x25519Pub'], 'NYBy1jZYgNGu6jKa35EhODhR7SGijjt16WXQ0s0WYlQ=');
+    expect(sent.single['sealed'], isA<String>());
+    expect(find.byType(AnonymKeyRequestSheet), findsNothing);
+    expect(anon.keyRequest, isNull);
+  });
+
+  testWidgets('keyreq sheet: decline sends nothing', (tester) async {
+    await tall(tester);
+    anon.mediaKeyFor = (_) async => 'cd' * 32;
+    await tester.pumpWidget(localizedApp(
+        AnonymRoomHost(anonym: anon, child: const Scaffold(body: SizedBox()))));
+    anon.handle({
+      't': 'anon_agent_keyreq', 'circleId': kCid,
+      'x25519Pub': 'NYBy1jZYgNGu6jKa35EhODhR7SGijjt16WXQ0s0WYlQ=',
+    });
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('anon-keyreq-decline')));
+    await tester.pumpAndSettle();
+    expect(sent, isEmpty);
+    expect(anon.keyRequest, isNull);
+    expect(find.byType(AnonymKeyRequestSheet), findsNothing);
+  });
+
+  testWidgets('dismiss confirm sends anon_agent_dismiss', (tester) async {
+    await tall(tester);
+    await tester.pumpWidget(localizedApp(Builder(
+      builder: (context) => Scaffold(
+        body: TextButton(
+          onPressed: () => confirmAnonymDismiss(context, anon),
+          child: const Text('go'),
+        ),
+      ),
+    )));
+    await tester.tap(find.text('go'));
+    await tester.pumpAndSettle();
+    expect(find.text('请隐名之约 AI 离开?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('anon-dismiss-confirm')));
+    await tester.pumpAndSettle();
+    expect(sent.single, {'t': 'anon_agent_dismiss', 'circleId': kCid});
+  });
+
+  testWidgets('no copy says the server processes what is said', (tester) async {
+    await tall(tester);
+    await tester.pumpWidget(localizedScaffold(
+        AnonymConveneSheet(anonym: anon, presentCount: 3)));
+    expect(find.textContaining('服务器内存'), findsNothing);
+    await tester.pumpWidget(localizedScaffold(
+        AnonymConveneSheet(anonym: anon, presentCount: 3), locale: const Locale('en')));
+    expect(find.textContaining('server memory'), findsNothing);
+    expect(find.textContaining('The AI joins as a member'), findsOneWidget);
   });
 }

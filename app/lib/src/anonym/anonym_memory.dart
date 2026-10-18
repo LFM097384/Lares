@@ -481,7 +481,9 @@ class _ErrorState extends StatelessWidget {
           Icon(Icons.cloud_off_rounded, color: cs.error),
           const SizedBox(height: 12),
           Text(
-            t.anonMemLoadFailed(code),
+            code == 'agent_absent'
+                ? t.anonMemAgentAbsent
+                : t.anonMemLoadFailed(code),
             textAlign: TextAlign.center,
             style: TextStyle(color: cs.onSurfaceVariant),
           ),

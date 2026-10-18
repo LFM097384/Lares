@@ -1,5 +1,6 @@
-/// 隐名之约的两张底部面板:圈主召集([AnonymConveneSheet])与成员同意书
-/// ([AnonymConsentSheet]),以及两者共用的规则卡 / 诚实声明。
+/// 隐名之约的底部面板:圈主邀请 AI([AnonymConveneSheet])、成员同意书
+/// ([AnonymConsentSheet])、E2EE 圈的密钥请求确认([AnonymKeyRequestSheet]),
+/// 以及共用的规则卡 / 诚实声明。
 ///
 /// 定性:受 Chatham House 规则启发,非官方;与 Chatham House 无隶属。
 /// 任何文案都不得写成「依规则」/「under the Rule」。
@@ -96,7 +97,7 @@ class AnonymDisclosure extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _DisclosureLine(icon: Icons.cloud_outlined, text: t.anonDisclosure),
+          _DisclosureLine(icon: Icons.shield_outlined, text: t.anonDisclosure),
           const SizedBox(height: 8),
           _DisclosureLine(
             key: const ValueKey('anon-memory-disclosure'),
@@ -208,7 +209,7 @@ Widget _sheetFrame(BuildContext context, List<Widget> children) {
 
 // ─────────────────────────── 召集 ───────────────────────────
 
-/// 圈主召集。[presentCount] 是此刻在房的真人数(不含 AI 助手)。
+/// 圈主邀请隐名之约 AI 入房(选好放行门槛 k)。[presentCount] 是此刻在房的真人数(不含 AI 助手)。
 Future<void> showAnonymConveneSheet(
   BuildContext context, {
   required AnonymController anonym,
@@ -304,7 +305,7 @@ class _AnonymConveneSheetState extends State<AnonymConveneSheet> {
           key: const ValueKey('anon-convene-start'),
           onPressed: _enough
               ? () {
-                  widget.anonym.start(AnonymController.clampK(_k, _n));
+                  widget.anonym.invite(AnonymController.clampK(_k, _n));
                   Navigator.of(context).pop();
                 }
               : null,
@@ -421,4 +422,117 @@ Future<void> confirmAnonymEnd(
     ),
   );
   if (yes == true) anonym.end();
+}
+
+/// 圈主请 AI 离开前的确认。
+Future<void> confirmAnonymDismiss(
+  BuildContext context,
+  AnonymController anonym,
+) async {
+  final t = AppLocalizations.of(context);
+  final bool? yes = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(t.anonDismissConfirmTitle),
+      content: Text(t.anonDismissConfirmBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(t.commonCancel),
+        ),
+        FilledButton(
+          key: const ValueKey('anon-dismiss-confirm'),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(t.anonDismissAi),
+        ),
+      ],
+    ),
+  );
+  if (yes == true) anonym.dismiss();
+}
+
+// ─────────────────────────── 密钥请求(E2EE 圈)───────────────────────────
+
+/// 托管 agent 要本圈媒体密钥(`anon_agent_keyreq`)。同意 → 密封后发 `anon_agent_key`;
+/// 拒绝 / 下滑关掉 → 什么都不发,agent 进不了加密房。
+Future<void> showAnonymKeyRequestSheet(
+  BuildContext context, {
+  required AnonymController anonym,
+}) async {
+  final AnonymKeyRequest? req = anonym.keyRequest;
+  if (req == null) return;
+  final bool? yes = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => const AnonymKeyRequestSheet(),
+  );
+  // 等面板关掉的工夫请求可能已作废(agent 走了 / 换了一个请求)
+  if (!identical(anonym.keyRequest, req)) return;
+  if (yes == true) {
+    await anonym.acceptKeyRequest();
+  } else {
+    anonym.declineKeyRequest();
+  }
+}
+
+class AnonymKeyRequestSheet extends StatelessWidget {
+  const AnonymKeyRequestSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return _sheetFrame(context, [
+      _SheetHeader(title: t.anonKeyReqTitle),
+      const SizedBox(height: LaresSpacing.md),
+      Text(
+        t.anonKeyReqBody,
+        style: TextStyle(fontSize: 13.5, height: 1.6, color: cs.onSurface),
+      ),
+      const SizedBox(height: LaresSpacing.md),
+      Container(
+        key: const ValueKey('anon-keyreq-note'),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(LaresRadii.md),
+          border: Border.all(color: theme.hairline),
+        ),
+        child: _DisclosureLine(
+          icon: Icons.key_outlined,
+          text: t.anonKeyReqNote,
+        ),
+      ),
+      const SizedBox(height: LaresSpacing.md),
+      Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: OutlinedButton(
+                key: const ValueKey('anon-keyreq-decline'),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(t.anonKeyReqDecline),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: FilledButton(
+                key: const ValueKey('anon-keyreq-accept'),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(t.anonKeyReqAccept),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: LaresSpacing.sm),
+      const _Footer(),
+    ]);
+  }
 }

@@ -1,0 +1,61 @@
+anonym prod e2e  2026-10-18T07:45:04.162Z  server=wss://lares.westus.cloudapp.azure.com
+circle=c_5xcy3p… (temporary, deleted)
+
+PASS  1. register temporary v2 circle
+PASS  2. 3 humans join the room
+PASS  3. anon_start k=2 + 3× anon_ack (Ed25519)
+PASS  4. anon_utt (public fact / sarcasm naming another's org / proposal)
+PASS  5. anon_ask → real LLM answer
+PASS  6. anon_draft → 2 signed approvals → anon_released
+PASS  7. released text: keeps 三体/刘慈欣, no names/orgs, no sarcasm
+PASS  8. anon_mem_list → items; owner retracts one → anon_mem_retracted
+PASS  9. transcript_append rejected with anonym_active
+PASS  10. anon_end → anon_ended with receipt
+PASS  11. circle_delete (cleanup)
+PASS  12. write report
+
+RESULT: ALL PASS
+
+released text:
+Rule-inspired digest: no attribution.
+
+# Digest (session 2026-10-18)
+
+## 团队读书计划与读书会安排
+- 有提议提出，自下月起每两周的周五下午举办一次跨团队读书会，每次一小时，首本选读《三体》。
+- 有观点支持轮流主持读书会的安排，并建议每次结束时整理一页读书笔记共享。
+- 《三体》是刘慈欣的作品，书中讨论的是文明之间的猜疑链。
+- 讨论主题为下半年团队的读书计划。
+
+
+details:
+  ✓ client signature test vector (client-canonicalisation.md): match
+  ✓ registered + welcome: c_5xcy3pxvhepthkpxyyxspk4n
+  ✓ member u_e2e_anon_a_5 joined: {"t":"room","members":1}
+  ✓ member u_e2e_anon_b_9 joined: {"t":"room","members":2}
+  ✓ member u_e2e_anon_c_a joined: {"t":"room","members":3}
+  ✓ anon_state{active,k:2,convenerId,3 members}: {"t":"anon_state","k":2,"n":3,"convener":true}
+  ✓ all 3 acked (anon_state broadcast): {"t":"anon_state","acked":[true,true,true]}
+  ✓ no anon_ack errors: []
+  ✓ 5 utterances accepted (no anon_error): []
+  ✓ anon_answer{askerName,question}: {"t":"anon_answer","askerName":"李雪","ms":1084}
+  ✓ answer names 刘慈欣: 《三体》是刘慈欣写的。
+  ✓ answer is LLM-generated (not mock echo of utterances): {"len":11}
+  ✓ answer also delivered to other acked member: true
+  ✓ anon_draft{draftId,draftHash,items}: {"t":"anon_draft","items":5,"kinds":["idea","idea","fact","idea","idea"],"flags":[[],[],["public-fact"],[],["tone-residual","role-revealing"]]}
+  ✓ draft items contain no participant names: []
+  ✓ approval #1 (owner) → anon_approvals{count:1,k:2}: {"t":"anon_approvals","count":1,"k":2}
+  ✓ approval #2 → anon_approvals{count:2}: {"t":"anon_approvals","count":2}
+  ✓ anon_released{draftId,text}: {"draftId":true,"len":220}
+  ✓ public fact kept (三体 + 刘慈欣): {"三体":true,"刘慈欣":true}
+  ✓ no participant names: []
+  ✓ no participant organisations: []
+  ✓ no sarcasm markers: []
+  ✓ anon_mem items from this release (no approver ids): {"t":"anon_mem","n":4,"kinds":["idea","fact","idea","idea"],"canRetract":[true,true,true,true]}
+  ✓ owner retract → anon_mem_retracted: {"t":"anon_mem_retracted"}
+  ✓ anon_mem_retracted broadcast to other member: true
+  ✓ retracted item is a tombstone (no text): {"id":"54413d8b-c776-455c-8acb-2165847407c2","circleId":"c_5xcy3pxvhepthkpxyyxspk4n","retracted":true,"sid":"fef45af1-62a8-4629-9a03-2a0dcba4e464","retractedAt":1792309504636}
+  ✓ transcript_error{reason:anonym_active}: {"t":"transcript_error","reason":"anonym_active"}
+  ✓ anon_ended{receipt:{counts,sha256}}: {"t":"anon_ended","counts":{"utterances":5,"drafts":1,"releases":1,"approvals":2},"sha256":true}
+  ✓ anon_ended delivered to other members: true
+  ✓ circle_delete: {"t":"owner_ok"}

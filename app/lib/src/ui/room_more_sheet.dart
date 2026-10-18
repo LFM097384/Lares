@@ -46,6 +46,7 @@ class RoomMoreModel {
     this.onManage,
     this.anonym,
     this.onAnonym,
+    this.onDismissAi,
     this.onMemory,
   });
 
@@ -53,9 +54,12 @@ class RoomMoreModel {
   final VoidCallback? onManage;
 
   /// 隐名之约(只给注册圈的圈主):非 null 时在「管理圈子」下面加一行
-  /// 「发起隐名之约」/ 会话进行中时「结束隐名之约」。
+  /// 「邀请隐名之约 AI」/ 会话进行中时「结束隐名之约」。
   final AnonymController? anonym;
   final VoidCallback? onAnonym;
+
+  /// 隐名之约 AI 在房里(或已邀请)时非 null:再加一行「请 AI 离开」。
+  final VoidCallback? onDismissAi;
 
   /// 圈子记忆(注册圈的所有成员):非 null 时加一行「圈子记忆」。
   final VoidCallback? onMemory;
@@ -141,6 +145,7 @@ class RoomMoreModel {
   bool get hasAnything =>
       onManage != null ||
       onAnonym != null ||
+      onDismissAi != null ||
       onMemory != null ||
       aiPlugin != null ||
       items().isNotEmpty;
@@ -225,6 +230,7 @@ class _RoomMoreSheet extends StatelessWidget {
                   if (ai != null ||
                       items.isNotEmpty ||
                       model.onAnonym != null ||
+                      model.onDismissAi != null ||
                       model.onMemory != null)
                     const SizedBox(height: LaresSpacing.sm),
                 ],
@@ -242,6 +248,27 @@ class _RoomMoreSheet extends StatelessWidget {
                       Navigator.of(context).pop();
                       if (!host.mounted) return;
                       anon();
+                    },
+                  ),
+                  if (ai != null ||
+                      items.isNotEmpty ||
+                      model.onDismissAi != null ||
+                      model.onMemory != null)
+                    const SizedBox(height: LaresSpacing.sm),
+                ],
+                if (model.onDismissAi case final dismissAi?) ...[
+                  _RowEntry(
+                    key: const ValueKey('more-anonym-dismiss'),
+                    leading: Icon(
+                      Icons.logout_rounded,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    title: t.anonDismissAi,
+                    subtitle: t.anonDismissAiDesc,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      if (!host.mounted) return;
+                      dismissAi();
                     },
                   ),
                   if (ai != null || items.isNotEmpty || model.onMemory != null)

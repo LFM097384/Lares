@@ -5108,16 +5108,16 @@ abstract class AppLocalizations {
   /// **'移出圈子'**
   String get profileKick;
 
-  /// 房间「更多」里圈主的入口:发起隐名之约(受 Chatham House 规则启发,非官方)
+  /// 房间「更多」/ 管理圈子里圈主的入口:邀请隐名之约 AI 入房(受 Chatham House 规则启发,非官方)
   ///
   /// In zh, this message translates to:
-  /// **'发起隐名之约'**
+  /// **'邀请隐名之约 AI'**
   String get anonEntryStart;
 
   /// 发起隐名之约入口的副标题
   ///
   /// In zh, this message translates to:
-  /// **'观点可以出门,名字留在屋里'**
+  /// **'AI 作为成员入房;观点可以出门,名字留在屋里'**
   String get anonEntryStartDesc;
 
   /// 房间「更多」里圈主的入口:结束正在进行的隐名之约
@@ -5144,16 +5144,16 @@ abstract class AppLocalizations {
   /// **'与 Chatham House 无隶属'**
   String get anonNotAffiliated;
 
-  /// 隐名之约的诚实声明,中文逐字固定,不得改写
+  /// 隐名之约 v2 的诚实声明(AI 作为成员入房),中文逐字固定,不得改写
   ///
   /// In zh, this message translates to:
-  /// **'本阶段：原话经 Lares 服务器内存与云端识别/大模型（阿里云、DeepSeek）处理，不存储、不写日志、散会即焚；运营方无法被技术性排除'**
+  /// **'AI 作为成员加入，只转写已同意成员的声音；原话在 AI 内部先脱敏，再交给大模型；只有大家放行的去名内容进入记忆'**
   String get anonDisclosure;
 
-  /// 召集面板标题
+  /// 圈主邀请隐名之约 AI 的面板标题(选放行门槛 k)
   ///
   /// In zh, this message translates to:
-  /// **'发起隐名之约'**
+  /// **'邀请隐名之约 AI'**
   String get anonConveneTitle;
 
   /// 召集面板:k 选择器的标题
@@ -5174,10 +5174,10 @@ abstract class AppLocalizations {
   /// **'出门稿要有这么多位在场成员签名同意,才会放出去。'**
   String get anonKHint;
 
-  /// 召集面板:开始按钮
+  /// 邀请面板的确认按钮:发出 anon_agent_invite
   ///
   /// In zh, this message translates to:
-  /// **'开始'**
+  /// **'邀请'**
   String get anonConveneStart;
 
   /// 召集面板:在场不足两人时的提示
@@ -5201,7 +5201,7 @@ abstract class AppLocalizations {
   /// 加入同意书正文
   ///
   /// In zh, this message translates to:
-  /// **'加入后,你自己的字幕定稿会送进本场会话;能出门的只有大家签名同意的观点稿,不带名字。不加入也可以留在房里,你的话不会被送进去。'**
+  /// **'加入后,隐名之约 AI 才会转写你的声音;原话在 AI 内部先脱敏,能出门的只有大家签名同意的稿子,不带名字。不加入也可以留在房里,AI 不会转写你说的话。'**
   String get anonConsentBody;
 
   /// 加入同意书:同意按钮
@@ -5258,18 +5258,6 @@ abstract class AppLocalizations {
   /// **'{acked}/{n} 已加入'**
   String anonJoinedCount(int acked, int n);
 
-  /// 已加入但关着字幕提供时的提示
-  ///
-  /// In zh, this message translates to:
-  /// **'你关着「为需要的人生成字幕」,你说的话进不了本场会话'**
-  String get anonCaptionsOff;
-
-  /// 打开字幕提供
-  ///
-  /// In zh, this message translates to:
-  /// **'打开'**
-  String get anonCaptionsTurnOn;
-
   /// 室内问 AI 按钮
   ///
   /// In zh, this message translates to:
@@ -5311,12 +5299,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'在想…'**
   String get anonThinking;
-
-  /// 请服务器生成出门稿
-  ///
-  /// In zh, this message translates to:
-  /// **'生成出门稿'**
-  String get anonMakeDraft;
 
   /// 出门稿生成中
   ///
@@ -5369,7 +5351,7 @@ abstract class AppLocalizations {
   /// 出门稿审阅页:服务器给出的指标(没给就不显示)
   ///
   /// In zh, this message translates to:
-  /// **'服务器给出的指标'**
+  /// **'AI 给出的指标'**
   String get anonMetricsTitle;
 
   /// 放行进度
@@ -5465,7 +5447,7 @@ abstract class AppLocalizations {
   /// 圈主结束确认框正文
   ///
   /// In zh, this message translates to:
-  /// **'服务器内存里的原话会立即销毁,没放行的稿子不会出门。'**
+  /// **'AI 内存里的原话和脱敏记录会立即销毁,没放行的稿子不会出门。'**
   String get anonEndConfirmBody;
 
   /// 圈主结束确认按钮
@@ -5474,7 +5456,7 @@ abstract class AppLocalizations {
   /// **'散会'**
   String get anonEndConfirm;
 
-  /// 服务器 anon_error
+  /// 隐名之约 AI(data error)或服务器(anon_error)报的错误码
   ///
   /// In zh, this message translates to:
   /// **'隐名之约出错了:{code}'**
@@ -5503,6 +5485,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'隐名之约里大家放行的去名内容'**
   String get anonMemEntryDesc;
+
+  /// 放行卡上的按钮(桌面端):把已放行的会议纪要另存为 .md 文件
+  ///
+  /// In zh, this message translates to:
+  /// **'存为 Markdown 文件'**
+  String get anonSaveMarkdown;
+
+  /// v2:记忆列表要经房里的 agent 取;agent 不在时的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'圈子记忆由隐名之约 AI 保管。请圈主在房里邀请 AI 入房后再看。'**
+  String get anonMemAgentAbsent;
+
+  /// 约带上的 skill 按钮:请 AI 导出会议纪要(走出门稿审阅 → 签名放行)
+  ///
+  /// In zh, this message translates to:
+  /// **'导出会议纪要'**
+  String get anonExportMinutes;
+
+  /// 圈主入口:请隐名之约 AI 离开房间
+  ///
+  /// In zh, this message translates to:
+  /// **'请 AI 离开'**
+  String get anonDismissAi;
+
+  /// 请 AI 离开入口的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'会话随之结束,没放行的内容不会出门'**
+  String get anonDismissAiDesc;
+
+  /// 请 AI 离开前的确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'请隐名之约 AI 离开?'**
+  String get anonDismissConfirmTitle;
+
+  /// 请 AI 离开前的确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 一走,本场隐名之约就结束;AI 内存里的原话和没放行的稿子立即销毁。'**
+  String get anonDismissConfirmBody;
+
+  /// E2EE 圈:agent 请求媒体密钥时给圈主的确认面板标题
+  ///
+  /// In zh, this message translates to:
+  /// **'隐名之约 AI 请求进入加密房间'**
+  String get anonKeyReqTitle;
+
+  /// 密钥请求面板正文
+  ///
+  /// In zh, this message translates to:
+  /// **'本圈开了端到端加密。AI 要听到同意成员的声音,需要你把本圈媒体密钥密封后交给它:只有这个 AI 进程能解开,服务器只转发密文。'**
+  String get anonKeyReqBody;
+
+  /// 密钥请求面板里的诚实声明,中文逐字固定,不得改写
+  ///
+  /// In zh, this message translates to:
+  /// **'托管 AI 运行期间会在内存里持有本圈媒体密钥；如需完全排除运营方，可在自己的设备上运行独立模式'**
+  String get anonKeyReqNote;
+
+  /// 密钥请求:同意,密封并发送媒体密钥
+  ///
+  /// In zh, this message translates to:
+  /// **'交给 AI'**
+  String get anonKeyReqAccept;
+
+  /// 密钥请求:拒绝(AI 进不了加密房)
+  ///
+  /// In zh, this message translates to:
+  /// **'不给'**
+  String get anonKeyReqDecline;
 
   /// 圈子记忆页标题
   ///

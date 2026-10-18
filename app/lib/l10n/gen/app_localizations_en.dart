@@ -3132,10 +3132,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileKick => 'Remove from circle';
 
   @override
-  String get anonEntryStart => 'Start an unattributed meeting';
+  String get anonEntryStart => 'Invite the unattributed-meeting AI';
 
   @override
-  String get anonEntryStartDesc => 'Ideas may leave; names stay in the room';
+  String get anonEntryStartDesc =>
+      'The AI joins as a member; ideas may leave, names stay in the room';
 
   @override
   String get anonEntryEnd => 'End the unattributed meeting';
@@ -3151,10 +3152,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonDisclosure =>
-      'At this stage: what is said passes through Lares server memory and cloud speech recognition / LLMs (Alibaba Cloud, DeepSeek). Not stored, not logged, burned when the meeting ends. The operator cannot be technically excluded.';
+      'The AI joins as a member and only transcribes members who agreed. What is said is de-identified inside the AI before it reaches the LLM; only unattributed content everyone releases goes into memory';
 
   @override
-  String get anonConveneTitle => 'Start an unattributed meeting';
+  String get anonConveneTitle => 'Invite the unattributed-meeting AI';
 
   @override
   String get anonKLabel => 'Release threshold';
@@ -3169,7 +3170,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The outgoing draft is released only when this many members present sign off on it.';
 
   @override
-  String get anonConveneStart => 'Start';
+  String get anonConveneStart => 'Invite';
 
   @override
   String get anonConveneNeedTwo => 'At least two people need to be in the room';
@@ -3185,7 +3186,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonConsentBody =>
-      'If you join, your own finished captions go into this session. Only an idea draft that members sign off on can leave, without names. You can stay in the room without joining; nothing you say will be fed in.';
+      'Only after you join does the unattributed-meeting AI transcribe your voice. What is said is de-identified inside the AI; only a draft that members sign off on can leave, without names. You can stay in the room without joining; the AI will not transcribe you.';
 
   @override
   String get anonConsentAccept => 'Agree and join';
@@ -3218,13 +3219,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get anonCaptionsOff =>
-      'Captions for others are off, so what you say cannot reach this session';
-
-  @override
-  String get anonCaptionsTurnOn => 'Turn on';
-
-  @override
   String get anonAskAi => 'Ask AI';
 
   @override
@@ -3246,9 +3240,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonThinking => 'Thinking…';
-
-  @override
-  String get anonMakeDraft => 'Draft what leaves';
 
   @override
   String get anonDraftPending => 'Drafting…';
@@ -3276,7 +3267,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get anonActionCut => 'Cut';
 
   @override
-  String get anonMetricsTitle => 'Metrics from the server';
+  String get anonMetricsTitle => 'Metrics from the AI';
 
   @override
   String anonApprovals(int count, int k) {
@@ -3327,7 +3318,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonEndConfirmBody =>
-      'What was said is destroyed from server memory right away. Unreleased drafts never leave.';
+      'What was said and the de-identified record are destroyed from the AI\'s memory right away. Unreleased drafts never leave.';
 
   @override
   String get anonEndConfirm => 'End';
@@ -3351,6 +3342,49 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get anonMemEntryDesc =>
       'Unattributed content released in unattributed meetings';
+
+  @override
+  String get anonSaveMarkdown => 'Save as Markdown file';
+
+  @override
+  String get anonMemAgentAbsent =>
+      'Circle memory is kept by the unattributed-meeting AI. Ask the owner to invite the AI into the room, then look again.';
+
+  @override
+  String get anonExportMinutes => 'Export minutes';
+
+  @override
+  String get anonDismissAi => 'Ask the AI to leave';
+
+  @override
+  String get anonDismissAiDesc =>
+      'The session ends with it; nothing unreleased leaves';
+
+  @override
+  String get anonDismissConfirmTitle =>
+      'Ask the unattributed-meeting AI to leave?';
+
+  @override
+  String get anonDismissConfirmBody =>
+      'Once the AI leaves, this unattributed meeting ends; what was said and any unreleased drafts are destroyed from its memory right away.';
+
+  @override
+  String get anonKeyReqTitle =>
+      'The unattributed-meeting AI asks to enter the encrypted room';
+
+  @override
+  String get anonKeyReqBody =>
+      'This circle is end-to-end encrypted. For the AI to hear members who agreed, you seal this circle\'s media key to it: only that AI process can open it; the server only forwards ciphertext.';
+
+  @override
+  String get anonKeyReqNote =>
+      'While the hosted AI runs, it holds this circle\'s media key in memory. To exclude the operator completely, run standalone mode on your own device';
+
+  @override
+  String get anonKeyReqAccept => 'Give it to the AI';
+
+  @override
+  String get anonKeyReqDecline => 'Don\'t';
 
   @override
   String get anonMemTitle => 'Circle memory';

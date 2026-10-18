@@ -18,7 +18,7 @@ class AnonymRoomBand extends StatelessWidget {
 
   final AnonymController anonym;
 
-  /// 用来判断 / 打开「为需要的人生成字幕」。为 null 时不提示。
+  /// v2 起不再用(AI 自己听,不靠本机字幕);留着只为不改调用方。
   final SettingsStore? settings;
 
   @override
@@ -48,8 +48,6 @@ class _Band extends StatelessWidget {
     final cs = theme.colorScheme;
     final members = anonym.members;
     final int ackedCount = members.where((m) => m.acked).length;
-    final bool captionsOff =
-        anonym.acked && settings != null && !settings!.captionsProvide;
     final AnonymAnswer? latest = anonym.answers.isEmpty
         ? null
         : anonym.answers.last;
@@ -99,16 +97,6 @@ class _Band extends StatelessWidget {
                   showAnonymConsentSheet(context, anonym: anonym).ignore(),
             ),
           ],
-          if (captionsOff) ...[
-            const SizedBox(height: 6),
-            _Note(
-              key: const ValueKey('anon-captions-off'),
-              icon: Icons.closed_caption_disabled_outlined,
-              text: t.anonCaptionsOff,
-              action: t.anonCaptionsTurnOn,
-              onAction: () => settings!.setCaptionsProvide(true),
-            ),
-          ],
           if (anonym.acked) ...[
             const SizedBox(height: 6),
             if (latest != null || anonym.askPending)
@@ -137,23 +125,23 @@ class _Band extends StatelessWidget {
                   child: SizedBox(
                     height: 44,
                     child: FilledButton.tonalIcon(
-                      key: const ValueKey('anon-draft'),
+                      key: const ValueKey('anon-minutes'),
                       style: _bandButton(FilledButton.styleFrom()),
                       onPressed: anonym.draftPending
                           ? null
                           : () {
-                              if (anonym.draft == null) anonym.requestDraft();
+                              if (anonym.draft == null) anonym.requestMinutes();
                               openAnonymGate(context, anonym);
                             },
                       icon: const Icon(
-                        Icons.door_front_door_outlined,
+                        Icons.summarize_outlined,
                         size: 16,
                       ),
                       label: Text(
                         anonym.draftPending
                             ? t.anonDraftPending
                             : anonym.draft == null
-                            ? t.anonMakeDraft
+                            ? t.anonExportMinutes
                             : t.anonOpenDraft,
                         style: _bandLabel,
                         overflow: TextOverflow.ellipsis,
@@ -458,7 +446,9 @@ class _AnonymAskSheetState extends State<AnonymAskSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${t.anonAnswerAsker(a.askerName)}:${a.question}',
+                                    a.askerName.isEmpty
+                                        ? a.question
+                                        : '${t.anonAnswerAsker(a.askerName)}:${a.question}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: theme.faint,
@@ -523,7 +513,7 @@ class _AnonymAskSheetState extends State<AnonymAskSheet> {
 // ─────────────────────────── 宿主 ───────────────────────────
 
 /// 套在房间页外面:会话一开、我还没表态 → 弹同意书(每场一次);
-/// 散会 → 弹散会卡。自身不画任何东西。
+/// 散会 → 弹散会卡;圈主收到 agent 的密钥请求 → 弹确认。自身不画任何东西。
 class AnonymRoomHost extends StatefulWidget {
   const AnonymRoomHost({super.key, required this.anonym, required this.child});
 
@@ -537,6 +527,7 @@ class AnonymRoomHost extends StatefulWidget {
 class _AnonymRoomHostState extends State<AnonymRoomHost> {
   String? _promptedSid;
   AnonymReceipt? _shownReceipt;
+  AnonymKeyRequest? _promptedKey;
 
   @override
   void initState() {
@@ -566,6 +557,11 @@ class _AnonymRoomHostState extends State<AnonymRoomHost> {
     if (a.needsConsent && a.sid != _promptedSid) {
       _promptedSid = a.sid;
       showAnonymConsentSheet(context, anonym: a).ignore();
+    }
+    final AnonymKeyRequest? kr = a.keyRequest;
+    if (kr != null && !identical(kr, _promptedKey)) {
+      _promptedKey = kr;
+      showAnonymKeyRequestSheet(context, anonym: a).ignore();
     }
     final AnonymReceipt? r = a.receipt;
     if (r != null && !identical(r, _shownReceipt)) {

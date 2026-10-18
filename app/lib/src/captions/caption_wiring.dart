@@ -172,21 +172,17 @@ class CaptionWiring {
   /// `transcript_append`,加密走 transcript 模块注入的加密实现)。
   final TranscriptSink? transcriptSink;
 
-  /// 隐名之约:进行中时本人定稿**只**进会话(已加入时),绝不进转写记录。
+  /// 隐名之约:进行中时本人定稿绝不进转写记录(v2 起 AI 自己听,客户端不再喂字幕)。
   final AnonymCaptionGate? anonym;
 
-  /// 隐名之约进行中 → 定稿交给 [gate](它自己判断我加没加入),[archive] 一律不碰;
-  /// 否则原样交给 [archive]。
+  /// 隐名之约进行中 → 定稿直接丢掉,[archive] 一律不碰;否则原样交给 [archive]。
   static void Function(String id, String text, DateTime startedAt)
       anonymAwareHandler({
     required AnonymCaptionGate gate,
     required void Function(String id, String text, DateTime startedAt)? archive,
   }) =>
           (id, text, startedAt) {
-            if (gate.sessionActive) {
-              gate.ownFinal(text, startedAt);
-              return;
-            }
+            if (gate.sessionActive) return;
             archive?.call(id, text, startedAt);
           };
 
@@ -265,7 +261,6 @@ class CaptionWiring {
       encrypted: _encrypted,
       e2eeCloud: settings.captionsE2eeCloud,
       anonymActive: anonym?.sessionActive ?? false,
-      anonymFeeding: anonym?.feeding ?? false,
     ));
   }
 
@@ -279,7 +274,6 @@ class CaptionWiring {
     required bool e2eeCloud,
     bool sttSupported = kSttSocketSupported,
     bool anonymActive = false,
-    bool anonymFeeding = false,
   }) {
     final String? cid = controller.circleId;
     return CaptionConditions(
@@ -296,7 +290,6 @@ class CaptionWiring {
       // 隐名之约进行中:不归档(定稿也不会进 sink,这里连识别的理由都撤掉)
       archive:
           cid != null && controller.isTranscriptOn(cid) && !anonymActive,
-      anonym: anonymFeeding,
     );
   }
 

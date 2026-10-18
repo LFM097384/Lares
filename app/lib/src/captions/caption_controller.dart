@@ -59,12 +59,7 @@ class CaptionConditions {
     this.e2eeCloud = false,
     this.archive = false,
     this.liveCaptions = true,
-    this.anonym = false,
   });
-
-  /// 我已加入一场隐名之约:本人定稿要喂给会话,单凭这一条就需要识别
-  /// (不论实时字幕 / 转写记录开没开)。仍受 [willing] 约束 —— 不替不愿意的人开麦。
-  final bool anonym;
 
   /// 圈主开了「转写记录」(circleInfo.transcript):愿意的人一开麦就转写,
   /// 不再要求有人请求字幕。与 [liveCaptions] 无关 —— 实时字幕关着也照样归档。
@@ -104,12 +99,11 @@ class CaptionConditions {
       other.encrypted == encrypted &&
       other.e2eeCloud == e2eeCloud &&
       other.archive == archive &&
-      other.liveCaptions == liveCaptions &&
-      other.anonym == anonym;
+      other.liveCaptions == liveCaptions;
 
   @override
   int get hashCode => Object.hash(available, inRoom, muted, provide, encrypted,
-      e2eeCloud, archive, liveCaptions, anonym);
+      e2eeCloud, archive, liveCaptions);
 }
 
 /// 面板上的一行字幕。
@@ -527,8 +521,7 @@ class CaptionController extends ChangeNotifier {
   /// 或圈子开着转写记录(单凭这一条就够,不论实时字幕开没开)。
   bool get _needed =>
       (_cond.liveCaptions && (_requesters.isNotEmpty || _want)) ||
-      _cond.archive ||
-      _cond.anonym;
+      _cond.archive;
 
   bool get _shouldTranscribe =>
       _channel != null &&

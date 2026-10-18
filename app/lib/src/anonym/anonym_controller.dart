@@ -1,35 +1,76 @@
 /// 隐名之约(受 Chatham House 规则启发 · 非官方)的客户端状态。
 ///
-/// 协议见 server/anonym-agent/INTERFACE.md §「Lares 集成协议」。本类只做三件事:
-/// 1. 解析服务器的 `anon_*` 消息(全部防御式解析,形状不对就当没收到);
-/// 2. 通过构造时注入的 [send] 发 `anon_*` 消息;
-/// 3. 管住只在内存里的东西(会话密钥、室内问答、出门稿),到点就销毁。
+/// v2 协议见 server/anonym-agent/AGENT-V2.md:AI 作为**成员**(`u_ai_anon_*`)入房,
+/// 信令服务器不碰会话内容。两条通道:
 ///
-/// **销毁时机**(一律立即、不可恢复):
-/// - 收到 `anon_ended`:密钥、问答、出门稿立刻清掉;只留散会卡要用的回执和已放行原文,
+/// - **信令 WS**(构造时注入的 [AnonymController.new] `send`;入口 [handle]):只有元数据 ——
+///   圈主 `anon_agent_invite` / `anon_agent_dismiss` / `anon_agent_key`,
+///   服务器 `anon_agent_state` / `anon_agent_keyreq` / `anon_error`(§3、§2)。
+/// - **LiveKit data topic `lares.anon`**(注入的 `sendData`;入口 [handleData]):会话本身(§4)。
+///   发:`ack` `ask` `skill` `review` `approve` `mem_list` `mem_retract` `end`,只发给 agent;
+///   收:agent 广播的 `state` `answer` `draft` `approvals` `released` `mem` `mem_retracted`
+///   `ended` `error`。**只认本圈 agent 身份发来的帧**。E2EE 圈里 data 随房间一起加密。
+///
+/// 本机只管住只在内存里的东西(会话签名密钥、室内问答、出门稿),到点就销毁:
+/// - 收到 `ended`:密钥、问答、出门稿立刻清掉;只留散会卡要用的回执和已放行原文,
 ///   卡片 [dismissEnded] 后再清;
 /// - 离开房间 / 换圈([bindRoom]):全部清掉,散会卡也不留;
-/// - `anon_state{active:false}`(包括重连后服务器报告已无会话):全部清掉。
+/// - `state{active:false}` 或 `anon_agent_state{present:false}`:全部清掉。
 ///
-/// 它不知道 UI、不知道字幕;字幕经 [AnonymCaptionGate] 这面接进来。
+/// 客户端**不再**把本人字幕喂给任何人(v1 的 `anon_utt` 已删):agent 自己听、自己转写,
+/// 且只转写已 ack 的成员。字幕胶水层只经 [AnonymCaptionGate] 知道「此刻别归档」。
 library;
 
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/foundation.dart';
 
 import 'anonym_crypto.dart';
+import 'anonym_seal.dart';
 
 typedef AnonymSend = void Function(Map<String, dynamic> msg);
+
+/// 经 LiveKit data(topic `lares.anon`,reliable)把 [msg] 只发给 [to] 这个 agent 身份。
+typedef AnonymDataSend = void Function(Map<String, dynamic> msg, String to);
+
+/// 本圈 E2EE 媒体密钥 hex(`lares-e2ee-v2` 派生值);本机拿不到为 null。
+typedef AnonymMediaKeyFor = Future<String?> Function(String circleId);
+
+/// 把 [plaintext] 密封给 agent 的 X25519 公钥(见 anonym_seal.dart)。
+typedef AnonymSealer = Future<String> Function(
+    List<int> agentPub, String plaintext, String circleId);
+
+/// LiveKit data topic(AGENT-V2.md §4)。
+const String kAnonTopic = 'lares.anon';
+
+/// 隐名 agent 的 LiveKit 身份前缀(区别于语音助手的 `u_ai_`)。
+const String kAnonAgentPrefix = 'u_ai_anon_';
+
+/// 本圈隐名 agent 的身份:`u_ai_anon_` + sha256(circleId) 的前 8 个 hex。
+String anonAgentIdentityFor(String circleId) =>
+    '$kAnonAgentPrefix${sha256.convert(utf8.encode(circleId)).toString().substring(0, 8)}';
 
 /// 字幕胶水层看到的那一面(见 CaptionWiring)。
 abstract interface class AnonymCaptionGate implements Listenable {
   /// 本房间正在隐名之约中:转写记录必须停。
   bool get sessionActive;
+}
 
-  /// 我已同意加入:本人字幕定稿要喂给会话(并因此需要开着识别)。
-  bool get feeding;
+/// 圈主收到的 `anon_agent_keyreq`:agent 要本圈媒体密钥。
+@immutable
+class AnonymKeyRequest {
+  const AnonymKeyRequest({
+    required this.circleId,
+    required this.x25519PubB64,
+    required this.x25519Pub,
+  });
+  final String circleId;
 
-  /// 本人一句字幕定稿。只在 [feeding] 时才会真的发出去。
-  void ownFinal(String text, DateTime startedAt);
+  /// 原样回显给服务器(`anon_agent_key.x25519Pub`)。
+  final String x25519PubB64;
+  final List<int> x25519Pub;
 }
 
 @immutable
@@ -181,15 +222,29 @@ enum AnonymReviewAction {
 class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
   AnonymController({
     required AnonymSend send,
+    AnonymDataSend? sendData,
+    AnonymMediaKeyFor? mediaKeyFor,
+    AnonymSealer? sealer,
     AnonymKeys Function()? keyFactory,
     String Function()? nonceFactory,
   }) : _send = send,
+       _sendData = sendData,
+       _mediaKeyFor = mediaKeyFor,
+       _sealer = sealer ??
+           ((pub, pt, cid) => anonSeal(agentPub: pub, plaintext: pt, circleId: cid)),
        _keyFactory = keyFactory ?? AnonymKeys.generate,
        _nonceFactory = nonceFactory ?? newNonce;
 
   final AnonymSend _send;
+  AnonymDataSend? _sendData;
+  AnonymMediaKeyFor? _mediaKeyFor;
+  final AnonymSealer _sealer;
   final AnonymKeys Function() _keyFactory;
   final String Function() _nonceFactory;
+
+  /// 晚绑定(main.dart 里 rtc / e2ee 比本控制器晚建好时用)。
+  set sendData(AnonymDataSend? v) => _sendData = v;
+  set mediaKeyFor(AnonymMediaKeyFor? v) => _mediaKeyFor = v;
 
   // ── 房间 ──────────────────────────────────────────────────────────────
   String? _circleId;
@@ -197,6 +252,36 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
   String? _myUserId;
 
   String? get circleId => _circleId;
+
+  // ── agent(信令元数据)───────────────────────────────────────────────────
+  bool _agentPresent = false;
+  bool _agentActive = false;
+  String? _agentIdentity;
+  bool _invitePending = false;
+  AnonymKeyRequest? _keyRequest;
+  bool _keySending = false;
+
+  /// agent 此刻在房里(服务器 `anon_agent_state.present`,或收到过它的 `state`)。
+  bool get agentPresent => _agentPresent;
+
+  /// 已发出邀请、agent 还没到。
+  bool get invitePending => _invitePending && !_agentPresent;
+
+  /// 本圈 agent 的 LiveKit 身份(没在房里时也给按约定算出的那个)。
+  String? get agentIdentity =>
+      _agentIdentity ?? (_circleId == null ? null : anonAgentIdentityFor(_circleId!));
+
+  /// 圈主待确认的密钥请求(非 null → 弹确认面板)。
+  AnonymKeyRequest? get keyRequest => _keyRequest;
+  bool get keySending => _keySending;
+
+  /// [identity] 是不是本圈隐名 agent。
+  bool isAgentIdentity(String identity) {
+    if (identity.isEmpty) return false;
+    if (_agentIdentity != null) return identity == _agentIdentity;
+    final String? c = _circleId;
+    return c != null && identity == anonAgentIdentityFor(c);
+  }
 
   // ── 会话 ──────────────────────────────────────────────────────────────
   bool _active = false;
@@ -290,11 +375,9 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
   AnonymReceipt? get receipt => _receipt;
   String? get lastError => _lastError;
 
+  /// 转写记录要停:agent 报了 active(信令 `anon_agent_state.active` 或 data `state.active`)。
   @override
-  bool get sessionActive => _active;
-
-  @override
-  bool get feeding => acked && _inRoom && _keys != null;
+  bool get sessionActive => _active || (_agentPresent && _agentActive);
 
   // ── 房间生命周期 ────────────────────────────────────────────────────────
 
@@ -318,6 +401,7 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
     if (memStale) _wipeMemory();
     if (left) {
       _wipeAll(includeEnded: true);
+      _wipeAgent();
       notifyListeners();
     } else if (memStale) {
       notifyListeners();
@@ -332,42 +416,96 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
 
   // ── 收 ────────────────────────────────────────────────────────────────
 
-  /// 信令消息入口。不是 anon_* 的一律忽略(`_disconnected` 也不动状态:
-  /// 断线期间会话可能还在,重连后由服务器的 anon_state 定夺)。
+  /// **信令** 消息入口:只有元数据(`anon_agent_state` / `anon_agent_keyreq` / `anon_error`)。
+  /// 会话本身走 [handleData]。断线期间(`_disconnected`)不动状态,重连后服务器会重报。
   void handle(Map<String, dynamic> msg) {
     final Object? t = msg['t'];
     if (t is! String || !t.startsWith('anon_')) return;
     final Object? cid = msg['circleId'];
-    // 记忆消息认的是记忆页打开的那个圈(可能是首页长按打开的,不在房里)
-    if (t == 'anon_mem' || t == 'anon_mem_retracted') {
-      if (cid is! String || cid != _memCircleId) return;
-      _handleMemory(t, cid, msg);
-      notifyListeners();
-      return;
-    }
-    if (t == 'anon_error') {
-      _onError(msg, cid);
-      return;
-    }
-    // 带了 circleId 就必须是当前圈
-    if (cid is! String || cid != _circleId) return;
     switch (t) {
-      case 'anon_state':
+      case 'anon_error':
+        _onError(msg, cid);
+        return;
+      case 'anon_agent_state':
+        if (cid is! String || cid != _circleId) return;
+        _onAgentState(msg);
+        notifyListeners();
+        return;
+      case 'anon_agent_keyreq':
+        if (cid is! String || cid != _circleId || !_inRoom) return;
+        final String? raw = _str(msg['x25519Pub']);
+        final List<int>? pub = parseX25519Pub(raw);
+        if (raw == null || pub == null) return;
+        _keyRequest = AnonymKeyRequest(
+          circleId: cid,
+          x25519PubB64: raw,
+          x25519Pub: pub,
+        );
+        notifyListeners();
+        return;
+      default:
+        return;
+    }
+  }
+
+  void _onAgentState(Map<String, dynamic> msg) {
+    final bool present = msg['present'] == true;
+    _agentPresent = present;
+    _agentActive = present && msg['active'] == true;
+    if (present) {
+      _invitePending = false;
+      final String? id = _str(msg['identity']) ?? _str(msg['agentId']);
+      if (id != null && id.startsWith('u_ai_')) _agentIdentity = id;
+    } else {
+      _agentIdentity = null;
+      _keyRequest = null;
+      _keySending = false;
+      // agent 走了:会话随之结束(散会卡若已开着,原文留到卡片关掉)
+      if (_active) {
+        final String? keep = _receipt != null ? _releasedText : null;
+        _wipeAll(includeEnded: false);
+        _releasedText = keep;
+      }
+    }
+  }
+
+  /// **LiveKit data** 入口(topic `lares.anon`)。[senderIdentity] 必须是本圈 agent,
+  /// 否则一律丢弃 —— 别的成员冒充 agent 广播 `state` / `released` 不能生效。
+  void handleData(String senderIdentity, List<int> bytes) {
+    if (!_inRoom || !isAgentIdentity(senderIdentity)) return;
+    final Map<String, dynamic>? msg = decodeFrame(bytes);
+    if (msg == null) return;
+    // 收到了它的帧,它就在房里(信令的 anon_agent_state 可能还在路上)
+    _agentIdentity ??= senderIdentity;
+    _agentPresent = true;
+    _invitePending = false;
+    final String t = msg['t'] as String;
+    final String? c = _circleId;
+    switch (t) {
+      case 'mem':
+      case 'mem_retracted':
+        if (c == null || c != _memCircleId) return;
+        _handleMemory(t, c, msg);
+        notifyListeners();
+        return;
+      case 'error':
+        _onError(msg, null);
+        return;
+      case 'state':
         _onState(msg);
-      case 'anon_answer':
+      case 'answer':
         if (!_active) return;
-        final String? q = _str(msg['question']);
-        final String? a = _str(msg['answer']);
+        final String? a = _str(msg['a']) ?? _str(msg['answer']);
         if (a == null) return;
         _answers.add(
           AnonymAnswer(
             askerName: _str(msg['askerName']) ?? '',
-            question: q ?? '',
+            question: _str(msg['q']) ?? _str(msg['question']) ?? '',
             answer: a,
           ),
         );
         _askPending = false;
-      case 'anon_draft':
+      case 'draft':
         if (!_active) return;
         final AnonymDraft? d = parseDraft(msg['draft']);
         if (d == null) return;
@@ -378,18 +516,19 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
         _draft = d;
         _draftPending = false;
         _releasedText = null;
-      case 'anon_approvals':
+      case 'approvals':
         if (!_active) return;
         final String? id = _str(msg['draftId']);
         if (_draft != null && id != null && id != _draft!.draftId) return;
         _approvals = _int(msg['count']) ?? _approvals;
         _approvalsK = _int(msg['k']) ?? _approvalsK;
-      case 'anon_released':
+      case 'released':
         if (!_active) return;
         final String? text = _str(msg['text']);
         if (text == null) return;
         _releasedText = text;
-      case 'anon_ended':
+        _draftPending = false;
+      case 'ended':
         // 散会卡只给加入过(ack)这场的人;没加入的只看到会话结束
         final bool wasAcked = acked;
         final AnonymReceipt r =
@@ -407,11 +546,29 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
     notifyListeners();
   }
 
-  /// `anon_error` 按 `op` 分流:`anon_mem_*` 只算记忆页的,其余算室内问答 / 出门稿的。
+  /// 一帧 data → JSON 对象。不是 UTF-8 JSON 对象、或没有字符串 `t` → null。
+  @visibleForTesting
+  static Map<String, dynamic>? decodeFrame(List<int> bytes) {
+    if (bytes.isEmpty || bytes.length > 256 * 1024) return null;
+    try {
+      final Object? v = jsonDecode(utf8.decode(bytes));
+      if (v is! Map) return null;
+      final Map<String, dynamic> m = v.cast<String, dynamic>();
+      return m['t'] is String ? m : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// `error` / `anon_error` 按 `op` 分流:`mem_*` 只算记忆页的,其余算室内问答 / 出门稿的。
+  /// op 两种写法都认(v2 的 `approve`,以及带 `anon_` 前缀的)。
   void _onError(Map<String, dynamic> msg, Object? cid) {
     final String code = _str(msg['code']) ?? 'unknown';
-    final Object? op = msg['op'];
-    if (op is String && op.startsWith('anon_mem_')) {
+    final Object? rawOp = msg['op'];
+    final String? op = rawOp is String
+        ? (rawOp.startsWith('anon_') ? rawOp.substring(5) : rawOp)
+        : null;
+    if (op != null && op.startsWith('mem_')) {
       if (cid != null && cid != _memCircleId) return;
       _memError = code;
       _memLoading = false;
@@ -420,7 +577,9 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
       // 带了 circleId 就必须是当前圈;可能不带
       if (cid != null && cid != _circleId) return;
       // 签名被拒(bad_sig / replay / rate_limited…):放开按钮,允许用新 nonce 再签
-      if (op == 'anon_approve') _approvedHash = null;
+      if (op == 'approve') _approvedHash = null;
+      if (op == 'agent_invite') _invitePending = false;
+      if (op == 'agent_key') _keySending = false;
       _lastError = code;
       _askPending = false;
       _draftPending = false;
@@ -429,7 +588,7 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
   }
 
   void _handleMemory(String t, String cid, Map<String, dynamic> msg) {
-    if (t == 'anon_mem') {
+    if (t == 'mem') {
       final Object? raw = msg['items'];
       if (raw is! List) return;
       final List<AnonymMemoryItem> items = parseMemoryItems(raw);
@@ -442,7 +601,7 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
       );
       return;
     }
-    // anon_mem_retracted
+    // mem_retracted
     final String? id = _id(msg['itemId']);
     if (id == null) return;
     _memRetracting.remove(id);
@@ -460,8 +619,9 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
 
   void _onState(Map<String, dynamic> msg) {
     final bool active = msg['active'] == true;
+    _agentActive = active;
     if (!active) {
-      // 散会卡还开着时(anon_ended 之后服务器常再报一次 inactive),
+      // 散会卡还开着时(ended 之后 agent 常再报一次 inactive),
       // 已放行原文要留到卡片关掉。
       final String? keep = _receipt != null ? _releasedText : null;
       if (_active) _wipeAll(includeEnded: false);
@@ -491,7 +651,7 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
             ),
       ];
     }
-    // 断线重连后服务器把我列成「未加入」,但本机还握着这场的钥匙:
+    // 断线重连 / agent 重启后把我列成「未加入」,但本机还握着这场的钥匙:
     // 同一把公钥再报一次,不用再签一次同意书。
     if (acked && _keys != null && _myUserId != null) {
       for (final m in _members) {
@@ -505,32 +665,97 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
 
   // ── 发 ────────────────────────────────────────────────────────────────
 
-  /// 圈主召集。k 由调用方按 2..n 夹好(见 [defaultK] / [clampK])。
-  void start(int k) {
+  /// 经 data 通道发给 agent。agent 不在 / 没接通道 → 不发(返回 false)。
+  bool _toAgent(Map<String, dynamic> msg) {
+    final AnonymDataSend? send = _sendData;
+    final String? to = agentIdentity;
+    if (send == null || to == null || !_inRoom) return false;
+    send(msg, to);
+    return true;
+  }
+
+  /// 圈主:请隐名之约 AI 入房(信令 `anon_agent_invite`)。k 由调用方按 2..n 夹好。
+  void invite(int k) {
+    final String? c = _circleId;
+    if (c == null || !_inRoom) return;
+    _lastError = null;
+    _invitePending = true;
+    _send({'t': 'anon_agent_invite', 'circleId': c, 'k': k});
+    notifyListeners();
+  }
+
+  /// 圈主:请 AI 离开(信令 `anon_agent_dismiss`)。
+  void dismiss() {
     final String? c = _circleId;
     if (c == null) return;
-    _lastError = null;
-    _send({'t': 'anon_start', 'circleId': c, 'k': k});
+    _invitePending = false;
+    _keyRequest = null;
+    _send({'t': 'anon_agent_dismiss', 'circleId': c});
+    notifyListeners();
   }
 
-  /// 圈主散会。
+  /// 圈主拒绝 agent 的密钥请求:不发任何东西,agent 进不了加密房。
+  void declineKeyRequest() {
+    if (_keyRequest == null) return;
+    _keyRequest = null;
+    notifyListeners();
+  }
+
+  /// 圈主同意:把本圈媒体密钥 hex 密封给 agent 的临时公钥,发 `anon_agent_key`。
+  /// 拿不到密钥(本机没口令)→ 报 `no_media_key`,什么都不发。
+  Future<void> acceptKeyRequest() async {
+    final AnonymKeyRequest? req = _keyRequest;
+    final AnonymMediaKeyFor? keyFor = _mediaKeyFor;
+    if (req == null || _keySending) return;
+    _keySending = true;
+    notifyListeners();
+    String? sealed;
+    try {
+      final String? hex = keyFor == null ? null : await keyFor(req.circleId);
+      if (hex != null && hex.isNotEmpty) {
+        sealed = await _sealer(req.x25519Pub, hex, req.circleId);
+      }
+    } catch (e) {
+      debugPrint('[lares] 隐名之约密钥密封失败: $e');
+      sealed = null;
+    }
+    // 等待期间换了请求 / 离房:作废
+    if (!identical(_keyRequest, req) || _circleId != req.circleId || !_inRoom) {
+      _keySending = false;
+      notifyListeners();
+      return;
+    }
+    _keySending = false;
+    _keyRequest = null;
+    if (sealed == null) {
+      _lastError = 'no_media_key';
+    } else {
+      _send({
+        't': 'anon_agent_key',
+        'circleId': req.circleId,
+        'sealed': sealed,
+        'x25519Pub': req.x25519PubB64,
+      });
+    }
+    notifyListeners();
+  }
+
+  /// 圈主散会(data `end`;agent 只认召集人 / 圈主)。
   void end() {
-    final String? c = _circleId;
-    if (c == null || !_active) return;
-    _send({'t': 'anon_end', 'circleId': c});
+    if (!_active) return;
+    _toAgent({'t': 'end'});
   }
 
-  /// 同意并加入:现生成一对只在内存里的会话密钥,把公钥发出去。
+  /// 同意并加入:现生成一对只在内存里的会话密钥,把公钥发给 agent。
   void accept() {
-    final String? c = _circleId;
     final String? sid = _sid;
-    if (c == null || sid == null || !_active) return;
+    if (_circleId == null || sid == null || !_active) return;
     _keys?.wipe();
     final AnonymKeys keys = _keyFactory();
     _keys = keys;
     _ackedSid = sid;
     _declinedSid = null;
-    _send({'t': 'anon_ack', 'circleId': c, 'pubKey': keys.pubKeyB64});
+    _toAgent({'t': 'ack', 'pubKey': keys.pubKeyB64});
     notifyListeners();
   }
 
@@ -540,53 +765,42 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
     notifyListeners();
   }
 
-  /// 断线重连回到同一房间后,把同一把公钥再报一次(服务器侧按 TOFU 比对同一把钥匙)。
+  /// 断线重连回到同一房间后,把同一把公钥再报一次(agent 会话内钉住同一把钥匙)。
   void resendAck() {
-    final String? c = _circleId;
     final AnonymKeys? keys = _keys;
-    if (c == null || keys == null || !acked) return;
-    _send({'t': 'anon_ack', 'circleId': c, 'pubKey': keys.pubKeyB64});
-  }
-
-  @override
-  void ownFinal(String text, DateTime startedAt) {
-    final String? c = _circleId;
-    final String trimmed = text.trim();
-    if (!feeding || c == null || trimmed.isEmpty) return;
-    _send({
-      't': 'anon_utt',
-      'circleId': c,
-      'text': trimmed,
-      'ts': startedAt.millisecondsSinceEpoch,
-      'final': true,
-    });
+    if (_circleId == null || keys == null || !acked) return;
+    _toAgent({'t': 'ack', 'pubKey': keys.pubKeyB64});
   }
 
   void ask(String question) {
-    final String? c = _circleId;
     final String q = question.trim();
-    if (c == null || !acked || q.isEmpty) return;
+    if (_circleId == null || !acked || q.isEmpty) return;
     _askPending = true;
-    _send({'t': 'anon_ask', 'circleId': c, 'question': q});
+    _toAgent({'t': 'ask', 'q': q});
     notifyListeners();
   }
 
-  void requestDraft() {
-    final String? c = _circleId;
-    if (c == null || !acked) return;
-    _draftPending = true;
+  /// 跑一个 skill。`minutes`(导出会议纪要)的结果走出门稿 → 审阅 → 放行。
+  void runSkill(String name, {Map<String, dynamic>? args}) {
+    if (_circleId == null || !acked || name.isEmpty) return;
+    if (name == 'minutes') _draftPending = true;
     _lastError = null;
-    _send({'t': 'anon_draft', 'circleId': c});
+    _toAgent({
+      't': 'skill',
+      'name': name,
+      'args': ?args,
+    });
     notifyListeners();
   }
+
+  /// 导出会议纪要(= `skill{name:'minutes'}`)。
+  void requestMinutes() => runSkill('minutes');
 
   void review(String itemId, AnonymReviewAction action) {
-    final String? c = _circleId;
     final AnonymDraft? d = _draft;
-    if (c == null || d == null || !acked) return;
-    _send({
-      't': 'anon_review',
-      'circleId': c,
+    if (_circleId == null || d == null || !acked) return;
+    _toAgent({
+      't': 'review',
       'draftId': d.draftId,
       'itemId': itemId,
       'action': action.wire,
@@ -595,11 +809,10 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
 
   /// 签名同意放行当前稿(签的是 [approvalMessage],见 anonym_crypto.dart)。
   void approve() {
-    final String? c = _circleId;
     final String? sid = _sid;
     final AnonymDraft? d = _draft;
     final AnonymKeys? keys = _keys;
-    if (c == null || sid == null || d == null || keys == null || !acked) {
+    if (_circleId == null || sid == null || d == null || keys == null || !acked) {
       return;
     }
     if (_approvedHash == d.draftHash) return;
@@ -613,9 +826,8 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
       ),
     );
     _approvedHash = d.draftHash;
-    _send({
-      't': 'anon_approve',
-      'circleId': c,
+    _toAgent({
+      't': 'approve',
       'draftId': d.draftId,
       'draftHash': d.draftHash,
       'nonce': nonce,
@@ -624,9 +836,8 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
     notifyListeners();
   }
 
-  /// 取本圈记忆列表(`anon_mem_list`)。回复是 `anon_mem`。
-  ///
-  /// [circleId] 缺省为当前房间的圈;从首页长按打开时传那个圈。
+  /// 取本圈记忆列表(data `mem_list`,回复 `mem`)。记忆由 agent 维护,
+  /// 所以只能在**当前房间、agent 在场**时取;不在 → 报 `agent_absent`。
   void loadMemory({String? circleId}) {
     final String? c = circleId ?? _circleId;
     if (c == null) return;
@@ -635,21 +846,28 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
       _memRetracting.clear();
     }
     _memCircleId = c;
-    _memLoading = true;
     _memError = null;
-    _send({'t': 'anon_mem_list', 'circleId': c});
+    if (c != _circleId || !_inRoom || !_agentPresent || !_toAgent({'t': 'mem_list'})) {
+      _memLoading = false;
+      _memError = 'agent_absent';
+    } else {
+      _memLoading = true;
+    }
     notifyListeners();
   }
 
-  /// 请求撤回一条记忆。**不**先删:等服务器回 `anon_mem_retracted` 或重发的列表。
+  /// 请求撤回一条记忆。**不**先删:等 agent 回 `mem_retracted` 或重发的列表。
   void retractMemory(String itemId) {
     final String? c = _memCircleId;
     final List<AnonymMemoryItem>? items = _memItems;
-    if (c == null || items == null) return;
+    if (c == null || items == null || c != _circleId) return;
     if (!items.any((it) => it.id == itemId && !it.retracted)) return;
     if (!_memRetracting.add(itemId)) return;
     _memError = null;
-    _send({'t': 'anon_mem_retract', 'circleId': c, 'itemId': itemId});
+    if (!_toAgent({'t': 'mem_retract', 'itemId': itemId})) {
+      _memRetracting.remove(itemId);
+      _memError = 'agent_absent';
+    }
     notifyListeners();
   }
 
@@ -696,6 +914,15 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
     if (includeEnded) _receipt = null;
   }
 
+  void _wipeAgent() {
+    _agentPresent = false;
+    _agentActive = false;
+    _agentIdentity = null;
+    _invitePending = false;
+    _keyRequest = null;
+    _keySending = false;
+  }
+
   void _wipeMemory() {
     _memCircleId = null;
     _memItems = null;
@@ -707,6 +934,7 @@ class AnonymController extends ChangeNotifier implements AnonymCaptionGate {
   @override
   void dispose() {
     _wipeAll(includeEnded: true);
+    _wipeAgent();
     _wipeMemory();
     super.dispose();
   }

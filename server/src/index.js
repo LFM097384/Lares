@@ -33,6 +33,7 @@ import { createPushTriggers, parseLevel, parseSubPrefs } from './push_triggers.j
 import { createFocusSocial } from './focus_social.js';
 // 隐名之约(server/anonym-agent/INTERFACE.md「Lares 集成协议」)
 import { createAnonym } from './anonym.js';
+import { createAnonymSupervisor, ANON_USER_PREFIX } from './anonym_supervisor.js';
 
 const PORT = Number(process.env.LARES_PORT ?? 8787);
 const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
@@ -793,13 +794,21 @@ function broadcastCircleSettings(circleId) {
 const AI_MEMBER_KEY = String(process.env.LARES_AI_MEMBER_KEY ?? '').trim() || crypto.randomBytes(32).toString('hex');
 const aiMemberSecret = (circleId) => hmacHex(AI_MEMBER_KEY, `lares-ai-member:${circleId}`);
 const aiUserIdFor = (circleId) => `u_ai_${crypto.createHash('sha256').update(circleId).digest('hex').slice(0, 8)}`;
+// 隐名之约 agent(AGENT-V2.md §1):同样是 u_ai_* 成员,但 id 与密钥都按角色分开派生 ——
+// 语音助手的凭证不能冒充隐名 agent(后者能开关强制关闭、收密封密钥),反之亦然
+const anonAgentSecret = (circleId) => hmacHex(AI_MEMBER_KEY, `lares-ai-anon-member:${circleId}`);
+const anonAgentUserIdFor = (circleId) => `${ANON_USER_PREFIX}${crypto.createHash('sha256').update(circleId).digest('hex').slice(0, 8)}`;
+/// 返回 null(不通过)或 'voice' / 'anon'(通过的角色)
 function aiMemberOk(msg, nonce) {
   const a = msg.aiAuth;
-  if (!a || typeof a.circleId !== 'string' || !a.circleId || typeof a.proof !== 'string' || typeof nonce !== 'string') return false;
-  if (msg.userId !== aiUserIdFor(a.circleId)) return false; // id 必须是这个圈的派生 id
+  if (!a || typeof a.circleId !== 'string' || !a.circleId || typeof a.proof !== 'string' || typeof nonce !== 'string') return null;
+  let role, secret;
+  if (msg.userId === aiUserIdFor(a.circleId)) { role = 'voice'; secret = aiMemberSecret(a.circleId); }
+  else if (msg.userId === anonAgentUserIdFor(a.circleId)) { role = 'anon'; secret = anonAgentSecret(a.circleId); }
+  else return null; // id 必须是这个圈的派生 id
   // circle 模式:凭证的圈必须就是本次握手证明的圈(否则拿 A 圈凭证进 B 圈)
-  if (AUTH_REQUIRED && msg.auth?.mode === 'circle' && msg.auth?.circleId !== a.circleId) return false;
-  return safeEqualStr(a.proof.toLowerCase(), hmacHex(aiMemberSecret(a.circleId), `${nonce}:${msg.userId}:${a.circleId}`));
+  if (AUTH_REQUIRED && msg.auth?.mode === 'circle' && msg.auth?.circleId !== a.circleId) return null;
+  return safeEqualStr(a.proof.toLowerCase(), hmacHex(secret, `${nonce}:${msg.userId}:${a.circleId}`)) ? role : null;
 }
 
 /// 该连接对这个圈有没有圈主权:握手时带过正确的钥匙,或本条消息带了。
@@ -819,6 +828,7 @@ function broadcastLobbySummary(circleId) {
   }
   // lares.ai-voice:进房/出房/踢人/插件变更/E2EE 开关都会走到这里 —— 唯一的 reconcile 挂点
   aiVoice?.reconcile(circleId);
+  anonymSup?.reconcile(circleId); // 隐名之约 agent:房空了 → 宽限后停
 }
 
 async function mintLiveKitToken(circleId, userId, name) {
@@ -1230,7 +1240,8 @@ function handleConnection(ws, req) {
         if (msg.userId.startsWith('bot:')) return send(ws, { t: 'error', message: 'userId_reserved' });
         // `u_ai_` 前缀专属服务器托管的语音助手:自报这种 id 就能在人数 / 推送 / 转写名单里隐身。
         // 只认 supervisor 发的圈级凭证(aiAuth),且 id 必须是该圈的派生 id、该圈也必须是本连接鉴权的圈
-        if (isAiUserId(msg.userId) && !aiMemberOk(msg, session.nonce)) return send(ws, { t: 'error', message: 'userId_reserved' });
+        let aiRole = null;
+        if (isAiUserId(msg.userId) && !(aiRole = aiMemberOk(msg, session.nonce))) return send(ws, { t: 'error', message: 'userId_reserved' });
         // 订阅表先读进来(通常早已就绪,只是重启后头几个连接要等一下)
         await ensurePushLoaded();
         // 鉴权闸门:先验证再落任何会话状态,失败即断,用 4401 让客户端能区分
@@ -1293,6 +1304,9 @@ function handleConnection(ws, req) {
           clearAuthFailures(ip); // 认证成功即销账,避免家人共用出口 IP 被连坐
         }
         session.userId = msg.userId;
+        // u_ai_* 身份角色(aiAuth 验过的):'voice' / 'anon';anon 只对凭证所属的那个圈有效
+        session.aiRole = aiRole;
+        session.aiCircleId = aiRole ? msg.aiAuth.circleId : null;
         session.deviceId = typeof msg.deviceId === 'string' && msg.deviceId ? msg.deviceId : crypto.randomUUID();
         session.name = cleanName(msg.name) ?? '圈友';
         // 资料(可选):无效就当没带,不让 hello 失败
@@ -1512,7 +1526,7 @@ function handleConnection(ws, req) {
         circle.delete(targetId);
         pushTriggers.onLeave(circleId, targetId); // 同正常出房:清 crowd 会话、记「刚在房」
         broadcast(circleId, { t: 'member_left', circleId, userId: targetId });
-        anonym.onLeave(circleId, targetId); // 房里没真人了 → 隐名之约自动结束
+        anonym.onLeave(circleId, targetId); // 踢的是隐名 agent → 撤在场状态 + 关强制开关
         if (circle.size === 0) circles.delete(circleId);
         broadcastLobbySummary(circleId);
         if (registeredCircle(circleId)) {
@@ -1726,7 +1740,7 @@ function handleConnection(ws, req) {
         focusEngine.deleteCircle(circleId);
         pushTriggers.dropCircle(circleId);
         focusSocial.dropCircle(circleId);
-        anonym.onCircleDeleted(circleId); // 结束会话 + 删 anonym_memory/<cid>.json
+        anonym.onCircleDeleted(circleId); // 停 agent + 删 anonym_memory/<cid>/ 整个目录
         break;
       }
 
@@ -1895,6 +1909,7 @@ function handleConnection(ws, req) {
   ws.on('close', () => {
     lobby.delete(ws);
     leaveCircle(ws, session);
+    anonym.onConnClose(ws);
     // 断线即取消挂着 —— 否则会留下一个点了没反应的「可约」幽灵。
     // 只清**这条连接**挂起的那个:同一个人在别的设备上挂着的不该被误清。
     if (session.userId && available.get(session.userId)?.ws === ws) {
@@ -1957,7 +1972,7 @@ async function joinCircle(ws, session, circleId) {
   }
   // 转写:记入该圈成员名单(E2EE 离线队列的收件人)并补推积压密文
   transcriptWs.onJoin(ws, session, circleId);
-  anonym.onJoin(ws, session, circleId); // 有隐名之约在进行 → 补推 anon_state
+  anonym.onJoin(ws, session, circleId); // 隐名 agent 进房登记;别人进房补推 anon_agent_state / keyreq
   // 专注学习:按会话(userId, deviceId)记入计时
   focusEngine.join(circleId, session.userId, session.deviceId, session.name);
   // 签发 RTC token
@@ -2004,7 +2019,7 @@ function leaveCircle(ws, session) {
       botApi.emit(session.circleId, 'leave', { circleId: session.circleId, userId: session.userId, name: member.name });
       if (circle.size === 0) circles.delete(session.circleId);
       broadcastLobbySummary(session.circleId);
-      anonym.onLeave(session.circleId, session.userId); // 最后一个真人走 → 隐名之约结束、内存即焚
+      anonym.onLeave(session.circleId, session.userId); // 隐名 agent 离房 → 撤在场状态 + 关强制开关
     }
   }
   session.circleId = null;
@@ -2118,25 +2133,52 @@ const botApi = createBotApi({
     focus: (circleId) => focusWs.apiSnapshot(circleId),
     // 隐名之约:会话期间该圈机器人 SSE / webhook / 机器人字幕一律停;只读放行结果与知识面
     suppress: (circleId) => anonym.isActive(circleId),
-    anonymReleased: (circleId) => anonym.releasedOf(circleId),
     anonymKnowledge: (circleId, q, opts) => anonym.knowledgeOf(circleId, q, opts),
   },
 });
 
-// ── 隐名之约(逻辑在 anonym.js;核心在 server/anonym-agent/core,动态加载,缺了只回 unavailable)──
+// ── 隐名之约 v2(server/anonym-agent/AGENT-V2.md):agent 是独立进程,以 u_ai_anon_* 成员进房;
+// 服务器只管邀请 / 请离、密封密钥中继、强制关闭开关、状态广播与放行通知(anonym.js),不碰会话内容 ──
+const humanCountOf = (cid) => [...(circles.get(cid)?.keys() ?? [])].filter((u) => !isAiUserId(u) && !u.startsWith('bot:')).length;
+/// u_ai_* 圈级鉴权材料(语音助手与隐名 agent 共用):{secret, v} | null
+function aiAuthFor(cid) {
+  if (!AUTH_REQUIRED) return { secret: '', v: 1 }; // 不鉴权:bot 照 challenge.authRequired=false 不带 auth
+  if (!AUTH_MODES.has('circle')) return null; // 纯 token 模式:bot 协议只会 circle 证明
+  if (Object.prototype.hasOwnProperty.call(circleRegistry, cid)) {
+    const rec = registeredCircle(cid); // 墓碑 → null
+    return rec ? { secret: rec.verifier, v: 2 } : null;
+  }
+  const pass = passcodeFor(cid); // env 圈 / 全站兜底口令:v1 = HMAC(口令, …)
+  return pass ? { secret: pass, v: 1 } : null;
+}
+const anonymSup = RTC_CONFIGURED ? createAnonymSupervisor({
+  env: process.env,
+  dataDir: DATA_DIR,
+  agentEntry: String(process.env.LARES_ANONYM_AGENT_ENTRY ?? '').trim()
+    || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bots', 'anonym-agent', 'index.mjs'),
+  signalingUrl: `ws://127.0.0.1:${PORT}/ws`,
+  humanCount: humanCountOf,
+  authFor: aiAuthFor,
+  memberSecretFor: (cid) => anonAgentSecret(cid), // 只对本圈的隐名身份有效,只走子进程 env
+  userIdFor: anonAgentUserIdFor,
+  circleE2ee: (cid) => circleSettings[cid]?.e2ee === true,
+  rtcConfigured: RTC_CONFIGURED,
+  onChange: (cid) => { aiVoice?.reconcile(cid); anonym?.broadcastState(cid); },
+}) : null;
 const anonym = createAnonym({
   dataDir: DATA_DIR,
-  env: process.env,
   send,
-  sessionsOfCircle, // anon_mem_retracted 发给该圈所有在线成员
-  isE2ee: (cid) => circleSettings[cid]?.e2ee === true, // 加密圈不开隐名之约
+  sessionsOfCircle,
   roomOf: (cid) => circles.get(cid),
-  isHuman: (uid) => typeof uid === 'string' && !isAiUserId(uid) && !uid.startsWith('bot:'),
   registeredCircle,
   isOwnerFor,
   circleAllowed,
+  userIdFor: anonAgentUserIdFor,
+  supervisor: anonymSup,
+  fileMemoryModule: String(process.env.LARES_ANONYM_FILEMEMORY_MODULE ?? '').trim() || null,
   onActiveChange: (cid) => { aiVoice?.reconcile(cid); }, // 开 → 停 AI 语音子进程;关 → 按原规则复活
-  // knowledge.released 只含去名条目;直接走插件扇出(会话期 botApi.emit 被压住)
+  onPresenceChange: (cid) => { aiVoice?.reconcile(cid); }, // 隐名 agent 在场 ↔ 语音助手互斥
+  // knowledge.released 只含已放行条目;直接走插件扇出(强制关闭期间 botApi.emit 被压住)
   fanout: (cid, type, data) => pluginsSvc.fanout(cid, type, data),
 });
 
@@ -2245,21 +2287,13 @@ const aiVoice = RTC_CONFIGURED ? createAiVoiceSupervisor({
   botEntry: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bots', 'voice-agent', 'index.mjs'),
   signalingUrl: `ws://127.0.0.1:${PORT}/ws`,
   // 隐名之约进行中:AI 语音助手不进房(已在房的由 reconcile 停掉)
-  isEnabled: (cid) => pluginsSvc.isEnabled(cid, 'lares.ai-voice') && !anonym.isActive(cid),
+  // 隐名之约:agent 被邀请 / 在场 / 强制关闭开着时,AI 语音助手不进房(已在房的由 reconcile 停掉)
+  isEnabled: (cid) => pluginsSvc.isEnabled(cid, 'lares.ai-voice') && !anonym.excludesVoice(cid),
   configOf: (cid) => pluginsSvc.installOf(cid, 'lares.ai-voice')?.config ?? {},
-  humanCount: (cid) => [...(circles.get(cid)?.keys() ?? [])].filter((u) => !isAiUserId(u) && !u.startsWith('bot:')).length,
+  humanCount: humanCountOf,
   circleE2ee: (cid) => circleSettings[cid]?.e2ee === true,
   memberSecretFor: (cid) => aiMemberSecret(cid), // u_ai_* 身份凭证,只走子进程 env
-  authFor: (cid) => {
-    if (!AUTH_REQUIRED) return { secret: '', v: 1 }; // 不鉴权:bot 照 challenge.authRequired=false 不带 auth
-    if (!AUTH_MODES.has('circle')) return null; // 纯 token 模式:bot 协议只会 circle 证明
-    if (Object.prototype.hasOwnProperty.call(circleRegistry, cid)) {
-      const rec = registeredCircle(cid); // 墓碑 → null
-      return rec ? { secret: rec.verifier, v: 2 } : null;
-    }
-    const pass = passcodeFor(cid); // env 圈 / 全站兜底口令:v1 = HMAC(口令, …)
-    return pass ? { secret: pass, v: 1 } : null;
-  },
+  authFor: aiAuthFor,
 }) : null;
 let shuttingDown = false;
 function shutdownFlush(sig) {
@@ -2269,7 +2303,7 @@ function shutdownFlush(sig) {
   try { pluginsSvc.flushSync(); } catch (e) { console.error('[plugin] 关停落盘失败:', e); }
   try { pushTriggers.flushSync(); focusSocial.flushSync(); } catch (e) { console.error('[push-trig] 关停落盘失败:', e); }
   try { aiVoice?.stopAll(); } catch (e) { console.error('[ai-voice] 关停失败:', e); } // lares.ai-voice
-  try { anonym.stopAll(); } catch { /* 内存态,无需落盘 */ }
+  try { anonym.stopAll(); } catch (e) { console.error('[anonym] 关停失败:', e); }
   console.log(`[lares] 收到 ${sig},已落盘,退出`);
   process.exit(0);
 }

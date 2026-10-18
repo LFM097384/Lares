@@ -348,8 +348,8 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
       return [200, { ok: true, sampleRate: wav.sampleRate, durationMs: Math.round(wav.durationSec * 1000), elapsedMs: Date.now() - t0 }];
     }
 
-    // 隐名之约(anonym-agent/INTERFACE.md v1):只读放行结果 / 去名知识面;路径里的圈 id 必须就是 token 的圈
-    const am = /^\/bot\/v1\/circles\/([^/]+)\/anonym\/(released|knowledge)$/.exec(p);
+    // 隐名之约 v2(anonym-agent/AGENT-V2.md §3):读 agent 写下的记忆文件,只读已放行部分;路径里的圈 id 必须就是 token 的圈
+    const am = /^\/bot\/v1\/circles\/([^/]+)\/anonym\/(knowledge)$/.exec(p);
     if (am && req.method === 'GET') {
       let cid;
       try { cid = decodeURIComponent(am[1]); } catch { throw new HttpError(400, { error: 'bad_circle' }); }
@@ -357,9 +357,6 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
       // 插件 token 要声明 knowledge:read;圈主建的机器人 token 照旧可读
       if (bot.plugin && !hooks.pluginOf?.(circleId, bot.pluginId)?.manifest?.permissions?.includes('knowledge:read')) {
         throw new HttpError(403, { error: 'permission_required', permission: 'knowledge:read' });
-      }
-      if (am[2] === 'released') {
-        return [200, { circleId, items: hooks.anonymReleased?.(circleId) ?? [] }];
       }
       const q = String(url.searchParams.get('q') ?? '').slice(0, 500);
       const lim = url.searchParams.has('limit') ? Number(url.searchParams.get('limit')) : 5;

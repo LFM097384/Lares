@@ -12,6 +12,8 @@ import 'package:flutter/services.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../anonym/anonym_kit.dart' show RuleSeal;
 import '../anonym/anonym_memory.dart';
+import '../anonym/anonym_sheets.dart'
+    show confirmAnonymDismiss, showAnonymConveneSheet;
 import '../anonym/anonym_scope.dart';
 import '../auth/circle_identity.dart';
 import '../e2ee/e2ee_controller.dart';
@@ -26,6 +28,7 @@ import '../state/circle_store.dart';
 import '../state/invite_link.dart';
 import '../state/models.dart';
 import '../state/room_controller.dart';
+import '../state/ai_member.dart' show humanMemberCount;
 import '../state/settings_store.dart';
 import '../theme/tokens.dart';
 import '../transcript/transcript_owner_section.dart';
@@ -410,7 +413,41 @@ class _CircleManager {
             );
           },
         ),
-      // 主圈子:主屏小组件 / 快捷设置 / 桌面托盘 一键进的就是它
+      // 隐名之约 AI(圈主、注册圈、人在这个圈的房里):邀请 / 请离开。E2EE 圈也可以
+      // (agent 入房要圈主把媒体密钥密封给它,届时另弹确认)。
+      if (_owner &&
+              registered &&
+              controller.phase == RoomPhase.inRoom &&
+              controller.circleId == circle.id
+          ? AnonymScope.maybeOf(context)
+          : null
+          case final anon?)
+        if (anon.agentPresent || anon.invitePending)
+          ListTile(
+            key: const ValueKey('circle-manage-anon-dismiss'),
+            leading: const Icon(Icons.logout_rounded),
+            title: Text(t.anonDismissAi),
+            subtitle: Text(t.anonDismissAiDesc),
+            onTap: () {
+              Navigator.pop(ctx);
+              confirmAnonymDismiss(context, anon);
+            },
+          )
+        else
+          ListTile(
+            key: const ValueKey('circle-manage-anon-invite'),
+            leading: const RuleSeal(size: 24, years: false),
+            title: Text(t.anonEntryStart),
+            subtitle: Text(t.anonEntryStartDesc),
+            onTap: () {
+              Navigator.pop(ctx);
+              showAnonymConveneSheet(
+                context,
+                anonym: anon,
+                presentCount: humanMemberCount(controller.members),
+              );
+            },
+          ),      // 主圈子:主屏小组件 / 快捷设置 / 桌面托盘 一键进的就是它
       ListTile(
         leading: Icon(
           isPrimary

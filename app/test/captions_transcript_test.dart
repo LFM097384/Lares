@@ -415,10 +415,10 @@ void main() {
       c.dispose();
     });
 
-    test('隐名之约进行中:转写记录停;已加入 → anonym 需要识别', () async {
+    test('隐名之约进行中:转写记录停;客户端不再为会话起识别(v2 由 agent 自己听)', () async {
       final c = roomWith(captionsFeature: false, transcript: true);
       await pumpEventQueue();
-      CaptionConditions with_({required bool active, required bool feeding}) =>
+      CaptionConditions with_({required bool active}) =>
           CaptionWiring.conditionsFor(
               controller: c,
               inRoom: true,
@@ -426,20 +426,14 @@ void main() {
               encrypted: false,
               e2eeCloud: false,
               sttSupported: true,
-              anonymActive: active,
-              anonymFeeding: feeding);
-      expect(with_(active: false, feeding: false).archive, isTrue);
-      final declined = with_(active: true, feeding: false);
-      expect(declined.archive, isFalse, reason: '会话进行中一律不写转写记录');
-      expect(declined.anonym, isFalse);
-      final joined = with_(active: true, feeding: true);
-      expect(joined.archive, isFalse);
-      expect(joined.anonym, isTrue);
-      expect(joined.willing, isTrue);
+              anonymActive: active);
+      expect(with_(active: false).archive, isTrue);
+      final during = with_(active: true);
+      expect(during.archive, isFalse, reason: '会话进行中一律不写转写记录');
       c.dispose();
     });
 
-    test('隐名之约进行中:本人定稿只进会话,不进转写记录', () {
+    test('隐名之约进行中:本人定稿不进转写记录,也不喂给任何人', () {
       final archived = <String>[];
       final gate = _FakeGate();
       final h = CaptionWiring.anonymAwareHandler(
@@ -448,7 +442,6 @@ void main() {
       gate.sessionActive = true;
       h('2', '会中', DateTime(2026));
       expect(archived, ['会前']);
-      expect(gate.fed, ['会中']);
     });
 
     test('字幕功能关 + 转写开:识别启动,自己的定稿进 sink;不发 cap 帧给请求者', () {
@@ -586,9 +579,4 @@ extension on CaptionConditions {
 class _FakeGate extends ChangeNotifier implements AnonymCaptionGate {
   @override
   bool sessionActive = false;
-  @override
-  bool get feeding => sessionActive;
-  final List<String> fed = [];
-  @override
-  void ownFinal(String text, DateTime startedAt) => fed.add(text);
 }

@@ -9,6 +9,7 @@ import 'src/recording/recording_consent.dart';
 import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
 import 'src/anonym/anonym_controller.dart';
+import 'src/anonym/anonym_data_wiring.dart';
 import 'src/anonym/anonym_scope.dart';
 import 'src/captions/caption_controller.dart';
 import 'src/captions/caption_wiring.dart';
@@ -523,10 +524,17 @@ Future<void> main() async {
             (e2ee.statusForActiveCircle(id)?.isEncrypted ?? false)) ||
         (controller.circleInfo[id]?.e2ee ?? false),
   );
-  // 隐名之约(受 Chatham House 规则启发 · 非官方):anon_* 信令 + 只在内存里的会话密钥。
-  // 离房 / 换圈 / 重连后服务器报告无会话 → 立即销毁。与 App 同生命周期。
-  final anonym = AnonymController(send: signaling.send);
+  // 隐名之约 v2(受 Chatham House 规则启发 · 非官方):AI 作为成员入房。
+  // 信令只走元数据(邀请 / 离开 / 密封密钥);会话走 LiveKit data `lares.anon`。
+  // 会话签名密钥只在内存里,离房 / 换圈 / agent 离开 → 立即销毁。与 App 同生命周期。
+  final anonym = AnonymController(
+    send: signaling.send,
+    mediaKeyFor: e2ee.sharedKeyFor,
+  );
   signaling.messages.listen(anonym.handle);
+  // ignore: unused_local_variable
+  final anonymWiring =
+      LiveKitAnonymWiring(controller: controller, rtc: rtc, anonym: anonym);
   void bindAnonymRoom() => anonym.bindRoom(
         circleId: controller.circleId,
         inRoom: controller.phase == RoomPhase.inRoom,
