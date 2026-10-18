@@ -1,8 +1,8 @@
 # 04 · 隐名之约 Agent 上 Zoom / Teams 的可行性说明
 
 > 状态：调研稿（2026-10），面向「未来目标」，不排期。
-> 范围：评估把 `server/anonym-agent` 核心（见 `server/anonym-agent/INTERFACE.md`）通过 adapter 接入 Zoom 和 Microsoft Teams 的路径，给出每个平台的推荐方案、分阶段步骤和阻塞性未知项。
-> 产物：本文件，以及 `server/anonym-agent/adapters/zoom.mjs`、`teams.mjs` 两个 stub（只抛 not implemented）。
+> 范围：评估把 `ember/`(炉灵 / Ember)核心（见 `ember/INTERFACE.md`）通过 adapter 接入 Zoom 和 Microsoft Teams 的路径，给出每个平台的推荐方案、分阶段步骤和阻塞性未知项。
+> 产物：本文件，以及 `ember/adapters/zoom.mjs`、`teams.mjs` 两个 stub（只抛 not implemented）。
 > 引用均为 2026-10 读取的官方文档；平台文档变化快，落地前须逐条复核。文中「推断」表示文档没有直接写明，是作者据文档推出的结论。
 
 ---
@@ -219,8 +219,8 @@ Lares LiveKit（首发）→ Zoom Z0/Z1 → Teams T0 → Zoom Z3 → Teams T1/T2
 
 两个 stub 文件都导出 `{ name, start(ctx), stop() }`，目前 `start` / `stop` 抛 `not implemented`。头注释写明了选定路径，并用 JS doc 描述 `ctx` 回调与平台事件的映射：
 
-- `server/anonym-agent/adapters/zoom.mjs`：RTMS 转写流 + Zoom App 侧边栏；`stop()` = 关闭 RTMS 流并在房间宣告离开。
-- `server/anonym-agent/adapters/teams.mjs`：会议侧边栏 + 聊天 bot（T0），C#/.NET 媒体侧车（T1）经 WebSocket 推每人 PCM；`stop()` = 侧车挂断。
+- `ember/adapters/zoom.mjs`：RTMS 转写流 + Zoom App 侧边栏；`stop()` = 关闭 RTMS 流并在房间宣告离开。
+- `ember/adapters/teams.mjs`：会议侧边栏 + 聊天 bot（T0），C#/.NET 媒体侧车（T1）经 WebSocket 推每人 PCM；`stop()` = 侧车挂断。
 
 ---
 

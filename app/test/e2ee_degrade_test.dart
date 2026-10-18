@@ -275,9 +275,9 @@ void main() {
       expect(supported.previewStatusFor('work'), E2EEStatus.disabled);
     });
 
-    test('代价说明如实写明:无法转录;炉灵助理需圈主授权、在内存持有密钥', () {
+    test('代价说明如实写明:无法转录;炉灵需圈主授权、在内存持有密钥', () {
       expect(kE2EECostNotice.contains('无法转录'), isTrue);
-      expect(kE2EECostNotice.contains('炉灵助理'), isTrue);
+      expect(kE2EECostNotice.contains('炉灵'), isTrue);
       expect(kE2EECostNotice.contains('圈主授权'), isTrue);
       expect(kE2EECostNotice.contains('内存'), isTrue);
       expect(kE2EECostNotice.contains('不可用'), isFalse);

@@ -49,7 +49,7 @@ void main() {
     await tall(tester);
     await tester.pumpWidget(localizedScaffold(
         AnonymConveneSheet(anonym: anon, presentCount: 5)));
-    expect(find.text('邀请炉灵助理'), findsOneWidget);
+    expect(find.text('邀请炉灵'), findsOneWidget);
     // 出处只留邀请面板底部一行小字脚注
     expect(find.text('受 Chatham House 规则启发 · 非官方 · 与 Chatham House 无隶属'), findsOneWidget);
     expect(find.textContaining('隐名之约'), findsNothing);
@@ -90,7 +90,7 @@ void main() {
         AnonymRoomHost(anonym: anon, child: const Scaffold(body: SizedBox()))));
     agent(state());
     await tester.pumpAndSettle();
-    expect(find.text('圈主 邀请了炉灵助理'), findsOneWidget);
+    expect(find.text('圈主 邀请了炉灵'), findsOneWidget);
     expect(find.textContaining('Chatham'), findsNothing);
     expect(find.text(kDisclosure), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('anon-consent-accept')));
@@ -127,8 +127,8 @@ void main() {
     anon.accept();
     agent(state(meAcked: true));
     await tester.pump();
-    expect(find.textContaining('LARES ASSISTANT', findRichText: true), findsOneWidget);
-    expect(find.textContaining('炉灵助理在场 · 不署名', findRichText: true), findsOneWidget);
+    expect(find.textContaining('EMBER', findRichText: true), findsOneWidget);
+    expect(find.textContaining('炉灵在场 · 不署名', findRichText: true), findsOneWidget);
     expect(find.text('2/3 已加入'), findsOneWidget);
     expect(find.text('圈主 · 已加入'), findsOneWidget);
     expect(find.text('小三 · 未加入'), findsOneWidget);
@@ -296,7 +296,7 @@ void main() {
     await tester.pumpWidget(localizedScaffold(
         AnonymConveneSheet(anonym: anon, presentCount: 3),
         locale: const Locale('en')));
-    expect(find.text('Invite Lares Assistant'), findsOneWidget);
+    expect(find.text('Invite Ember'), findsOneWidget);
     expect(find.text('Inspired by the Chatham House Rule · Unofficial · Not affiliated with Chatham House'),
         findsOneWidget);
     expect(find.textContaining('under the Rule'), findsNothing);
@@ -381,7 +381,7 @@ void main() {
     )));
     await tester.tap(find.text('go'));
     await tester.pumpAndSettle();
-    expect(find.text('请炉灵助理离开?'), findsOneWidget);
+    expect(find.text('请炉灵离开?'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('anon-dismiss-confirm')));
     await tester.pumpAndSettle();
     expect(sent.single, {'t': 'anon_agent_dismiss', 'circleId': kCid});

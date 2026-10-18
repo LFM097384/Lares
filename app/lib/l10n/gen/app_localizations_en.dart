@@ -111,7 +111,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get e2eeCostNotice =>
-      'Once on: the server sees nothing, so **transcription is off**. Lares Assistant can join only with the owner\'s approval, and while in the room it holds this circle\'s media key in memory.';
+      'Once on: the server sees nothing, so **transcription is off**. Ember can join only with the owner\'s approval, and while in the room it holds this circle\'s media key in memory.';
 
   @override
   String get e2eeEveryoneNotice =>
@@ -3132,7 +3132,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileKick => 'Remove from circle';
 
   @override
-  String get anonEntryStart => 'Invite Lares Assistant';
+  String get anonEntryStart => 'Invite Ember';
 
   @override
   String get anonEntryStartDesc =>
@@ -3153,7 +3153,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The AI joins as a member and only transcribes members who agreed. What is said is de-identified inside the AI before it reaches the LLM';
 
   @override
-  String get anonConveneTitle => 'Invite Lares Assistant';
+  String get anonConveneTitle => 'Invite Ember';
 
   @override
   String get anonKLabel => 'Release threshold';
@@ -3175,16 +3175,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String anonConsentTitle(String name) {
-    return '$name invited Lares Assistant';
+    return '$name invited Ember';
   }
 
   @override
-  String get anonConsentTitleOwner =>
-      'The circle owner invited Lares Assistant';
+  String get anonConsentTitleOwner => 'The circle owner invited Ember';
 
   @override
   String get anonConsentBody =>
-      'Only after you join does Lares Assistant transcribe your voice. What is said is de-identified inside the AI; only a draft that members sign off on can leave, without names. You can stay in the room without joining; the AI will not transcribe you.';
+      'Only after you join does Ember transcribe your voice. What is said is de-identified inside the AI; only a draft that members sign off on can leave, without names. You can stay in the room without joining; the AI will not transcribe you.';
 
   @override
   String get anonConsentAccept => 'Agree and join';
@@ -3200,7 +3199,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get anonJoinNow => 'Join';
 
   @override
-  String get anonBandLatin => 'LARES ASSISTANT';
+  String get anonBandLatin => 'EMBER';
 
   @override
   String get anonBandZh => 'In the room · No attribution';
@@ -3323,7 +3322,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String anonError(String code) {
-    return 'Lares Assistant error: $code';
+    return 'Ember error: $code';
   }
 
   @override
@@ -3339,14 +3338,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonMemEntryDesc =>
-      'Unattributed content everyone released with Lares Assistant';
+      'Unattributed content everyone released with Ember';
 
   @override
   String get anonSaveMarkdown => 'Save as Markdown file';
 
   @override
   String get anonMemAgentAbsent =>
-      'Circle memory is kept by Lares Assistant. Ask the owner to invite it into the room, then look again.';
+      'Circle memory is kept by Ember. Ask the owner to invite it into the room, then look again.';
 
   @override
   String get anonExportMinutes => 'Export minutes';
@@ -3359,15 +3358,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'The session ends with it; nothing unreleased leaves';
 
   @override
-  String get anonDismissConfirmTitle => 'Ask Lares Assistant to leave?';
+  String get anonDismissConfirmTitle => 'Ask Ember to leave?';
 
   @override
   String get anonDismissConfirmBody =>
-      'Once Lares Assistant leaves, this session ends; what was said and any unreleased drafts are destroyed from its memory right away.';
+      'Once Ember leaves, this session ends; what was said and any unreleased drafts are destroyed from its memory right away.';
 
   @override
-  String get anonKeyReqTitle =>
-      'Lares Assistant asks to enter the encrypted room';
+  String get anonKeyReqTitle => 'Ember asks to enter the encrypted room';
 
   @override
   String get anonKeyReqBody =>

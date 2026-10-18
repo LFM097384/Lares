@@ -1,0 +1,19 @@
+{
+  "name": "ember-lares",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Ember(炉灵)的 Lares 插件:LiveKit 进房、lares.anon 传输、E2EE 密封密钥握手、服务端托管 spawn 契约",
+  "bin": { "ember-lares": "./index.mjs" },
+  "exports": {
+    ".": "./index.mjs",
+    "./port": "./port.mjs",
+    "./room": "./room.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test ./"
+  },
+  "//deps": "不单独装依赖:ember 走相对路径 ../ember;ws / hash-wasm / @livekit/rtc-node 由 ../server/bots/voice-agent/room.mjs 从 server/node_modules 解析(见 README「依赖」)"
+}

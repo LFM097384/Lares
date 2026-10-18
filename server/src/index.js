@@ -31,7 +31,7 @@ import { TokenBuckets } from './ratelimit.js';
 // 活动推送触发器 + 专注社交(契约 plugin-focus-contract.md §9 / §10;逻辑全在这两个模块)
 import { createPushTriggers, parseLevel, parseSubPrefs } from './push_triggers.js';
 import { createFocusSocial } from './focus_social.js';
-// 隐名之约(server/anonym-agent/INTERFACE.md「Lares 集成协议」)
+// 隐名之约(ember/INTERFACE.md「Lares 集成协议」)
 import { createAnonym } from './anonym.js';
 import { createAnonymSupervisor, ANON_USER_PREFIX } from './anonym_supervisor.js';
 
@@ -2137,7 +2137,7 @@ const botApi = createBotApi({
   },
 });
 
-// ── 隐名之约 v2(server/anonym-agent/AGENT-V2.md):agent 是独立进程,以 u_ai_anon_* 成员进房;
+// ── 隐名之约 v2(ember/AGENT-V2.md):agent 是独立进程,以 u_ai_anon_* 成员进房;
 // 服务器只管邀请 / 请离、密封密钥中继、强制关闭开关、状态广播与放行通知(anonym.js),不碰会话内容 ──
 const humanCountOf = (cid) => [...(circles.get(cid)?.keys() ?? [])].filter((u) => !isAiUserId(u) && !u.startsWith('bot:')).length;
 /// u_ai_* 圈级鉴权材料(语音助手与隐名 agent 共用):{secret, v} | null
@@ -2155,7 +2155,7 @@ const anonymSup = RTC_CONFIGURED ? createAnonymSupervisor({
   env: process.env,
   dataDir: DATA_DIR,
   agentEntry: String(process.env.LARES_ANONYM_AGENT_ENTRY ?? '').trim()
-    || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bots', 'anonym-agent', 'index.mjs'),
+    || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'ember-lares', 'index.mjs'), // 炉灵的 Lares 插件(仓库 / 镜像同布局)
   signalingUrl: `ws://127.0.0.1:${PORT}/ws`,
   humanCount: humanCountOf,
   authFor: aiAuthFor,

@@ -281,7 +281,7 @@ abstract class AppLocalizations {
   /// 开启端到端加密的代价说明,开关旁常驻展示;文案与 e2ee_status.dart 里的 kE2EECostNotice 常量逐字一致
   ///
   /// In zh, this message translates to:
-  /// **'开启后:服务器看不到任何内容,因此**无法转录**;炉灵助理要经圈主授权才能进房,进房后会在内存里持有本圈媒体密钥。'**
+  /// **'开启后:服务器看不到任何内容,因此**无法转录**;炉灵要经圈主授权才能进房,进房后会在内存里持有本圈媒体密钥。'**
   String get e2eeCostNotice;
 
   /// 端到端加密开关副标题里最要紧的那一句:这个开关是单机的,不开的人听不到开了的人
@@ -5111,7 +5111,7 @@ abstract class AppLocalizations {
   /// 房间「更多」/ 管理圈子里圈主的入口:邀请隐名之约 AI 入房(受 Chatham House 规则启发,非官方)
   ///
   /// In zh, this message translates to:
-  /// **'邀请炉灵助理'**
+  /// **'邀请炉灵'**
   String get anonEntryStart;
 
   /// 发起隐名之约入口的副标题
@@ -5147,7 +5147,7 @@ abstract class AppLocalizations {
   /// 圈主邀请隐名之约 AI 的面板标题(选放行门槛 k)
   ///
   /// In zh, this message translates to:
-  /// **'邀请炉灵助理'**
+  /// **'邀请炉灵'**
   String get anonConveneTitle;
 
   /// 召集面板:k 选择器的标题
@@ -5183,19 +5183,19 @@ abstract class AppLocalizations {
   /// 加入同意书标题
   ///
   /// In zh, this message translates to:
-  /// **'{name} 邀请了炉灵助理'**
+  /// **'{name} 邀请了炉灵'**
   String anonConsentTitle(String name);
 
   /// 加入同意书标题(不知道召集人名字时)
   ///
   /// In zh, this message translates to:
-  /// **'圈主邀请了炉灵助理'**
+  /// **'圈主邀请了炉灵'**
   String get anonConsentTitleOwner;
 
   /// 加入同意书正文
   ///
   /// In zh, this message translates to:
-  /// **'加入后,炉灵助理才会转写你的声音;原话在 AI 内部先脱敏,能出门的只有大家签名同意的稿子,不带名字。不加入也可以留在房里,AI 不会转写你说的话。'**
+  /// **'加入后,炉灵才会转写你的声音;原话在 AI 内部先脱敏,能出门的只有大家签名同意的稿子,不带名字。不加入也可以留在房里,AI 不会转写你说的话。'**
   String get anonConsentBody;
 
   /// 加入同意书:同意按钮
@@ -5225,13 +5225,13 @@ abstract class AppLocalizations {
   /// 房间约带的拉丁字部分,两种语言都不翻译
   ///
   /// In zh, this message translates to:
-  /// **'LARES ASSISTANT'**
+  /// **'EMBER'**
   String get anonBandLatin;
 
   /// 房间约带的本地化部分
   ///
   /// In zh, this message translates to:
-  /// **'炉灵助理在场 · 不署名'**
+  /// **'炉灵在场 · 不署名'**
   String get anonBandZh;
 
   /// 成员加入状态:已同意
@@ -5453,7 +5453,7 @@ abstract class AppLocalizations {
   /// 隐名之约 AI(data error)或服务器(anon_error)报的错误码
   ///
   /// In zh, this message translates to:
-  /// **'炉灵助理出错了:{code}'**
+  /// **'炉灵出错了:{code}'**
   String anonError(String code);
 
   /// 室内问 AI 面板标题下的说明:能检索圈子记忆(只有已放行的去名内容),问答本身不留痕
@@ -5477,7 +5477,7 @@ abstract class AppLocalizations {
   /// 圈子记忆入口的副标题
   ///
   /// In zh, this message translates to:
-  /// **'炉灵助理会上大家放行的去名内容'**
+  /// **'炉灵会上大家放行的去名内容'**
   String get anonMemEntryDesc;
 
   /// 放行卡上的按钮(桌面端):把已放行的会议纪要另存为 .md 文件
@@ -5489,7 +5489,7 @@ abstract class AppLocalizations {
   /// v2:记忆列表要经房里的 agent 取;agent 不在时的说明
   ///
   /// In zh, this message translates to:
-  /// **'圈子记忆由炉灵助理保管。请圈主在房里邀请炉灵助理入房后再看。'**
+  /// **'圈子记忆由炉灵保管。请圈主在房里邀请炉灵入房后再看。'**
   String get anonMemAgentAbsent;
 
   /// 约带上的 skill 按钮:请 AI 导出会议纪要(走出门稿审阅 → 签名放行)
@@ -5513,19 +5513,19 @@ abstract class AppLocalizations {
   /// 请 AI 离开前的确认标题
   ///
   /// In zh, this message translates to:
-  /// **'请炉灵助理离开?'**
+  /// **'请炉灵离开?'**
   String get anonDismissConfirmTitle;
 
   /// 请 AI 离开前的确认正文
   ///
   /// In zh, this message translates to:
-  /// **'炉灵助理一走,本次会话就结束;它内存里的原话和没放行的稿子立即销毁。'**
+  /// **'炉灵一走,本次会话就结束;它内存里的原话和没放行的稿子立即销毁。'**
   String get anonDismissConfirmBody;
 
   /// E2EE 圈:agent 请求媒体密钥时给圈主的确认面板标题
   ///
   /// In zh, this message translates to:
-  /// **'炉灵助理请求进入加密房间'**
+  /// **'炉灵请求进入加密房间'**
   String get anonKeyReqTitle;
 
   /// 密钥请求面板正文

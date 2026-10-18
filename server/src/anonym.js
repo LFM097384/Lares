@@ -1,4 +1,4 @@
-// 隐名之约 v2 —— 信令服务器这一侧只管**元数据**(规格 server/anonym-agent/AGENT-V2.md §1-§3)。
+// 隐名之约 v2 —— 信令服务器这一侧只管**元数据**(规格 ember/AGENT-V2.md §1-§3)。
 //
 // v2 里 agent 是独立进程,以 u_ai_anon_* 成员身份进房,自己听音频、自己转写、自己维护文件记忆。
 // 服务器**不处理任何会话内容**:没有原话、问题、回答、草稿经过这里。本模块只做:
@@ -10,7 +10,8 @@
 //   - anon_released_notice → 从 agent 的记忆文件读已放行条目 → 插件 webhook knowledge.released;
 //   - bot API 知识检索(读文件,只读已放行部分);解散圈删记忆目录。
 //
-// 记忆格式由 agent 一侧设计;这里只依赖 server/anonym-agent/core/filememory.mjs 的 readReleasedKnowledge(dir, q)。
+// 记忆格式由 Ember(炉灵)一侧设计;这里只依赖 ember/core/filememory.mjs 的 readReleasedKnowledge(dir, q)。
+// 稳定路径:仓库与镜像里 server/ 与 ember/ 都是同级目录(/app/server、/app/ember),相对路径两边一致。
 // 日志只记 code,绝不记密文 / 条目文本。
 
 import { existsSync, rmSync, unlinkSync } from 'node:fs';
@@ -19,7 +20,7 @@ import { pathToFileURL } from 'node:url';
 import { TokenBuckets } from './ratelimit.js';
 import { memoryDirFor } from './anonym_supervisor.js';
 
-const FILEMEMORY_URL = new URL('../anonym-agent/core/filememory.mjs', import.meta.url);
+export const FILEMEMORY_URL = new URL('../../ember/core/filememory.mjs', import.meta.url);
 export const PUB_MAX = 256; // X25519 公钥(b64 / hex),留余量
 export const SEALED_MAX = 4096; // 密封后的媒体密钥(hex 64 字节 + 封装开销)
 const K_MIN = 2, K_MAX = 20;

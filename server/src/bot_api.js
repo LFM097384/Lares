@@ -348,7 +348,7 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
       return [200, { ok: true, sampleRate: wav.sampleRate, durationMs: Math.round(wav.durationSec * 1000), elapsedMs: Date.now() - t0 }];
     }
 
-    // 隐名之约 v2(anonym-agent/AGENT-V2.md §3):读 agent 写下的记忆文件,只读已放行部分;路径里的圈 id 必须就是 token 的圈
+    // 隐名之约 v2(ember/AGENT-V2.md §3;readReleasedKnowledge 来自 ember/core/filememory.mjs,经 anonym.js 的 FILEMEMORY_URL):读 agent 写下的记忆文件,只读已放行部分;路径里的圈 id 必须就是 token 的圈
     const am = /^\/bot\/v1\/circles\/([^/]+)\/anonym\/(knowledge)$/.exec(p);
     if (am && req.method === 'GET') {
       let cid;

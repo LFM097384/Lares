@@ -22,8 +22,7 @@ import { AudioFrame } from '@livekit/rtc-node';
 import { LaresBot, authVerifier, e2eeKeyHex } from './lares_bot.mjs';
 import { resample, concatInt16 } from '../bots/voice-agent/audio.mjs';
 import { DashscopeTts } from '../bots/voice-agent/providers/dashscope.mjs';
-import { seal } from '../bots/anonym-agent/sealing.mjs';
-import { hasToneMarker } from '../anonym-agent/core/gate/l3.mjs';
+import { seal, hasToneMarker } from '../../ember/index.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'anonym_v2_prod_e2e.last.txt');
@@ -502,7 +501,7 @@ async function main() {
   const leaks = lines.filter((l) => LOG_PROBES.some((p) => l.includes(p)) || UTTS.some(([, u]) => l.includes(u.slice(0, 10))));
   ok(lg.code === 0 && lines.length > 1, 'logs fetched', { lines: lines.length });
   ok(leaks.length === 0, 'no utterance / released text in logs', leaks.slice(0, 5).map((l) => l.slice(0, 200)));
-  const ag = lines.filter((l) => /anonym-agent|anonym /.test(l));
+  const ag = lines.filter((l) => /ember-lares|anonym /.test(l));
   info('anonym log lines', ag.map((l) => l.replace(/^\S+\s+\|\s*/, '').slice(0, 160)).slice(-60));
   const bad = ag.filter((l) => /ev=error|崩溃|启动失败|子进程错误|code=[1-9]|signal=SIG/.test(l));
   ok(bad.length === 0, 'no agent child errors / crashes', bad.map((l) => l.replace(/^\S+\s+\|\s*/, '').slice(0, 200)));

@@ -108,7 +108,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get e2eeCostNotice =>
-      '开启后:服务器看不到任何内容,因此**无法转录**;炉灵助理要经圈主授权才能进房,进房后会在内存里持有本圈媒体密钥。';
+      '开启后:服务器看不到任何内容,因此**无法转录**;炉灵要经圈主授权才能进房,进房后会在内存里持有本圈媒体密钥。';
 
   @override
   String get e2eeEveryoneNotice => '圈里每个人都得打开,否则你和他们互相听不见。';
@@ -2922,7 +2922,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileKick => '移出圈子';
 
   @override
-  String get anonEntryStart => '邀请炉灵助理';
+  String get anonEntryStart => '邀请炉灵';
 
   @override
   String get anonEntryStartDesc => 'AI 作为成员入房;观点可以出门,名字留在屋里';
@@ -2941,7 +2941,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get anonDisclosure => 'AI 作为成员加入，只转写已同意成员的声音；原话在 AI 内部先脱敏，再交给大模型';
 
   @override
-  String get anonConveneTitle => '邀请炉灵助理';
+  String get anonConveneTitle => '邀请炉灵';
 
   @override
   String get anonKLabel => '放行门槛';
@@ -2962,15 +2962,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String anonConsentTitle(String name) {
-    return '$name 邀请了炉灵助理';
+    return '$name 邀请了炉灵';
   }
 
   @override
-  String get anonConsentTitleOwner => '圈主邀请了炉灵助理';
+  String get anonConsentTitleOwner => '圈主邀请了炉灵';
 
   @override
   String get anonConsentBody =>
-      '加入后,炉灵助理才会转写你的声音;原话在 AI 内部先脱敏,能出门的只有大家签名同意的稿子,不带名字。不加入也可以留在房里,AI 不会转写你说的话。';
+      '加入后,炉灵才会转写你的声音;原话在 AI 内部先脱敏,能出门的只有大家签名同意的稿子,不带名字。不加入也可以留在房里,AI 不会转写你说的话。';
 
   @override
   String get anonConsentAccept => '同意并加入';
@@ -2985,10 +2985,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get anonJoinNow => '加入';
 
   @override
-  String get anonBandLatin => 'LARES ASSISTANT';
+  String get anonBandLatin => 'EMBER';
 
   @override
-  String get anonBandZh => '炉灵助理在场 · 不署名';
+  String get anonBandZh => '炉灵在场 · 不署名';
 
   @override
   String get anonMemberAcked => '已加入';
@@ -3106,7 +3106,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String anonError(String code) {
-    return '炉灵助理出错了:$code';
+    return '炉灵出错了:$code';
   }
 
   @override
@@ -3119,13 +3119,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get anonMemEntry => '圈子记忆';
 
   @override
-  String get anonMemEntryDesc => '炉灵助理会上大家放行的去名内容';
+  String get anonMemEntryDesc => '炉灵会上大家放行的去名内容';
 
   @override
   String get anonSaveMarkdown => '存为 Markdown 文件';
 
   @override
-  String get anonMemAgentAbsent => '圈子记忆由炉灵助理保管。请圈主在房里邀请炉灵助理入房后再看。';
+  String get anonMemAgentAbsent => '圈子记忆由炉灵保管。请圈主在房里邀请炉灵入房后再看。';
 
   @override
   String get anonExportMinutes => '导出会议纪要';
@@ -3137,13 +3137,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get anonDismissAiDesc => '会话随之结束,没放行的内容不会出门';
 
   @override
-  String get anonDismissConfirmTitle => '请炉灵助理离开?';
+  String get anonDismissConfirmTitle => '请炉灵离开?';
 
   @override
-  String get anonDismissConfirmBody => '炉灵助理一走,本次会话就结束;它内存里的原话和没放行的稿子立即销毁。';
+  String get anonDismissConfirmBody => '炉灵一走,本次会话就结束;它内存里的原话和没放行的稿子立即销毁。';
 
   @override
-  String get anonKeyReqTitle => '炉灵助理请求进入加密房间';
+  String get anonKeyReqTitle => '炉灵请求进入加密房间';
 
   @override
   String get anonKeyReqBody =>

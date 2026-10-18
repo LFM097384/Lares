@@ -1,7 +1,7 @@
 # 隐名之约 · 非向量、基于文件的 agent 记忆：现状调研与推荐设计
 
 > 受 Chatham House 规则启发 · 非官方。与 Chatham House 无隶属。
-> 状态：调研 + 设计建议(2026-10)。**不改代码**。现有实现 `server/anonym-agent/core/memory.mjs`(单个 JSON 文件 + 字符二元组相似度 + 马赛克启发式 + L4 复核)是本设计的起点；客户端协议见 `client-memory-protocol.md`。
+> 状态：调研 + 设计建议(2026-10)。**不改代码**。现有实现 `ember/core/memory.mjs`(单个 JSON 文件 + 字符二元组相似度 + 马赛克启发式 + L4 复核)是本设计的起点；客户端协议见 `client-memory-protocol.md`。
 > 约束回顾：只存经放行、去名、无说话人的知识(idea / decision / todo / fact)；放行人可撤回，撤回必须**真删**；用于房间内答问和按需出会议纪要；每圈一份纯文件(markdown/JSON)，由 agent 自己维护；**不用 embedding、不用向量库、不加 npm 依赖**；Node.js ESM；LLM 为 DeepSeek `deepseek-flash`(便宜，128k 上下文，OpenAI 兼容)；规模为每圈几十场会、几百到几千条。
 
 ---

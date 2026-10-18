@@ -2,7 +2,7 @@
 
 > 受 Chatham House 规则启发 · 非官方。与 Chatham House 无隶属。
 > 实现:`app/lib/src/anonym/anonym_controller.dart`(解析 / 发送 / 权限)、`app/lib/src/anonym/anonym_memory.dart`(「圈子记忆」页)。
-> 对端:`server/anonym-agent/core/memory.mjs`(`mem.list()` / `mem.retract()`);语义见 `server/anonym-agent/INTERFACE.md` §「v1 愿景」与 §「补充形状」。
+> 对端:`ember/core/memory.mjs`(`mem.list()` / `mem.retract()`);语义见 `ember/INTERFACE.md` §「v1 愿景」与 §「补充形状」。
 > 本文是**客户端的假设**,INTERFACE.md 的 WS 表里还没有这几条;服务器落地时请按此对齐,或告诉客户端改。
 
 ## 客户端 → 服务器

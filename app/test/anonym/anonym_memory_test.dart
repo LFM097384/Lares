@@ -397,7 +397,7 @@ void main() {
       await tester.pumpWidget(screen());
       await tester.pump();
       expect(find.byKey(const ValueKey('anon-mem-error')), findsOneWidget);
-      expect(find.textContaining('邀请炉灵助理入房'), findsOneWidget);
+      expect(find.textContaining('邀请炉灵入房'), findsOneWidget);
       expect(find.textContaining('agent_absent'), findsNothing);
     });
 

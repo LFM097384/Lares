@@ -1,4 +1,4 @@
-/// 炉灵助理的底部面板:圈主邀请 AI([AnonymConveneSheet])、成员同意书
+/// 炉灵的底部面板:圈主邀请 AI([AnonymConveneSheet])、成员同意书
 /// ([AnonymConsentSheet])、E2EE 圈的密钥请求确认([AnonymKeyRequestSheet]),
 /// 以及共用的规则卡 / 诚实声明。
 ///
@@ -201,7 +201,7 @@ Widget _sheetFrame(BuildContext context, List<Widget> children) {
 
 // ─────────────────────────── 召集 ───────────────────────────
 
-/// 圈主邀请炉灵助理入房(选好放行门槛 k)。[presentCount] 是此刻在房的真人数(不含 AI 助手)。
+/// 圈主邀请炉灵入房(选好放行门槛 k)。[presentCount] 是此刻在房的真人数(不含 AI 助手)。
 Future<void> showAnonymConveneSheet(
   BuildContext context, {
   required AnonymController anonym,

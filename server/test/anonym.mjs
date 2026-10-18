@@ -1,4 +1,4 @@
-// 隐名之约 v2(server/anonym-agent/AGENT-V2.md §1-§3)端到端:真服务端进程 + 假 agent 进程
+// 隐名之约 v2(ember/AGENT-V2.md §1-§3)端到端:真服务端进程 + 假 agent 进程
 // (test/fixtures/fake_anonym_agent.mjs,经 LARES_ANONYM_AGENT_ENTRY 注入)+ 假记忆读取
 // (test/fixtures/fake_filememory.mjs,经 LARES_ANONYM_FILEMEMORY_MODULE 注入)。
 // 旁路:假 APNs(推送脱敏)、插件 webhook 接收器、机器人 SSE、AI 语音助手(装了 @livekit/rtc-node 才测)。

@@ -1,4 +1,4 @@
-// 隐名之约 v2:服务端托管 agent 进程的监管(规格 server/anonym-agent/AGENT-V2.md §1/§3)。
+// 隐名之约 v2:服务端托管 agent 进程的监管(规格 ember/AGENT-V2.md;agent 入口 = ember-lares/index.mjs §1/§3)。
 //
 // 套路同 ai_voice_supervisor.js:每圈最多一个子进程;依赖全部注入(圈子状态、鉴权材料、spawn、时钟),
 // 本模块不碰 index.js 的全局表 —— 可单测。密钥只走子进程 env,绝不进 argv。
@@ -64,7 +64,7 @@ export function createAnonymSupervisor(d) {
   /** cid -> { invited, k, child, stopping, killTimer, graceTimer, respawnTimer, startedAt, crashes[], backoff, lastExit } */
   const slots = new Map();
   let stoppedAll = false;
-  const tag = (cid) => `[anonym-agent ${String(cid).slice(0, 8)}]`;
+  const tag = (cid) => `[ember-lares ${String(cid).slice(0, 8)}]`;
   const runningCount = () => { let n = 0; for (const s of slots.values()) if (s.child) n++; return n; };
   const slotOf = (cid) => {
     let s = slots.get(cid);

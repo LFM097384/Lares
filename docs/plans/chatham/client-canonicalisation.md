@@ -2,7 +2,7 @@
 
 > 受 Chatham House 规则启发 · 非官方。与 Chatham House 无隶属。
 > 实现:`app/lib/src/anonym/anonym_crypto.dart`(库级 doc comment 与本文一致)。
-> 服务器对端:`server/anonym-agent/core/crypto.mjs`(`canonicalJSON` / `approvalMessage` / `verifyEd25519`)。
+> 服务器对端:`ember/core/crypto.mjs`(`canonicalJSON` / `approvalMessage` / `verifyEd25519`)。
 
 ## 密钥
 

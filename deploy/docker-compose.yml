@@ -63,8 +63,9 @@ services:
   # ── lares-server:presence 信令 + LiveKit token 签发 + 语音便签 ────────────
   lares-server:
     build:
-      context: ../server
-      dockerfile: Dockerfile
+      # 上下文 = 仓库根:镜像里要带上 ember/ 与 ember-lares/(炉灵),见 server/Dockerfile 与根 .dockerignore
+      context: ..
+      dockerfile: server/Dockerfile
     image: lares-server:local
     restart: unless-stopped
     security_opt:

@@ -1,7 +1,7 @@
 # Lares 信令协议增补:隐名之约(anonym)v2
 
 > 本文件只记**新增**的消息与接口;其余信令见 `docs/plans/*-contract.md`。
-> 规格:`server/anonym-agent/AGENT-V2.md` §1–§3。服务端实现:`server/src/anonym.js`(元数据)+ `server/src/anonym_supervisor.js`(托管进程)。
+> 规格:`ember/AGENT-V2.md` §1–§3。服务端实现:`server/src/anonym.js`(元数据)+ `server/src/anonym_supervisor.js`(托管进程)。
 > 测试:`server/test/anonym.mjs`(在 `npm test` 里)。
 >
 > v1 的 `anon_start / ack / utt / ask / draft / review / approve / end / mem_*` 和 `GET …/anonym/released` **已删除**。
@@ -13,7 +13,7 @@
   - hello 必须带 `aiAuth {circleId, proof}`,其中 `proof = HMAC-SHA256-hex(memberSecret, "${nonce}:${userId}:${circleId}")`。
   - `memberSecret` 按角色单独派生,所以语音助手的凭证冒充不了隐名 agent。
   - 凭证只对凭证所属的那个圈有效。
-- **托管模式**:服务器按圈拉起 `server/bots/anonym-agent/index.mjs`,可用 `LARES_ANONYM_AGENT_ENTRY` 覆盖入口。启动需要 LiveKit 已配置。
+- **托管模式**:服务器按圈拉起 `ember-lares/index.mjs`(炉灵的 Lares 插件),可用 `LARES_ANONYM_AGENT_ENTRY` 覆盖入口。启动需要 LiveKit 已配置。
   - argv 只有 `--circle <cid> --signaling ws://127.0.0.1:<port>/ws`。
   - 子进程 env 删掉 `LIVEKIT_*`、`LARES_APNS_*`、`LARES_AUTH_TOKEN`、`LARES_CIRCLE_PASSCODE(S)`、`LARES_AI_MEMBER_KEY`。
   - 子进程 env 加上 `LARES_ANONYM_USER_ID`、`LARES_AI_MEMBER_SECRET`、`LARES_AI_AUTH_SECRET`/`LARES_AI_AUTH_V`、`LARES_ANONYM_K`(有 k 时才设)、`LARES_ANONYM_E2EE`(`0`/`1`)、`LARES_ANONYM_HOSTED=1`、`LARES_ANONYM_MEMORY_DIR=DATA_DIR/anonym_memory/<cid>`、`LARES_SIGNALING`。
@@ -68,7 +68,7 @@ agent 断开、被踢、被 dismiss 或解散圈时,强制关闭自动解除。
 
 - `GET /bot/v1/circles/:id/anonym/knowledge?q=&limit=`
   - `limit` 取 1–20,默认 5。返回 `{circleId, items:[{id, text, kind?, sid?, draftId?, releasedAt?, approvals?}]}`。
-  - 服务器只调用 `server/anonym-agent/core/filememory.mjs` 的 `readReleasedKnowledge(DATA_DIR/anonym_memory/<cid>, q)`,只读已放行条目,字段按白名单过滤。
+  - 服务器只调用 `ember/core/filememory.mjs` 的 `readReleasedKnowledge(DATA_DIR/anonym_memory/<cid>, q)`,只读已放行条目,字段按白名单过滤。
   - `:id` 必须与 token 所属的圈一致,否则 403 `wrong_circle`。
   - 插件 token 需要 `knowledge:read` 权限,否则 403 `permission_required`。
   - 无 token 时 401。

@@ -1,0 +1,21 @@
+{
+  "name": "ember-agent",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Ember(炉灵)· 去名会议 AI:Gate L0–L4 脱敏、skills、k-of-n 签名放行、文件记忆;平台无关,经 port 接入 Lares / Zoom / Teams",
+  "exports": {
+    ".": "./index.mjs",
+    "./port": "./port.mjs",
+    "./filememory": "./core/filememory.mjs",
+    "./core/*": "./core/*",
+    "./agent/*": "./agent/*",
+    "./adapters/*": "./adapters/*",
+    "./package.json": "./package.json"
+  },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test ./",
+    "eval": "node eval/run.mjs"
+  }
+}

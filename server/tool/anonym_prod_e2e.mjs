@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { authVerifier } from './lares_bot.mjs';
-import { hasToneMarker } from '../anonym-agent/core/gate/l3.mjs';
+import { hasToneMarker } from '../../ember/core/gate/l3.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'anonym_prod_e2e.last.txt');

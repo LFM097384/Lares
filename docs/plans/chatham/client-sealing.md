@@ -1,6 +1,6 @@
 # 隐名之约 v2 · 客户端密封媒体密钥
 
-**规范来源**：`server/anonym-agent/SEALING.md`。参考实现是 `server/bots/anonym-agent/sealing.mjs`。本文只说明 Flutter 客户端怎样落地，格式以 SEALING.md 为准，必须逐字节一致。
+**规范来源**：`ember/SEALING.md`。参考实现是 `ember/agent/sealing.mjs`。本文只说明 Flutter 客户端怎样落地，格式以 SEALING.md 为准，必须逐字节一致。
 
 代码：`app/lib/src/anonym/anonym_seal.dart`（`anonSeal` / `anonUnseal` / `parseX25519Pub`）。
 测试：`app/test/anonym/anonym_seal_test.dart`（官方向量）和 `anonym_controller_test.dart` 的 `E2EE keyreq` 组。
@@ -50,9 +50,9 @@ Dart 侧用 `newKeyPairFromSeed` 导入私钥：它在内部按 RFC 7748 做 cla
 ## 用 Node 复算
 
 ```js
-// node seal_vec.mjs —— 依赖 server/bots/anonym-agent/sealing.mjs
+// node seal_vec.mjs —— 依赖 ember/agent/sealing.mjs
 import crypto from 'node:crypto';
-import { seal, unseal } from '../../../server/bots/anonym-agent/sealing.mjs';
+import { seal, unseal } from '../../../ember/agent/sealing.mjs';
 const pkcs8 = (hex) => crypto.createPrivateKey({
   key: Buffer.concat([Buffer.from('302e020100300506032b656e04220420', 'hex'), Buffer.from(hex, 'hex')]),
   format: 'der', type: 'pkcs8',
