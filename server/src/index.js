@@ -31,6 +31,8 @@ import { TokenBuckets } from './ratelimit.js';
 // 活动推送触发器 + 专注社交(契约 plugin-focus-contract.md §9 / §10;逻辑全在这两个模块)
 import { createPushTriggers, parseLevel, parseSubPrefs } from './push_triggers.js';
 import { createFocusSocial } from './focus_social.js';
+// 隐名之约(server/anonym-agent/INTERFACE.md「Lares 集成协议」)
+import { createAnonym } from './anonym.js';
 
 const PORT = Number(process.env.LARES_PORT ?? 8787);
 const LIVEKIT_URL = process.env.LIVEKIT_URL ?? '';
@@ -1073,7 +1075,8 @@ function handlePushRegister(session, msg) {
 /// 显示在锁屏上;用户选了端到端加密,就不该让「谁在哪个圈」从这条旁路漏出去。
 function pushContent(entry, circleId, kind, causerName) {
   const zh = entry.lang === 'zh';
-  if (circleSettings[circleId]?.e2ee === true) {
+  // 隐名之约进行中同样脱敏:不让「谁在场」从锁屏旁路漏出去
+  if (circleSettings[circleId]?.e2ee === true || anonym?.isActive(circleId)) {
     return { title: 'Lares', body: zh ? '有人在你的圈子里' : 'Someone is in your circle' };
   }
   const title = entry.circles[circleId]?.name || 'Lares';
@@ -1217,6 +1220,7 @@ function handleConnection(ws, req) {
     if (await featuresWs.handle(ws, session, msg)) return;
     if (await pushTriggers.handle(ws, session, msg)) return; // push_cfg_* / push_summon
     if (await focusSocial.handle(ws, session, msg)) return; // focus_social_get / focus_weekly_seen
+    if (await anonym.handle(ws, session, msg)) return; // anon_*(隐名之约)
 
     switch (msg.t) {
       case 'hello': {
@@ -1508,6 +1512,7 @@ function handleConnection(ws, req) {
         circle.delete(targetId);
         pushTriggers.onLeave(circleId, targetId); // 同正常出房:清 crowd 会话、记「刚在房」
         broadcast(circleId, { t: 'member_left', circleId, userId: targetId });
+        anonym.onLeave(circleId, targetId); // 房里没真人了 → 隐名之约自动结束
         if (circle.size === 0) circles.delete(circleId);
         broadcastLobbySummary(circleId);
         if (registeredCircle(circleId)) {
@@ -1721,6 +1726,7 @@ function handleConnection(ws, req) {
         focusEngine.deleteCircle(circleId);
         pushTriggers.dropCircle(circleId);
         focusSocial.dropCircle(circleId);
+        anonym.onCircleDeleted(circleId); // 结束会话 + 删 anonym_memory/<cid>.json
         break;
       }
 
@@ -1951,6 +1957,7 @@ async function joinCircle(ws, session, circleId) {
   }
   // 转写:记入该圈成员名单(E2EE 离线队列的收件人)并补推积压密文
   transcriptWs.onJoin(ws, session, circleId);
+  anonym.onJoin(ws, session, circleId); // 有隐名之约在进行 → 补推 anon_state
   // 专注学习:按会话(userId, deviceId)记入计时
   focusEngine.join(circleId, session.userId, session.deviceId, session.name);
   // 签发 RTC token
@@ -1997,6 +2004,7 @@ function leaveCircle(ws, session) {
       botApi.emit(session.circleId, 'leave', { circleId: session.circleId, userId: session.userId, name: member.name });
       if (circle.size === 0) circles.delete(session.circleId);
       broadcastLobbySummary(session.circleId);
+      anonym.onLeave(session.circleId, session.userId); // 最后一个真人走 → 隐名之约结束、内存即焚
     }
   }
   session.circleId = null;
@@ -2108,7 +2116,28 @@ const botApi = createBotApi({
     plugins: (circleId) => pluginsSvc.views(circleId),
     pluginStateSet: (circleId, pluginId, patch) => pluginsSvc.applyState(circleId, pluginId, patch),
     focus: (circleId) => focusWs.apiSnapshot(circleId),
+    // 隐名之约:会话期间该圈机器人 SSE / webhook / 机器人字幕一律停;只读放行结果与知识面
+    suppress: (circleId) => anonym.isActive(circleId),
+    anonymReleased: (circleId) => anonym.releasedOf(circleId),
+    anonymKnowledge: (circleId, q, opts) => anonym.knowledgeOf(circleId, q, opts),
   },
+});
+
+// ── 隐名之约(逻辑在 anonym.js;核心在 server/anonym-agent/core,动态加载,缺了只回 unavailable)──
+const anonym = createAnonym({
+  dataDir: DATA_DIR,
+  env: process.env,
+  send,
+  sessionsOfCircle, // anon_mem_retracted 发给该圈所有在线成员
+  isE2ee: (cid) => circleSettings[cid]?.e2ee === true, // 加密圈不开隐名之约
+  roomOf: (cid) => circles.get(cid),
+  isHuman: (uid) => typeof uid === 'string' && !isAiUserId(uid) && !uid.startsWith('bot:'),
+  registeredCircle,
+  isOwnerFor,
+  circleAllowed,
+  onActiveChange: (cid) => { aiVoice?.reconcile(cid); }, // 开 → 停 AI 语音子进程;关 → 按原规则复活
+  // knowledge.released 只含去名条目;直接走插件扇出(会话期 botApi.emit 被压住)
+  fanout: (cid, type, data) => pluginsSvc.fanout(cid, type, data),
 });
 
 // ── 插件 + 专注学习的装配 ──
@@ -2169,7 +2198,7 @@ const pushTriggers = createPushTriggers({
   roomUsers: (cid) => [...(circles.get(cid)?.keys() ?? [])],
   purposeOf: (cid) => purposeView(circleSettings[cid])?.id ?? null,
   featureOn: (cid, key) => featureOn(cid, key), // focus 功能关 → 不发自习 / 专注 / 周报推送
-  e2ee: (cid) => circleSettings[cid]?.e2ee === true,
+  e2ee: (cid) => circleSettings[cid]?.e2ee === true || anonym.isActive(cid), // 隐名之约期间推送同 E2EE 脱敏
   enabled: () => apns.enabled,
   deliver: (token, entry, cid, content) => sendPush(token, entry, cid, content.kind, null, content),
   send,
@@ -2215,7 +2244,8 @@ const aiVoice = RTC_CONFIGURED ? createAiVoiceSupervisor({
   dataDir: DATA_DIR,
   botEntry: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bots', 'voice-agent', 'index.mjs'),
   signalingUrl: `ws://127.0.0.1:${PORT}/ws`,
-  isEnabled: (cid) => pluginsSvc.isEnabled(cid, 'lares.ai-voice'),
+  // 隐名之约进行中:AI 语音助手不进房(已在房的由 reconcile 停掉)
+  isEnabled: (cid) => pluginsSvc.isEnabled(cid, 'lares.ai-voice') && !anonym.isActive(cid),
   configOf: (cid) => pluginsSvc.installOf(cid, 'lares.ai-voice')?.config ?? {},
   humanCount: (cid) => [...(circles.get(cid)?.keys() ?? [])].filter((u) => !isAiUserId(u) && !u.startsWith('bot:')).length,
   circleE2ee: (cid) => circleSettings[cid]?.e2ee === true,
@@ -2239,6 +2269,7 @@ function shutdownFlush(sig) {
   try { pluginsSvc.flushSync(); } catch (e) { console.error('[plugin] 关停落盘失败:', e); }
   try { pushTriggers.flushSync(); focusSocial.flushSync(); } catch (e) { console.error('[push-trig] 关停落盘失败:', e); }
   try { aiVoice?.stopAll(); } catch (e) { console.error('[ai-voice] 关停失败:', e); } // lares.ai-voice
+  try { anonym.stopAll(); } catch { /* 内存态,无需落盘 */ }
   console.log(`[lares] 收到 ${sig},已落盘,退出`);
   process.exit(0);
 }
@@ -2260,6 +2291,7 @@ const transcriptWs = createTranscriptWs({
   },
   sessionsOfCircle,
   settings: () => circleSettings,
+  anonymActive: (cid) => anonym.isActive(cid), // 隐名之约进行中:append/relay 一律 anonym_active
   saveSettings,
   registeredCircle,
   ownerKeyOk,
@@ -2289,7 +2321,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return json(204, {});
 
   // 机器人 REST(/api/v1/*,Bearer 机器人 token)—— 见 bot_api.js / docs/bot-api.md
-  if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/')) {
+  // /bot/v1/circles/:id/anonym/{released,knowledge}:同一套机器人 token 鉴权(bot_api.js)
+  if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/') || url.pathname.startsWith('/bot/v1/')) {
     await botReady;
     if (await botApi.handle(req, res, url)) return;
   }

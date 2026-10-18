@@ -1,6 +1,8 @@
 // 概念稿的假数据:一个六人圈,周四夜谈,以隐名之约讨论社区图书角的预算。
 import 'chatham_kit.dart';
 
+export '../anonym/anonym_kit.dart' show kRuleEn, kRuleZh;
+
 class Seat {
   const Seat(this.glyph, this.name, {this.officer = false, this.me = false, this.verified = true});
   final String glyph;
@@ -24,16 +26,6 @@ const List<Seat> kSeats = <Seat>[
 /// 参与放行表决的五人(安全员不投票)。
 List<Seat> get kVoters => kSeats.where((Seat s) => !s.officer).toList();
 
-const String kRuleEn =
-    'When a meeting, or part thereof, is held under the Chatham House Rule, '
-    'participants are free to use the information received, but neither the '
-    'identity nor the affiliation of the speaker(s), nor that of any other '
-    'participant, may be revealed.';
-
-/// 官方中文译文(chathamhouse.org),逐字引用,不得改写。
-const String kRuleZh =
-    '如果一个会议，或会议的一部分，是按照Chatham House规则进行的，'
-    '则与会者可自由使用在会议中获得的信息，但不得透露演讲者及其他与会者的身份与所属机构。';
 
 class CaptionLine {
   const CaptionLine(this.who, this.text);

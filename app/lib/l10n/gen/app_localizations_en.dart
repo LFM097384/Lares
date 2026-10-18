@@ -3130,4 +3130,296 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileKick => 'Remove from circle';
+
+  @override
+  String get anonEntryStart => 'Start an unattributed meeting';
+
+  @override
+  String get anonEntryStartDesc => 'Ideas may leave; names stay in the room';
+
+  @override
+  String get anonEntryEnd => 'End the unattributed meeting';
+
+  @override
+  String get anonEntryEndDesc => 'Everything burns when it ends';
+
+  @override
+  String get anonInspired => 'Inspired by the Chatham House Rule · Unofficial';
+
+  @override
+  String get anonNotAffiliated => 'Not affiliated with Chatham House';
+
+  @override
+  String get anonDisclosure =>
+      'At this stage: what is said passes through Lares server memory and cloud speech recognition / LLMs (Alibaba Cloud, DeepSeek). Not stored, not logged, burned when the meeting ends. The operator cannot be technically excluded.';
+
+  @override
+  String get anonConveneTitle => 'Start an unattributed meeting';
+
+  @override
+  String get anonKLabel => 'Release threshold';
+
+  @override
+  String anonKValue(int k, int n) {
+    return '$k of $n must approve';
+  }
+
+  @override
+  String get anonKHint =>
+      'The outgoing draft is released only when this many members present sign off on it.';
+
+  @override
+  String get anonConveneStart => 'Start';
+
+  @override
+  String get anonConveneNeedTwo => 'At least two people need to be in the room';
+
+  @override
+  String anonConsentTitle(String name) {
+    return '$name started an unattributed meeting';
+  }
+
+  @override
+  String get anonConsentTitleOwner =>
+      'The circle owner started an unattributed meeting';
+
+  @override
+  String get anonConsentBody =>
+      'If you join, your own finished captions go into this session. Only an idea draft that members sign off on can leave, without names. You can stay in the room without joining; nothing you say will be fed in.';
+
+  @override
+  String get anonConsentAccept => 'Agree and join';
+
+  @override
+  String get anonConsentDecline => 'Not now';
+
+  @override
+  String get anonDeclinedNote =>
+      'You have not joined: nothing you say goes into this session';
+
+  @override
+  String get anonJoinNow => 'Join';
+
+  @override
+  String get anonBandLatin => 'RULE-INSPIRED';
+
+  @override
+  String get anonBandZh => 'Unattributed · Unofficial';
+
+  @override
+  String get anonMemberAcked => 'Joined';
+
+  @override
+  String get anonMemberNotJoined => 'Not joined';
+
+  @override
+  String anonJoinedCount(int acked, int n) {
+    return '$acked/$n joined';
+  }
+
+  @override
+  String get anonCaptionsOff =>
+      'Captions for others are off, so what you say cannot reach this session';
+
+  @override
+  String get anonCaptionsTurnOn => 'Turn on';
+
+  @override
+  String get anonAskAi => 'Ask AI';
+
+  @override
+  String get anonAskHint => 'Answered in the room only';
+
+  @override
+  String get anonAskSend => 'Ask';
+
+  @override
+  String get anonNoTrace => 'No trace';
+
+  @override
+  String get anonAnswersTitle => 'In-room answers';
+
+  @override
+  String anonAnswerAsker(String name) {
+    return '$name asked';
+  }
+
+  @override
+  String get anonThinking => 'Thinking…';
+
+  @override
+  String get anonMakeDraft => 'Draft what leaves';
+
+  @override
+  String get anonDraftPending => 'Drafting…';
+
+  @override
+  String get anonOpenDraft => 'Review draft';
+
+  @override
+  String get anonGateTitle => 'Outgoing draft';
+
+  @override
+  String get anonGateSubtitle =>
+      'Ideas only, no names. Every item can be changed.';
+
+  @override
+  String get anonRoleRiskTag => 'Reveals role';
+
+  @override
+  String get anonActionKeep => 'Keep';
+
+  @override
+  String get anonActionGeneralise => 'Generalise';
+
+  @override
+  String get anonActionCut => 'Cut';
+
+  @override
+  String get anonMetricsTitle => 'Metrics from the server';
+
+  @override
+  String anonApprovals(int count, int k) {
+    return '$count of $k approved';
+  }
+
+  @override
+  String get anonApprove => 'Approve release';
+
+  @override
+  String get anonApproved => 'You approved; waiting for others';
+
+  @override
+  String get anonDraftEmpty => 'Nothing in this draft can leave';
+
+  @override
+  String get anonReleasedTitle => 'Released';
+
+  @override
+  String get anonCopy => 'Copy';
+
+  @override
+  String get anonCopied => 'Copied';
+
+  @override
+  String get anonEndedTitle => 'Meeting closed';
+
+  @override
+  String get anonEndedKept => 'What remains';
+
+  @override
+  String get anonEndedBurned => 'Destroyed on this device';
+
+  @override
+  String get anonEndedBurnedList => 'Session key · In-room answers · Drafts';
+
+  @override
+  String get anonEndedNothingReleased => 'Nothing was released in this meeting';
+
+  @override
+  String get anonReceipt => 'Receipt sha256';
+
+  @override
+  String get anonEndedOk => 'OK';
+
+  @override
+  String get anonEndConfirmTitle => 'End the unattributed meeting?';
+
+  @override
+  String get anonEndConfirmBody =>
+      'What was said is destroyed from server memory right away. Unreleased drafts never leave.';
+
+  @override
+  String get anonEndConfirm => 'End';
+
+  @override
+  String anonError(String code) {
+    return 'Unattributed meeting error: $code';
+  }
+
+  @override
+  String get anonAskSubtitle =>
+      'The AI can recall this circle\'s released memory. Questions here aren\'t saved and never leave the room.';
+
+  @override
+  String get anonMemoryDisclosure =>
+      'Only unattributed content everyone agrees to release is remembered; what was said is destroyed when the meeting ends';
+
+  @override
+  String get anonMemEntry => 'Circle memory';
+
+  @override
+  String get anonMemEntryDesc =>
+      'Unattributed content released in unattributed meetings';
+
+  @override
+  String get anonMemTitle => 'Circle memory';
+
+  @override
+  String anonMemSubtitle(String circle) {
+    return 'What \"$circle\" released by signed agreement in unattributed meetings. No names; any approver can retract.';
+  }
+
+  @override
+  String get anonMemKindIdea => 'Idea';
+
+  @override
+  String get anonMemKindDecision => 'Decision';
+
+  @override
+  String get anonMemKindTodo => 'To-do';
+
+  @override
+  String get anonMemKindFact => 'Fact';
+
+  @override
+  String get anonMemKindOther => 'Other';
+
+  @override
+  String anonMemProvenance(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: 'Unattributed · released by $n people',
+      one: 'Unattributed · released by 1 person',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get anonMemProvenanceNoCount => 'Unattributed · released by the group';
+
+  @override
+  String get anonMemRetracted => 'Retracted';
+
+  @override
+  String get anonMemRetract => 'Retract';
+
+  @override
+  String get anonMemRetracting => 'Retracting…';
+
+  @override
+  String get anonMemRetractTitle => 'Retract this memory?';
+
+  @override
+  String get anonMemRetractBody =>
+      'It will be deleted from circle memory and the AI won\'t recall it again; only a \"Retracted\" line remains. This can\'t be undone.';
+
+  @override
+  String get anonMemLoading => 'Loading circle memory…';
+
+  @override
+  String get anonMemEmpty => 'No memory yet';
+
+  @override
+  String get anonMemEmptyHint =>
+      'When an unattributed meeting\'s draft is released by everyone\'s signatures, the unattributed content stays here. What was said doesn\'t.';
+
+  @override
+  String anonMemLoadFailed(String code) {
+    return 'Couldn\'t load circle memory: $code';
+  }
+
+  @override
+  String get anonMemRetry => 'Try again';
 }

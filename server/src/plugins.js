@@ -23,6 +23,7 @@ export const FOCUS_ID = 'lares.focus';
 export const PERMISSIONS = Object.freeze([
   'circle:read', 'members:read', 'chat:read', 'chat:send', 'captions:read', 'captions:send',
   'transcript:read', 'state:read', 'state:write', 'storage', 'focus:read',
+  'knowledge:read', // 隐名之约放行的去名知识条目(anonym)
 ]);
 /// webhook 事件 → 所需权限
 export const EVENT_PERMISSION = Object.freeze({
@@ -33,6 +34,7 @@ export const EVENT_PERMISSION = Object.freeze({
   chat: 'chat:read',
   plugin_state: 'state:read',
   focus: 'focus:read',
+  'knowledge.released': 'knowledge:read',
 });
 export const LIFECYCLE_EVENTS = Object.freeze(['installed', 'enabled', 'config', 'uninstalled']);
 

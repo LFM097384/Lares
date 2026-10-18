@@ -94,6 +94,8 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
 
   /// index.js 调:把一条事件推给该圈所有 SSE 流
   function emit(circleId, event, data) {
+    // 隐名之约进行中:该圈不发任何机器人 SSE / 插件 webhook(会话内容不能经机器人旁路流出)
+    if (hooks.suppress?.(circleId)) return;
     // webhook 扇出:SSE 推一条,订阅了的插件 webhook 跟一条(过滤在 plugins.fanout 里做)
     try { hooks.onEmit?.(circleId, event, data); } catch (e) { console.error('[bot] onEmit 出错:', e?.message ?? e); }
     const set = streams.get(circleId);
@@ -285,6 +287,8 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
     if (p === '/api/v1/captions' && req.method === 'POST') {
       const body = await readJson(req);
       notE2ee(info);
+      // 隐名之约进行中:不收机器人字幕(会进转写归档)
+      if (hooks.suppress?.(circleId)) throw new HttpError(409, { error: 'anonym_active' });
       const text = textOf(body);
       const fin = body.final === true;
       if (body.id !== undefined && (typeof body.id !== 'string' || !body.id || body.id.length > ID_MAX)) {
@@ -344,12 +348,31 @@ export function createBotApi({ tokens, store, livekit, rtc, hooks, env = process
       return [200, { ok: true, sampleRate: wav.sampleRate, durationMs: Math.round(wav.durationSec * 1000), elapsedMs: Date.now() - t0 }];
     }
 
+    // 隐名之约(anonym-agent/INTERFACE.md v1):只读放行结果 / 去名知识面;路径里的圈 id 必须就是 token 的圈
+    const am = /^\/bot\/v1\/circles\/([^/]+)\/anonym\/(released|knowledge)$/.exec(p);
+    if (am && req.method === 'GET') {
+      let cid;
+      try { cid = decodeURIComponent(am[1]); } catch { throw new HttpError(400, { error: 'bad_circle' }); }
+      if (cid !== circleId) throw new HttpError(403, { error: 'wrong_circle' });
+      // 插件 token 要声明 knowledge:read;圈主建的机器人 token 照旧可读
+      if (bot.plugin && !hooks.pluginOf?.(circleId, bot.pluginId)?.manifest?.permissions?.includes('knowledge:read')) {
+        throw new HttpError(403, { error: 'permission_required', permission: 'knowledge:read' });
+      }
+      if (am[2] === 'released') {
+        return [200, { circleId, items: hooks.anonymReleased?.(circleId) ?? [] }];
+      }
+      const q = String(url.searchParams.get('q') ?? '').slice(0, 500);
+      const lim = url.searchParams.has('limit') ? Number(url.searchParams.get('limit')) : 5;
+      if (!Number.isInteger(lim) || lim < 1 || lim > 20) throw new HttpError(400, { error: 'bad_query' });
+      return [200, { circleId, items: (await hooks.anonymKnowledge?.(circleId, q, { limit: lim })) ?? [] }];
+    }
+
     throw new HttpError(404, { error: 'not_found' });
   }
 
   /// http 入口。返回 true = 已处理。
   async function handle(req, res, url) {
-    if (!url.pathname.startsWith('/api/v1/') && url.pathname !== '/api/v1') return false;
+    if (!url.pathname.startsWith('/api/v1/') && url.pathname !== '/api/v1' && !url.pathname.startsWith('/bot/v1/')) return false;
     const reply = (status, body, headers = {}) => {
       if (res.headersSent) { try { res.end(); } catch { /* */ } return; }
       res.writeHead(status, {

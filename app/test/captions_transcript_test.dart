@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lares_app/src/anonym/anonym_controller.dart';
 import 'package:lares_app/src/captions/caption_controller.dart';
 import 'package:lares_app/src/captions/caption_protocol.dart';
 import 'package:lares_app/src/captions/caption_wiring.dart';
@@ -414,6 +415,42 @@ void main() {
       c.dispose();
     });
 
+    test('隐名之约进行中:转写记录停;已加入 → anonym 需要识别', () async {
+      final c = roomWith(captionsFeature: false, transcript: true);
+      await pumpEventQueue();
+      CaptionConditions with_({required bool active, required bool feeding}) =>
+          CaptionWiring.conditionsFor(
+              controller: c,
+              inRoom: true,
+              provide: true,
+              encrypted: false,
+              e2eeCloud: false,
+              sttSupported: true,
+              anonymActive: active,
+              anonymFeeding: feeding);
+      expect(with_(active: false, feeding: false).archive, isTrue);
+      final declined = with_(active: true, feeding: false);
+      expect(declined.archive, isFalse, reason: '会话进行中一律不写转写记录');
+      expect(declined.anonym, isFalse);
+      final joined = with_(active: true, feeding: true);
+      expect(joined.archive, isFalse);
+      expect(joined.anonym, isTrue);
+      expect(joined.willing, isTrue);
+      c.dispose();
+    });
+
+    test('隐名之约进行中:本人定稿只进会话,不进转写记录', () {
+      final archived = <String>[];
+      final gate = _FakeGate();
+      final h = CaptionWiring.anonymAwareHandler(
+          gate: gate, archive: (id, text, at) => archived.add(text));
+      h('1', '会前', DateTime(2026));
+      gate.sessionActive = true;
+      h('2', '会中', DateTime(2026));
+      expect(archived, ['会前']);
+      expect(gate.fed, ['会中']);
+    });
+
     test('字幕功能关 + 转写开:识别启动,自己的定稿进 sink;不发 cap 帧给请求者', () {
       fakeAsync((async) {
         final sent = <Map<String, dynamic>>[];
@@ -544,4 +581,14 @@ class _Rec implements TranscriptSink {
 extension on CaptionConditions {
   CaptionConditions copyWithMuted(bool m) => CaptionConditions(
       available: available, inRoom: inRoom, muted: m, provide: provide, archive: archive);
+}
+
+class _FakeGate extends ChangeNotifier implements AnonymCaptionGate {
+  @override
+  bool sessionActive = false;
+  @override
+  bool get feeding => sessionActive;
+  final List<String> fed = [];
+  @override
+  void ownFinal(String text, DateTime startedAt) => fed.add(text);
 }

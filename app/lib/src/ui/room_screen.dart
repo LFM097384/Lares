@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
+import '../anonym/anonym_memory.dart';
+import '../anonym/anonym_room.dart';
+import '../anonym/anonym_scope.dart';
+import '../anonym/anonym_sheets.dart';
 import '../captions/caption_controller.dart';
 import '../chat/chat_service.dart';
 import '../config.dart';
@@ -226,6 +230,58 @@ class _RoomScreenState extends State<RoomScreen> {
         canManageCircle(widget.controller, widget.settings, cid);
   }
 
+  /// 隐名之约只给**注册圈**的已确认圈主,且人在房里。
+  bool get _canAnonym {
+    final cid = widget.controller.circleId;
+    return cid != null &&
+        AnonymScope.maybeOf(context) != null &&
+        widget.controller.phase == RoomPhase.inRoom &&
+        widget.controller.isRegisteredCircle(cid) &&
+        canManageCircle(widget.controller, widget.settings, cid);
+  }
+
+  /// 会话没开 → 召集面板;开着 → 散会确认。
+  void _openAnonym() {
+    final anon = AnonymScope.maybeOf(context);
+    if (anon == null) return;
+    if (anon.active) {
+      confirmAnonymEnd(context, anon);
+    } else {
+      showAnonymConveneSheet(
+        context,
+        anonym: anon,
+        presentCount: humanMemberCount(widget.controller.members),
+      );
+    }
+  }
+
+  /// 圈子记忆:注册圈的**所有成员**都能看(圈主另可在「管理圈子」里打开)。
+  bool get _canAnonymMemory {
+    final cid = widget.controller.circleId;
+    return cid != null &&
+        AnonymScope.maybeOf(context) != null &&
+        widget.controller.phase == RoomPhase.inRoom &&
+        widget.controller.isRegisteredCircle(cid);
+  }
+
+  void _openAnonymMemory() {
+    final anon = AnonymScope.maybeOf(context);
+    final cid = widget.controller.circleId;
+    if (anon == null || cid == null) return;
+    openAnonymMemory(
+      context,
+      anonym: anon,
+      circleId: cid,
+      circleName: widget.circleName,
+      isOwner: canManageCircle(widget.controller, widget.settings, cid),
+    );
+  }
+
+  Widget _withAnonymHost(Widget child) {
+    final anon = AnonymScope.maybeOf(context);
+    return anon == null ? child : AnonymRoomHost(anonym: anon, child: child);
+  }
+
   /// 打开与首页长按同一份圈子管理面板(只给圈主)。
   void _openManage() {
     final cid = widget.controller.circleId;
@@ -324,7 +380,7 @@ class _RoomScreenState extends State<RoomScreen> {
           ? null
           : (Member m) => _chatKey.currentState?.insertMention(m.name),
       settings: widget.settings,
-      child: Scaffold(
+      child: _withAnonymHost(Scaffold(
         body: Stack(
           children: [
             // 地图铺满时这层完全被盖住 —— 停掉,别白烧 60fps。
@@ -369,6 +425,9 @@ class _RoomScreenState extends State<RoomScreen> {
                       // 本机的语音正在出本机(云端识别):常驻,可一键停
                       if (widget.captions != null)
                         CaptionProvidingBanner(captions: widget.captions!),
+                      // 隐名之约进行中:约带 + 谁加入了 + 问 AI / 出门稿
+                      if (AnonymScope.maybeOf(context) case final anon?)
+                        AnonymRoomBand(anonym: anon, settings: widget.settings),
                       // 本圈开着转写记录:一行安静的常驻小字(上面横幅在喊时不重复)
                       RoomTranscriptNotice(
                         controller: controller,
@@ -524,7 +583,7 @@ class _RoomScreenState extends State<RoomScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 
@@ -542,6 +601,9 @@ class _RoomScreenState extends State<RoomScreen> {
       focus: _focus,
       showMap: _showMap,
       onManage: _canManage ? _openManage : null,
+      anonym: AnonymScope.maybeOf(context),
+      onAnonym: _canAnonym ? _openAnonym : null,
+      onMemory: _canAnonymMemory ? _openAnonymMemory : null,
       onToggleMap: widget.locationShare == null
           ? null
           : () => setState(() => _showMap = !_showMap),

@@ -10,6 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/gen/app_localizations.dart';
+import '../anonym/anonym_kit.dart' show RuleSeal;
+import '../anonym/anonym_memory.dart';
+import '../anonym/anonym_scope.dart';
 import '../auth/circle_identity.dart';
 import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
@@ -388,6 +391,24 @@ class _CircleManager {
           circleName: circle.name,
           isOwner: _owner,
           onBeforeOpen: () => Navigator.pop(ctx),
+        ),
+      // 圈子记忆(隐名之约放行的去名内容):注册圈的所有成员都能看
+      if (registered ? AnonymScope.maybeOf(context) : null case final anon?)
+        ListTile(
+          key: const ValueKey('circle-manage-anon-memory'),
+          leading: const RuleSeal(size: 24, years: false),
+          title: Text(t.anonMemEntry),
+          subtitle: Text(t.anonMemEntryDesc),
+          onTap: () {
+            Navigator.pop(ctx);
+            openAnonymMemory(
+              context,
+              anonym: anon,
+              circleId: circle.id,
+              circleName: circle.name,
+              isOwner: _owner,
+            );
+          },
         ),
       // 主圈子:主屏小组件 / 快捷设置 / 桌面托盘 一键进的就是它
       ListTile(

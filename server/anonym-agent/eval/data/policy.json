@@ -1,0 +1,94 @@
+{
+  "id": "policy",
+  "title": "城市政策圆桌：新能源与城市更新 / Urban Policy Roundtable on NEV & Urban Renewal",
+  "sessionDate": "2026-09-22",
+  "lang": "mixed",
+  "roster": [
+    { "id": "p1", "name": "邵立平", "aliases": ["邵主任", "老邵", "Shao"], "org": "滨江市发展和改革委员会", "title": "副主任", "publicName": "邵立平", "works": ["《城市更新要有温度》"] },
+    { "id": "p2", "name": "Helen Varga", "aliases": ["Helen", "Ms. Varga", "HV"], "org": "Northbridge Urban Institute", "title": "Senior Fellow, Energy Transition" },
+    { "id": "p3", "name": "戴振宇", "aliases": ["戴总", "振宇", "Daniel"], "org": "启澜储能科技有限公司", "title": "首席执行官" },
+    { "id": "p4", "name": "叶秋萍", "aliases": ["叶老师", "秋萍", "叶教授"], "org": "滨江大学公共管理学院", "title": "副教授" },
+    { "id": "p5", "name": "梁家豪", "aliases": ["阿豪", "梁生", "Ken Leung"], "org": "海湾社区规划工作坊", "title": "社区规划师" }
+  ],
+  "lines": [
+    { "speakerId": "p4", "speakerName": "叶秋萍", "text": "各位，开始吧。今天两个议题：新能源车充电设施怎么进老旧小区，以及城市更新里居民怎么参与。从数据上看，国家统计局公布2024年新能源汽车产量超过1300万辆，需求已经不是问题，问题在落地。", "ts": "2026-09-22T14:00:15+08:00" },
+    { "speakerId": "p1", "speakerName": "邵立平", "text": "我先讲市里的口径。国务院《新能源汽车产业发展规划（2021—2035年）》提出要加快充换电基础设施建设，我们滨江今年的目标是老旧小区新增8000个公共充电桩，财政按每桩补贴2000元。", "ts": "2026-09-22T14:01:50+08:00" },
+    { "speakerId": "p3", "speakerName": "戴振宇", "text": "To be honest，8000个桩，电网扛得住吗？老小区变压器容量普遍只有400千伏安，晚上七点一齐充，跳闸是分分钟的事。我们启澜储能做的就是社区侧储能柜，白天谷电存、晚上放。", "ts": "2026-09-22T14:03:20+08:00" },
+    { "speakerId": "p2", "speakerName": "Helen Varga", "text": "From a policy standpoint, the EU's Alternative Fuels Infrastructure Regulation sets mandatory charger density along core roads. But residential retrofit is left to member states, and that's exactly where the bottleneck is. In my years at Northbridge Urban Institute I've seen Amsterdam solve it with on-request public chargers.", "ts": "2026-09-22T14:05:02+08:00" },
+    { "speakerId": "p5", "speakerName": "梁家豪", "text": "老实讲，居民那边问题唔系技术，系车位。老小区一百户才二十个车位，装了桩谁用？邵主任那篇《城市更新要有温度》讲得好好听，但落到楼下就是吵架。", "ts": "2026-09-22T14:06:40+08:00" },
+    { "speakerId": "p1", "speakerName": "邵立平", "text": "梁先生说得有道理。所以我们打算推‘共享桩’：私人桩错峰开放，物业统一结算。我在市发改委分管能源这块三年，最难的就是物业不愿意担责任。", "ts": "2026-09-22T14:08:15+08:00" },
+    { "speakerId": "p4", "speakerName": "叶秋萍", "text": "从数据上看，共享桩的利用率能到多少？我们学院去年在滨江大学周边做过调查，私桩平均每天空置18个小时。", "ts": "2026-09-22T14:09:40+08:00" },
+    { "speakerId": "p3", "speakerName": "戴振宇", "text": "Oh great，又一个试点。To be honest，前年那批‘智慧社区’试点，挂牌那天领导来剪彩，第二年设备全落灰，真是‘可持续’得很啊。", "ts": "2026-09-22T14:11:05+08:00" },
+    { "speakerId": "p2", "speakerName": "Helen Varga", "text": "Daniel has a point, though. From a policy standpoint, pilots fail when there's no operating budget after year one. The fix is to tie subsidies to utilisation, not installation. Pay per kilowatt-hour delivered, not per charger built.", "ts": "2026-09-22T14:12:40+08:00" },
+    { "speakerId": "p1", "speakerName": "邵立平", "text": "按度电补贴这个思路我们可以研究。不过财政口径要跟省里对齐，我下周去省发改委汇报。有方案可以发我办公室邮箱 shaolp@binjiangdrc.gov.cn。", "ts": "2026-09-22T14:14:10+08:00" },
+    { "speakerId": "p5", "speakerName": "梁家豪", "text": "说到城市更新，老实讲，拆了建、建了拆，街坊早就怕了。我细个喺深水埗长大，见过太多旧楼重建之后原居民根本返唔来。滨江的海湾片区唔好再行呢条路。", "ts": "2026-09-22T14:15:45+08:00" },
+    { "speakerId": "p4", "speakerName": "叶秋萍", "text": "梁先生提到的是原地安置率。从数据上看，住建部2021年发布的《关于在实施城市更新行动中防止大拆大建问题的通知》规定拆除建筑面积原则上不应大于现状总建筑面积的20%，就是在回应这个。", "ts": "2026-09-22T14:17:20+08:00" },
+    { "speakerId": "p2", "speakerName": "Helen Varga", "text": "In Europe, the New European Bauhaus initiative pushes the same idea: renovate first, demolish last. From a policy standpoint, the carbon math supports it, since embodied carbon in demolition can wipe out decades of operational savings.", "ts": "2026-09-22T14:18:55+08:00" },
+    { "speakerId": "p3", "speakerName": "戴振宇", "text": "所以我建议改造和储能打包：外墙保温、屋顶光伏、楼下储能柜一起做。To be honest，单做充电桩不赚钱，打包以后合同能源管理才算得过来账，回收期能从九年压到六年。", "ts": "2026-09-22T14:20:30+08:00" },
+    { "speakerId": "p1", "speakerName": "邵立平", "text": "这个思路跟市里的方向一致。我去年在市委党校讲《城市更新要有温度》的时候也说过，改造要算碳账，也要算民生账。", "ts": "2026-09-22T14:22:05+08:00" },
+    { "speakerId": "p5", "speakerName": "梁家豪", "text": "邵主任的演讲稿当然写得漂亮，佢讲‘温度’，街坊感受到的是‘温度计’——一量就知冷暖。老实讲，我建议每个更新项目设居民议事会，方案要有三分之二住户签字同意先至可以动工。", "ts": "2026-09-22T14:23:40+08:00" },
+    { "speakerId": "p4", "speakerName": "叶秋萍", "text": "三分之二这个门槛，从数据上看是合理的。我们做过模拟，门槛到75%以上项目基本推不动，低于50%就会出群体投诉。我研究的那个片区，我自己也住在里面，海湾路36弄，所以感受很直接。", "ts": "2026-09-22T14:25:15+08:00" },
+    { "speakerId": "p2", "speakerName": "Helen Varga", "text": "I'd add one thing: publish the data. The World Health Organization's housing and health guidelines link cold indoor temperatures to excess winter deaths, so insulation retrofits are a health policy too. Make that case publicly and residents buy in. My contact is h.varga@northbridge-urban.org.", "ts": "2026-09-22T14:26:50+08:00" },
+    { "speakerId": "p3", "speakerName": "戴振宇", "text": "数据我们可以提供，储能柜的运行数据实时上传到 qilan-energy.cn/open/binjiang。To be honest，政府愿意签五年运营协议，我们就愿意先垫资，第一批做三个小区。电话 137-1029-6684 找我。", "ts": "2026-09-22T14:28:25+08:00" },
+    { "speakerId": "p1", "speakerName": "邵立平", "text": "五年协议要过人大财经委，我尽量争取。不过各位，今天讲的不代表市里正式立场，请不要外传。", "ts": "2026-09-22T14:30:00+08:00" },
+    { "speakerId": "p5", "speakerName": "梁家豪", "text": "放心，今日讲咩，出咗门就冇人记得，呢个我哋最熟。老实讲，我只希望议事会唔系摆设。我嘅公众号 @海湾街坊志 会跟进，但唔会点名。", "ts": "2026-09-22T14:31:35+08:00" },
+    { "speakerId": "p4", "speakerName": "叶秋萍", "text": "好，我总结。第一，充电桩补贴从按桩改为按度电，挂钩利用率；第二，私桩错峰共享，物业统一结算；第三，改造、光伏、储能打包做合同能源管理，先做三个小区试点；第四，更新项目设居民议事会，三分之二住户同意才动工。纪要10月8日前发大家。", "ts": "2026-09-22T14:33:10+08:00" },
+    { "speakerId": "p2", "speakerName": "Helen Varga", "text": "Agreed. From a policy standpoint, I'd also benchmark against the EU AI Act only where smart-grid software is involved; for most of this, it's not relevant. Thanks, Qiuping.", "ts": "2026-09-22T14:34:20+08:00" }
+  ],
+  "gold": {
+    "identifiers": [
+      { "text": "137-1029-6684", "kind": "phone", "owner": "p3", "fuzzy": ["13710296684"] },
+      { "text": "shaolp@binjiangdrc.gov.cn", "kind": "email", "owner": "p1" },
+      { "text": "h.varga@northbridge-urban.org", "kind": "email", "owner": "p2" },
+      { "text": "qilan-energy.cn/open/binjiang", "kind": "url", "owner": "p3", "fuzzy": ["qilan-energy.cn"] },
+      { "text": "@海湾街坊志", "kind": "handle", "owner": "p5", "fuzzy": ["海湾街坊志"] },
+      { "text": "邵主任", "kind": "name", "owner": "p1" },
+      { "text": "Daniel", "kind": "name", "owner": "p3" },
+      { "text": "Thanks, Qiuping", "kind": "name", "owner": "p4", "fuzzy": ["Qiuping"] },
+      { "text": "梁先生", "kind": "name", "owner": "p5" },
+      { "text": "海湾路36弄", "kind": "address", "owner": "p4" },
+      { "text": "我去年在市委党校讲《城市更新要有温度》的时候", "kind": "date", "owner": "p1", "fuzzy": ["去年在市委党校"] },
+      { "text": "我在市发改委分管能源这块三年", "kind": "title", "owner": "p1", "fuzzy": ["市发改委分管能源"] },
+      { "text": "我们启澜储能", "kind": "org", "owner": "p3", "fuzzy": ["启澜储能"] },
+      { "text": "In my years at Northbridge Urban Institute", "kind": "org", "owner": "p2", "fuzzy": ["Northbridge Urban Institute"] },
+      { "text": "我们学院去年在滨江大学周边做过调查", "kind": "org", "owner": "p4", "fuzzy": ["滨江大学"] },
+      { "text": "我细个喺深水埗长大", "kind": "quasi", "owner": "p5", "fuzzy": ["深水埗长大"] },
+      { "text": "我自己也住在里面", "kind": "quasi", "owner": "p4" },
+      { "text": "我下周去省发改委汇报", "kind": "quasi", "owner": "p1" },
+      { "text": "From a policy standpoint", "kind": "style", "owner": "p2" },
+      { "text": "To be honest", "kind": "style", "owner": "p3" },
+      { "text": "从数据上看", "kind": "style", "owner": "p4" },
+      { "text": "老实讲", "kind": "style", "owner": "p5" }
+    ],
+    "ideas": [
+      { "id": "i1", "text": "老旧小区变压器容量普遍仅约400千伏安，集中充电易跳闸，需配社区侧储能柜谷电存、峰时放", "owner": "p3" },
+      { "id": "i2", "text": "老旧小区真正的瓶颈是车位不足（百户约二十个车位），而非技术", "owner": "p5" },
+      { "id": "i3", "text": "推行私人充电桩错峰共享，由物业统一结算；难点在物业不愿担责", "owner": "p1" },
+      { "id": "i4", "text": "试点在第一年后缺乏运营预算就会失败，补贴应按输送度电（利用率）而非按建桩数量发放", "owner": "p2" },
+      { "id": "i5", "text": "外墙保温、屋顶光伏与储能打包做合同能源管理，可将回收期从九年压到六年；政府签五年运营协议即可先垫资做三个小区", "owner": "p3" },
+      { "id": "i6", "text": "城市更新项目应设居民议事会，须三分之二住户签字同意方可动工", "owner": "p5" },
+      { "id": "i7", "text": "模拟显示同意门槛高于75%项目推不动、低于50%易引发群体投诉，三分之二较合理", "owner": "p4" },
+      { "id": "i8", "text": "依据世界卫生组织住房与健康指南，室内低温与冬季超额死亡相关，保温改造也是健康政策，公开数据有助居民支持", "owner": "p2" },
+      { "id": "i9", "text": "国务院《新能源汽车产业发展规划（2021—2035年）》要求加快充换电设施建设，滨江目标老旧小区新增8000个公共桩、每桩补贴2000元", "owner": "p1" }
+    ],
+    "publicFacts": [
+      { "id": "f1", "text": "国家统计局公布2024年新能源汽车产量超过1300万辆", "keep": ["国家统计局", "1300万辆"] },
+      { "id": "f2", "text": "国务院《新能源汽车产业发展规划（2021—2035年）》提出加快充换电基础设施建设", "keep": ["国务院", "新能源汽车产业发展规划"] },
+      { "id": "f3", "text": "The EU Alternative Fuels Infrastructure Regulation sets mandatory charger density along core roads", "keep": ["Alternative Fuels Infrastructure Regulation"] },
+      { "id": "f4", "text": "住建部2021年通知规定城市更新中拆除建筑面积原则上不大于现状总建筑面积的20%", "keep": ["住建部", "防止大拆大建"] },
+      { "id": "f5", "text": "The New European Bauhaus initiative promotes renovating before demolishing", "keep": ["New European Bauhaus"] },
+      { "id": "f6", "text": "WHO housing and health guidelines link cold indoor temperatures to excess winter deaths", "keep": ["World Health Organization"] },
+      { "id": "f7", "text": "The EU AI Act is relevant only where smart-grid software is involved", "keep": ["EU AI Act"] }
+    ],
+    "toneMarkers": [
+      { "id": "t1", "owner": "p5", "line": 4, "markers": ["讲得好好听", "唔系", "系车位"], "target": "官员关于城市更新的公开演讲与充电桩进小区方案", "stance": { "direction": "doubt", "strength": 2 }, "intended": "老旧小区的问题不是技术而是车位不足，百户仅约二十个车位，政策表述与实际落地存在差距" },
+      { "id": "t2", "owner": "p3", "line": 2, "markers": ["电网扛得住吗", "分分钟的事"], "target": "老旧小区新增8000个充电桩的目标", "stance": { "direction": "doubt", "strength": 2 }, "intended": "老旧小区变压器容量约400千伏安，集中充电容易跳闸，需要配套社区侧储能" },
+      { "id": "t3", "owner": "p3", "line": 7, "markers": ["Oh great，又一个试点", "真是‘可持续’得很啊"], "target": "政府社区试点项目", "stance": { "direction": "oppose", "strength": 3 }, "intended": "以往智慧社区试点在挂牌后缺乏持续运营，第二年设备即闲置，新试点可能重蹈覆辙" },
+      { "id": "t4", "owner": "p5", "line": 15, "markers": ["演讲稿当然写得漂亮", "一量就知冷暖"], "target": "官员‘城市更新要有温度’的公开表态", "stance": { "direction": "doubt", "strength": 2 }, "intended": "居民对更新的实际感受与官方表态不符，建议每个项目设居民议事会、三分之二住户同意才动工" },
+      { "id": "t5", "owner": "p5", "line": 20, "markers": ["出咗门就冇人记得，呢个我哋最熟"], "target": "官员要求会议内容不外传、以往会议无下文", "stance": { "direction": "doubt", "strength": 1 }, "intended": "同意不外传，但担心会议结论不被落实，希望居民议事会不是摆设，并会以不点名方式公开跟进" }
+    ],
+    "selfAuthor": [
+      { "owner": "p1", "work": "《城市更新要有温度》", "fuzzy": ["城市更新要有温度"], "note": "participant is a semi-public official (publicName on roster); their public speech is self-referenced and cited by others, which reveals the speaker" }
+    ]
+  }
+}

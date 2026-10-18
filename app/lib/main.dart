@@ -8,6 +8,8 @@ import 'src/chat/chat_service.dart';
 import 'src/recording/recording_consent.dart';
 import 'src/chat/session_chat_transport.dart';
 import 'src/config.dart';
+import 'src/anonym/anonym_controller.dart';
+import 'src/anonym/anonym_scope.dart';
 import 'src/captions/caption_controller.dart';
 import 'src/captions/caption_wiring.dart';
 import 'src/captions/transcript_sink.dart';
@@ -521,6 +523,17 @@ Future<void> main() async {
             (e2ee.statusForActiveCircle(id)?.isEncrypted ?? false)) ||
         (controller.circleInfo[id]?.e2ee ?? false),
   );
+  // 隐名之约(受 Chatham House 规则启发 · 非官方):anon_* 信令 + 只在内存里的会话密钥。
+  // 离房 / 换圈 / 重连后服务器报告无会话 → 立即销毁。与 App 同生命周期。
+  final anonym = AnonymController(send: signaling.send);
+  signaling.messages.listen(anonym.handle);
+  void bindAnonymRoom() => anonym.bindRoom(
+        circleId: controller.circleId,
+        inRoom: controller.phase == RoomPhase.inRoom,
+        myUserId: controller.userId,
+      );
+  controller.addListener(bindAnonymRoom);
+  bindAnonymRoom();
   // 与 App 同生命周期
   // ignore: unused_local_variable
   final captionWiring = CaptionWiring(
@@ -531,6 +544,8 @@ Future<void> main() async {
     e2ee: e2ee,
     onTokenSourceReset: captionTokens.clear,
     transcriptSink: transcriptSink,
+    // 隐名之约进行中:本人定稿只进会话(已加入时),转写记录一律停
+    anonym: anonym,
   );
   // AI 语音助手的状态帧(lares.ai)→ controller.aiStates。与 App 同生命周期。
   // ignore: unused_local_variable
@@ -567,6 +582,8 @@ Future<void> main() async {
     service: focus,
     child: TranscriptScope(
     service: transcripts,
+    child: AnonymScope(
+    controller: anonym,
     child: LaresApp(
     controller: controller,
     voiceNotes: voiceNotes,
@@ -583,7 +600,7 @@ Future<void> main() async {
     ice: ice,
     onStartMesh: startMesh,
     navigatorKey: _navigatorKey,
-  )))));
+  ))))));
 }
 
 /// 给没有 BuildContext 的逻辑层(PushService)弹对话框用。

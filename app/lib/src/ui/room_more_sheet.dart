@@ -9,6 +9,8 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
+import '../anonym/anonym_controller.dart';
+import '../anonym/anonym_kit.dart';
 import '../captions/caption_controller.dart';
 import '../chat/chat_service.dart';
 import '../focus/focus_service.dart';
@@ -42,10 +44,21 @@ class RoomMoreModel {
     this.showMap = false,
     this.onToggleMap,
     this.onManage,
+    this.anonym,
+    this.onAnonym,
+    this.onMemory,
   });
 
   /// 圈主才非 null:面板最上面一行「管理圈子」。
   final VoidCallback? onManage;
+
+  /// 隐名之约(只给注册圈的圈主):非 null 时在「管理圈子」下面加一行
+  /// 「发起隐名之约」/ 会话进行中时「结束隐名之约」。
+  final AnonymController? anonym;
+  final VoidCallback? onAnonym;
+
+  /// 圈子记忆(注册圈的所有成员):非 null 时加一行「圈子记忆」。
+  final VoidCallback? onMemory;
 
   final RoomController controller;
   final String circleName;
@@ -68,6 +81,7 @@ class RoomMoreModel {
     voiceNotes,
     plugins,
     focus,
+    anonym,
   ]);
 
   CircleFeatures get _features {
@@ -125,7 +139,11 @@ class RoomMoreModel {
   /// 「更多」里至少有一格(功能格、AI 助手格,或圈主的「管理圈子」)。
   /// 圈主即使把功能全关了也总有「更多」—— 否则就没处再把它们打开。
   bool get hasAnything =>
-      onManage != null || aiPlugin != null || items().isNotEmpty;
+      onManage != null ||
+      onAnonym != null ||
+      onMemory != null ||
+      aiPlugin != null ||
+      items().isNotEmpty;
 }
 
 /// 控件排里的「更多」键。有没有它由调用方按 [RoomMoreModel.items] 决定 ——
@@ -202,6 +220,46 @@ class _RoomMoreSheet extends StatelessWidget {
                       Navigator.of(context).pop();
                       if (!host.mounted) return;
                       manage();
+                    },
+                  ),
+                  if (ai != null ||
+                      items.isNotEmpty ||
+                      model.onAnonym != null ||
+                      model.onMemory != null)
+                    const SizedBox(height: LaresSpacing.sm),
+                ],
+                if (model.onAnonym case final anon?) ...[
+                  _RowEntry(
+                    key: const ValueKey('more-anonym'),
+                    leading: const RuleSeal(size: 22, years: false),
+                    title: (model.anonym?.active ?? false)
+                        ? t.anonEntryEnd
+                        : t.anonEntryStart,
+                    subtitle: (model.anonym?.active ?? false)
+                        ? t.anonEntryEndDesc
+                        : t.anonEntryStartDesc,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      if (!host.mounted) return;
+                      anon();
+                    },
+                  ),
+                  if (ai != null || items.isNotEmpty || model.onMemory != null)
+                    const SizedBox(height: LaresSpacing.sm),
+                ],
+                if (model.onMemory case final memory?) ...[
+                  _RowEntry(
+                    key: const ValueKey('more-anon-memory'),
+                    leading: Icon(
+                      Icons.bookmark_border_rounded,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    title: t.anonMemEntry,
+                    subtitle: t.anonMemEntryDesc,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      if (!host.mounted) return;
+                      memory();
                     },
                   ),
                   if (ai != null || items.isNotEmpty)

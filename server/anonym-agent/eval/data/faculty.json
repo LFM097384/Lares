@@ -1,0 +1,94 @@
+{
+  "id": "faculty",
+  "title": "Faculty meeting: departmental policy on student use of generative AI",
+  "sessionDate": "2026-09-24",
+  "lang": "en",
+  "roster": [
+    { "id": "p1", "name": "Eleanor Whitcombe", "aliases": ["Ellie", "Prof. Whitcombe", "the Chair"], "org": "Halden University, Department of English and Comparative Literature", "title": "Professor and Department Chair" },
+    { "id": "p2", "name": "Marcus Oyelaran", "aliases": ["Marcus", "Dr. Oyelaran", "MO"], "org": "Halden University, Department of English and Comparative Literature", "title": "Associate Professor" },
+    { "id": "p3", "name": "Ingrid Solberg", "aliases": ["Ingrid", "Dr. Solberg", "Inge"], "org": "Halden University, Department of English and Comparative Literature", "title": "Senior Lecturer and novelist", "works": ["The Salt Archive"] },
+    { "id": "p4", "name": "Daniel Reyes-Park", "aliases": ["Dan", "Danny", "Dr. Reyes-Park"], "org": "Halden University, Centre for Teaching and Learning", "title": "Educational Technologist" },
+    { "id": "p5", "name": "Priyanka Desai", "aliases": ["Priya", "Dr. Desai", "PD"], "org": "Halden University, Department of English and Comparative Literature", "title": "Assistant Professor (tenure-track)" }
+  ],
+  "lines": [
+    { "speakerId": "p1", "speakerName": "Eleanor Whitcombe", "text": "Let's get going. Item one is the generative AI policy, which the Dean wants by November. For what it's worth, I've chaired this department for eight years and I've never seen a policy question split us this badly.", "ts": "2026-09-24T15:00:12+01:00" },
+    { "speakerId": "p2", "speakerName": "Marcus Oyelaran", "text": "Oh brilliant, another committee to draft another policy that students will ignore. With respect, we already have an academic integrity code. AI-written essays are plagiarism under the existing wording; we don't need a new document.", "ts": "2026-09-24T15:01:40+01:00" },
+    { "speakerId": "p4", "speakerName": "Daniel Reyes-Park", "text": "Quick data point. In our spring survey, 71% of undergraduates said they'd used ChatGPT on coursework at least once, and only 18% thought they'd broken a rule. From where I sit at the Centre for Teaching and Learning, the existing code is simply not being read that way.", "ts": "2026-09-24T15:03:05+01:00" },
+    { "speakerId": "p5", "speakerName": "Priyanka Desai", "text": "I'd just gently add that detection tools are not the answer. OpenAI itself withdrew its AI text classifier in 2023 because of low accuracy, and the false-positive studies show non-native English writers get flagged far more often.", "ts": "2026-09-24T15:04:30+01:00" },
+    { "speakerId": "p3", "speakerName": "Ingrid Solberg", "text": "Speaking as a writer, my worry is different. When my novel The Salt Archive came out in translation last year, I found pirated copies of it in a training dataset scrape. Students should understand that these tools are built on other people's unpaid work.", "ts": "2026-09-24T15:06:02+01:00" },
+    { "speakerId": "p2", "speakerName": "Marcus Oyelaran", "text": "Ingrid's The Salt Archive is exactly why I'm against blanket permission. With respect, if we let students run prompts on everything, we're teaching them that authorship is optional.", "ts": "2026-09-24T15:07:25+01:00" },
+    { "speakerId": "p1", "speakerName": "Eleanor Whitcombe", "text": "For what it's worth, the legal side is moving. The EU AI Act classifies AI systems used to evaluate students or determine admissions as high-risk, so any grading tool we adopt will carry compliance obligations from 2026.", "ts": "2026-09-24T15:08:50+01:00" },
+    { "speakerId": "p4", "speakerName": "Daniel Reyes-Park", "text": "And GDPR applies to anything students paste in. If a student uploads a classmate's peer review into a chatbot, that's personal data leaving the university. That's the part people forget.", "ts": "2026-09-24T15:10:15+01:00" },
+    { "speakerId": "p5", "speakerName": "Priyanka Desai", "text": "I'd just gently propose a three-tier model per assignment: AI prohibited, AI permitted with disclosure, AI required. Each syllabus marks every assignment with one tier, and students attach a short disclosure statement when they use it.", "ts": "2026-09-24T15:11:48+01:00" },
+    { "speakerId": "p2", "speakerName": "Marcus Oyelaran", "text": "Splendid, so now every essay comes with a confession form. Wonderful. Because nothing says rigorous scholarship like a checkbox. With respect, students will tick 'no AI' and move on.", "ts": "2026-09-24T15:13:10+01:00" },
+    { "speakerId": "p3", "speakerName": "Ingrid Solberg", "text": "Marcus, the checkbox isn't the point; the conversation is. Orwell's 'Politics and the English Language' argues that sloppy language enables sloppy thinking. That's the lesson: if a student can't defend a sentence in a viva, they didn't write it.", "ts": "2026-09-24T15:14:35+01:00" },
+    { "speakerId": "p1", "speakerName": "Eleanor Whitcombe", "text": "That suggests oral defence as the safeguard rather than detection. For what it's worth, the Russell Group published principles on generative AI in 2023 that lean the same way: teach AI literacy, adapt assessment, don't ban.", "ts": "2026-09-24T15:16:00+01:00" },
+    { "speakerId": "p5", "speakerName": "Priyanka Desai", "text": "I'd just gently note the workload. A ten-minute viva for each of 140 students in my second-year module is twenty-three hours. I'm up for tenure review in March, and I can't absorb that on top of my teaching load.", "ts": "2026-09-24T15:17:30+01:00" },
+    { "speakerId": "p4", "speakerName": "Daniel Reyes-Park", "text": "We could sample instead: viva 15% of submissions at random plus any flagged by the marker's judgement. The Centre can fund graduate assistants to run them. Drop me a line at d.reyespark@halden.ac.uk and I'll send the costing.", "ts": "2026-09-24T15:19:02+01:00" },
+    { "speakerId": "p2", "speakerName": "Marcus Oyelaran", "text": "Random vivas. Marvellous. Who exactly do you think gets 'flagged by judgement' first? With respect, it'll be the international students, which is the same bias Priyanka described with detectors.", "ts": "2026-09-24T15:20:30+01:00" },
+    { "speakerId": "p3", "speakerName": "Ingrid Solberg", "text": "That's fair. Then make it purely random, no discretionary flags. Speaking as a writer, I'd also want a short reflective note on process for any tier-two assignment: what the tool suggested, what you kept, what you rejected.", "ts": "2026-09-24T15:21:55+01:00" },
+    { "speakerId": "p1", "speakerName": "Eleanor Whitcombe", "text": "Good. Separately, staff use. Musk buying Twitter showed how fast a platform's terms can change; we shouldn't build marking workflows on a vendor whose terms might flip next term. Any staff tool needs a university contract.", "ts": "2026-09-24T15:23:20+01:00" },
+    { "speakerId": "p4", "speakerName": "Daniel Reyes-Park", "text": "Agreed. We have a sandboxed instance at halden-ctl.ac.uk/ai-sandbox that doesn't retain data. I set it up after moving over from the Toronto school board in 2024, and it's already compliant with our data protection review.", "ts": "2026-09-24T15:24:50+01:00" },
+    { "speakerId": "p5", "speakerName": "Priyanka Desai", "text": "I'd just gently ask that the policy protect junior staff too. If a student complains that a tier was unfair, the module convenor shouldn't carry it alone. My office is Room 3.14, Calloway Building, if anyone wants to draft that clause with me.", "ts": "2026-09-24T15:26:15+01:00" },
+    { "speakerId": "p2", "speakerName": "Marcus Oyelaran", "text": "Fine. I'll concede the tiers if tier one, AI prohibited, is the default for all first-year writing modules. With respect, students have to learn to write a paragraph unaided before they learn to edit a machine's.", "ts": "2026-09-24T15:27:40+01:00" },
+    { "speakerId": "p3", "speakerName": "Ingrid Solberg", "text": "I'll second that. And for the record, I won't be using The Salt Archive as a set text again until the publisher clarifies the licensing, so it's off the reading list either way. My agent Clara Mendes is chasing it.", "ts": "2026-09-24T15:29:05+01:00" },
+    { "speakerId": "p1", "speakerName": "Eleanor Whitcombe", "text": "Right, decisions. One: three-tier labels on every assignment, tier one default in first year. Two: no AI detectors in misconduct cases. Three: random 15% vivas, funded by the Centre. Four: process notes for tier two. Five: staff tools only through university-contracted services. Draft to me at e.whitcombe@halden.ac.uk by October 20; call 01632 960 418 if it's urgent.", "ts": "2026-09-24T15:30:40+01:00" },
+    { "speakerId": "p5", "speakerName": "Priyanka Desai", "text": "I'd just gently volunteer to draft the tier definitions. I'll circulate on the department Slack as @pdesai-lit.", "ts": "2026-09-24T15:31:30+01:00" },
+    { "speakerId": "p2", "speakerName": "Marcus Oyelaran", "text": "And I'll draft the first-year clause. Oh, and what a joy, another policy review in twelve months, I assume. With respect, put that in the minutes too.", "ts": "2026-09-24T15:32:15+01:00" }
+  ],
+  "gold": {
+    "identifiers": [
+      { "text": "01632 960 418", "kind": "phone", "owner": "p1", "fuzzy": ["01632960418"] },
+      { "text": "e.whitcombe@halden.ac.uk", "kind": "email", "owner": "p1" },
+      { "text": "d.reyespark@halden.ac.uk", "kind": "email", "owner": "p4" },
+      { "text": "halden-ctl.ac.uk/ai-sandbox", "kind": "url", "owner": "p4", "fuzzy": ["halden-ctl.ac.uk"] },
+      { "text": "@pdesai-lit", "kind": "handle", "owner": "p5", "fuzzy": ["pdesai-lit"] },
+      { "text": "Marcus", "kind": "name", "owner": "p2" },
+      { "text": "Ingrid", "kind": "name", "owner": "p3" },
+      { "text": "Priyanka", "kind": "name", "owner": "p5" },
+      { "text": "Clara Mendes", "kind": "name", "owner": "third" },
+      { "text": "Room 3.14, Calloway Building", "kind": "address", "owner": "p5", "fuzzy": ["Calloway Building"] },
+      { "text": "I'm up for tenure review in March", "kind": "date", "owner": "p5", "fuzzy": ["tenure review in March"] },
+      { "text": "I've chaired this department for eight years", "kind": "title", "owner": "p1" },
+      { "text": "From where I sit at the Centre for Teaching and Learning", "kind": "org", "owner": "p4", "fuzzy": ["Centre for Teaching and Learning"] },
+      { "text": "after moving over from the Toronto school board in 2024", "kind": "quasi", "owner": "p4", "fuzzy": ["Toronto school board"] },
+      { "text": "140 students in my second-year module", "kind": "quasi", "owner": "p5" },
+      { "text": "My agent Clara Mendes", "kind": "quasi", "owner": "p3" },
+      { "text": "For what it's worth", "kind": "style", "owner": "p1" },
+      { "text": "With respect", "kind": "style", "owner": "p2" },
+      { "text": "Speaking as a writer", "kind": "style", "owner": "p3" },
+      { "text": "I'd just gently", "kind": "style", "owner": "p5" },
+      { "text": "Quick data point", "kind": "style", "owner": "p4" }
+    ],
+    "ideas": [
+      { "id": "i1", "text": "AI-written essays already count as plagiarism under the existing integrity code, so no new policy is needed", "owner": "p2" },
+      { "id": "i2", "text": "71% of undergraduates have used ChatGPT on coursework but only 18% think they broke a rule, so the existing code is not read as covering AI", "owner": "p4" },
+      { "id": "i3", "text": "AI detectors should not be used: OpenAI withdrew its own classifier for low accuracy and detectors disproportionately flag non-native English writers", "owner": "p5" },
+      { "id": "i4", "text": "Three-tier labels per assignment (prohibited / permitted with disclosure / required) with a student disclosure statement", "owner": "p5" },
+      { "id": "i5", "text": "Under the EU AI Act, AI used to evaluate students is high-risk, so any adopted grading tool carries compliance obligations", "owner": "p1" },
+      { "id": "i6", "text": "Vivas should be purely random (about 15% of submissions, Centre-funded) with no discretionary flags, to avoid bias against international students", "owner": "p2" },
+      { "id": "i7", "text": "Tier-two assignments should include a short reflective process note on what the AI suggested, what was kept and what was rejected", "owner": "p3" },
+      { "id": "i8", "text": "AI prohibited should be the default tier for all first-year writing modules", "owner": "p2" },
+      { "id": "i9", "text": "Staff AI tools only through university-contracted services, since vendor terms can change abruptly as Musk's takeover of Twitter showed; GDPR applies to student data pasted into chatbots", "owner": "p1" }
+    ],
+    "publicFacts": [
+      { "id": "f1", "text": "OpenAI withdrew its AI text classifier in 2023 because of low accuracy", "keep": ["OpenAI", "classifier"] },
+      { "id": "f2", "text": "The EU AI Act classifies AI systems used to evaluate students or determine admissions as high-risk", "keep": ["EU AI Act", "high-risk"] },
+      { "id": "f3", "text": "GDPR applies to personal data students paste into chatbots", "keep": ["GDPR"] },
+      { "id": "f4", "text": "Orwell's essay 'Politics and the English Language' argues sloppy language enables sloppy thinking", "keep": ["Orwell", "Politics and the English Language"] },
+      { "id": "f5", "text": "The Russell Group published principles on generative AI in education in 2023", "keep": ["Russell Group"] },
+      { "id": "f6", "text": "Musk bought Twitter, after which the platform's terms changed rapidly", "keep": ["Musk", "Twitter"] },
+      { "id": "f7", "text": "ChatGPT is widely used by undergraduates on coursework", "keep": ["ChatGPT"] }
+    ],
+    "toneMarkers": [
+      { "id": "t1", "owner": "p2", "line": 1, "markers": ["Oh brilliant, another committee"], "target": "creating a new departmental AI policy", "stance": { "direction": "oppose", "strength": 2 }, "intended": "A new policy is unnecessary because AI-written essays already fall under plagiarism in the existing academic integrity code" },
+      { "id": "t2", "owner": "p2", "line": 9, "markers": ["Splendid", "Wonderful", "Because nothing says rigorous scholarship like a checkbox"], "target": "student AI disclosure statements", "stance": { "direction": "doubt", "strength": 2 }, "intended": "Disclosure checkboxes are unlikely to be effective because students will simply declare no AI use" },
+      { "id": "t3", "owner": "p2", "line": 14, "markers": ["Marvellous", "Who exactly do you think gets 'flagged by judgement' first?"], "target": "vivas triggered by marker discretion", "stance": { "direction": "oppose", "strength": 3 }, "intended": "Discretionary flagging for vivas would disproportionately target international students, reproducing detector bias" },
+      { "id": "t4", "owner": "p2", "line": 23, "markers": ["what a joy, another policy review in twelve months"], "target": "the expected annual policy review cycle", "stance": { "direction": "doubt", "strength": 1 }, "intended": "Expects the policy will need revisiting within a year and wants that recorded in the minutes" },
+      { "id": "t5", "owner": "p5", "line": 12, "markers": ["I'd just gently note"], "target": "mandatory vivas for all students", "stance": { "direction": "oppose", "strength": 2 }, "intended": "Ten-minute vivas for every student in a 140-student module would cost about twenty-three hours, an unsustainable workload for junior staff" }
+    ],
+    "selfAuthor": [
+      { "owner": "p3", "work": "The Salt Archive", "fuzzy": ["Salt Archive"], "note": "participant is the author; self-referenced (my novel The Salt Archive) and referenced by another speaker (Ingrid's The Salt Archive)" }
+    ]
+  }
+}

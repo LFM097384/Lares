@@ -1,0 +1,846 @@
+{
+  "timestamp": "2026-10-18T06:16:42.062Z",
+  "mode": "llm",
+  "judgeModel": "deepseek-flash",
+  "price": {
+    "inputPerM": 0.07,
+    "outputPerM": 0.28,
+    "note": "assumed DeepSeek flash: $0.07/M in, $0.28/M out"
+  },
+  "wallSeconds": 40,
+  "tokens": {
+    "gate": {
+      "p": 9337,
+      "c": 7161
+    },
+    "eval": {
+      "p": 9136,
+      "c": 1866
+    }
+  },
+  "args": {
+    "mock": false,
+    "layers": null,
+    "ablation": false,
+    "configs": [
+      "+L4"
+    ],
+    "only": [
+      "journalist"
+    ],
+    "threshold": 0.5,
+    "flagThreshold": 0.7,
+    "attackSamples": 2,
+    "concurrency": 4,
+    "mosaic": false,
+    "out": "results-journalist-handlefix"
+  },
+  "configs": [
+    {
+      "config": "+L4",
+      "layers": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "n": 1,
+      "errors": 0,
+      "directLeak": 0,
+      "affilLeak": 0,
+      "quasiLeak": 0,
+      "styleLeak": 0,
+      "attackAcc": 0.8888888888888888,
+      "randomBaseline": 0.2,
+      "retention": 0.7777777777777778,
+      "avgLatencyMs": 29433,
+      "promptTokens": 9337,
+      "completionTokens": 7161,
+      "tokens": 16498,
+      "usd": 0.00265867,
+      "v2": {
+        "publicFactKept": 0,
+        "publicFactTotal": 0,
+        "publicFactRetention": null,
+        "selfAuthorWorks": null,
+        "selfAuthorWorksTotal": 0,
+        "publicNameLeak": null,
+        "publicNameTotal": 0,
+        "selfAuthorLeak": null,
+        "toneLeaks": 0,
+        "tonePresent": 0,
+        "toneTotal": 0,
+        "toneLeak": null,
+        "stancePreservedN": 0,
+        "stancePreserved": null,
+        "outsiderNamed": 0,
+        "outsiderN": 5,
+        "publicFactFlags": 0,
+        "toneFlags": 0,
+        "claims": 52,
+        "evalPromptTokens": 9136,
+        "evalCompletionTokens": 1866
+      }
+    }
+  ],
+  "mosaic": null,
+  "rows": [
+    {
+      "transcript": "journalist",
+      "config": "+L4",
+      "layers": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "ms": 29433,
+      "gateMetaMs": 29433,
+      "digest": "Rule-inspired digest: no attribution.\n\n# Digest (session 2026-09-18)\n\n## 匿名提问与公开工具\n- 提问可通过指定的电子邮箱渠道提交。\n- 有说法称存在一个公开的电池荷电状态（SOC）估算工具，但该工具所挂账号与真实身份关联，因此不建议查看。\n\n## 通话记录与代码仓库的处置\n- 待办：删除该通话记录。\n- 待办：立即删除或将该代码仓库转为私有。\n\n## 报道经验与举报渠道\n- 有观点强调，保护消息来源是相关报道工作的核心。\n- 有建议提出，可同时向市场监管总局缺陷产品召回中心提交材料。\n- 有观点主张本次通话不作记录，任何内容对外发布前须经确认。\n\n## 报告披露的意愿与风险承担\n- 有观点表示，只要车辆不再发生起火，即使自身因此被追查也愿意承担。\n- 有观点明确表示愿意承担相关风险。\n- 有观点表示，核心诉求是让这份报告被公众看到。\n- 有说法称报告初稿由本人撰写，并具备相应权限。\n\n## 发布前的核实与文件元数据\n- 有观点明确主张，在取得书面确认前不得刊出工厂地址或供应商名称。\n- 有观点指出，该 PDF 的元数据显示作者为某网络账号，并带有创建日期。\n- 有统计称，目前记录到与 LX-7 电池包相关的热事件共 9 起。\n- 有观点追问，该 PDF 是否出自相关方之手。\n- 有观点质疑，是否存在违反保密协议或未经授权访问系统的情形。\n- 有说法称可提供群外咨询渠道，并给出直线电话。\n\n## 监管报送与引用条件\n- 有说法称，某机构已于 2 月上报数据，随后被要求重新界定失效标准，将冒烟但未起火的情形排除在外。\n- 有观点同意披露，但附条件：不采用指向具体岗位的引语，仅以“直接知情人士”表述。\n\n## LX-7 电池包的数据与验证\n- 约 12 万辆汽车搭载 LX-7 电池包。\n- 有观点认为，若隔膜更换确为原因，公开指出这一点正是公共利益所在。\n- 有观点提出，目标刊发日期视法律审核与相关机构回应而定。\n- 有数据称，LX-7 电芯在 45 摄氏度循环测试中的热失控率为 0.8%，而对外披露为 0.02%，相差 40 倍。\n- 有观点认为，0.8% 对存在缺陷的隔膜批次而言是合理水平。\n- 有观点主张，在刊发前需取得第二个独立信源或相关机构自身的回应。\n- 有观点指出，45 摄氏度、1C 倍率下循环 800 次属于标准测试条件。\n- 有观点要求查明 0.02% 这一数字由内部何人批准，以及董事会是否知悉 0.8% 的数据。\n- 有观点认为，仅凭一份文件不足以支撑报道。\n\n## 供应商信息的处理\n- 有观点对涉及供应商的判断表示不同意。\n- 有观点提出，待取得采购订单后，可在后续报道中补充供应商信息。\n\n## 举报路径与后续沟通\n- 有提议提出，接下来讨论举报途径。\n- 有安排提出，下次沟通定于周日晚 9 点，且仅通过 Signal 进行。\n\n## 测试方案的独立复核\n- 有观点肯定整体工作进展。\n- 有说法称，可借助相关实验室的隶属关系对测试方案进行独立核验。\n\n## 事件数量与后续分工\n- 有观点认为，9 起事件加上内部数据已足以支撑报道。\n- 待办：在周五前提交事件明细表。\n- 有观点认为，该数字具备成为标题新闻的分量。\n\n## 内部审批、采购与个人处境\n- 有说法称，相关质量文件由某负责人在 6 月签署。\n- 有观点指出，在香港和内地法院面临诽谤诉讼的风险确实存在。\n- 有说法称无法取得采购单。\n- 有说法称问题出在隔膜，供应商更换为报价更低的一家，每平方米节省 0.6 元。\n- 有说法称，入职时即签署了保密协议，对此知情。\n- 有观点指出，提交记录中的邮箱信息会很快暴露提交者身份。\n- 有说法称，某地址的二号厂房产线全部在使用相关电池。\n- 有说法称相关团队人数不足 15 人。\n\n## 身份暴露风险与对外沟通安排\n- 有观点指出，若相关机构核查文件记录，线索会直接指向特定个人。\n- 有观点主张，不刊出文件本身，仅作描述。\n- 待办：持续关注相关链接上的车主投诉信息。\n- 待办：周一向相关机构发出置评请求，期限为 72 小时。\n- 有建议提出，后续沟通改用私人号码或电子邮箱，不再使用工作号码。\n- 有说法称，可通过私信渠道以特定网络账号接收线索。\n- 待办：调取市场监管总局及论坛上 2025 年与 2026 年的车主火灾报告。\n",
+      "digestStrict": "Rule-inspired digest: no attribution.\n\n# Digest (session 2026-09-18)\n\n## 匿名提问与公开工具\n- 提问可通过指定的电子邮箱渠道提交。\n- 有说法称存在一个公开的电池荷电状态（SOC）估算工具，但该工具所挂账号与真实身份关联，因此不建议查看。\n\n## 通话记录与代码仓库的处置\n- 待办：删除该通话记录。\n- 待办：立即删除或将该代码仓库转为私有。\n\n## 报道经验与举报渠道\n- 有观点强调，保护消息来源是相关报道工作的核心。\n- 有建议提出，可同时向市场监管总局缺陷产品召回中心提交材料。\n- 有观点主张本次通话不作记录，任何内容对外发布前须经确认。\n\n## 报告披露的意愿与风险承担\n- 有观点表示，只要车辆不再发生起火，即使自身因此被追查也愿意承担。\n- 有观点明确表示愿意承担相关风险。\n- 有观点表示，核心诉求是让这份报告被公众看到。\n- 有说法称报告初稿由本人撰写，并具备相应权限。\n\n## 发布前的核实与文件元数据\n- 有观点明确主张，在取得书面确认前不得刊出工厂地址或供应商名称。\n- 有观点指出，该 PDF 的元数据显示作者为某网络账号，并带有创建日期。\n- 有统计称，目前记录到与 LX-7 电池包相关的热事件共 9 起。\n- 有观点追问，该 PDF 是否出自相关方之手。\n- 有观点质疑，是否存在违反保密协议或未经授权访问系统的情形。\n- 有说法称可提供群外咨询渠道，并给出直线电话。\n\n## 监管报送与引用条件\n- 有说法称，某机构已于 2 月上报数据，随后被要求重新界定失效标准，将冒烟但未起火的情形排除在外。\n- 有观点同意披露，但附条件：不采用指向具体岗位的引语，仅以“直接知情人士”表述。\n\n## LX-7 电池包的数据与验证\n- 约 12 万辆汽车搭载 LX-7 电池包。\n- 有观点认为，若隔膜更换确为原因，公开指出这一点正是公共利益所在。\n- 有观点提出，目标刊发日期视法律审核与相关机构回应而定。\n- 有数据称，LX-7 电芯在 45 摄氏度循环测试中的热失控率为 0.8%，而对外披露为 0.02%，相差 40 倍。\n- 有观点认为，0.8% 对存在缺陷的隔膜批次而言是合理水平。\n- 有观点主张，在刊发前需取得第二个独立信源或相关机构自身的回应。\n- 有观点指出，45 摄氏度、1C 倍率下循环 800 次属于标准测试条件。\n- 有观点要求查明 0.02% 这一数字由内部何人批准，以及董事会是否知悉 0.8% 的数据。\n- 有观点认为，仅凭一份文件不足以支撑报道。\n\n## 供应商信息的处理\n- 有观点对涉及供应商的判断表示不同意。\n- 有观点提出，待取得采购订单后，可在后续报道中补充供应商信息。\n\n## 举报路径与后续沟通\n- 有提议提出，接下来讨论举报途径。\n- 有安排提出，下次沟通定于周日晚 9 点，且仅通过 Signal 进行。\n\n## 测试方案的独立复核\n- 有观点肯定整体工作进展。\n- 有说法称，可借助相关实验室的隶属关系对测试方案进行独立核验。\n\n## 事件数量与后续分工\n- 有观点认为，9 起事件加上内部数据已足以支撑报道。\n- 待办：在周五前提交事件明细表。\n- 有观点认为，该数字具备成为标题新闻的分量。\n\n## 内部审批、采购与个人处境\n- 有说法称，相关质量文件由某负责人在 6 月签署。\n- 有观点指出，在香港和内地法院面临诽谤诉讼的风险确实存在。\n- 有说法称无法取得采购单。\n- 有说法称问题出在隔膜，供应商更换为报价更低的一家，每平方米节省 0.6 元。\n- 有说法称，入职时即签署了保密协议，对此知情。\n- 有观点指出，提交记录中的邮箱信息会很快暴露提交者身份。\n- 有说法称，某地址的二号厂房产线全部在使用相关电池。\n- 有说法称相关团队人数不足 15 人。\n\n## 身份暴露风险与对外沟通安排\n- 有观点指出，若相关机构核查文件记录，线索会直接指向特定个人。\n- 有观点主张，不刊出文件本身，仅作描述。\n- 待办：持续关注相关链接上的车主投诉信息。\n- 待办：周一向相关机构发出置评请求，期限为 72 小时。\n- 有建议提出，后续沟通改用私人号码或电子邮箱，不再使用工作号码。\n- 有说法称，可通过私信渠道以特定网络账号接收线索。\n- 待办：调取市场监管总局及论坛上 2025 年与 2026 年的车主火灾报告。\n",
+      "claims": [
+        {
+          "topic": "匿名提问与公开工具",
+          "text": "提问可通过指定的电子邮箱渠道提交。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "匿名提问与公开工具",
+          "text": "有说法称存在一个公开的电池荷电状态（SOC）估算工具，但该工具所挂账号与真实身份关联，因此不建议查看。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "通话记录与代码仓库的处置",
+          "text": "待办：删除该通话记录。",
+          "kind": "todo",
+          "flags": []
+        },
+        {
+          "topic": "通话记录与代码仓库的处置",
+          "text": "待办：立即删除或将该代码仓库转为私有。",
+          "kind": "todo",
+          "flags": []
+        },
+        {
+          "topic": "报道经验与举报渠道",
+          "text": "有观点强调，保护消息来源是相关报道工作的核心。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "报道经验与举报渠道",
+          "text": "有建议提出，可同时向市场监管总局缺陷产品召回中心提交材料。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "报道经验与举报渠道",
+          "text": "有观点主张本次通话不作记录，任何内容对外发布前须经确认。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "报告披露的意愿与风险承担",
+          "text": "有观点表示，只要车辆不再发生起火，即使自身因此被追查也愿意承担。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "报告披露的意愿与风险承担",
+          "text": "有观点明确表示愿意承担相关风险。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "报告披露的意愿与风险承担",
+          "text": "有观点表示，核心诉求是让这份报告被公众看到。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "报告披露的意愿与风险承担",
+          "text": "有说法称报告初稿由本人撰写，并具备相应权限。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "发布前的核实与文件元数据",
+          "text": "有观点明确主张，在取得书面确认前不得刊出工厂地址或供应商名称。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "发布前的核实与文件元数据",
+          "text": "有观点指出，该 PDF 的元数据显示作者为某网络账号，并带有创建日期。",
+          "kind": "fact",
+          "flags": []
+        },
+        {
+          "topic": "发布前的核实与文件元数据",
+          "text": "有统计称，目前记录到与 LX-7 电池包相关的热事件共 9 起。",
+          "kind": "fact",
+          "flags": []
+        },
+        {
+          "topic": "发布前的核实与文件元数据",
+          "text": "有观点追问，该 PDF 是否出自相关方之手。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "发布前的核实与文件元数据",
+          "text": "有观点质疑，是否存在违反保密协议或未经授权访问系统的情形。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "发布前的核实与文件元数据",
+          "text": "有说法称可提供群外咨询渠道，并给出直线电话。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "监管报送与引用条件",
+          "text": "有说法称，某机构已于 2 月上报数据，随后被要求重新界定失效标准，将冒烟但未起火的情形排除在外。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "监管报送与引用条件",
+          "text": "有观点同意披露，但附条件：不采用指向具体岗位的引语，仅以“直接知情人士”表述。",
+          "kind": "decision",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "约 12 万辆汽车搭载 LX-7 电池包。",
+          "kind": "fact",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有观点认为，若隔膜更换确为原因，公开指出这一点正是公共利益所在。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有观点提出，目标刊发日期视法律审核与相关机构回应而定。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有数据称，LX-7 电芯在 45 摄氏度循环测试中的热失控率为 0.8%，而对外披露为 0.02%，相差 40 倍。",
+          "kind": "fact",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有观点认为，0.8% 对存在缺陷的隔膜批次而言是合理水平。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有观点主张，在刊发前需取得第二个独立信源或相关机构自身的回应。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有观点指出，45 摄氏度、1C 倍率下循环 800 次属于标准测试条件。",
+          "kind": "fact",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有观点要求查明 0.02% 这一数字由内部何人批准，以及董事会是否知悉 0.8% 的数据。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "LX-7 电池包的数据与验证",
+          "text": "有观点认为，仅凭一份文件不足以支撑报道。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "供应商信息的处理",
+          "text": "有观点对涉及供应商的判断表示不同意。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "供应商信息的处理",
+          "text": "有观点提出，待取得采购订单后，可在后续报道中补充供应商信息。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "举报路径与后续沟通",
+          "text": "有提议提出，接下来讨论举报途径。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "举报路径与后续沟通",
+          "text": "有安排提出，下次沟通定于周日晚 9 点，且仅通过 Signal 进行。",
+          "kind": "decision",
+          "flags": []
+        },
+        {
+          "topic": "测试方案的独立复核",
+          "text": "有观点肯定整体工作进展。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "测试方案的独立复核",
+          "text": "有说法称，可借助相关实验室的隶属关系对测试方案进行独立核验。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "事件数量与后续分工",
+          "text": "有观点认为，9 起事件加上内部数据已足以支撑报道。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "事件数量与后续分工",
+          "text": "待办：在周五前提交事件明细表。",
+          "kind": "todo",
+          "flags": []
+        },
+        {
+          "topic": "事件数量与后续分工",
+          "text": "有观点认为，该数字具备成为标题新闻的分量。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有说法称，相关质量文件由某负责人在 6 月签署。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有观点指出，在香港和内地法院面临诽谤诉讼的风险确实存在。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有说法称无法取得采购单。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有说法称问题出在隔膜，供应商更换为报价更低的一家，每平方米节省 0.6 元。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有说法称，入职时即签署了保密协议，对此知情。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有观点指出，提交记录中的邮箱信息会很快暴露提交者身份。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有说法称，某地址的二号厂房产线全部在使用相关电池。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "内部审批、采购与个人处境",
+          "text": "有说法称相关团队人数不足 15 人。",
+          "kind": "fact",
+          "flags": []
+        },
+        {
+          "topic": "身份暴露风险与对外沟通安排",
+          "text": "有观点指出，若相关机构核查文件记录，线索会直接指向特定个人。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "身份暴露风险与对外沟通安排",
+          "text": "有观点主张，不刊出文件本身，仅作描述。",
+          "kind": "decision",
+          "flags": []
+        },
+        {
+          "topic": "身份暴露风险与对外沟通安排",
+          "text": "待办：持续关注相关链接上的车主投诉信息。",
+          "kind": "todo",
+          "flags": []
+        },
+        {
+          "topic": "身份暴露风险与对外沟通安排",
+          "text": "待办：周一向相关机构发出置评请求，期限为 72 小时。",
+          "kind": "todo",
+          "flags": []
+        },
+        {
+          "topic": "身份暴露风险与对外沟通安排",
+          "text": "有建议提出，后续沟通改用私人号码或电子邮箱，不再使用工作号码。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "身份暴露风险与对外沟通安排",
+          "text": "有说法称，可通过私信渠道以特定网络账号接收线索。",
+          "kind": "idea",
+          "flags": []
+        },
+        {
+          "topic": "身份暴露风险与对外沟通安排",
+          "text": "待办：调取市场监管总局及论坛上 2025 年与 2026 年的车主火灾报告。",
+          "kind": "todo",
+          "flags": []
+        }
+      ],
+      "meta": {
+        "layers": [
+          "L0",
+          "L1",
+          "L2",
+          "L3",
+          "L4"
+        ],
+        "mock": false,
+        "allowPublicFacts": true,
+        "llmCalls": 6,
+        "promptTokens": 9337,
+        "completionTokens": 7161,
+        "ms": 29433,
+        "verifierRounds": 2,
+        "dropped": 0,
+        "flagged": 0
+      },
+      "promptTokens": 9337,
+      "completionTokens": 7161,
+      "claimFlags": {
+        "publicFact": 0,
+        "toneNeutralised": 0,
+        "roleRevealing": 0
+      },
+      "leaks": {
+        "items": [
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "phone",
+            "owner": "p3",
+            "text": "139-1762-4408"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "phone",
+            "owner": "p4",
+            "text": "+1 415-555-0187"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "email",
+            "owner": "p3",
+            "text": "zl_backup2026@proton.me"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "email",
+            "owner": "p1",
+            "text": "mlin@meridianwire.com"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "url",
+            "owner": "p3",
+            "text": "github.com/zhaolei-bms"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "url",
+            "owner": "p1",
+            "text": "weibo.com/u/linmei_ev"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "handle",
+            "owner": "p5",
+            "text": "@sunjing_checks"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "name",
+            "owner": "p3",
+            "text": "赵工"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "name",
+            "owner": "p3",
+            "text": "Thanks, Leo"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "name",
+            "owner": "p4",
+            "text": "黄律师"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "name",
+            "owner": "third",
+            "text": "刘振华"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "address",
+            "owner": "third",
+            "text": "苏州工业园区星湖街218号"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "direct",
+            "kind": "date",
+            "owner": "p3",
+            "text": "我2021年4月6日入职"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "affil",
+            "kind": "org",
+            "owner": "p3",
+            "text": "我们BMS验证组"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "affil",
+            "kind": "title",
+            "owner": "p4",
+            "text": "as outside counsel for Meridian"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "quasi",
+            "kind": "quasi",
+            "owner": "p3",
+            "text": "我老婆刚生二胎"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "quasi",
+            "kind": "quasi",
+            "owner": "p1",
+            "text": "I covered the Takata airbag recall for four years"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "quasi",
+            "kind": "quasi",
+            "owner": "p5",
+            "text": "I used to work at CATL's Ningde lab"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "style",
+            "kind": "style",
+            "owner": "p3",
+            "text": "说白了"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "style",
+            "kind": "style",
+            "owner": "p2",
+            "text": "Bottom line"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "style",
+            "kind": "style",
+            "owner": "p4",
+            "text": "To be clear"
+          },
+          {
+            "leaked": false,
+            "via": null,
+            "category": "style",
+            "kind": "style",
+            "owner": "p5",
+            "text": "Let me flag"
+          }
+        ],
+        "by": {
+          "direct": {
+            "leaked": 0,
+            "total": 13
+          },
+          "affil": {
+            "leaked": 0,
+            "total": 2
+          },
+          "quasi": {
+            "leaked": 0,
+            "total": 3
+          },
+          "style": {
+            "leaked": 0,
+            "total": 4
+          }
+        }
+      },
+      "evalUsage": {
+        "promptTokens": 9136,
+        "completionTokens": 1866
+      },
+      "attack": {
+        "correct": 8,
+        "total": 9,
+        "acc": 0.8888888888888888,
+        "baselineSum": 1.8,
+        "baseline": 0.2,
+        "samples": 2,
+        "guesses": [
+          [
+            {
+              "ideaId": "i1",
+              "rosterId": "p3",
+              "confidence": 0.72,
+              "reason": "Internal test data (0.8% vs 0.02% at 45°C cycling) is BMS validation engineer domain knowledge; 赵磊 is the only technical insider."
+            },
+            {
+              "ideaId": "i2",
+              "rosterId": "p3",
+              "confidence": 0.6,
+              "reason": "Failure-criteria redefinition (smoke vs fire) is a battery-testing/validation insider detail matching the BMS engineer."
+            },
+            {
+              "ideaId": "i3",
+              "rosterId": "p5",
+              "confidence": 0.7,
+              "reason": "Second independent source / one document insufficient is classic fact-check lead caution; 孙婧 is Fact-Check Lead."
+            },
+            {
+              "ideaId": "i4",
+              "rosterId": "p4",
+              "confidence": 0.78,
+              "reason": "Defamation risk and withholding plant address/supplier names pending written confirmation is media-law counsel advice; Rachel Huang is Media Law Partner."
+            },
+            {
+              "ideaId": "i5",
+              "rosterId": "p1",
+              "confidence": 0.68,
+              "reason": "Public-interest framing and naming the cheaper separator supplier fits investigative reporter Mei Lin's editorial stance."
+            },
+            {
+              "ideaId": "i6",
+              "rosterId": "p5",
+              "confidence": 0.55,
+              "reason": "PDF metadata and code-repo deanonymization concerns align with fact-check/verification desk handling of source protection."
+            },
+            {
+              "ideaId": "i7",
+              "rosterId": "p5",
+              "confidence": 0.6,
+              "reason": "Counting 9 thermal incidents from public records and corroborating internal data is fact-check lead's corroboration work."
+            },
+            {
+              "ideaId": "i8",
+              "rosterId": "p2",
+              "confidence": 0.62,
+              "reason": "Publication timing contingent on legal sign-off and 72-hour comment request fits the Asia Business Editor coordinating logistics."
+            },
+            {
+              "ideaId": "i9",
+              "rosterId": "p4",
+              "confidence": 0.65,
+              "reason": "'Person with direct knowledge' attribution and parallel filing with recall center is legal/editorial risk framing by media counsel."
+            }
+          ],
+          [
+            {
+              "ideaId": "i1",
+              "rosterId": "p3",
+              "confidence": 0.75,
+              "reason": "BMS validation engineer with direct test data on thermal runaway rates and cycling conditions."
+            },
+            {
+              "ideaId": "i2",
+              "rosterId": "p3",
+              "confidence": 0.6,
+              "reason": "Engineer insider describing regulator redefining failure criteria to exclude smoke-without-fire."
+            },
+            {
+              "ideaId": "i3",
+              "rosterId": "p2",
+              "confidence": 0.5,
+              "reason": "Editorial standard requiring second source or company response before publication."
+            },
+            {
+              "ideaId": "i4",
+              "rosterId": "p4",
+              "confidence": 0.7,
+              "reason": "Defamation-risk caution on printing plant address/supplier without confirmation is classic media counsel."
+            },
+            {
+              "ideaId": "i5",
+              "rosterId": "p1",
+              "confidence": 0.6,
+              "reason": "Reporter arguing public-interest core and scale of affected vehicles."
+            },
+            {
+              "ideaId": "i6",
+              "rosterId": "p5",
+              "confidence": 0.5,
+              "reason": "Metadata and repository deanonymization concerns align with fact-check/verification desk."
+            },
+            {
+              "ideaId": "i7",
+              "rosterId": "p5",
+              "confidence": 0.55,
+              "reason": "Fact-check lead tallying public incident records to corroborate internal data."
+            },
+            {
+              "ideaId": "i8",
+              "rosterId": "p1",
+              "confidence": 0.6,
+              "reason": "Investigative reporter setting publication date and 72-hour comment deadline."
+            },
+            {
+              "ideaId": "i9",
+              "rosterId": "p4",
+              "confidence": 0.55,
+              "reason": "Legal framing of sourcing language ('person with direct knowledge') and parallel regulatory filing fits media law counsel."
+            }
+          ]
+        ]
+      },
+      "attackNames": {
+        "correct": 5,
+        "total": 9,
+        "acc": 0.5555555555555556
+      },
+      "outsider": {
+        "people": 0,
+        "orgs": 0,
+        "exposed": 0,
+        "n": 5,
+        "speakerHits": 0,
+        "ideas": 9,
+        "matched": [],
+        "guessedAttendees": 3
+      },
+      "flagged": 0,
+      "claimCount": 52,
+      "retention": {
+        "sum": 7,
+        "n": 9,
+        "mean": 0.7777777777777778,
+        "scores": [
+          {
+            "ideaId": "i1",
+            "score": 1,
+            "label": "present",
+            "evidence": "LX-7 电芯在 45 摄氏度循环测试中的热失控率为 0.8%，而对外披露为 0.02%，相差 40 倍"
+          },
+          {
+            "ideaId": "i2",
+            "score": 1,
+            "label": "present",
+            "evidence": "某机构已于 2 月上报数据，随后被要求重新界定失效标准，将冒烟但未起火的情形排除在外"
+          },
+          {
+            "ideaId": "i3",
+            "score": 1,
+            "label": "present",
+            "evidence": "在刊发前需取得第二个独立信源或相关机构自身的回应；仅凭一份文件不足以支撑报道"
+          },
+          {
+            "ideaId": "i4",
+            "score": 0.5,
+            "label": "partial",
+            "evidence": "在取得书面确认前不得刊出工厂地址或供应商名称（未提及诽谤风险）"
+          },
+          {
+            "ideaId": "i5",
+            "score": 0.5,
+            "label": "partial",
+            "evidence": "若隔膜更换确为原因，公开指出这一点正是公共利益所在；约 12 万辆汽车搭载 LX-7 电池包（未将点名更便宜供应商与公共利益核心直接关联）"
+          },
+          {
+            "ideaId": "i6",
+            "score": 0.5,
+            "label": "partial",
+            "evidence": "该 PDF 的元数据显示作者为某网络账号；立即删除或将该代码仓库转为私有（未明确说明去匿名化关联）"
+          },
+          {
+            "ideaId": "i7",
+            "score": 1,
+            "label": "present",
+            "evidence": "目前记录到与 LX-7 电池包相关的热事件共 9 起；9 起事件加上内部数据已足以支撑报道"
+          },
+          {
+            "ideaId": "i8",
+            "score": 0.5,
+            "label": "partial",
+            "evidence": "目标刊发日期视法律审核与相关机构回应而定；周一向相关机构发出置评请求，期限为 72 小时（未给出 10 月 2 日）"
+          },
+          {
+            "ideaId": "i9",
+            "score": 1,
+            "label": "present",
+            "evidence": "仅以“直接知情人士”表述；可同时向市场监管总局缺陷产品召回中心提交材料"
+          }
+        ]
+      }
+    }
+  ]
+}

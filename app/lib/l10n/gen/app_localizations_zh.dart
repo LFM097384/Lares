@@ -2920,4 +2920,280 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get profileKick => '移出圈子';
+
+  @override
+  String get anonEntryStart => '发起隐名之约';
+
+  @override
+  String get anonEntryStartDesc => '观点可以出门,名字留在屋里';
+
+  @override
+  String get anonEntryEnd => '结束隐名之约';
+
+  @override
+  String get anonEntryEndDesc => '散会即焚';
+
+  @override
+  String get anonInspired => '受 Chatham House 规则启发 · 非官方';
+
+  @override
+  String get anonNotAffiliated => '与 Chatham House 无隶属';
+
+  @override
+  String get anonDisclosure =>
+      '本阶段：原话经 Lares 服务器内存与云端识别/大模型（阿里云、DeepSeek）处理，不存储、不写日志、散会即焚；运营方无法被技术性排除';
+
+  @override
+  String get anonConveneTitle => '发起隐名之约';
+
+  @override
+  String get anonKLabel => '放行门槛';
+
+  @override
+  String anonKValue(int k, int n) {
+    return '$k / $n 人同意才放行';
+  }
+
+  @override
+  String get anonKHint => '出门稿要有这么多位在场成员签名同意,才会放出去。';
+
+  @override
+  String get anonConveneStart => '开始';
+
+  @override
+  String get anonConveneNeedTwo => '房里至少要有两个人才能发起';
+
+  @override
+  String anonConsentTitle(String name) {
+    return '$name 发起了隐名之约';
+  }
+
+  @override
+  String get anonConsentTitleOwner => '圈主发起了隐名之约';
+
+  @override
+  String get anonConsentBody =>
+      '加入后,你自己的字幕定稿会送进本场会话;能出门的只有大家签名同意的观点稿,不带名字。不加入也可以留在房里,你的话不会被送进去。';
+
+  @override
+  String get anonConsentAccept => '同意并加入';
+
+  @override
+  String get anonConsentDecline => '暂不加入';
+
+  @override
+  String get anonDeclinedNote => '你没有加入:你的话不会送进本场会话';
+
+  @override
+  String get anonJoinNow => '加入';
+
+  @override
+  String get anonBandLatin => 'RULE-INSPIRED';
+
+  @override
+  String get anonBandZh => '隐名之约 · 非官方';
+
+  @override
+  String get anonMemberAcked => '已加入';
+
+  @override
+  String get anonMemberNotJoined => '未加入';
+
+  @override
+  String anonJoinedCount(int acked, int n) {
+    return '$acked/$n 已加入';
+  }
+
+  @override
+  String get anonCaptionsOff => '你关着「为需要的人生成字幕」,你说的话进不了本场会话';
+
+  @override
+  String get anonCaptionsTurnOn => '打开';
+
+  @override
+  String get anonAskAi => '问 AI';
+
+  @override
+  String get anonAskHint => '只在屋里回答';
+
+  @override
+  String get anonAskSend => '问';
+
+  @override
+  String get anonNoTrace => '不留痕';
+
+  @override
+  String get anonAnswersTitle => '室内问答';
+
+  @override
+  String anonAnswerAsker(String name) {
+    return '$name 问';
+  }
+
+  @override
+  String get anonThinking => '在想…';
+
+  @override
+  String get anonMakeDraft => '生成出门稿';
+
+  @override
+  String get anonDraftPending => '正在生成出门稿…';
+
+  @override
+  String get anonOpenDraft => '看出门稿';
+
+  @override
+  String get anonGateTitle => '出门稿';
+
+  @override
+  String get anonGateSubtitle => '只留观点,不带名字。每一条都可以改。';
+
+  @override
+  String get anonRoleRiskTag => '暴露角色';
+
+  @override
+  String get anonActionKeep => '保留';
+
+  @override
+  String get anonActionGeneralise => '泛化';
+
+  @override
+  String get anonActionCut => '删去';
+
+  @override
+  String get anonMetricsTitle => '服务器给出的指标';
+
+  @override
+  String anonApprovals(int count, int k) {
+    return '$count / $k 已同意放行';
+  }
+
+  @override
+  String get anonApprove => '同意放行';
+
+  @override
+  String get anonApproved => '你已同意,等其他人';
+
+  @override
+  String get anonDraftEmpty => '这份稿子里没有能出门的条目';
+
+  @override
+  String get anonReleasedTitle => '已放行';
+
+  @override
+  String get anonCopy => '复制';
+
+  @override
+  String get anonCopied => '已复制';
+
+  @override
+  String get anonEndedTitle => '散会';
+
+  @override
+  String get anonEndedKept => '留下的';
+
+  @override
+  String get anonEndedBurned => '本设备已销毁';
+
+  @override
+  String get anonEndedBurnedList => '会话密钥 · 室内问答 · 出门稿';
+
+  @override
+  String get anonEndedNothingReleased => '这场没有放行任何东西';
+
+  @override
+  String get anonReceipt => '回执 sha256';
+
+  @override
+  String get anonEndedOk => '好';
+
+  @override
+  String get anonEndConfirmTitle => '结束隐名之约?';
+
+  @override
+  String get anonEndConfirmBody => '服务器内存里的原话会立即销毁,没放行的稿子不会出门。';
+
+  @override
+  String get anonEndConfirm => '散会';
+
+  @override
+  String anonError(String code) {
+    return '隐名之约出错了:$code';
+  }
+
+  @override
+  String get anonAskSubtitle => 'AI 能回想本圈已放行的记忆;这里的问答不存档、不出门。';
+
+  @override
+  String get anonMemoryDisclosure => '只有大家同意放行的去名内容会被记住；原话散会即焚';
+
+  @override
+  String get anonMemEntry => '圈子记忆';
+
+  @override
+  String get anonMemEntryDesc => '隐名之约里大家放行的去名内容';
+
+  @override
+  String get anonMemTitle => '圈子记忆';
+
+  @override
+  String anonMemSubtitle(String circle) {
+    return '「$circle」在隐名之约里经大家签名放行的内容。不带名字;任何一位放行人都可以撤回。';
+  }
+
+  @override
+  String get anonMemKindIdea => '想法';
+
+  @override
+  String get anonMemKindDecision => '决定';
+
+  @override
+  String get anonMemKindTodo => '待办';
+
+  @override
+  String get anonMemKindFact => '事实';
+
+  @override
+  String get anonMemKindOther => '其他';
+
+  @override
+  String anonMemProvenance(int n) {
+    return '去名 · 经 $n 人放行';
+  }
+
+  @override
+  String get anonMemProvenanceNoCount => '去名 · 经大家放行';
+
+  @override
+  String get anonMemRetracted => '已撤回';
+
+  @override
+  String get anonMemRetract => '撤回';
+
+  @override
+  String get anonMemRetracting => '撤回中…';
+
+  @override
+  String get anonMemRetractTitle => '撤回这条记忆?';
+
+  @override
+  String get anonMemRetractBody =>
+      '撤回后,这条内容会从圈子记忆里删掉,AI 也不会再想起它;只留一行「已撤回」。不能恢复。';
+
+  @override
+  String get anonMemLoading => '正在取圈子记忆…';
+
+  @override
+  String get anonMemEmpty => '还没有记忆';
+
+  @override
+  String get anonMemEmptyHint => '隐名之约里,出门稿经大家签名放行后,去名的内容会留在这里。原话不会。';
+
+  @override
+  String anonMemLoadFailed(String code) {
+    return '没取到圈子记忆:$code';
+  }
+
+  @override
+  String get anonMemRetry => '再试一次';
 }

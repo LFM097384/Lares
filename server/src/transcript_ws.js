@@ -115,6 +115,8 @@ export function createTranscriptWs(d) {
         const fail = (reason) => { d.send(ws, { t: 'transcript_error', op: 'append', circleId, id: typeof msg.id === 'string' ? msg.id : undefined, reason }); return true; };
         if (!session.userId || !session.authed) return fail('say_hello_first');
         if (!circleId || session.circleId !== circleId) return fail('not_in_room');
+        // 隐名之约进行中:会话期间一律不落转写(原话只进 anonym agent 的内存)
+        if (d.anonymActive?.(circleId)) return fail('anonym_active');
         if (isE2ee(circleId)) return fail('e2ee');
         if (!isOn(circleId)) return fail('off');
         if (typeof msg.id !== 'string' || !msg.id || msg.id.length > ID_MAX) return fail('bad_id');
@@ -178,6 +180,7 @@ export function createTranscriptWs(d) {
         const fail = (reason) => { d.send(ws, { t: 'transcript_error', op: 'relay', circleId, reason }); return true; };
         if (!session.userId || !session.authed) return fail('say_hello_first');
         if (!circleId || session.circleId !== circleId) return fail('not_in_room');
+        if (d.anonymActive?.(circleId)) return fail('anonym_active');
         if (!isE2ee(circleId)) return fail('not_e2ee');
         if (!isOn(circleId)) return fail('off');
         if (!validBlob(msg.blob)) return fail('bad_blob');

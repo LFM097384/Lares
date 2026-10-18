@@ -98,6 +98,7 @@ dependencies:
   # (App Store 2.5.2)。Android / iOS / macOS 有 WebView;Windows / Web / Linux
   # 回落到系统浏览器打开或「此平台不支持」。
   webview_flutter: ^4.13.0
+  ed25519_edwards: 0.3.2
 
 # ⚠️ 钉版本,不是洁癖,是绕开一个会让 iOS 上传直接失败的上游 bug。
 #

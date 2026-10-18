@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../anonym/anonym_controller.dart';
 import '../e2ee/e2ee_controller.dart';
 import '../e2ee/e2ee_status.dart';
 import '../rtc/livekit_rtc_service.dart';
@@ -137,18 +138,26 @@ class CaptionWiring {
     this.e2ee,
     this.onTokenSourceReset,
     this.transcriptSink,
+    this.anonym,
   }) {
     final TranscriptSink? sink = transcriptSink;
-    if (sink != null) {
-      captions.onOwnFinal = ownFinalHandler(
-        circleId: () => controller.circleId,
-        archiveOn: controller.isTranscriptOn,
-        sink: sink,
-      );
+    final AnonymCaptionGate? gate = anonym;
+    final archive = sink == null
+        ? null
+        : ownFinalHandler(
+            circleId: () => controller.circleId,
+            archiveOn: controller.isTranscriptOn,
+            sink: sink,
+          );
+    if (archive != null || gate != null) {
+      captions.onOwnFinal = gate == null
+          ? archive
+          : anonymAwareHandler(gate: gate, archive: archive);
     }
     controller.addListener(_sync);
     settings.addListener(_sync);
     e2ee?.addListener(_sync);
+    gate?.addListener(_sync);
     _sync();
   }
 
@@ -162,6 +171,24 @@ class CaptionWiring {
   /// 转写记录出口(通常是 [RoutingTranscriptSink]:非加密走信令
   /// `transcript_append`,加密走 transcript 模块注入的加密实现)。
   final TranscriptSink? transcriptSink;
+
+  /// 隐名之约:进行中时本人定稿**只**进会话(已加入时),绝不进转写记录。
+  final AnonymCaptionGate? anonym;
+
+  /// 隐名之约进行中 → 定稿交给 [gate](它自己判断我加没加入),[archive] 一律不碰;
+  /// 否则原样交给 [archive]。
+  static void Function(String id, String text, DateTime startedAt)
+      anonymAwareHandler({
+    required AnonymCaptionGate gate,
+    required void Function(String id, String text, DateTime startedAt)? archive,
+  }) =>
+          (id, text, startedAt) {
+            if (gate.sessionActive) {
+              gate.ownFinal(text, startedAt);
+              return;
+            }
+            archive?.call(id, text, startedAt);
+          };
 
   /// 本人定稿 → 转写记录。只在当前圈子开着转写记录时才交给 [sink]。
   static void Function(String id, String text, DateTime startedAt)
@@ -237,6 +264,8 @@ class CaptionWiring {
       provide: settings.captionsProvide,
       encrypted: _encrypted,
       e2eeCloud: settings.captionsE2eeCloud,
+      anonymActive: anonym?.sessionActive ?? false,
+      anonymFeeding: anonym?.feeding ?? false,
     ));
   }
 
@@ -249,6 +278,8 @@ class CaptionWiring {
     required bool encrypted,
     required bool e2eeCloud,
     bool sttSupported = kSttSocketSupported,
+    bool anonymActive = false,
+    bool anonymFeeding = false,
   }) {
     final String? cid = controller.circleId;
     return CaptionConditions(
@@ -262,7 +293,10 @@ class CaptionWiring {
       provide: provide,
       encrypted: encrypted,
       e2eeCloud: e2eeCloud,
-      archive: cid != null && controller.isTranscriptOn(cid),
+      // 隐名之约进行中:不归档(定稿也不会进 sink,这里连识别的理由都撤掉)
+      archive:
+          cid != null && controller.isTranscriptOn(cid) && !anonymActive,
+      anonym: anonymFeeding,
     );
   }
 
@@ -271,7 +305,8 @@ class CaptionWiring {
     controller.removeListener(_sync);
     settings.removeListener(_sync);
     e2ee?.removeListener(_sync);
-    if (transcriptSink != null) captions.onOwnFinal = null;
+    anonym?.removeListener(_sync);
+    if (transcriptSink != null || anonym != null) captions.onOwnFinal = null;
     captions.unbindSession();
     unawaited(_session?.dispose());
     _session = null;

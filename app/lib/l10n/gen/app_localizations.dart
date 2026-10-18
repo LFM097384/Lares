@@ -5107,6 +5107,516 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'移出圈子'**
   String get profileKick;
+
+  /// 房间「更多」里圈主的入口:发起隐名之约(受 Chatham House 规则启发,非官方)
+  ///
+  /// In zh, this message translates to:
+  /// **'发起隐名之约'**
+  String get anonEntryStart;
+
+  /// 发起隐名之约入口的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'观点可以出门,名字留在屋里'**
+  String get anonEntryStartDesc;
+
+  /// 房间「更多」里圈主的入口:结束正在进行的隐名之约
+  ///
+  /// In zh, this message translates to:
+  /// **'结束隐名之约'**
+  String get anonEntryEnd;
+
+  /// 结束隐名之约入口的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'散会即焚'**
+  String get anonEntryEndDesc;
+
+  /// 隐名之约的定性标签。不得写成「依规则」/「under the Rule」
+  ///
+  /// In zh, this message translates to:
+  /// **'受 Chatham House 规则启发 · 非官方'**
+  String get anonInspired;
+
+  /// 隐名之约面板底部的免责脚注
+  ///
+  /// In zh, this message translates to:
+  /// **'与 Chatham House 无隶属'**
+  String get anonNotAffiliated;
+
+  /// 隐名之约的诚实声明,中文逐字固定,不得改写
+  ///
+  /// In zh, this message translates to:
+  /// **'本阶段：原话经 Lares 服务器内存与云端识别/大模型（阿里云、DeepSeek）处理，不存储、不写日志、散会即焚；运营方无法被技术性排除'**
+  String get anonDisclosure;
+
+  /// 召集面板标题
+  ///
+  /// In zh, this message translates to:
+  /// **'发起隐名之约'**
+  String get anonConveneTitle;
+
+  /// 召集面板:k 选择器的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'放行门槛'**
+  String get anonKLabel;
+
+  /// 召集面板:k/n 门槛
+  ///
+  /// In zh, this message translates to:
+  /// **'{k} / {n} 人同意才放行'**
+  String anonKValue(int k, int n);
+
+  /// 召集面板:门槛的解释
+  ///
+  /// In zh, this message translates to:
+  /// **'出门稿要有这么多位在场成员签名同意,才会放出去。'**
+  String get anonKHint;
+
+  /// 召集面板:开始按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get anonConveneStart;
+
+  /// 召集面板:在场不足两人时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'房里至少要有两个人才能发起'**
+  String get anonConveneNeedTwo;
+
+  /// 加入同意书标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 发起了隐名之约'**
+  String anonConsentTitle(String name);
+
+  /// 加入同意书标题(不知道召集人名字时)
+  ///
+  /// In zh, this message translates to:
+  /// **'圈主发起了隐名之约'**
+  String get anonConsentTitleOwner;
+
+  /// 加入同意书正文
+  ///
+  /// In zh, this message translates to:
+  /// **'加入后,你自己的字幕定稿会送进本场会话;能出门的只有大家签名同意的观点稿,不带名字。不加入也可以留在房里,你的话不会被送进去。'**
+  String get anonConsentBody;
+
+  /// 加入同意书:同意按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'同意并加入'**
+  String get anonConsentAccept;
+
+  /// 加入同意书:拒绝按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'暂不加入'**
+  String get anonConsentDecline;
+
+  /// 房里约带下:我拒绝了同意书时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'你没有加入:你的话不会送进本场会话'**
+  String get anonDeclinedNote;
+
+  /// 房里约带下:重新打开同意书
+  ///
+  /// In zh, this message translates to:
+  /// **'加入'**
+  String get anonJoinNow;
+
+  /// 房间约带的拉丁字部分,两种语言都不翻译
+  ///
+  /// In zh, this message translates to:
+  /// **'RULE-INSPIRED'**
+  String get anonBandLatin;
+
+  /// 房间约带的本地化部分
+  ///
+  /// In zh, this message translates to:
+  /// **'隐名之约 · 非官方'**
+  String get anonBandZh;
+
+  /// 成员加入状态:已同意
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入'**
+  String get anonMemberAcked;
+
+  /// 成员加入状态:未同意 / 拒绝
+  ///
+  /// In zh, this message translates to:
+  /// **'未加入'**
+  String get anonMemberNotJoined;
+
+  /// 约带上的加入人数
+  ///
+  /// In zh, this message translates to:
+  /// **'{acked}/{n} 已加入'**
+  String anonJoinedCount(int acked, int n);
+
+  /// 已加入但关着字幕提供时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'你关着「为需要的人生成字幕」,你说的话进不了本场会话'**
+  String get anonCaptionsOff;
+
+  /// 打开字幕提供
+  ///
+  /// In zh, this message translates to:
+  /// **'打开'**
+  String get anonCaptionsTurnOn;
+
+  /// 室内问 AI 按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'问 AI'**
+  String get anonAskAi;
+
+  /// 问 AI 输入框的占位
+  ///
+  /// In zh, this message translates to:
+  /// **'只在屋里回答'**
+  String get anonAskHint;
+
+  /// 问 AI 发送按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'问'**
+  String get anonAskSend;
+
+  /// 室内问答面板的标记:不存档、不出门
+  ///
+  /// In zh, this message translates to:
+  /// **'不留痕'**
+  String get anonNoTrace;
+
+  /// 室内问答面板标题
+  ///
+  /// In zh, this message translates to:
+  /// **'室内问答'**
+  String get anonAnswersTitle;
+
+  /// 室内问答:提问人
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 问'**
+  String anonAnswerAsker(String name);
+
+  /// AI 回答生成中
+  ///
+  /// In zh, this message translates to:
+  /// **'在想…'**
+  String get anonThinking;
+
+  /// 请服务器生成出门稿
+  ///
+  /// In zh, this message translates to:
+  /// **'生成出门稿'**
+  String get anonMakeDraft;
+
+  /// 出门稿生成中
+  ///
+  /// In zh, this message translates to:
+  /// **'正在生成出门稿…'**
+  String get anonDraftPending;
+
+  /// 打开已有的出门稿
+  ///
+  /// In zh, this message translates to:
+  /// **'看出门稿'**
+  String get anonOpenDraft;
+
+  /// 出门稿审阅页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'出门稿'**
+  String get anonGateTitle;
+
+  /// 出门稿审阅页副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'只留观点,不带名字。每一条都可以改。'**
+  String get anonGateSubtitle;
+
+  /// 出门稿条目标签:可能暴露发言人角色
+  ///
+  /// In zh, this message translates to:
+  /// **'暴露角色'**
+  String get anonRoleRiskTag;
+
+  /// 审阅动作:保留
+  ///
+  /// In zh, this message translates to:
+  /// **'保留'**
+  String get anonActionKeep;
+
+  /// 审阅动作:泛化
+  ///
+  /// In zh, this message translates to:
+  /// **'泛化'**
+  String get anonActionGeneralise;
+
+  /// 审阅动作:删去
+  ///
+  /// In zh, this message translates to:
+  /// **'删去'**
+  String get anonActionCut;
+
+  /// 出门稿审阅页:服务器给出的指标(没给就不显示)
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器给出的指标'**
+  String get anonMetricsTitle;
+
+  /// 放行进度
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} / {k} 已同意放行'**
+  String anonApprovals(int count, int k);
+
+  /// 签名同意放行当前稿
+  ///
+  /// In zh, this message translates to:
+  /// **'同意放行'**
+  String get anonApprove;
+
+  /// 我已签过当前稿
+  ///
+  /// In zh, this message translates to:
+  /// **'你已同意,等其他人'**
+  String get anonApproved;
+
+  /// 出门稿为空
+  ///
+  /// In zh, this message translates to:
+  /// **'这份稿子里没有能出门的条目'**
+  String get anonDraftEmpty;
+
+  /// 放行后的文本区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'已放行'**
+  String get anonReleasedTitle;
+
+  /// 复制已放行文本 / 回执
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get anonCopy;
+
+  /// 复制成功提示
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制'**
+  String get anonCopied;
+
+  /// 散会卡标题
+  ///
+  /// In zh, this message translates to:
+  /// **'散会'**
+  String get anonEndedTitle;
+
+  /// 散会卡:留下的东西
+  ///
+  /// In zh, this message translates to:
+  /// **'留下的'**
+  String get anonEndedKept;
+
+  /// 散会卡:本机已销毁的东西
+  ///
+  /// In zh, this message translates to:
+  /// **'本设备已销毁'**
+  String get anonEndedBurned;
+
+  /// 散会卡:本机销毁清单
+  ///
+  /// In zh, this message translates to:
+  /// **'会话密钥 · 室内问答 · 出门稿'**
+  String get anonEndedBurnedList;
+
+  /// 散会卡:没放行
+  ///
+  /// In zh, this message translates to:
+  /// **'这场没有放行任何东西'**
+  String get anonEndedNothingReleased;
+
+  /// 散会卡:服务器回执摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'回执 sha256'**
+  String get anonReceipt;
+
+  /// 关闭散会卡
+  ///
+  /// In zh, this message translates to:
+  /// **'好'**
+  String get anonEndedOk;
+
+  /// 圈主结束确认框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'结束隐名之约?'**
+  String get anonEndConfirmTitle;
+
+  /// 圈主结束确认框正文
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器内存里的原话会立即销毁,没放行的稿子不会出门。'**
+  String get anonEndConfirmBody;
+
+  /// 圈主结束确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'散会'**
+  String get anonEndConfirm;
+
+  /// 服务器 anon_error
+  ///
+  /// In zh, this message translates to:
+  /// **'隐名之约出错了:{code}'**
+  String anonError(String code);
+
+  /// 室内问 AI 面板标题下的说明:能检索圈子记忆(只有已放行的去名内容),问答本身不留痕
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 能回想本圈已放行的记忆;这里的问答不存档、不出门。'**
+  String get anonAskSubtitle;
+
+  /// 召集面板与同意书里的第二条诚实声明:什么会进圈子记忆
+  ///
+  /// In zh, this message translates to:
+  /// **'只有大家同意放行的去名内容会被记住；原话散会即焚'**
+  String get anonMemoryDisclosure;
+
+  /// 圈子管理面板 / 房间「更多」里打开圈子记忆的一行
+  ///
+  /// In zh, this message translates to:
+  /// **'圈子记忆'**
+  String get anonMemEntry;
+
+  /// 圈子记忆入口的副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'隐名之约里大家放行的去名内容'**
+  String get anonMemEntryDesc;
+
+  /// 圈子记忆页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'圈子记忆'**
+  String get anonMemTitle;
+
+  /// 圈子记忆页顶部说明
+  ///
+  /// In zh, this message translates to:
+  /// **'「{circle}」在隐名之约里经大家签名放行的内容。不带名字;任何一位放行人都可以撤回。'**
+  String anonMemSubtitle(String circle);
+
+  /// 记忆类型:观点 / 想法(idea)
+  ///
+  /// In zh, this message translates to:
+  /// **'想法'**
+  String get anonMemKindIdea;
+
+  /// 记忆类型:决定(decision)
+  ///
+  /// In zh, this message translates to:
+  /// **'决定'**
+  String get anonMemKindDecision;
+
+  /// 记忆类型:待办(todo)
+  ///
+  /// In zh, this message translates to:
+  /// **'待办'**
+  String get anonMemKindTodo;
+
+  /// 记忆类型:公共事实(fact)
+  ///
+  /// In zh, this message translates to:
+  /// **'事实'**
+  String get anonMemKindFact;
+
+  /// 记忆类型:服务器给了不认识的类型
+  ///
+  /// In zh, this message translates to:
+  /// **'其他'**
+  String get anonMemKindOther;
+
+  /// 每条记忆的出处脚注:不含说话人,只有放行签名数
+  ///
+  /// In zh, this message translates to:
+  /// **'去名 · 经 {n} 人放行'**
+  String anonMemProvenance(int n);
+
+  /// 出处脚注,服务器没给签名数时
+  ///
+  /// In zh, this message translates to:
+  /// **'去名 · 经大家放行'**
+  String get anonMemProvenanceNoCount;
+
+  /// 墓碑行:这条记忆被撤回了,正文已删
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤回'**
+  String get anonMemRetracted;
+
+  /// 撤回一条记忆的按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'撤回'**
+  String get anonMemRetract;
+
+  /// 已请求撤回,等服务器确认
+  ///
+  /// In zh, this message translates to:
+  /// **'撤回中…'**
+  String get anonMemRetracting;
+
+  /// 撤回确认对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'撤回这条记忆?'**
+  String get anonMemRetractTitle;
+
+  /// 撤回确认对话框正文
+  ///
+  /// In zh, this message translates to:
+  /// **'撤回后,这条内容会从圈子记忆里删掉,AI 也不会再想起它;只留一行「已撤回」。不能恢复。'**
+  String get anonMemRetractBody;
+
+  /// 圈子记忆加载中
+  ///
+  /// In zh, this message translates to:
+  /// **'正在取圈子记忆…'**
+  String get anonMemLoading;
+
+  /// 圈子记忆为空
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有记忆'**
+  String get anonMemEmpty;
+
+  /// 圈子记忆为空时的说明
+  ///
+  /// In zh, this message translates to:
+  /// **'隐名之约里,出门稿经大家签名放行后,去名的内容会留在这里。原话不会。'**
+  String get anonMemEmptyHint;
+
+  /// 圈子记忆加载失败
+  ///
+  /// In zh, this message translates to:
+  /// **'没取到圈子记忆:{code}'**
+  String anonMemLoadFailed(String code);
+
+  /// 圈子记忆加载失败后的重试按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'再试一次'**
+  String get anonMemRetry;
 }
 
 class _AppLocalizationsDelegate
