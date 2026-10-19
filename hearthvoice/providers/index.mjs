@@ -1,4 +1,5 @@
-// provider 接口(鸭子类型)与工厂。
+// provider 接口(鸭子类型)、实现的统一出口,以及 TTS 连接池 WarmPool。
+// 按环境变量组装 provider(LARES_*)是平台插件的事:见 ../../hearthvoice-lares/providers.mjs。
 //
 // ASR  : open({identity, onPartial(text), onFinal(text), onClose(), onError(e)}) -> { send(pcm16k Int16Array), finish(): Promise, close(), audioSec }
 // LLM  : stream({messages, model, maxTokens, signal}) -> AsyncIterable<{delta?:string, usage?:{in,out}}> ; prewarm()
@@ -6,50 +7,9 @@
 //        Session: { sampleRate, alive, used, openedAt, setHandlers({onAudio(segIdx, pcm Int16Array), onSegmentDone(segIdx, {characters}), onError(e)}),
 //                   send(text) -> segIdx, finish(): Promise, close() }
 
-import { MockAsr, MockLlm, MockTts } from './mock.mjs';
-
-export function createProviders(kind, { env = process.env, mock = {}, log = () => {} } = {}) {
-  if (kind === 'mock') {
-    return { kind, asr: new MockAsr(mock.asr), llm: new MockLlm(mock.llm), tts: new MockTts(mock.tts) };
-  }
-  if (kind !== 'dashscope') throw new Error(`unknown_providers:${kind}`);
-  return (async () => {
-    const { DashscopeAsr, DashscopeTts } = await import('./dashscope.mjs');
-    const key = env.LARES_DASHSCOPE_API_KEY || '';
-    if (!key) throw new Error('LARES_DASHSCOPE_API_KEY missing');
-    return {
-      kind,
-      asr: new DashscopeAsr({ apiKey: key }),
-      llm: await createLlm(env, { log }),
-      tts: new DashscopeTts({ apiKey: key, model: env.LARES_AI_TTS_MODEL || undefined }),
-    };
-  })();
-}
-
-/**
- * LLM:LARES_AI_LLM_BASE_URL / LARES_AI_LLM_API_KEY(别名 LARES_AI_LLM_KEY)/ LARES_AI_LLM_MODEL / LARES_AI_LLM_EXTRA_BODY。
- * 主 LLM 不是 DashScope 且有 DashScope key 时,包一层 FallbackLlm:主 LLM 非 2xx / 超时 → 本轮改用 DashScope qwen-flash。
- */
-export async function createLlm(env = process.env, { log = () => {}, fetchImpl } = {}) {
-  const { OpenAiCompatLlm, FallbackLlm, DASHSCOPE_COMPAT_BASE, resolveExtraBody } = await import('./openai_compat.mjs');
-  const dsKey = String(env.LARES_DASHSCOPE_API_KEY ?? '').trim();
-  const baseUrl = String(env.LARES_AI_LLM_BASE_URL ?? '').trim() || DASHSCOPE_COMPAT_BASE;
-  const llmKey = String(env.LARES_AI_LLM_API_KEY ?? '').trim() || String(env.LARES_AI_LLM_KEY ?? '').trim() || dsKey;
-  const extraBody = resolveExtraBody(env.LARES_AI_LLM_EXTRA_BODY, baseUrl);
-  const f = fetchImpl ? { fetchImpl } : {};
-  const ms = (name, dflt) => { const n = Number(String(env[name] ?? '').trim() || NaN); return Number.isFinite(n) && n > 0 ? n : dflt; };
-  const primaryIsDashscope = /dashscope/i.test(baseUrl);
-  const canFallback = !primaryIsDashscope && Boolean(dsKey);
-  const primary = new OpenAiCompatLlm({
-    baseUrl, apiKey: llmKey, model: String(env.LARES_AI_LLM_MODEL ?? '').trim() || null, extraBody,
-    // 有备用时,等响应头/首包别等满 20 s:超时就回退
-    headersTimeoutMs: canFallback ? ms('LARES_AI_LLM_TIMEOUT_MS', 6000) : undefined,
-    ...f,
-  });
-  if (!canFallback) return primary;
-  const fallback = new OpenAiCompatLlm({ baseUrl: DASHSCOPE_COMPAT_BASE, apiKey: dsKey, model: 'qwen-flash', name: 'dashscope', ...f });
-  return new FallbackLlm({ primary, fallback, log });
-}
+export { MockAsr, MockLlm, MockTts } from './mock.mjs';
+export { DashscopeAsr, DashscopeTts, DEFAULT_HOST as DASHSCOPE_DEFAULT_HOST, ASR_MODEL, TTS_MODEL, TTS_RATE } from './dashscope.mjs';
+export { OpenAiCompatLlm, FallbackLlm, DASHSCOPE_COMPAT_BASE, resolveExtraBody } from './openai_compat.mjs';
 
 /**
  * 预开的 TTS 连接池(只留 1 条备用)。握手 ~1.1s,绝不放在一轮的关键路径上。

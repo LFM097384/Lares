@@ -12,7 +12,7 @@ export function hostOf(baseUrl) {
 export const isDeepseekBase = (baseUrl) => hostOf(baseUrl) === 'api.deepseek.com';
 
 /**
- * LARES_AI_LLM_EXTRA_BODY 解析:JSON 对象,合并进请求体顶层。
+ * extra body 解析(Lares 插件:env LARES_AI_LLM_EXTRA_BODY):JSON 对象,合并进请求体顶层。
  * 未设(或空串)时:DeepSeek 默认 {"thinking":{"type":"disabled"}},其他服务 {}。
  * 设了但不是 JSON 对象 → 抛错(配置错就早点崩,别静默开着思考)。
  */
@@ -20,8 +20,8 @@ export function resolveExtraBody(raw, baseUrl) {
   const s = raw == null ? '' : String(raw).trim();
   if (!s) return isDeepseekBase(baseUrl) ? structuredClone(DEEPSEEK_DEFAULT_EXTRA_BODY) : {};
   let v;
-  try { v = JSON.parse(s); } catch { throw new Error('LARES_AI_LLM_EXTRA_BODY: invalid JSON'); }
-  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('LARES_AI_LLM_EXTRA_BODY: must be a JSON object');
+  try { v = JSON.parse(s); } catch { throw new Error('extra_body: invalid JSON'); }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('extra_body: must be a JSON object');
   return v;
 }
 
@@ -32,7 +32,7 @@ export class OpenAiCompatLlm {
   /**
    * @param {{baseUrl?:string, apiKey:string, model?:string, extraBody?:object, fetchImpl?:typeof fetch,
    *          timeoutMs?:number, headersTimeoutMs?:number, name?:string}} o
-   * model 可被每次调用的 model 覆盖(config.model);环境变量 LARES_AI_LLM_MODEL 优先(由 index.mjs 处理)。
+   * model 可被每次调用的 model 覆盖(config.model);构造参数 model 优先(Lares 插件把 env LARES_AI_LLM_MODEL 传进来)。
    * headersTimeoutMs:等响应头的上限(超时抛 llm_timeout,便于回退);timeoutMs:整轮上限。
    */
   constructor({ baseUrl = DASHSCOPE_COMPAT_BASE, apiKey, model = null, extraBody = {}, fetchImpl = fetch, timeoutMs = 20000, headersTimeoutMs = null, name = null } = {}) {

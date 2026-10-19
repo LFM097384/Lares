@@ -1,0 +1,15 @@
+{
+  "name": "lares-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lares 接入层:信令鉴权、AI 成员凭证、LiveKit 进房、E2EE 密钥派生、data topic 与音频收发(ember-lares / hearthvoice-lares 共用)",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test ./"
+  },
+  "//deps": "不单独装依赖:ws / hash-wasm / 可选 @livekit/rtc-node 从 ../server/node_modules 解析(deps.mjs;镜像里 /app/node_modules 软链到它)。使用方按相对路径 ../lares-bridge/index.mjs 引入"
+}

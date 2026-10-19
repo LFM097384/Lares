@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import WebSocket from 'ws';
 import { authVerifier } from './lares_bot.mjs';
-import { DashscopeAsr } from '../bots/voice-agent/providers/dashscope.mjs';
+import { DashscopeAsr } from '../../hearthvoice/providers/dashscope.mjs';
 
 const WSURL = 'wss://lares.westus.cloudapp.azure.com/ws';
 const PASSCODE = 'prod-e2e-' + crypto.randomBytes(4).toString('hex');

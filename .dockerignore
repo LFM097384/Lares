@@ -1,4 +1,4 @@
-# 构建上下文 = 仓库根(server/Dockerfile 只用 server/ ember/ ember-lares/)。其余一律不进上下文。
+# 构建上下文 = 仓库根(server/Dockerfile 只用 server/ lares-bridge/ hearthvoice/ hearthvoice-lares/ ember/ ember-lares/)。其余一律不进上下文。
 .git
 .github
 .idea
@@ -24,6 +24,9 @@ ember/eval/out/
 *.md
 !ember/*.md
 !ember-lares/*.md
+!lares-bridge/*.md
+!hearthvoice/*.md
+!hearthvoice-lares/*.md
 .env
 **/.env
 *.local

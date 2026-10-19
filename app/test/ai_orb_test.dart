@@ -61,7 +61,7 @@ void main() {
       expect(find.byKey(ValueKey('ai-orb-status-${a.name}')), findsOneWidget);
       expect(find.text(labels[a]!), findsOneWidget);
       expect(find.byKey(const ValueKey('seat-ai-badge')), findsOneWidget);
-      expect(find.bySemanticsLabel('小助手,AI 助手,${labels[a]}'), findsOneWidget);
+      expect(find.bySemanticsLabel('小助手,AI 语音,${labels[a]}'), findsOneWidget);
       // 没有首字母:AI 座位是一团光,不是「小」字
       expect(find.text('小'), findsNothing);
       handle.dispose();

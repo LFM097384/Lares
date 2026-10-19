@@ -303,6 +303,8 @@ export class VoiceAgent {
     this.sink = o.sink;
     this.room = o.room;
     this.self = o.selfIdentity ?? null;
+    // 平台规则:哪些身份是真人(其它 AI / 机器人返回 false,不听、不答)。缺省全当真人。
+    this.isHuman = typeof o.isHuman === 'function' ? o.isHuman : () => true;
     this.emit = o.emit ?? (() => {});
     this.now = o.now ?? Date.now;
     this.log = o.log ?? (() => {});
@@ -418,7 +420,7 @@ export class VoiceAgent {
 
   /// 房间里某人的一帧音频(任意采样率/声道)。
   onAudioFrame(identity, data, sampleRate = ROOM_RATE, channels = 1) {
-    if (this.closed || !identity || identity === this.self || identity.startsWith('bot:') || identity.startsWith('u_ai_')) return;
+    if (this.closed || !identity || identity === this.self || !this.isHuman(identity)) return;
     if (this.declined.has(identity)) return;
     const mono = firstChannel(data, channels);
     const pcm16k = resample(mono, sampleRate, ASR_RATE);
@@ -465,7 +467,8 @@ export class VoiceAgent {
 
   /// 聊天消息(lares.chat)。@AI / @名字 开头的在任何触发模式下都回答。
   onChat(msg) {
-    if (!msg || msg.bot || msg.senderId === this.self || String(msg.senderId ?? '').startsWith('u_ai_') || String(msg.from ?? '').startsWith('u_ai_')) return;
+    if (!msg || msg.bot || msg.senderId === this.self) return;
+    if ((msg.senderId && !this.isHuman(String(msg.senderId))) || (msg.from && !this.isHuman(String(msg.from)))) return;
     const p = detectPtt(msg.body, this.config);
     if (!p.hit || !p.query) return;
     this._request({ trigger: 'ptt', speaker: msg.senderName || msg.senderId || '成员', query: p.query, at: this.now() });

@@ -1,4 +1,5 @@
-// AI 语音机器人(lares.ai-voice)单元测试。契约:server/bots/voice-agent/CONTRACT.md。
+// 灶语(Hearthvoice,插件 lares.ai-voice)单元测试:本体 ../../hearthvoice/ + Lares 插件 ../../hearthvoice-lares/。
+// 契约:hearthvoice-lares/CONTRACT.md。
 // 全部离线:只用 mock provider,不进房、不联网。
 // 用法:node test/ai_voice.mjs
 
@@ -8,18 +9,20 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { makeChecker, wait } from './lib/harness.mjs';
-import { chunkForSpeech, IncrementalChunker, VOICE_CHUNKING, cleanForSpeech } from '../bots/voice-agent/chunker.mjs';
-import { detectWake, detectPtt, parseWakeWords } from '../bots/voice-agent/wake.mjs';
-import { CostGuard, truncateReply, maxTokensFor, localDay } from '../bots/voice-agent/caps.mjs';
-import { spokenUntilFromPlayback, messagesAsExperienced, splitHeardAndUnsaid, History, playbackPosition } from '../bots/voice-agent/history.mjs';
-import { resample, tone, EnergyVad, ROOM_RATE } from '../bots/voice-agent/audio.mjs';
-import { VoiceAgent, Player } from '../bots/voice-agent/pipeline.mjs';
-import { MockAsr, MockLlm, MockTts } from '../bots/voice-agent/providers/mock.mjs';
-import { WarmPool, createLlm } from '../bots/voice-agent/providers/index.mjs';
-import { OpenAiCompatLlm, resolveExtraBody, DASHSCOPE_COMPAT_BASE } from '../bots/voice-agent/providers/openai_compat.mjs';
+import { chunkForSpeech, IncrementalChunker, VOICE_CHUNKING, cleanForSpeech } from '../../hearthvoice/chunker.mjs';
+import { detectWake, detectPtt, parseWakeWords } from '../../hearthvoice/wake.mjs';
+import { CostGuard, truncateReply, maxTokensFor, localDay } from '../../hearthvoice/caps.mjs';
+import { spokenUntilFromPlayback, messagesAsExperienced, splitHeardAndUnsaid, History, playbackPosition } from '../../hearthvoice/history.mjs';
+import { resample, tone, EnergyVad, ROOM_RATE } from '../../hearthvoice/audio.mjs';
+import { VoiceAgent, Player } from '../../hearthvoice/pipeline.mjs';
+import { MockAsr, MockLlm, MockTts } from '../../hearthvoice/providers/mock.mjs';
+import { WarmPool } from '../../hearthvoice/providers/index.mjs';
+import { createLlm } from '../../hearthvoice-lares/providers.mjs';
+import { OpenAiCompatLlm, resolveExtraBody, DASHSCOPE_COMPAT_BASE } from '../../hearthvoice/providers/openai_compat.mjs';
 import http from 'node:http';
-import { normalizeAiVoiceConfig, AI_VOICE_DEFAULTS } from '../bots/voice-agent/config.mjs';
-import { parseArgs, loadConfig } from '../bots/voice-agent/index.mjs';
+import { normalizeAiVoiceConfig, AI_VOICE_DEFAULTS } from '../../hearthvoice/config.mjs';
+import { parseArgs, loadConfig } from '../../hearthvoice-lares/index.mjs';
+import { isLaresHuman } from '../../lares-bridge/index.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const T = makeChecker();
@@ -262,13 +265,15 @@ function makeHarness({ config = {}, llm = {}, tts = {}, asr = {}, paceScale = 0.
   let cleared = 0;
   const sink = { captureFrame: (f) => { frames.push(f); }, clear: () => { cleared++; }, queuedMs: () => 0 };
   const providers = { asr: new MockAsr(asr), llm: new MockLlm(llm), tts: new MockTts(tts) };
-  const cfg = normalizeAiVoiceConfig(config).config;
+  // 这些用例的 ASR 脚本按「小助手」叫(默认名现在是「灶语」,另有专门用例)
+  const cfg = normalizeAiVoiceConfig({ name: '小助手', wakeWords: '小助手', ...config }).config;
   const agent = new VoiceAgent({
     config: cfg,
     providers,
     sink,
     room: { publishCaption: (c) => caps.push(c), sendChat: (t) => chats.push(t), publishState: (s) => states.push(s) },
     selfIdentity: 'u_ai_self',
+    isHuman: isLaresHuman,
     emit: (e) => events.push(e),
     guard: new CostGuard({ config: cfg, usageFile, emit: (e) => events.push(e) }),
     paceScale,
@@ -686,7 +691,7 @@ async function miscTests() {
   check(c.trigger === 'always' && c.maxReplyChars === 400 && c.name === '阿福' && c.voice === AI_VOICE_DEFAULTS.voice, 'LARES_AI_CONFIG + 夹紧 + --name');
   // 子进程:坏参数 → 退出码 2 + stdout JSON
   const r = await new Promise((resolve) => {
-    const ch = spawn(process.execPath, [path.join(HERE, '..', 'bots', 'voice-agent', 'index.mjs'), '--providers', 'mock'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    const ch = spawn(process.execPath, [path.join(HERE, '..', '..', 'hearthvoice-lares', 'index.mjs'), '--providers', 'mock'], { stdio: ['ignore', 'pipe', 'ignore'] });
     let out = '';
     ch.stdout.on('data', (d) => { out += d; });
     ch.on('exit', (code) => resolve({ code, out }));

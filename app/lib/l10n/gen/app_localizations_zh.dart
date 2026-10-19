@@ -2396,23 +2396,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get privacySheetE2eeUnset => '端到端加密:圈子没有统一规定,看各人自己的设置';
 
   @override
-  String get privacySheetAi => 'AI 助手开(房间里的语音发到阿里云识别、合成,回答由深度求索 DeepSeek 生成)';
+  String get privacySheetAi => '灶语开(房间里的语音发到阿里云识别、合成,回答由深度求索 DeepSeek 生成)';
 
   @override
-  String get aiVoicePluginName => 'AI 助手';
+  String get aiVoicePluginName => '灶语';
 
   @override
-  String get aiVoicePluginDesc => '房间里多一个会说话的助手,叫它就回答';
+  String get aiVoicePluginDesc => '房间里多一个会说话的 AI,叫它就回答';
 
   @override
-  String get aiVoiceSettingsTitle => 'AI 助手设置';
+  String get aiVoiceSettingsTitle => '灶语设置';
 
   @override
   String get aiVoicePrivacyNote =>
       '开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,识别出的文字交给深度求索 DeepSeek 生成回答,再经阿里云念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。';
 
   @override
-  String get aiVoiceE2eeBlocked => '这个圈开着端到端加密,服务器听不到语音,AI 助手没法工作';
+  String get aiVoiceE2eeBlocked => '这个圈开着端到端加密,服务器听不到语音,灶语没法工作';
 
   @override
   String get aiVoiceFieldName => '名字(也是唤醒词)';
@@ -2507,14 +2507,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiVoiceSeatBadge => 'AI';
 
   @override
-  String get aiVoiceModerationHint => '这是 AI 助手。圈主可以在「插件」里把它关掉';
+  String get aiVoiceModerationHint => '这是灶语(AI)。圈主可以在「插件」里把它关掉';
 
   @override
-  String get roomMoreAi => 'AI 助手';
+  String get roomMoreAi => '灶语';
 
   @override
   String roomMoreAiTitle(String name) {
-    return 'AI 助手「$name」';
+    return 'AI 语音「$name」';
   }
 
   @override
@@ -2539,14 +2539,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get purposeMeetingAiSwitch => '加上 AI 助手';
+  String get purposeMeetingAiSwitch => '加上灶语(AI 语音)';
 
   @override
   String get purposeMeetingAiDesc =>
       '开会时叫它名字就能提问;语音发到阿里云识别,回答由深度求索 DeepSeek 生成';
 
   @override
-  String get purposeMeetingAiE2ee => '这个圈开着端到端加密,用不了 AI 助手';
+  String get purposeMeetingAiE2ee => '这个圈开着端到端加密,用不了灶语';
 
   @override
   String get purposeMeetingAiConfirm => '就用开会';
@@ -2761,7 +2761,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String aiOrbSemantics(String name, String state) {
-    return '$name,AI 助手,$state';
+    return '$name,AI 语音,$state';
   }
 
   @override

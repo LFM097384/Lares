@@ -1,5 +1,5 @@
 // lares.ai-voice 监管器单测(假 spawn + 假时钟,无网络)+ 内置插件 manifest / normalizeConfig 检查。
-// 契约:server/bots/voice-agent/CONTRACT.md §1/§2/§4。
+// 契约:hearthvoice-lares/CONTRACT.md §1/§2/§4。
 // 用法:node test/ai_voice_supervisor.mjs
 
 import { EventEmitter } from 'node:events';
@@ -10,8 +10,8 @@ import {
   EMPTY_GRACE_MS, KILL_AFTER_MS, BACKOFF_MIN_MS, BACKOFF_MAX_MS,
 } from '../src/ai_voice_supervisor.js';
 import { BUILTINS, validateManifest, pluginView } from '../src/plugins.js';
-import { normalizeAiVoiceConfig, AI_VOICE_DEFAULTS } from '../src/ai_voice_config.js';
-import * as botConfig from '../bots/voice-agent/config.mjs';
+import { normalizeAiVoiceConfig, AI_VOICE_DEFAULTS } from '../../hearthvoice/config.mjs';
+import * as hvCore from '../../hearthvoice/index.mjs';
 
 const T = makeChecker();
 const { check } = T;
@@ -69,7 +69,7 @@ function setup(over = {}) {
     env: { LARES_DASHSCOPE_API_KEY: 'sk-test-SECRET', LIVEKIT_API_SECRET: 'lk-SECRET', LARES_AI_MEMBER_KEY: 'mk-SECRET', PATH: 'x',
       LARES_AI_LLM_KEY: 'sk-llm-SECRET', LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_MODEL: 'deepseek-flash', LARES_AI_LLM_EXTRA_BODY: '{"x":1}', ...(over.env ?? {}) },
     dataDir: '/data',
-    botEntry: '/srv/bots/voice-agent/index.mjs',
+    botEntry: '/srv/hearthvoice-lares/index.mjs',
     botEntryExists: () => true,
     signalingUrl: 'ws://127.0.0.1:8787/ws',
     isEnabled: () => world.enabled,
@@ -100,12 +100,13 @@ console.log('— 内置插件 manifest / normalizeConfig');
   check(/DashScope/.test(b.manifest.description) && /E2EE/.test(b.manifest.description), 'description 提到 DashScope 与 E2EE', b.manifest.description);
   check(b.manifest.settingsSchema?.properties?.trigger?.enum?.join() === 'wake,always,ptt', 'schema trigger enum');
   const d0 = b.normalizeConfig({});
-  check(d0.ok && d0.config.name === '小助手' && d0.config.trigger === 'wake' && d0.config.maxReplyChars === 120, '空 config → 默认值', d0);
+  check(d0.ok && d0.config.name === '灶语' && d0.config.trigger === 'wake' && d0.config.maxReplyChars === 120, '空 config → 默认值', d0);
   const c = b.normalizeConfig({ maxReplyChars: 5, maxTurnsPerHour: 9999, maxTurnsPerDay: 0, trigger: 'nope', name: '一二三四五六七八九十一二三四五六七八', interrupt: 'x', bogus: 1, voice: 'bad voice!' });
   check(c.ok && c.config.maxReplyChars === 20 && c.config.maxTurnsPerHour === 200 && c.config.maxTurnsPerDay === 1, 'int 夹紧', c);
   check(c.config.trigger === 'wake' && [...c.config.name].length === 16 && c.config.interrupt === true && !('bogus' in c.config) && c.config.voice === 'Cherry', '非法值回落默认 / 截断 / 丢未知字段', c);
   check(normalizeAiVoiceConfig(null).ok === false && normalizeAiVoiceConfig([]).ok === false, '非对象 → 失败');
-  check(botConfig.normalizeAiVoiceConfig === normalizeAiVoiceConfig, 'bots/voice-agent/config.mjs 转出同一实现');
+  check(hvCore.normalizeAiVoiceConfig === normalizeAiVoiceConfig && b.normalizeConfig === normalizeAiVoiceConfig, '服务端与灶语本体共用同一份配置实现(hearthvoice/config.mjs)');
+  check(b.manifest.name === '灶语' && b.manifest.id === 'lares.ai-voice', 'manifest:显示名「灶语」,id 不变', b.manifest);
   const view = pluginView({ manifest: b.manifest, builtin: true, enabled: true, config: d0.config });
   check(!/sk-|secret|verifier|passcode/i.test(JSON.stringify(view.config)), 'pluginView config 不含密钥字段');
   check(isAiUserId('u_ai_12345678') && !isAiUserId('u_123'), 'isAiUserId');

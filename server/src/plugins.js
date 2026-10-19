@@ -9,7 +9,7 @@ import { writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { TokenBuckets } from './ratelimit.js';
 import { normalizeFocusConfig, FOCUS_DEFAULTS } from './focus.js';
-import { normalizeAiVoiceConfig, AI_VOICE_SETTINGS_SCHEMA } from './ai_voice_config.js'; // lares.ai-voice
+import { normalizeAiVoiceConfig, AI_VOICE_SETTINGS_SCHEMA } from '../../hearthvoice/config.mjs'; // lares.ai-voice = 灶语(配置在灶语本体里;仓库 / 镜像同布局)
 import { resolveSafe, fetchManifest, newWebhookSecret, allowPrivateFrom } from './plugin_webhooks.js';
 
 export const MANIFEST_MAX = 16 * 1024;
@@ -154,13 +154,13 @@ export const BUILTINS = Object.freeze({
     }),
     normalizeConfig: normalizeFocusConfig,
   },
-  // lares.ai-voice:服务器托管的语音助手(进程监管在 ai_voice_supervisor.js)
+  // lares.ai-voice:灶语(Hearthvoice),服务器托管的语音 AI(进程监管在 ai_voice_supervisor.js,插件进程在 hearthvoice-lares/)
   'lares.ai-voice': {
     manifest: Object.freeze({
       id: 'lares.ai-voice',
-      name: 'AI 助手',
+      name: '灶语',
       version: '1.0.0',
-      description: '房间里的语音 AI 助手:叫它的名字提问,它用语音回答。启用后,房间内正在说话成员的语音会发送到阿里云百炼(DashScope)做语音识别,回答由 DashScope 大模型生成并合成为语音。助手作为一名成员显示在房间里。服务端 E2EE 圈不可用(需由圈友带口令自行运行)。',
+      description: '灶语(Hearthvoice):房间里会说话的 AI,叫它的名字提问,它用语音回答。启用后,房间内正在说话成员的语音会发送到阿里云百炼(DashScope)做语音识别,回答由大模型生成并合成为语音。灶语作为一名成员显示在房间里。服务端 E2EE 圈不可用(需由圈友带口令自行运行)。',
       author: 'Lares',
       permissions: ['circle:read', 'members:read', 'chat:read', 'chat:send', 'captions:send'],
       settingsSchema: AI_VOICE_SETTINGS_SCHEMA,

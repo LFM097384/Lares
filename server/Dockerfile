@@ -9,16 +9,20 @@ FROM node:22-bookworm-slim
 # 连 wss:// LiveKit 会报 "no native root CA certificates found"(2026-09 生产实测)。
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# 镜像布局 = 仓库布局:/app/server、/app/ember、/app/ember-lares 同级,
-# 让 server ↔ ember ↔ ember-lares 之间的相对 import 在开发机与镜像里一致。
+# 镜像布局 = 仓库布局:/app/server、/app/lares-bridge、/app/hearthvoice、/app/hearthvoice-lares、/app/ember、/app/ember-lares 同级,
+# 让它们之间的相对 import(如 server → ../../hearthvoice/config.mjs、*-lares → ../lares-bridge)在开发机与镜像里一致。
 WORKDIR /app/server
 COPY server/package.json server/package-lock.json* ./
-# ember-lares/ 里的裸 import(ws / hash-wasm / @livekit/rtc-node)从 /app/ember-lares 向上找 node_modules
+# lares-bridge/ 与 hearthvoice/ 里的裸 import(ws / hash-wasm / @livekit/rtc-node)从 /app/<包> 向上找 node_modules
 # → /app/node_modules:指回 server 那一份,不装第二套。
 RUN npm ci --omit=dev --no-audit --no-fund && ln -s /app/server/node_modules /app/node_modules
 COPY server/src ./src
-# AI 语音助手(插件 lares.ai-voice)由服务器按圈拉起的子进程,代码在 bots/
-COPY server/bots ./bots
+# Lares 接入层(LaresRoom:信令鉴权、LiveKit、E2EE):灶语与炉灵的插件共用
+COPY lares-bridge /app/lares-bridge
+# 灶语(Hearthvoice):平台无关本体 + Lares 插件(插件 lares.ai-voice 子进程入口 = /app/hearthvoice-lares/index.mjs;
+# server/src/plugins.js 也读 /app/hearthvoice/config.mjs 做配置校验,所以 hearthvoice/ 是服务器启动的必需件)
+COPY hearthvoice /app/hearthvoice
+COPY hearthvoice-lares /app/hearthvoice-lares
 # 炉灵(Ember):平台无关本体 + Lares 插件(隐名之约 agent 子进程入口 = /app/ember-lares/index.mjs)
 COPY ember /app/ember
 COPY ember-lares /app/ember-lares

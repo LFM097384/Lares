@@ -2280,11 +2280,12 @@ const focusTimer = setInterval(() => {
   focusWs.periodic().catch((e) => console.error('[focus] 周期落盘失败:', e?.message ?? e));
 }, Number(process.env.LARES_FOCUS_FLUSH_MS ?? 30_000));
 focusTimer.unref?.();
-// lares.ai-voice:服务器托管的语音助手子进程(逻辑全在 ai_voice_supervisor.js;无 RTC 就不启用)
+// lares.ai-voice:服务器托管的灶语(Hearthvoice)子进程(逻辑全在 ai_voice_supervisor.js;无 RTC 就不启用)
 const aiVoice = RTC_CONFIGURED ? createAiVoiceSupervisor({
   env: process.env,
   dataDir: DATA_DIR,
-  botEntry: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bots', 'voice-agent', 'index.mjs'),
+  botEntry: String(process.env.LARES_AI_VOICE_ENTRY ?? '').trim()
+    || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'hearthvoice-lares', 'index.mjs'), // 灶语的 Lares 插件(仓库 / 镜像同布局)
   signalingUrl: `ws://127.0.0.1:${PORT}/ws`,
   // 隐名之约进行中:AI 语音助手不进房(已在房的由 reconcile 停掉)
   // 隐名之约:agent 被邀请 / 在场 / 强制关闭开着时,AI 语音助手不进房(已在房的由 reconcile 停掉)

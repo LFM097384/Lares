@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { AudioFrame } from '@livekit/rtc-node';
 import { LaresBot, authVerifier } from './lares_bot.mjs';
-import { resample, concatInt16 } from '../bots/voice-agent/audio.mjs';
+import { resample, concatInt16 } from '../../hearthvoice/audio.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -435,7 +435,7 @@ async function main() {
       ok(Boolean(started && ready), 'supervisor spawned AI bot → ready', { startedMs: started ? started.at - tJoin : null, readyMs: ready ? ready.at - tJoin : null, pid: /pid=(\d+)/.exec(started?.line ?? '')?.[1] ?? null });
       ok(Boolean(sum), 'circle_summary 出现 AI 成员 (ai≥1, 不计人数)', sum ? { count: sum.count, ai: sum.ai, names: sum.names } : 'timeout');
       const top1 = await sshRun(`docker top ${CONTAINER} -o pid,args`);
-      ok(top1.out.includes(cid), 'docker top: voice-agent 进程在跑', top1.out.split('\n').filter((l) => l.includes('voice-agent')).map((l) => l.replace(/\s+/g, ' ').trim()));
+      ok(top1.out.includes(cid), 'docker top: hearthvoice-lares 进程在跑', top1.out.split('\n').filter((l) => l.includes('hearthvoice-lares')).map((l) => l.replace(/\s+/g, ' ').trim()));
 
       // 冒充 u_ai_(在 AI 真在房时测)
       let sp = await spoofHello(cid, verifier, aiId);
@@ -469,7 +469,7 @@ async function main() {
       const exitLog = await waitLog((l) => l.includes(cid) && l.includes('已退出'), 15000, idx2);
       ok(Boolean(stopLog && exitLog), '房间清空 → 宽限后停 AI', { stopAfterMs: stopLog ? stopLog.at - tLeave : null, exitAfterMs: exitLog ? exitLog.at - tLeave : null, exit: exitLog?.line.replace(/^.*已退出/, '已退出') ?? null });
       const top2 = await sshRun(`docker top ${CONTAINER} -o pid,args`);
-      ok(!top2.out.includes(cid), 'docker top: voice-agent 进程已不在', top2.out.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean));
+      ok(!top2.out.includes(cid), 'docker top: hearthvoice-lares 进程已不在', top2.out.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean));
     }
   } catch (e) {
     ok(false, 'exception', String(e?.stack ?? e));

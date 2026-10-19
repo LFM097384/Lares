@@ -1,13 +1,13 @@
-// lares.ai-voice 配置(= 插件 config)。契约 CONTRACT.md §3。
-// 由服务端 plugins.js(内置插件 normalizeConfig / settingsSchema)与 bot 进程共用。
+// 灶语(Hearthvoice)配置 HearthvoiceConfig。平台无关:Lares 上它就是插件 lares.ai-voice 的 config
+// (契约 ../hearthvoice-lares/CONTRACT.md §3),由服务端 plugins.js(normalizeConfig / settingsSchema)与插件进程共用。
 // 注意:config 会广播给圈内成员 —— 这里永远不放任何密钥。
 
 export const AI_VOICE_DEFAULT_PERSONA =
-  '你是圈子里的语音小助手。用口语化、温暖、简短的中文回答,一般一两句话;不确定就直说不知道;不要使用 Markdown、列表或表情符号。';
+  '你是圈子里的语音助手。用口语化、温暖、简短的中文回答,一般一两句话;不确定就直说不知道;不要使用 Markdown、列表或表情符号。';
 
 export const AI_VOICE_DEFAULTS = Object.freeze({
-  name: '小助手',
-  wakeWords: '小助手',
+  name: '灶语',
+  wakeWords: '灶语',
   persona: AI_VOICE_DEFAULT_PERSONA,
   trigger: 'wake',
   voice: 'Cherry',
@@ -69,3 +69,9 @@ export const AI_VOICE_SETTINGS_SCHEMA = Object.freeze({
     interrupt: { type: 'boolean', default: AI_VOICE_DEFAULTS.interrupt, title: '有人插话时停止说话' },
   },
 });
+
+
+/// 中性别名(本体 API 用这组名字;AI_VOICE_* 保留给 Lares 侧既有调用方)
+export const HEARTHVOICE_DEFAULTS = AI_VOICE_DEFAULTS;
+export const HEARTHVOICE_TRIGGERS = AI_VOICE_TRIGGERS;
+export const normalizeConfig = normalizeAiVoiceConfig;

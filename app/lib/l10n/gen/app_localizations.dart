@@ -4220,85 +4220,85 @@ abstract class AppLocalizations {
   /// **'端到端加密:圈子没有统一规定,看各人自己的设置'**
   String get privacySheetE2eeUnset;
 
-  /// 进圈隐私告知:本圈启用了内置 AI 语音助手
+  /// 进圈隐私告知:本圈启用了内置 AI 语音「灶语」(Hearthvoice,插件 lares.ai-voice)
   ///
   /// In zh, this message translates to:
-  /// **'AI 助手开(房间里的语音发到阿里云识别、合成,回答由深度求索 DeepSeek 生成)'**
+  /// **'灶语开(房间里的语音发到阿里云识别、合成,回答由深度求索 DeepSeek 生成)'**
   String get privacySheetAi;
 
-  /// 内置 AI 语音助手插件的名字(插件管理 → 添加)
+  /// 内置 AI 语音插件的产品名「灶语」(英文 Hearthvoice;插件管理 → 添加)
   ///
   /// In zh, this message translates to:
-  /// **'AI 助手'**
+  /// **'灶语'**
   String get aiVoicePluginName;
 
-  /// 插件管理 → 添加:AI 助手一句话介绍
+  /// 插件管理 → 添加:灶语的一句话介绍
   ///
   /// In zh, this message translates to:
-  /// **'房间里多一个会说话的助手,叫它就回答'**
+  /// **'房间里多一个会说话的 AI,叫它就回答'**
   String get aiVoicePluginDesc;
 
-  /// AI 助手设置页标题
+  /// 灶语(AI 语音)设置页标题
   ///
   /// In zh, this message translates to:
-  /// **'AI 助手设置'**
+  /// **'灶语设置'**
   String get aiVoiceSettingsTitle;
 
-  /// AI 助手设置页顶部的隐私说明
+  /// 灶语设置页顶部的隐私说明
   ///
   /// In zh, this message translates to:
   /// **'开了以后,房间里的语音会发到阿里云百炼 DashScope 识别,识别出的文字交给深度求索 DeepSeek 生成回答,再经阿里云念出来。它说的话是 AI 生成的,可能出错。端到端加密的圈子用不了。'**
   String get aiVoicePrivacyNote;
 
-  /// E2EE 圈里不能启用 AI 助手的原因
+  /// E2EE 圈里不能启用灶语的原因
   ///
   /// In zh, this message translates to:
-  /// **'这个圈开着端到端加密,服务器听不到语音,AI 助手没法工作'**
+  /// **'这个圈开着端到端加密,服务器听不到语音,灶语没法工作'**
   String get aiVoiceE2eeBlocked;
 
-  /// AI 助手设置:名字字段
+  /// 灶语设置:名字字段
   ///
   /// In zh, this message translates to:
   /// **'名字(也是唤醒词)'**
   String get aiVoiceFieldName;
 
-  /// AI 助手设置:名字为空时的校验提示
+  /// 灶语设置:名字为空时的校验提示
   ///
   /// In zh, this message translates to:
   /// **'给它起个名字'**
   String get aiVoiceFieldNameEmpty;
 
-  /// AI 助手设置:额外唤醒词字段
+  /// 灶语设置:额外唤醒词字段
   ///
   /// In zh, this message translates to:
   /// **'别的叫法'**
   String get aiVoiceFieldWakeWords;
 
-  /// AI 助手设置:额外唤醒词的填写提示
+  /// 灶语设置:额外唤醒词的填写提示
   ///
   /// In zh, this message translates to:
   /// **'可以不填,叫名字它就会应;多个用逗号或顿号隔开'**
   String get aiVoiceFieldWakeWordsHint;
 
-  /// AI 助手设置:额外唤醒词为空时框里的示例占位字
+  /// 灶语设置:额外唤醒词为空时框里的示例占位字
   ///
   /// In zh, this message translates to:
   /// **'比如:小福、福仔'**
   String get aiVoiceFieldWakeWordsEmpty;
 
-  /// AI 助手设置:人设(系统提示)字段
+  /// 灶语设置:人设(系统提示)字段
   ///
   /// In zh, this message translates to:
   /// **'人设'**
   String get aiVoiceFieldPersona;
 
-  /// AI 助手设置:人设恢复默认按钮
+  /// 灶语设置:人设恢复默认按钮
   ///
   /// In zh, this message translates to:
   /// **'恢复默认'**
   String get aiVoicePersonaReset;
 
-  /// AI 助手设置:触发方式标题
+  /// 灶语设置:触发方式标题
   ///
   /// In zh, this message translates to:
   /// **'什么时候回答'**
@@ -4340,79 +4340,79 @@ abstract class AppLocalizations {
   /// **'不听语音,只回答聊天里 @{name} 开头的文字'**
   String aiVoiceTriggerPttDesc(String name);
 
-  /// AI 助手设置:音色下拉
+  /// 灶语设置:音色下拉
   ///
   /// In zh, this message translates to:
   /// **'音色'**
   String get aiVoiceFieldVoice;
 
-  /// AI 助手设置:被打断时停止说话的开关
+  /// 灶语设置:被打断时停止说话的开关
   ///
   /// In zh, this message translates to:
   /// **'有人插话就停下'**
   String get aiVoiceFieldInterrupt;
 
-  /// AI 助手设置:高级选项折叠区
+  /// 灶语设置:高级选项折叠区
   ///
   /// In zh, this message translates to:
   /// **'高级'**
   String get aiVoiceAdvanced;
 
-  /// AI 助手设置:模型名字段
+  /// 灶语设置:模型名字段
   ///
   /// In zh, this message translates to:
   /// **'对话模型'**
   String get aiVoiceFieldModel;
 
-  /// AI 助手设置:模型名格式不对
+  /// 灶语设置:模型名格式不对
   ///
   /// In zh, this message translates to:
   /// **'只能用字母、数字、点、横线和下划线'**
   String get aiVoiceFieldModelInvalid;
 
-  /// AI 助手设置:单次回复字数上限
+  /// 灶语设置:单次回复字数上限
   ///
   /// In zh, this message translates to:
   /// **'一次最多说多少字'**
   String get aiVoiceFieldMaxReplyChars;
 
-  /// AI 助手设置:每小时回答次数上限
+  /// 灶语设置:每小时回答次数上限
   ///
   /// In zh, this message translates to:
   /// **'每小时最多回答几次'**
   String get aiVoiceFieldMaxTurnsPerHour;
 
-  /// AI 助手设置:每天回答次数上限
+  /// 灶语设置:每天回答次数上限
   ///
   /// In zh, this message translates to:
   /// **'每天最多回答几次'**
   String get aiVoiceFieldMaxTurnsPerDay;
 
-  /// AI 助手设置:数字字段的允许范围
+  /// 灶语设置:数字字段的允许范围
   ///
   /// In zh, this message translates to:
   /// **'{min}–{max}'**
   String aiVoiceRangeHint(int min, int max);
 
-  /// AI 助手设置:数字超出范围
+  /// 灶语设置:数字超出范围
   ///
   /// In zh, this message translates to:
   /// **'要在 {min} 到 {max} 之间'**
   String aiVoiceRangeError(int min, int max);
 
-  /// AI 助手设置保存成功
+  /// 灶语设置保存成功
   ///
   /// In zh, this message translates to:
   /// **'存好了'**
   String get aiVoiceSaved;
 
-  /// AI 助手设置保存失败
+  /// 灶语设置保存失败
   ///
   /// In zh, this message translates to:
   /// **'没存上:{reason}'**
   String aiVoiceSaveFailed(String reason);
 
-  /// 房间座位上 AI 成员闲着时名字下方的状态字(前面已有「AI」小牌,别再写 AI 助手)
+  /// 房间座位上 AI 成员闲着时名字下方的状态字(前面已有「AI」小牌,别再写「灶语」)
   ///
   /// In zh, this message translates to:
   /// **'等你叫它'**
@@ -4427,67 +4427,67 @@ abstract class AppLocalizations {
   /// 点 AI 成员头像后的处置菜单里的说明
   ///
   /// In zh, this message translates to:
-  /// **'这是 AI 助手。圈主可以在「插件」里把它关掉'**
+  /// **'这是灶语(AI)。圈主可以在「插件」里把它关掉'**
   String get aiVoiceModerationHint;
 
-  /// 房间「更多」面板里的 AI 助手格
+  /// 房间「更多」面板里的灶语(AI 语音)一行
   ///
   /// In zh, this message translates to:
-  /// **'AI 助手'**
+  /// **'灶语'**
   String get roomMoreAi;
 
-  /// AI 助手说明面板标题
+  /// 灶语说明面板标题。name 是圈主起的名字(默认就叫「灶语」),所以这里用通用的「AI 语音」,免得出现「灶语「灶语」」
   ///
   /// In zh, this message translates to:
-  /// **'AI 助手「{name}」'**
+  /// **'AI 语音「{name}」'**
   String roomMoreAiTitle(String name);
 
-  /// AI 助手说明:叫名字触发
+  /// 灶语说明:叫名字触发
   ///
   /// In zh, this message translates to:
   /// **'叫「{name}」再说问题'**
   String roomMoreAiHowWake(String name);
 
-  /// AI 助手说明:一直听
+  /// 灶语说明:一直听
   ///
   /// In zh, this message translates to:
   /// **'说完它就会回答'**
   String get roomMoreAiHowAlways;
 
-  /// AI 助手说明:只回 @它 的文字
+  /// 灶语说明:只回 @它 的文字
   ///
   /// In zh, this message translates to:
   /// **'在聊天里 @{name}'**
   String roomMoreAiHowPtt(String name);
 
-  /// AI 助手说明面板的隐私提示
+  /// 灶语说明面板的隐私提示
   ///
   /// In zh, this message translates to:
   /// **'房间里的语音会发到阿里云识别,回答由深度求索 DeepSeek 生成,可能出错。'**
   String get roomMoreAiPrivacy;
 
-  /// 房间「更多」里 AI 助手一行的副标题:现在的触发方式
+  /// 房间「更多」里 灶语一行的副标题:现在的触发方式
   ///
   /// In zh, this message translates to:
   /// **'{mode} · 点开看怎么叫它'**
   String roomMoreAiMode(String mode);
 
-  /// 选用途「开会」时的可选开关:顺带装上 AI 助手
+  /// 选用途「开会」时的可选开关:顺带装上灶语
   ///
   /// In zh, this message translates to:
-  /// **'加上 AI 助手'**
+  /// **'加上灶语(AI 语音)'**
   String get purposeMeetingAiSwitch;
 
-  /// 「加上 AI 助手」开关的说明
+  /// 「加上 灶语」开关的说明
   ///
   /// In zh, this message translates to:
   /// **'开会时叫它名字就能提问;语音发到阿里云识别,回答由深度求索 DeepSeek 生成'**
   String get purposeMeetingAiDesc;
 
-  /// E2EE 圈里「加上 AI 助手」不可用的说明
+  /// E2EE 圈里「加上灶语」不可用的说明
   ///
   /// In zh, this message translates to:
-  /// **'这个圈开着端到端加密,用不了 AI 助手'**
+  /// **'这个圈开着端到端加密,用不了灶语'**
   String get purposeMeetingAiE2ee;
 
   /// 选了「开会」后的确认按钮
@@ -4814,28 +4814,28 @@ abstract class AppLocalizations {
   /// **'知道了'**
   String get focusWeeklyDismiss;
 
-  /// AI 助手座位状态字:在听(等人叫它 / 一直听)
+  /// 灶语座位状态字:在听(等人叫它 / 一直听)
   ///
   /// In zh, this message translates to:
   /// **'在听'**
   String get aiStateListening;
 
-  /// AI 助手座位状态字:听完了正在想回答
+  /// 灶语座位状态字:听完了正在想回答
   ///
   /// In zh, this message translates to:
   /// **'在想…'**
   String get aiStateThinking;
 
-  /// AI 助手座位状态字:正在念回答
+  /// 灶语座位状态字:正在念回答
   ///
   /// In zh, this message translates to:
   /// **'在说话'**
   String get aiStateSpeaking;
 
-  /// 读屏:AI 助手座位。state 是在听 / 在想… / 在说话 / AI 助手
+  /// 读屏:灶语的座位。name 是它的名字(默认「灶语」),所以角色用通用的「AI 语音」。state 是在听 / 在想… / 在说话 / AI
   ///
   /// In zh, this message translates to:
-  /// **'{name},AI 助手,{state}'**
+  /// **'{name},AI 语音,{state}'**
   String aiOrbSemantics(String name, String state);
 
   /// 点 AI 座位的说明卡:叫名字模式怎么提问
@@ -4862,7 +4862,7 @@ abstract class AppLocalizations {
   /// **'也可以叫它:{words}'**
   String aiHintAlsoCall(String words);
 
-  /// 说明卡(ptt 模式):@名字 / @别的叫法 也能触发。names 形如 @小助手、@阿福
+  /// 说明卡(ptt 模式):@名字 / @别的叫法 也能触发。names 形如 @灶语、@阿福
   ///
   /// In zh, this message translates to:
   /// **'{names} 也行'**
@@ -4904,55 +4904,55 @@ abstract class AppLocalizations {
   /// **'(被打断)'**
   String get chatAiInterrupted;
 
-  /// AI 助手设置分组:名字、别的叫法、什么时候回答
+  /// 灶语设置分组:名字、别的叫法、什么时候回答
   ///
   /// In zh, this message translates to:
   /// **'叫它'**
   String get aiVoiceSectionCall;
 
-  /// AI 助手设置分组:音色、人设、插话就停
+  /// 灶语设置分组:音色、人设、插话就停
   ///
   /// In zh, this message translates to:
   /// **'它怎么说话'**
   String get aiVoiceSectionVoice;
 
-  /// AI 助手设置分组:次数 / 字数上限和对话模型(折叠)
+  /// 灶语设置分组:次数 / 字数上限和对话模型(折叠)
   ///
   /// In zh, this message translates to:
   /// **'用量'**
   String get aiVoiceSectionUsage;
 
-  /// AI 助手设置:名字字段的帮助字
+  /// 灶语设置:名字字段的帮助字
   ///
   /// In zh, this message translates to:
   /// **'大家喊这个名字,它就会应'**
   String get aiVoiceFieldNameHelper;
 
-  /// AI 助手设置:人设字段的帮助字
+  /// 灶语设置:人设字段的帮助字
   ///
   /// In zh, this message translates to:
   /// **'告诉它用什么口气、说多长'**
   String get aiVoiceFieldPersonaHelper;
 
-  /// AI 助手设置:音色下拉的帮助字
+  /// 灶语设置:音色下拉的帮助字
   ///
   /// In zh, this message translates to:
   /// **'它念回答时用的声音'**
   String get aiVoiceFieldVoiceHelper;
 
-  /// AI 助手设置:插话就停开关的说明
+  /// 灶语设置:插话就停开关的说明
   ///
   /// In zh, this message translates to:
   /// **'它说着话时有人开口,它就先停下来听'**
   String get aiVoiceFieldInterruptHelper;
 
-  /// AI 助手设置:用量分组(折叠)的副标题
+  /// 灶语设置:用量分组(折叠)的副标题
   ///
   /// In zh, this message translates to:
   /// **'限一下次数和字数,免得费用跑太多'**
   String get aiVoiceUsageHelper;
 
-  /// AI 助手设置:对话模型字段的帮助字
+  /// 灶语设置:对话模型字段的帮助字
   ///
   /// In zh, this message translates to:
   /// **'不清楚就别改'**

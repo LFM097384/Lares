@@ -1,11 +1,12 @@
 // 真实 provider 冒烟(各打一次 LLM / TTS / ASR,打印延迟,不打印任何内容或密钥)。
-// 用法:LARES_DASHSCOPE_API_KEY=… node bots/voice-agent/smoke.mjs
-//   或  node bots/voice-agent/smoke.mjs --key-csv <DashScope 控制台导出的 apiKey CSV>
+// 用法:LARES_DASHSCOPE_API_KEY=… node hearthvoice-lares/smoke.mjs
+//   或  node hearthvoice-lares/smoke.mjs --key-csv <DashScope 控制台导出的 apiKey CSV>
 // 密钥只进 process.env,不回显、不落盘。
 import { readFileSync } from 'node:fs';
-import { DashscopeAsr, DashscopeTts } from './providers/dashscope.mjs';
-import { OpenAiCompatLlm, DASHSCOPE_COMPAT_BASE } from './providers/openai_compat.mjs';
-import { concatInt16, resample } from './audio.mjs';
+import { DashscopeAsr, DashscopeTts } from '../hearthvoice/providers/dashscope.mjs';
+import { OpenAiCompatLlm, DASHSCOPE_COMPAT_BASE } from '../hearthvoice/providers/openai_compat.mjs';
+import { concatInt16, resample } from '../hearthvoice/audio.mjs';
+import { WebSocket } from '../lares-bridge/index.mjs';
 
 const i = process.argv.indexOf('--key-csv');
 if (i > 0) {
@@ -37,7 +38,7 @@ const out = {};
 // TTS
 let ttsPcm = null;
 {
-  const tts = new DashscopeTts({ apiKey: key });
+  const tts = new DashscopeTts({ apiKey: key, WebSocket });
   const t0 = Date.now();
   try {
     const s = await tts.open({ voice: 'Cherry' });
@@ -63,7 +64,7 @@ let ttsPcm = null;
 
 // ASR(用上面合成的语音)
 if (ttsPcm) {
-  const asr = new DashscopeAsr({ apiKey: key });
+  const asr = new DashscopeAsr({ apiKey: key, WebSocket });
   const pcm16 = resample(ttsPcm, 24000, 16000);
   const t0 = Date.now();
   let partials = 0;

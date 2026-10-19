@@ -1,4 +1,4 @@
-// Ember · 纯音频工具(从 server/bots/voice-agent/audio.mjs 复制,让 ember 不依赖 Lares):重采样、能量 VAD、PCM 小工具。
+// Ember · 纯音频工具(从 hearthvoice/audio.mjs(原 server/bots/voice-agent/audio.mjs)复制,让 ember 不依赖 Lares):重采样、能量 VAD、PCM 小工具。
 
 export const ROOM_RATE = 48000;
 export const FRAME_SAMPLES = 480; // 10ms @ 48k

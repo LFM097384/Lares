@@ -1,12 +1,12 @@
-# lares.ai-voice — internal contract (bot process ⇄ server supervisor)
+# lares.ai-voice (灶语 / Hearthvoice) — internal contract (plugin process ⇄ server supervisor)
 
-This file is the single source of truth shared by the bot implementation (`server/bots/voice-agent/`)
-and the server-side supervisor (`server/src/ai_voice_supervisor.js`). Keep both sides in sync with it.
+This file is the single source of truth shared by the Lares plugin of 灶语 (`hearthvoice-lares/`, core in `hearthvoice/`,
+room access in `lares-bridge/`) and the server-side supervisor (`server/src/ai_voice_supervisor.js`). Keep both sides in sync with it.
 
 ## 1. Process CLI
 
 ```
-node server/bots/voice-agent/index.mjs --circle <circleId>
+node hearthvoice-lares/index.mjs --circle <circleId>
      [--signaling ws://127.0.0.1:8787/ws]   (default env LARES_SIGNALING)
      [--passcode <p>]                        (standalone; v1 for env circles, v2 with --auth-v2)
      [--auth-v2]                             (registered c_… circles; derive Argon2 verifier from passcode)
@@ -46,8 +46,8 @@ display name = `config.name`. It never uses a `bot:` userId (reserved by the ser
 
 | key | type | default | notes |
 |---|---|---|---|
-| `name` | string ≤16 | `小助手` | display name; also an implicit wake word |
-| `wakeWords` | string ≤100 | `小助手` | comma/、/space separated extra wake words |
+| `name` | string ≤16 | `灶语` | display name; also an implicit wake word |
+| `wakeWords` | string ≤100 | `灶语` | comma/、/space separated extra wake words |
 | `persona` | string ≤1000 | (Chinese default: brief, warm, spoken style) | system prompt |
 | `trigger` | `wake`\|`always`\|`ptt` | `wake` | ptt = only chat messages starting with `@AI` (or `@<name>`) |
 | `voice` | string | `Cherry` | TTS voice |
@@ -58,6 +58,8 @@ display name = `config.name`. It never uses a `bot:` userId (reserved by the ser
 | `interrupt` | boolean | true | stop speaking when a human talks over the bot |
 
 ## 4. Server supervisor rules
+
+- Entry: `hearthvoice-lares/index.mjs` (repo and image share the layout); override with env `LARES_AI_VOICE_ENTRY`.
 
 - Spawn when: plugin `lares.ai-voice` installed+enabled for the circle AND ≥1 human member in the room
   AND the circle is not server-E2EE (`circleSettings.e2ee === true` → refuse; E2EE requires standalone mode with passcode)

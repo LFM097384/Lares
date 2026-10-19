@@ -1,4 +1,4 @@
-// lares.ai-voice 端到端(信令层):真服务端进程 + 真 supervisor 拉起 bots/voice-agent(mock provider)。
+// lares.ai-voice 端到端(信令层):真服务端进程 + 真 supervisor 拉起灶语插件 hearthvoice-lares/(mock provider)。
 // 验证:圈主装插件 → 真人进房 → supervisor spawn 子进程 → 子进程用 env 里的凭证(圈 verifier + u_ai_ 身份凭证)
 // 通过 hello、进房,房里看到 u_ai_<hash>。LiveKit 用假地址(token 是本地签的 JWT,不联网),
 // 所以子进程拿到 token 后连媒体会失败退出 —— 本测试只看信令层(真媒体见 tool/ai_voice_e2e.mjs)。
@@ -19,7 +19,7 @@ let rtcOk = true;
 try { await import('@livekit/rtc-node'); } catch { rtcOk = false; }
 
 async function main() {
-  console.log('AI 语音助手:supervisor 拉起 bot(mock)→ 信令鉴权 + 进房\n');
+  console.log('灶语(lares.ai-voice):supervisor 拉起 hearthvoice-lares(mock)→ 信令鉴权 + 进房\n');
   if (!rtcOk) { console.log('  (跳过:未安装 @livekit/rtc-node)'); return; }
   const dataDir = mkdtempSync(path.join(tmpdir(), 'lares-aispawn-'));
   const srv = boot(PORT, dataDir, 'aispawn-global-' + randomBytes(4).toString('hex'), {

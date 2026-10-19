@@ -12,7 +12,7 @@
 import path from 'node:path';
 import readline from 'node:readline';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { AuthError, CircleGoneError, E2eeRequiredError } from '../server/bots/voice-agent/room.mjs';
+import { AuthError, CircleGoneError, E2eeRequiredError, loadRtcNode, WebSocket } from '../lares-bridge/index.mjs';
 import { createEmber, AGENT_NAME, createDeepSeekLLM, MockAsr } from '../ember/index.mjs';
 import { AnonRoom, anonAgentUserId } from './room.mjs';
 import { laresPort } from './port.mjs';
@@ -60,8 +60,9 @@ async function asrFromEnv(kind, env) {
   if (kind === 'mock') return new MockAsr();
   const key = String(env.LARES_DASHSCOPE_API_KEY ?? '').trim();
   if (!key) throw new UsageError('LARES_DASHSCOPE_API_KEY missing');
-  const { DashscopeAsr } = await import('../server/bots/voice-agent/providers/dashscope.mjs');
-  return new DashscopeAsr({ apiKey: key });
+  // DashScope 实时 ASR 复用灶语本体的 provider(平台无关);ws 用 lares-bridge 解析到的那一份
+  const { DashscopeAsr } = await import('../hearthvoice/providers/dashscope.mjs');
+  return new DashscopeAsr({ apiKey: key, host: env.LARES_DASHSCOPE_HOST, log: (m) => process.stderr.write(`[ai-voice] ${m}\n`), WebSocket });
 }
 
 /**
@@ -172,7 +173,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   rl.close();
   process.stdin.unref?.();
   out({ ev: 'exit', code });
-  try { (await import('../server/bots/voice-agent/room.mjs')).loadRtcNode().then((rtc) => rtc?.dispose?.()).catch(() => {}); } catch { /* */ }
+  try { loadRtcNode().then((rtc) => rtc?.dispose?.()).catch(() => {}); } catch { /* */ }
   return code;
 }
 

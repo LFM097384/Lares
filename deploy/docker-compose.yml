@@ -63,7 +63,7 @@ services:
   # ── lares-server:presence 信令 + LiveKit token 签发 + 语音便签 ────────────
   lares-server:
     build:
-      # 上下文 = 仓库根:镜像里要带上 ember/ 与 ember-lares/(炉灵),见 server/Dockerfile 与根 .dockerignore
+      # 上下文 = 仓库根:镜像里要带上 lares-bridge/、hearthvoice/ + hearthvoice-lares/(灶语)、ember/ + ember-lares/(炉灵),见 server/Dockerfile 与根 .dockerignore
       context: ..
       dockerfile: server/Dockerfile
     image: lares-server:local
@@ -117,7 +117,7 @@ services:
       # ── 实时字幕(阿里云百炼 DashScope)。留空 = 字幕禁用,客户端隐藏按钮 ──────
       # 长期 API Key 只留在服务器;客户端每次只拿一张 5 分钟的临时 token。**绝不提交真 Key。**
       LARES_DASHSCOPE_API_KEY: ${LARES_DASHSCOPE_API_KEY:-}
-      # ── AI 语音助手的对话 LLM(OpenAI 兼容)。全留空 = 用 DashScope qwen-flash ──────
+      # ── 灶语(AI 语音,lares.ai-voice)的对话 LLM(OpenAI 兼容)。全留空 = 用 DashScope qwen-flash ──────
       # DeepSeek:BASE_URL=https://api.deepseek.com,MODEL=deepseek-flash,KEY=sk-…(只放服务器 .env)。
       # EXTRA_BODY 留空时 DeepSeek 默认 {"thinking":{"type":"disabled"}};DeepSeek 出错自动回退 qwen-flash。
       LARES_AI_LLM_BASE_URL: ${LARES_AI_LLM_BASE_URL:-}

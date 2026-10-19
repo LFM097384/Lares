@@ -10,7 +10,8 @@
 const EVENT_MAP = Object.freeze({ name: 'names', message: 'anon', joined: 'joined', left: 'left', audio: 'audio', disconnected: 'disconnected' });
 
 /// Lares 规则:u_ai_*(语音助手 / 隐名 agent)与 bot:*(bot API 身份)不是真人
-export const isLaresHuman = (id) => typeof id === 'string' && id !== '' && !id.startsWith('u_ai_') && !id.startsWith('bot:');
+export { isLaresHuman } from '../lares-bridge/index.mjs';
+import { isLaresHuman } from '../lares-bridge/index.mjs';
 
 export function laresPort(room, { circleId, selfId = room.userId } = {}) {
   if (!circleId) throw new TypeError('laresPort: circleId required');

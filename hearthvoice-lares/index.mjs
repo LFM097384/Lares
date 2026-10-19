@@ -1,20 +1,21 @@
 #!/usr/bin/env node
-// lares.ai-voice 机器人进程。接口契约见 ./CONTRACT.md(CLI / 环境变量 / stdout JSON / 退出码)。
+// hearthvoice-lares · 灶语(Hearthvoice)的 Lares 插件进程 = 插件 lares.ai-voice。
+// 接口契约见 ./CONTRACT.md(CLI / 环境变量 / stdin / stdout JSON / 退出码),由 server/src/ai_voice_supervisor.js 托管拉起。
+// 组成:本体 ../hearthvoice(回合引擎,平台无关)+ ../lares-bridge(LaresRoom:信令鉴权、LiveKit、E2EE)+ ./port.mjs(两者之间的 port)。
+// 依赖都按相对路径引入,不 import server/ 下任何源码;npm 包由 lares-bridge 从 server/node_modules 解析(见 README「依赖」)。
 //
 // 进程内使用(测试 harness):
 //   import { runVoiceBot } from './index.mjs';
 //   const bot = await runVoiceBot({ circleId, signaling, passcode, providers: 'mock', emit: (ev) => … });
 //   … await bot.stop();
-// 或者只要回合引擎、不进房:createAgent({ config, providers, sink, room })(见 pipeline.mjs VoiceAgent)。
 
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import readline from 'node:readline';
-import { normalizeAiVoiceConfig } from './config.mjs';
-import { CostGuard } from './caps.mjs';
-import { VoiceAgent } from './pipeline.mjs';
-import { createProviders } from './providers/index.mjs';
-import { LaresRoom, AuthError, CircleGoneError, E2eeRequiredError, defaultAiUserId } from './room.mjs';
+import { createHearthvoice, normalizeAiVoiceConfig } from '../hearthvoice/index.mjs';
+import { LaresRoom, AuthError, CircleGoneError, E2eeRequiredError, defaultAiUserId } from '../lares-bridge/index.mjs';
+import { createProviders, laresLog } from './providers.mjs';
+import { laresVoicePort } from './port.mjs';
 
 export const EXIT = Object.freeze({ OK: 0, BAD_ARGS: 2, AUTH: 3, DAILY_CAP: 4 });
 
@@ -72,22 +73,22 @@ export function loadConfig({ configPath, name, env = process.env }) {
  * @param {(m:string)=>void} [o.log]
  * @param {boolean} [o.logText]
  * @param {object} [o.env]
+ * @param {object} [o.room]       测试:注入与 LaresRoom 同形的假房间
  */
 export async function runVoiceBot(o) {
   const env = o.env ?? process.env;
   const emit = o.emit ?? (() => {});
-  const log = o.log ?? ((m) => process.stderr.write(`[ai-voice] ${m}\n`));
+  const log = o.log ?? laresLog;
   const nc = normalizeAiVoiceConfig(o.config ?? {});
   if (!nc.ok) throw new UsageError(`bad config: ${nc.detail}`);
-  let config = nc.config;
   const providers = typeof o.providers === 'object' && o.providers
     ? o.providers
     : await createProviders(o.providers ?? 'dashscope', { env, mock: o.mock, log });
-  const room = new LaresRoom({
+  const room = o.room ?? new LaresRoom({
     circleId: o.circleId,
     // u_ai_* 是服务端保留前缀,只有托管进程(带 LARES_AI_MEMBER_SECRET)能用;独立运行退回普通成员 id
     userId: o.userId ?? ((o.memberSecret ?? env.LARES_AI_MEMBER_SECRET) ? defaultAiUserId(o.circleId) : defaultAiUserId(o.circleId).replace(/^u_ai_/, 'u_aibot_')),
-    name: config.name,
+    name: nc.config.name,
     signaling: o.signaling ?? env.LARES_SIGNALING ?? 'ws://127.0.0.1:8787/ws',
     authSecret: o.authSecret,
     memberSecret: o.memberSecret ?? env.LARES_AI_MEMBER_SECRET ?? undefined,
@@ -100,32 +101,38 @@ export async function runVoiceBot(o) {
   let resolveDone;
   const done = new Promise((r) => { resolveDone = r; });
   let stopping = null;
-  const guard = new CostGuard({ usageFile: o.usageFile ?? env.LARES_AI_USAGE_FILE ?? null, config, emit });
+  const hv = createHearthvoice({
+    port: laresVoicePort(room),
+    asr: providers.asr,
+    llm: providers.llm,
+    tts: providers.tts,
+    policy: {
+      config: nc.config,
+      usageFile: o.usageFile ?? env.LARES_AI_USAGE_FILE ?? null,
+      emit,
+      log,
+      logText: o.logText ?? env.LARES_AI_LOG_TEXT === '1',
+      onDailyCap: () => { log('今日回答次数已满,退出'); stop(EXIT.DAILY_CAP); },
+      ...(o.agent ? { agent: o.agent } : {}), // 测试:paceScale / warm 等
+    },
+  });
   const stop = (code = EXIT.OK) => {
     stopping ??= (async () => {
       const hard = setTimeout(() => resolveDone(code), 2500);
       hard.unref?.();
-      try { await agent?.close(); } catch { /* */ }
-      try { await room.leave(); } catch { /* */ }
+      try { await hv.stop(); } catch { /* */ }
       clearTimeout(hard);
       resolveDone(code);
     })();
     return stopping.then(() => done);
   };
 
-  if (!guard.check().ok && guard.check().reason === 'daily') {
-    emit({ ev: 'cap_reached', scope: 'daily', turns: guard.turnsToday() });
-    return { agent: null, room, config, stop: async () => EXIT.DAILY_CAP, done: Promise.resolve(EXIT.DAILY_CAP) };
+  if (hv.dailyCapReached()) {
+    emit({ ev: 'cap_reached', scope: 'daily', turns: hv.guard.turnsToday() });
+    return { agent: null, room, config: hv.config, stop: async () => EXIT.DAILY_CAP, done: Promise.resolve(EXIT.DAILY_CAP) };
   }
 
-  let agent = null;
-  // 处理器先挂(room.join 内部在 connect 之前注册 LiveKit 事件)
-  room.on('audio', (id, data, rate, ch) => agent?.onAudioFrame(id, data, rate, ch));
-  room.on('chat', (m) => agent?.onChat(m));
-  room.on('capctl', (id, m) => agent?.onCaptionControl(id, m));
-  room.on('names', (id, n) => agent?.setName(id, n));
-  room.on('left', (id) => agent?.participantLeft(id));
-  room.on('joined', () => agent?.republishState());
+  // 断线 / 圈子解散:退出码由插件决定(本体不管)
   room.on('disconnected', (why) => {
     if (why === 'circle_deleted') { log('圈子已解散,退出'); stop(EXIT.OK); return; }
     log(`连接断开(${why})`);
@@ -133,41 +140,19 @@ export async function runVoiceBot(o) {
     stop(1);
   });
 
-  agent = new VoiceAgent({
-    config,
-    providers,
-    sink: { captureFrame: () => {}, clear: () => {}, queuedMs: () => 0 }, // 进房后替换
-    room: { publishCaption: (c) => room.publishCaption(c), sendChat: (t) => room.sendChat(t), publishState: (f) => room.publishState(f) },
-    selfIdentity: room.userId,
-    emit,
-    guard,
-    log,
-    logText: o.logText ?? env.LARES_AI_LOG_TEXT === '1',
-    onDailyCap: () => { log('今日回答次数已满,退出'); stop(EXIT.DAILY_CAP); },
-  });
-  await room.join();
-  agent.sink = room.sink();
-  agent.republishState(); // 进房前的初始状态发不出去:进房后补发
-  emit({ ev: 'ready', userId: room.userId, circleId: o.circleId, providers: providers.kind ?? 'custom', trigger: config.trigger });
+  await hv.start();
+  emit({ ev: 'ready', userId: room.userId, circleId: o.circleId, providers: providers.kind ?? 'custom', trigger: hv.config.trigger });
 
   return {
-    agent,
+    agent: hv.agent,
     room,
-    get config() { return config; },
-    setConfig(c) {
-      const r = normalizeAiVoiceConfig(c ?? {});
-      if (!r.ok) return false;
-      const renamed = r.config.name !== config.name;
-      config = r.config;
-      agent.setConfig(config);
-      if (renamed) room.rename(config.name);
-      return true;
-    },
+    hearthvoice: hv,
+    get config() { return hv.config; },
+    setConfig: (c) => hv.setConfig(c),
     stop,
     done,
   };
 }
-
 const USAGE = 'usage: node index.mjs --circle <id> [--signaling ws://…/ws] [--passcode p] [--auth-v2] [--e2ee] [--config file.json] [--providers dashscope|mock] [--user-id id] [--name n]';
 
 export async function main(argv = process.argv.slice(2), env = process.env) {
@@ -230,11 +215,14 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
-  main().then((code) => {
-    // 给 stdout 刷新留一点时间;rtc-node 的原生句柄可能拖住事件循环,所以显式退出
-    setTimeout(() => process.exit(code), 50);
-  }, (e) => {
+  // 退出码走 process.exitCode;事件循环清空就自然退出。rtc-node 的原生句柄可能拖住事件循环:
+  // 留一个 unref 的兜底计时器,它只在进程本来就退不掉时才触发(先给 stdout 刷新留时间),不改退出码。
+  const finish = (code) => {
+    process.exitCode = code;
+    setTimeout(() => process.exit(), 300).unref();
+  };
+  main().then(finish, (e) => {
     process.stdout.write(`${JSON.stringify({ ev: 'error', message: String(e?.message ?? e) })}\n`);
-    setTimeout(() => process.exit(1), 50);
+    finish(1);
   });
 }

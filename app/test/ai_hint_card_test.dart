@@ -31,8 +31,8 @@ void main() {
       ['小福', '福仔', '老福'],
     );
     expect(aiVoiceExtraWakeWords({'name': '阿福', 'wakeWords': ''}), isEmpty);
-    // 缺省:默认名字「小助手」,默认别的叫法
-    expect(aiVoiceExtraWakeWords(const {}), isNot(contains('小助手')));
+    // 缺省:默认名字「灶语」,默认别的叫法
+    expect(aiVoiceExtraWakeWords(const {}), isNot(contains('灶语')));
   });
 
   Future<void> card(WidgetTester tester, Map<String, dynamic> cfg,
@@ -81,9 +81,9 @@ void main() {
     expect(privacy, isNot(contains('把语音发到')));
   });
 
-  testWidgets('配置还没到:按默认「小助手」/ 叫名字说', (tester) async {
+  testWidgets('配置还没到:按默认「灶语」/ 叫名字说', (tester) async {
     await card(tester, const {});
-    expect(find.text('叫它「小助手」就能提问'), findsOneWidget);
+    expect(find.text('叫它「灶语」就能提问'), findsOneWidget);
   });
 
   group('房间里点 AI 座位', () {
@@ -124,7 +124,7 @@ void main() {
         'items': [
           {
             'id': aiVoicePluginId,
-            'name': 'AI 助手',
+            'name': '灶语',
             'version': '1.0.0',
             'author': 'Lares',
             'permissions': ['audio:read'],

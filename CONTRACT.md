@@ -9,9 +9,9 @@
 
 ## 角色
 
-- **agent** 是圈里的一个成员,身份为 `u_ai_anon_<sha256(cid)[:8]>`。它与语音助手 `u_ai_<sha256(cid)[:8]>` 是不同的 id。
+- **agent** 是圈里的一个成员,身份为 `u_ai_anon_<sha256(cid)[:8]>`。它与灶语(AI 语音,`lares.ai-voice`)`u_ai_<sha256(cid)[:8]>` 是不同的 id。
   - hello 必须带 `aiAuth {circleId, proof}`,其中 `proof = HMAC-SHA256-hex(memberSecret, "${nonce}:${userId}:${circleId}")`。
-  - `memberSecret` 按角色单独派生,所以语音助手的凭证冒充不了隐名 agent。
+  - `memberSecret` 按角色单独派生,所以灶语的凭证冒充不了隐名 agent。
   - 凭证只对凭证所属的那个圈有效。
 - **托管模式**:服务器按圈拉起 `ember-lares/index.mjs`(炉灵的 Lares 插件),可用 `LARES_ANONYM_AGENT_ENTRY` 覆盖入口。启动需要 LiveKit 已配置。
   - argv 只有 `--circle <cid> --signaling ws://127.0.0.1:<port>/ws`。
@@ -24,7 +24,7 @@
 - **独立自托管**:agent 用同样的协议自行连接,服务器不拉进程。
 - **E2EE 圈可以用**:媒体密钥由圈主密封后交给 agent,服务器只转发密文。
 - 只用于**已注册的 v2 圈**。env 口令圈 / legacy 圈回 `not_registered`。
-- 隐名 agent 被邀请或在场期间,AI 语音助手不进房,已在房的会被停掉(`disabled`)。agent 走后按原规则恢复。
+- 隐名 agent 被邀请或在场期间,灶语(AI 语音)不进房,已在房的会被停掉(`disabled`)。agent 走后按原规则恢复。
 
 ## WebSocket:C→S
 
@@ -59,7 +59,7 @@
 | `transcript_append` / `transcript_relay` | 回 `transcript_error{reason:'anonym_active'}` |
 | 机器人 SSE、插件 webhook(`botApi.emit` 的全部事件) | 不发。唯一例外是 `knowledge.released` |
 | `POST /api/v1/captions` | 409 `anonym_active` |
-| AI 语音助手 | 不进房。agent 在场期间本来就互斥 |
+| 灶语(AI 语音) | 不进房。agent 在场期间本来就互斥 |
 | 推送 | 按 E2EE 规则脱敏:标题 `Lares`,正文为「有人在你的圈子里」 |
 
 agent 断开、被踢、被 dismiss 或解散圈时,强制关闭自动解除。

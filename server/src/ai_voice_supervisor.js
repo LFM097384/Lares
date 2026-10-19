@@ -1,4 +1,4 @@
-// lares.ai-voice 服务端监管:按圈拉起 / 停掉语音助手子进程(契约 server/bots/voice-agent/CONTRACT.md §1/§2/§4)。
+// lares.ai-voice 服务端监管:按圈拉起 / 停掉灶语(Hearthvoice)插件子进程 hearthvoice-lares/index.mjs(契约 hearthvoice-lares/CONTRACT.md §1/§2/§4)。
 //
 // 依赖全部注入(圈子状态、插件查询、spawn、时钟),本模块不碰 index.js 的全局表 —— 可单测。
 // 密钥只走子进程环境变量,绝不进 argv(argv 在 ps / 任务管理器里人人可见)。
@@ -47,7 +47,7 @@ export function createAiVoiceSupervisor(d) {
   const execPath = d.execPath ?? process.execPath;
   const mock = String(env.LARES_AI_PROVIDERS ?? '').trim() === 'mock';
   const hasKey = String(env.LARES_DASHSCOPE_API_KEY ?? '').trim().length > 0;
-  // 镜像里可能没有 bots/(server/Dockerfile 只 COPY src/):没有入口就别反复拉起一个必崩的进程
+  // 入口文件可能不在(镜像漏 COPY hearthvoice-lares/,或 LARES_AI_VOICE_ENTRY 指错):没有入口就别反复拉起一个必崩的进程
   const entryOk = d.botEntryExists ?? (() => existsSync(d.botEntry));
   // 每圈最多一个(slot 即圈);全站再设总上限:100 个圈都开了也只跑这么多,其余等名额
   const maxProcs = (() => { const raw = String(env.LARES_AI_MAX_PROCESSES ?? '').trim(); const n = raw ? Number(raw) : NaN; return Number.isInteger(n) && n >= 0 ? n : MAX_PROCESSES_DEFAULT; })();

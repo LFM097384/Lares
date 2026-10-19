@@ -34,12 +34,13 @@ export class CostGuard {
   /**
    * @param {object} o
    * @param {() => number} [o.now]
-   * @param {string|null} [o.usageFile] LARES_AI_USAGE_FILE
+   * @param {string|null} [o.usageFile] 用量文件(Lares 插件:env LARES_AI_USAGE_FILE)
    * @param {number} [o.tzOffsetMin]
    * @param {{maxTurnsPerHour:number, maxTurnsPerDay:number, maxReplyChars:number}} o.config
    * @param {(ev:object) => void} [o.emit] stdout 事件(usage / cap_reached)
    */
-  constructor({ now = Date.now, usageFile = null, tzOffsetMin, config, emit = () => {} }) {
+  constructor({ now = Date.now, usageFile = null, tzOffsetMin, config, emit = () => {}, log = (m) => process.stderr.write(`[hearthvoice] ${m}\n`) }) {
+    this.log = log;
     this.now = now;
     this.usageFile = usageFile;
     this.tz = tzOffsetMin;
@@ -73,7 +74,7 @@ export class CostGuard {
       writeFileSync(tmp, body);
       renameSync(tmp, this.usageFile);
     } catch (e) {
-      process.stderr.write(`[ai-voice] 写用量文件失败: ${e.message}\n`);
+      this.log(`写用量文件失败: ${e.message}`);
     }
   }
 

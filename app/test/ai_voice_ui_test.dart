@@ -42,7 +42,7 @@ Map<String, dynamic> _aiView({
 }) =>
     {
       'id': aiVoicePluginId,
-      'name': 'AI 助手',
+      'name': '灶语',
       'version': '1.0.0',
       'author': 'Lares',
       'permissions': ['audio:read'],
@@ -173,7 +173,7 @@ void main() {
       expect(s.plugin('c1', aiVoicePluginId)!.config['maxTurnsPerDay'], 50);
     });
 
-    testWidgets('添加:内置 AI 助手一项,点了发 plugin_install', (tester) async {
+    testWidgets('添加:内置灶语一项,点了发 plugin_install', (tester) async {
       tall(tester);
       await tester.pumpWidget(
           localizedApp(PluginsScreen(service: s, circleId: 'c1')));
@@ -222,7 +222,7 @@ void main() {
       )));
       await tester.pump();
       expect(find.byKey(const ValueKey('ai-voice-e2ee')), findsOneWidget);
-      expect(find.text('小助手'), findsWidgets); // 缺省补默认
+      expect(find.text('灶语'), findsWidgets); // 缺省补默认
     });
   });
 
@@ -406,7 +406,7 @@ void main() {
     for (final (cfg, want) in [
       ({'name': '阿福', 'trigger': 'always'}, '直接说就行,它一直在听'),
       ({'name': '阿福', 'trigger': 'ptt'}, '在聊天里 @AI 提问'),
-      (<String, dynamic>{}, '叫它「小助手」就能提问'),
+      (<String, dynamic>{}, '叫它「灶语」就能提问'),
     ]) {
       await tester.pumpWidget(localizedApp(
           Scaffold(body: AiVoiceInfoSheet(config: cfg))));
@@ -458,8 +458,8 @@ void main() {
       expect(find.text('比如:小福、福仔'), findsOneWidget);
     });
 
-    testWidgets('服务端默认「小助手」= 名字:框里不再重复', (tester) async {
-      await pumpForm(tester, const {'name': '小助手', 'wakeWords': '小助手'});
+    testWidgets('服务端默认「灶语」= 名字:框里不再重复', (tester) async {
+      await pumpForm(tester, const {'name': '灶语', 'wakeWords': '灶语'});
       expect(wakeText(tester), '');
     });
 
@@ -577,7 +577,7 @@ void main() {
       final sw = tester.widget<SwitchListTile>(
           find.byKey(const ValueKey('purpose-meeting-ai-switch')));
       expect(sw.onChanged, isNull);
-      expect(find.text('这个圈开着端到端加密,用不了 AI 助手'), findsOneWidget);
+      expect(find.text('这个圈开着端到端加密,用不了灶语'), findsOneWidget);
     });
   });
 
@@ -639,7 +639,7 @@ void main() {
       expect(find.byKey(const ValueKey('privacy-ai')), findsOneWidget);
       expect(find.byKey(const ValueKey('privacy-plugins')), findsNothing);
       expect(find.byKey(const ValueKey('privacy-nothing')), findsNothing);
-      expect(find.textContaining('AI 助手开'), findsOneWidget);
+      expect(find.textContaining('灶语开'), findsOneWidget);
     });
   });
 }

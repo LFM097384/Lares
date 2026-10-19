@@ -1,0 +1,19 @@
+{
+  "name": "hearthvoice-lares",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "灶语(Hearthvoice)的 Lares 插件 = lares.ai-voice:CLI / LARES_* 环境变量 / stdin 命令 / 退出码契约,LaresRoom → 灶语 port",
+  "bin": { "hearthvoice-lares": "./index.mjs" },
+  "exports": {
+    ".": "./index.mjs",
+    "./port": "./port.mjs",
+    "./providers": "./providers.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test ./"
+  },
+  "//deps": "不单独装依赖:相对路径 ../hearthvoice(本体)、../lares-bridge(Lares 房间);ws / hash-wasm / @livekit/rtc-node 由 lares-bridge 从 server/node_modules 解析(见 README「依赖」)"
+}

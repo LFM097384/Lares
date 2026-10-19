@@ -1,11 +1,11 @@
-# Lares AI 语音助手(`lares.ai-voice`)
+# 灶语 Hearthvoice —— Lares 的 AI 语音(`lares.ai-voice`)
 
 圈子房间里的一个语音 AI:叫它的名字提问,它用语音回答,同时把回答发成字幕和聊天。
 
-- 实现:`server/bots/voice-agent/`(独立进程,结构见同目录 [`README.md`](../server/bots/voice-agent/README.md))。
-- 接口契约(CLI / 环境变量 / stdout 事件 / 退出码 / 监管规则):[`server/bots/voice-agent/CONTRACT.md`](../server/bots/voice-agent/CONTRACT.md),**以它为准**,本文是给圈主、运维和开发者看的使用手册。
-- 服务端监管:`server/src/ai_voice_supervisor.js`;配置归一化:`server/src/ai_voice_config.js`。
-- 测试:`server/test/ai_voice.mjs`(回合引擎,mock provider)、`server/test/ai_voice_supervisor.mjs`(监管)、`server/bots/voice-agent/smoke.mjs`(真实 provider 冒烟)。
+- 实现分三部分(与炉灵 `ember/` + `ember-lares/` 同构):本体 [`hearthvoice/`](../hearthvoice/README.md)(平台无关,经 [`PORT.md`](../hearthvoice/PORT.md) 接入)、Lares 插件进程 [`hearthvoice-lares/`](../hearthvoice-lares/README.md)、与炉灵共用的 Lares 接入层 [`lares-bridge/`](../lares-bridge/README.md)。
+- 接口契约(CLI / 环境变量 / stdout 事件 / 退出码 / 监管规则):[`hearthvoice-lares/CONTRACT.md`](../hearthvoice-lares/CONTRACT.md),**以它为准**,本文是给圈主、运维和开发者看的使用手册。
+- 服务端监管:`server/src/ai_voice_supervisor.js`;配置归一化:`hearthvoice/config.mjs`(服务端 `plugins.js` 与插件进程共用)。入口默认 `hearthvoice-lares/index.mjs`,可用 `LARES_AI_VOICE_ENTRY` 覆盖。
+- 测试:`server/test/ai_voice.mjs`(回合引擎,mock provider)、`server/test/ai_voice_supervisor.mjs`(监管)、`hearthvoice-lares/smoke.mjs`(真实 provider 冒烟);`node --test hearthvoice/ hearthvoice-lares/ lares-bridge/`。
 
 ---
 
@@ -14,7 +14,7 @@
 ### 1.1 它是一名成员,也是一个单独的进程
 
 - 助手以**普通成员**身份进房:走和 App 相同的信令鉴权(HMAC 挑战应答),拿 LiveKit token,发布一条麦克风音轨。
-  所有人都能在成员列表里看到它,显示名 = `config.name`(默认「小助手」)。
+  所有人都能在成员列表里看到它,显示名 = `config.name`(默认「灶语」)。
 - userId 固定为 `u_ai_<sha256(circleId) 前 8 位 hex>`(可用 `--user-id` 覆盖),**从不**使用服务器保留的 `bot:` 前缀。
   服务端靠 `u_ai_` 前缀把它排除在「房里有没有真人」之外。`u_ai_` 是**保留前缀**:hello 必须带 supervisor 下发的圈级凭证
   `aiAuth = {circleId, proof: HMAC(LARES_AI_MEMBER_SECRET, nonce:userId:circleId)}`,且 userId 必须是该圈的派生 id,否则 `userId_reserved`。
@@ -117,9 +117,9 @@
 
 | 字段 | 类型 / 范围 | 默认 | 含义 |
 |---|---|---|---|
-| `name` | string ≤16 字 | `小助手` | 显示名,同时也是唤醒词 |
-| `wakeWords` | string ≤100 字 | `小助手` | 额外唤醒词,逗号 / 顿号 / 分号分隔(空格算词内,如 `hey lares`) |
-| `persona` | string ≤1000 字 | 「你是圈子里的语音小助手。用口语化、温暖、简短的中文回答……」 | 系统提示(人设) |
+| `name` | string ≤16 字 | `灶语` | 显示名,同时也是唤醒词 |
+| `wakeWords` | string ≤100 字 | `灶语` | 额外唤醒词,逗号 / 顿号 / 分号分隔(空格算词内,如 `hey lares`) |
+| `persona` | string ≤1000 字 | 「你是圈子里的语音助手。用口语化、温暖、简短的中文回答……」 | 系统提示(人设) |
 | `trigger` | `wake` \| `always` \| `ptt` | `wake` | 触发方式,见 §3 |
 | `voice` | 标识符 ≤40 字(`[A-Za-z0-9._-]`) | `Cherry` | TTS 音色;改了会丢掉热连接重开 |
 | `model` | 标识符 ≤64 字(`[A-Za-z0-9._-]`) | `qwen-flash` | LLM 模型(环境变量 `LARES_AI_LLM_MODEL` 优先) |
@@ -155,11 +155,11 @@
 
 | `trigger` | 什么时候回答 |
 |---|---|
-| `wake`(默认) | 一句话里出现名字或唤醒词。「小助手,明天几点集合」→ 问题是「明天几点集合」。**只喊名字**(「小助手?」)则这个人接下来 8 秒内说的下一句直接当问题 |
+| `wake`(默认) | 一句话里出现名字或唤醒词。「灶语,明天几点集合」→ 问题是「明天几点集合」。**只喊名字**(「灶语?」)则这个人接下来 8 秒内说的下一句直接当问题 |
 | `always` | 任何人说完一句(非纯语气词)都回答;句里若带唤醒词会先去掉 |
 | `ptt` | 只认文字聊天里以 `@AI` 或 `@名字` / `@唤醒词` 开头的消息,语音一律不触发 |
 
-- **三种模式下**,聊天里 `@AI …` / `@小助手 …`(大小写不敏感,全角 `＠` 也认)都会触发回答;回答仍然是语音 + 字幕 + 聊天。
+- **三种模式下**,聊天里 `@AI …` / `@灶语 …`(大小写不敏感,全角 `＠` 也认)都会触发回答;回答仍然是语音 + 字幕 + 聊天。
 - 唤醒词匹配(`wake.mjs`):归一化(去标点空白、全角转半角、字母小写)后**任意位置精确出现**都算;
   句首(跳过「嗯 / 那个 / 喂 / hey」等语气词后的前 8 个字)另有容错:常见 ASR 同音字(助↔组 / 主 / 住,手↔首 / 守 …)不算错,
   ≥3 字的唤醒词在句首位置还允许错 1 个字(但首尾字必须对上)。
@@ -188,9 +188,9 @@ DeepSeek 出错时回退 DashScope `qwen-flash`。不配 `LARES_AI_LLM_*` 时三
   本轮改用 DashScope `qwen-flash` 重答,stderr 记一行「LLM deepseek 失败(…),本轮回退 dashscope」。已吐字后断流不回退(避免重复念)。
 - 监管把 `LARES_AI_LLM_*` 原样放进子进程 **env**(从不进 argv);docker compose 的 `lares-server` 已透传,默认空。
 - **mock**(`--providers mock` 或 `LARES_AI_PROVIDERS=mock`,`providers/mock.mjs`):离线、确定性,不需要任何 key。
-  `MockAsr` 每段「有声 → 停」出一句固定台词(默认「小助手，你好」),`MockLlm` 吐固定回复,`MockTts` 输出正弦音。
+  `MockAsr` 每段「有声 → 停」出一句固定台词(默认「灶语，你好」),`MockLlm` 吐固定回复,`MockTts` 输出正弦音。
   用于单测和不想花钱的联调(仍然需要信令 + LiveKit)。服务器设 `LARES_AI_PROVIDERS=mock` 时,监管不要求 DashScope key。
-- 冒烟:`node bots/voice-agent/smoke.mjs --key-csv <DashScope 导出的 apiKey.csv>`,三个 provider 各调一次并打印延迟。
+- 冒烟:`node hearthvoice-lares/smoke.mjs --key-csv <DashScope 导出的 apiKey.csv>`,三个 provider 各调一次并打印延迟。
 - 密钥只放请求头和环境变量,永不打印;错误日志只记错误码,不记内容。
 
 ## 5. 费用护栏与费用估算
@@ -242,14 +242,14 @@ DeepSeek 出错时回退 DashScope `qwen-flash`。不配 `LARES_AI_LLM_*` 时三
 
 ```powershell
 # 离线 mock:不需要 DashScope key
-node bots/voice-agent/index.mjs --circle c_xxx --signaling ws://127.0.0.1:8787/ws --passcode 口令 --auth-v2 --providers mock
+node hearthvoice-lares/index.mjs --circle c_xxx --signaling ws://127.0.0.1:8787/ws --passcode 口令 --auth-v2 --providers mock
 
 # 真实 provider
 $env:LARES_DASHSCOPE_API_KEY = '…'      # 只放环境变量,别写进文件
-node bots/voice-agent/index.mjs --circle c_xxx --passcode 口令 --auth-v2 --config ai.json
+node hearthvoice-lares/index.mjs --circle c_xxx --passcode 口令 --auth-v2 --config ai.json
 
 # 端到端加密的圈子:必须 --passcode + --e2ee(密钥按 App 同样方式由口令派生)
-node bots/voice-agent/index.mjs --circle c_xxx --passcode 口令 --auth-v2 --e2ee
+node hearthvoice-lares/index.mjs --circle c_xxx --passcode 口令 --auth-v2 --e2ee
 ```
 
 - `--auth-v2`:App 注册的 `c_…` 圈(由口令派生 Argon2 verifier);环境变量里配口令的老式圈不加。
@@ -265,7 +265,7 @@ node bots/voice-agent/index.mjs --circle c_xxx --passcode 口令 --auth-v2 --e2e
 
 ```
 {t:'plugin_install', circleId, ownerKey, pluginId:'lares.ai-voice'}
-{t:'plugin_config_set', circleId, ownerKey, pluginId:'lares.ai-voice', config:{trigger:'wake', name:'小助手'}}
+{t:'plugin_config_set', circleId, ownerKey, pluginId:'lares.ai-voice', config:{trigger:'wake', name:'灶语'}}
 ```
 
 监管(`ai_voice_supervisor.js`)在以下条件**全部**满足时为该圈拉起一个子进程:
@@ -284,14 +284,13 @@ node bots/voice-agent/index.mjs --circle c_xxx --passcode 口令 --auth-v2 --e2e
 - 崩溃退避重启(5s → 60s,每小时最多 5 次);被踢出房间而正常退出时不立刻拉回,等房间空过一次或插件重新启用。
 - 圈子开了**敲门模式**时,助手无法自行进房(`knock_waiting`),会按崩溃处理并退避。
 
-**部署 TODO**:`server/Dockerfile` 目前只 `COPY src ./src`,镜像里没有 `bots/`,监管会以 `no_bot` 拒绝启动(日志「找不到 bot 入口」)。
-生产要用,需要在 Dockerfile 里加一行 `COPY bots ./bots`(依赖 `ws` / `hash-wasm` / `@livekit/rtc-node` 已在 `server/package.json` 里,镜像本来就是 glibc 版 Debian)。
+**部署**:`server/Dockerfile` 把 `lares-bridge/`、`hearthvoice/`、`hearthvoice-lares/` 拷到 `/app/` 下与 `server/` 同级;npm 依赖(`ws` / `hash-wasm` / `@livekit/rtc-node`)仍只装在 `server/node_modules`,`/app/node_modules` 软链过去。入口缺失时监管以 `no_bot` 拒绝启动(日志「找不到 bot 入口」)。
 
 **App 现状**:App 里还**没有**安装 `lares.ai-voice` 的入口,只能用上面的 WS 消息安装;装好后的配置编辑器是原始 JSON 编辑框,不是按 `settingsSchema` 生成的表单。
 
 ## 7. 隐私与知情同意
 
-面向用户的说明见 [隐私政策](privacy.md)「AI 助手」一节。实现层面:
+面向用户的说明见 [隐私政策](privacy.md)「灶语(AI 语音)」一节。实现层面:
 
 - **可见**:助手是房间里看得见的成员,有名字;它说的话同时出现在字幕和聊天里。插件描述里写明了语音会送到阿里云。
 - **送到云端的内容**:房里正在说话的成员的语音(VAD 判有声时,含 300ms 预录)→ DashScope ASR;
@@ -342,7 +341,6 @@ node bots/voice-agent/index.mjs --circle c_xxx --passcode 口令 --auth-v2 --e2e
 - **「提供字幕」只通过 `capack` 帧生效**:助手只能看到成员在 `lares.cap` 上发出的 `capack`。App 只在转写记录开着时向全房广播 `capack`,
   否则只回给发过 `capreq` 的人——而助手不发 `capreq`。所以在没开转写记录的圈里,助手**通常看不到**这个偏好,会照常识别。
 - **App 没有安装入口**,配置编辑是原始 JSON(§6.2)。
-- **Dockerfile 只拷 `src/`,镜像里没有 `bots/`**(§6.2 部署 TODO)。
 - **敲门模式的圈**助手进不去(`knock_waiting`,按崩溃退避)。
 - **用量文件只存每日计数**:回合数、LLM token、TTS 字数、ASR 秒数,保留 14 天(另有最近一小时的回合时间戳);没有按成员 / 按轮的明细。
 - `room.mjs` 的真实 LiveKit 端到端只有手动脚本(`server/tool/ai_voice_e2e.mjs`,见 §8),不在 `npm test` 里;单测只覆盖回合引擎(mock)和监管。

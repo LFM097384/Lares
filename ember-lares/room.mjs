@@ -1,13 +1,12 @@
 // ember-lares · Lares 房间:LaresRoom(信令 HMAC / aiAuth、LiveKit)的子类。
-// LaresRoom 直接按相对路径从 server/bots/voice-agent/room.mjs 引入(不复制,单一实现;见 README「依赖」)。
-// 与语音 bot 的差别:
+// LaresRoom 按相对路径从 ../lares-bridge 引入(与灶语共用的单一实现;见 README「依赖」)。
+// 与灶语(语音 AI)的差别:
 //  - E2EE 可用「密封密钥」入房:信令就绪后发 anon_agent_hello {circleId, x25519Pub},等 anon_agent_key 解封得媒体密钥 hex;
 //  - 不发布音轨(agent 不说话);
 //  - 收发 LiveKit data topic `lares.anon`(JSON,reliable),事件 'anon'(identity, msg);
 //  - deviceId 前缀 d_anon_,与语音 bot 区分。
 import crypto from 'node:crypto';
-import { LaresRoom, loadRtcNode, e2eeKeyHex } from '../server/bots/voice-agent/room.mjs';
-import { ROOM_RATE } from '../server/bots/voice-agent/audio.mjs';
+import { LaresRoom, loadRtcNode, e2eeKeyHex, authVerifier, ROOM_RATE } from '../lares-bridge/index.mjs';
 import { generateX25519, unseal } from '../ember/index.mjs';
 
 /// 线协议名不变(app / 服务器兼容):data topic、agent userId 前缀、deviceId 前缀
@@ -71,7 +70,6 @@ export class AnonRoom extends LaresRoom {
     if (!rtc) throw new Error('rtc_node_unavailable');
     this.rtc = rtc;
     if (!this.authSecret && this.passcode) {
-      const { authVerifier } = await import('../server/bots/voice-agent/room.mjs');
       this.authSecret = this.authV === 2 ? await authVerifier(this.passcode, this.circleId) : this.passcode;
     }
     const tok = await this._signal();

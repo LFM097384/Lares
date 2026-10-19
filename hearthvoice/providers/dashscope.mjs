@@ -1,16 +1,26 @@
 // DashScope 实时 ASR(qwen3-asr-flash-realtime)与实时 TTS(qwen3-tts-flash-realtime),都走 WebSocket。
 // 密钥只放请求头,永不打印。错误日志只记类型/错误码,不记内容。
 
+// 平台无关:主机、日志、WebSocket 实现都可注入(o.host / o.log / o.WebSocket)。
+// WebSocket 需要 npm 包 `ws` 的接口(.on / headers / terminate);缺省按 ../deps.mjs 找,找不到就必须注入。
+
 import crypto from 'node:crypto';
-import WebSocket from 'ws';
 import { int16ToBase64, base64ToInt16 } from '../audio.mjs';
+import { importOptional } from '../deps.mjs';
 
-const HOST = () => process.env.LARES_DASHSCOPE_HOST || 'dashscope.aliyuncs.com';
+export const DEFAULT_HOST = 'dashscope.aliyuncs.com';
+const wsMod = await importOptional('ws');
+const DefaultWebSocket = wsMod ? (wsMod.WebSocket ?? wsMod.default) : null;
 const eid = () => `event_${crypto.randomBytes(9).toString('hex')}`;
-const log = (m) => process.stderr.write(`[ai-voice] ${m}\n`);
+const defaultLog = (m) => process.stderr.write(`[hearthvoice] ${m}\n`);
 
-function openWs(url, apiKey, timeoutMs = 10000) {
-  return new WebSocket(url, { headers: { Authorization: `Bearer ${apiKey}` }, handshakeTimeout: timeoutMs, maxPayload: 64 * 1024 * 1024 });
+function resolveWs(WS) {
+  const W = WS ?? DefaultWebSocket;
+  if (typeof W !== 'function') throw new Error('dashscope_ws_unavailable: pass o.WebSocket (npm ws)');
+  return W;
+}
+function openWs(WS, url, apiKey, timeoutMs = 10000) {
+  return new WS(url, { headers: { Authorization: `Bearer ${apiKey}` }, handshakeTimeout: timeoutMs, maxPayload: 64 * 1024 * 1024 });
 }
 
 // ── ASR ──────────────────────────────────────────────────────────────────
@@ -25,13 +35,14 @@ export const ASR_HANDSHAKE_TIMEOUT_MS = 4000;
  * open() 立即返回句柄;握手完成前送来的音频先排队(保住 pre-roll 和开口第一个字)。
  */
 export class DashscopeAsr {
-  constructor({ apiKey, model = ASR_MODEL, vadThreshold = 0.2, silenceMs = 800, handshakeTimeoutMs = ASR_HANDSHAKE_TIMEOUT_MS } = {}) {
+  constructor({ apiKey, model = ASR_MODEL, vadThreshold = 0.2, silenceMs = 800, handshakeTimeoutMs = ASR_HANDSHAKE_TIMEOUT_MS, host = DEFAULT_HOST, log = defaultLog, WebSocket } = {}) {
     if (!apiKey) throw new Error('dashscope_api_key_missing');
-    Object.assign(this, { apiKey, model, vadThreshold, silenceMs, handshakeTimeoutMs });
+    Object.assign(this, { apiKey, model, vadThreshold, silenceMs, handshakeTimeoutMs, host: host || DEFAULT_HOST, log });
+    this.WS = resolveWs(WebSocket);
     this.sessions = 0;
   }
 
-  _url() { return `wss://${HOST()}/api-ws/v1/realtime?model=${encodeURIComponent(this.model)}`; }
+  _url() { return `wss://${this.host}/api-ws/v1/realtime?model=${encodeURIComponent(this.model)}`; }
 
   /**
    * 预热:bot 启动时开一条连接,WebSocket 握手完成(DNS + TLS + 鉴权)立刻断开。
@@ -41,11 +52,11 @@ export class DashscopeAsr {
     return new Promise((resolve) => {
       const t0 = Date.now();
       let done = false;
-      const ws = openWs(this._url(), this.apiKey, timeoutMs);
+      const ws = openWs(this.WS, this._url(), this.apiKey, timeoutMs);
       const end = (ok, why) => {
         if (done) return;
         done = true;
-        log(`asr warm-up ${ok ? 'ok' : `failed (${why})`} in ${Date.now() - t0}ms`);
+        this.log(`asr warm-up ${ok ? 'ok' : `failed (${why})`} in ${Date.now() - t0}ms`);
         try { ws.terminate(); } catch { /* */ }
         resolve(ok);
       };
@@ -57,7 +68,7 @@ export class DashscopeAsr {
 
   open({ identity, onPartial, onFinal, onClose, onError, onOpen }) {
     this.sessions += 1;
-    const ws = openWs(this._url(), this.apiKey, this.handshakeTimeoutMs);
+    const ws = openWs(this.WS, this._url(), this.apiKey, this.handshakeTimeoutMs);
     const openedAt = Date.now();
     let live = false;
     let closed = false;
@@ -93,7 +104,7 @@ export class DashscopeAsr {
           }));
           live = true;
           onOpen?.();
-          log(`asr session live in ${Date.now() - openedAt}ms (flushing ${queue.length} queued chunks)`);
+          this.log(`asr session live in ${Date.now() - openedAt}ms (flushing ${queue.length} queued chunks)`);
           for (const c of queue.splice(0)) sendChunk(c);
           break;
         case 'conversation.item.input_audio_transcription.text':
@@ -106,13 +117,13 @@ export class DashscopeAsr {
           close();
           break;
         case 'error':
-          log(`asr error ${m.error?.code ?? 'unknown'} (${identity ? 'speaker' : '?'})`);
+          this.log(`asr error ${m.error?.code ?? 'unknown'} (${identity ? 'speaker' : '?'})`);
           onError?.(new Error(`asr_${m.error?.code ?? 'error'}`));
           break;
         default:
       }
     });
-    ws.on('error', (e) => { log(`asr socket error: ${e.code ?? e.message}`); onError?.(e); close(); });
+    ws.on('error', (e) => { this.log(`asr socket error: ${e.code ?? e.message}`); onError?.(e); close(); });
     ws.on('close', close);
     return {
       get audioSec() { return samples / 16000; },
@@ -154,15 +165,16 @@ export const TTS_RATE = 24000;
  * 打断时直接 close(),不复用。
  */
 export class DashscopeTts {
-  constructor({ apiKey, model = TTS_MODEL, languageType = 'Chinese', openTimeoutMs = 10000 } = {}) {
+  constructor({ apiKey, model = TTS_MODEL, languageType = 'Chinese', openTimeoutMs = 10000, host = DEFAULT_HOST, log = defaultLog, WebSocket } = {}) {
     if (!apiKey) throw new Error('dashscope_api_key_missing');
-    Object.assign(this, { apiKey, model, languageType, openTimeoutMs });
+    Object.assign(this, { apiKey, model, languageType, openTimeoutMs, host: host || DEFAULT_HOST, log });
+    this.WS = resolveWs(WebSocket);
     this.opened = 0;
   }
 
   open({ voice = 'Cherry' } = {}) {
     return new Promise((resolve, reject) => {
-      const ws = openWs(`wss://${HOST()}/api-ws/v1/realtime?model=${encodeURIComponent(this.model)}`, this.apiKey, this.openTimeoutMs);
+      const ws = openWs(this.WS, `wss://${this.host}/api-ws/v1/realtime?model=${encodeURIComponent(this.model)}`, this.apiKey, this.openTimeoutMs);
       let ready = false;
       let dead = false;
       let handlers = {};
@@ -181,7 +193,7 @@ export class DashscopeTts {
         voice,
         openedAt: Date.now(),
         used: false,
-        get alive() { return !dead && ws.readyState === WebSocket.OPEN; },
+        get alive() { return !dead && ws.readyState === 1 /* OPEN */; },
         setHandlers(h) { handlers = h ?? {}; },
         send(text) {
           session.used = true;
@@ -230,7 +242,7 @@ export class DashscopeTts {
             session.close();
             break;
           case 'error':
-            log(`tts error ${m.error?.code ?? 'unknown'}`);
+            this.log(`tts error ${m.error?.code ?? 'unknown'}`);
             fail(new Error(`tts_${m.error?.code ?? 'error'}`));
             break;
           default:

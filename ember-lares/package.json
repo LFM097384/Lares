@@ -15,5 +15,5 @@
     "start": "node index.mjs",
     "test": "node --test ./"
   },
-  "//deps": "不单独装依赖:ember 走相对路径 ../ember;ws / hash-wasm / @livekit/rtc-node 由 ../server/bots/voice-agent/room.mjs 从 server/node_modules 解析(见 README「依赖」)"
+  "//deps": "不单独装依赖:相对路径 ../ember(本体)、../lares-bridge(Lares 房间)、../hearthvoice/providers/dashscope.mjs(DashScope ASR);ws / hash-wasm / @livekit/rtc-node 由 lares-bridge 从 server/node_modules 解析(见 README「依赖」)"
 }

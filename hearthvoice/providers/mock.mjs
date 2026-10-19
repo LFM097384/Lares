@@ -18,7 +18,7 @@ export class MockAsr {
    * handshakeMs:>0 时模拟握手(期间送来的音频先排队,live 后冲刷);failOpen:接下来几次握手失败
    * (像真实的「Opening handshake has timed out」:onError + onClose,排队的音频随连接丢掉)。
    */
-  constructor({ script = ['小助手，你好'], connectMs = 20, partialMs = 60, quietMs = 120, handshakeMs = 0, failOpen = 0 } = {}) {
+  constructor({ script = ['灶语，你好'], connectMs = 20, partialMs = 60, quietMs = 120, handshakeMs = 0, failOpen = 0 } = {}) {
     Object.assign(this, { script, connectMs, partialMs, quietMs, handshakeMs, failOpen });
     this.sessions = 0;
     this.failedOpens = 0;

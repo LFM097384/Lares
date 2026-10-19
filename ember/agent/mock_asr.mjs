@@ -1,4 +1,4 @@
-// Ember · 离线、确定性的假 ASR(单元测试 / 无密钥联调)。从 server/bots/voice-agent/providers/mock.mjs 复制 ASR 部分;接口 = ASR provider:open({identity,onOpen,onPartial,onFinal,onClose,onError}) → {send(pcm16k), finish(), close()}。
+// Ember · 离线、确定性的假 ASR(单元测试 / 无密钥联调)。从 hearthvoice/providers/mock.mjs(原 server/bots/voice-agent/providers/mock.mjs)复制 ASR 部分;接口 = ASR provider:open({identity,onOpen,onPartial,onFinal,onClose,onError}) → {send(pcm16k), finish(), close()}。
 
 import { tone } from './audio.mjs';
 

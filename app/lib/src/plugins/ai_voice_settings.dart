@@ -13,16 +13,16 @@ import '../ui/ai_hint_card.dart';
 import 'plugin_models.dart';
 import 'plugin_service.dart';
 
-/// 默认人设(与 server/src/ai_voice_config.js 的 AI_VOICE_DEFAULT_PERSONA 一致)。
+/// 默认人设(与 hearthvoice/config.mjs 的 AI_VOICE_DEFAULT_PERSONA 一致)。
 const String kAiVoiceDefaultPersona =
-    '你是圈子里的语音小助手。用口语化、温暖、简短的中文回答,一般一两句话;不确定就直说不知道;不要使用 Markdown、列表或表情符号。';
+    '你是圈子里的语音助手。用口语化、温暖、简短的中文回答,一般一两句话;不确定就直说不知道;不要使用 Markdown、列表或表情符号。';
 
 /// 默认配置(与服务端 AI_VOICE_DEFAULTS 一致;只有 wakeWords 例外)。
 ///
-/// wakeWords 客户端默认留空:名字本身永远是唤醒词,服务端默认的「小助手」
+/// wakeWords 客户端默认留空:名字本身永远是唤醒词,服务端默认的「灶语」
 /// 和默认名字重复,表单里再显示一遍只会让人以为要填两次。
 const Map<String, Object> kAiVoiceDefaults = {
-  'name': '小助手',
+  'name': '灶语',
   'wakeWords': '',
   'persona': kAiVoiceDefaultPersona,
   'trigger': 'wake',
@@ -61,7 +61,7 @@ int _int(Map<String, dynamic> c, String k) {
   return v is num && v.isFinite ? v.round() : kAiVoiceDefaults[k]! as int;
 }
 
-/// AI 的名字(配置里没有就用默认「小助手」)。
+/// AI 的名字(配置里没有就用默认「灶语」)。
 String aiVoiceName(Map<String, dynamic> config) => _str(config, 'name');
 
 /// 触发方式(不认识的值按 `wake`)。
@@ -70,7 +70,7 @@ String aiVoiceTrigger(Map<String, dynamic> config) {
   return kAiVoiceTriggers.contains(v) ? v as String : 'wake';
 }
 
-/// 除名字外的别的叫法:按服务端 `parseWakeWords`(voice-agent/wake.mjs)的分隔符
+/// 除名字外的别的叫法:按服务端 `parseWakeWords`(hearthvoice/wake.mjs)的分隔符
 /// (逗号 / 顿号 / 分号 / 换行,全半角都认)拆开,去空、去重、去掉和名字相同的。
 /// 分隔符刻意与服务端一字不差:说明卡上列出的叫法必须真的叫得应。
 List<String> aiVoiceExtraWakeWords(Map<String, dynamic> config) {
@@ -149,7 +149,7 @@ class AiVoiceSettingsForm extends StatefulWidget {
 class _AiVoiceSettingsFormState extends State<AiVoiceSettingsForm> {
   final _form = GlobalKey<FormState>();
   late final _name = TextEditingController(text: _str(widget.config, 'name'));
-  // 只显示名字以外的叫法(去空、去重、去掉和名字相同的):服务端存的「小助手,小助手」
+  // 只显示名字以外的叫法(去空、去重、去掉和名字相同的):服务端存的「灶语,灶语」
   // 或等于名字的那一项不再出现在框里;存回去的就是框里这些,服务端不用改。
   late final _wake = TextEditingController(
       text: aiVoiceExtraWakeWords(widget.config).join(kAiVoiceWakeWordsJoin));

@@ -1,13 +1,10 @@
-// 房间适配器:信令(HMAC 挑战应答,与真人客户端同一套)+ LiveKit(rtc-node)进房、发布音轨、收发数据。
+// lares-bridge · Lares 房间:信令(HMAC 挑战应答,与真人客户端同一套)+ LiveKit(rtc-node)进房、发布音轨、收发数据。
+// 灶语(hearthvoice-lares)与炉灵(ember-lares)共用这一份实现;它不 import server/ 下任何东西。
 // 不 import server/tool/lares_bot.mjs:那个文件静态 import rtc-node,会和这里动态加载的副本打架;
 // 帧格式 / 证明算法与它完全一致(server/src/index.js verifyAuth、app chat_envelope.dart)。
 
 import crypto from 'node:crypto';
-import path from 'node:path';
-import { createRequire } from 'node:module';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import WebSocket from 'ws';
-import { argon2id } from 'hash-wasm';
+import { WebSocket, argon2id, importDep } from './deps.mjs';
 import { ROOM_RATE, FRAME_SAMPLES } from './audio.mjs';
 
 export const CHAT_TOPIC = 'lares.chat';
@@ -38,17 +35,14 @@ export function decodeChatFrame(bytes) {
 /// 默认 userId:u_ai_<sha256(circleId) 前 8 hex>(CONTRACT §1)
 export const defaultAiUserId = (circleId) => `u_ai_${crypto.createHash('sha256').update(circleId).digest('hex').slice(0, 8)}`;
 
+/// Lares 规则:u_ai_*(灶语 / 隐名 agent)与 bot:*(bot API 身份)不是真人
+export const isLaresHuman = (id) => typeof id === 'string' && id !== '' && !id.startsWith('u_ai_') && !id.startsWith('bot:');
+
 let rtcPromise = null;
-/// 与 server/src/bot_speak.js loadRtcNode() 同策略:先服务端依赖,再退回 server/tool。
+/// 与 server/src/bot_speak.js loadRtcNode() 同策略:先 server/node_modules,再退回 server/tool(见 deps.mjs)。
+/// 可选依赖:装不上(musl 等)返回 null。
 export function loadRtcNode() {
-  rtcPromise ??= (async () => {
-    try { return await import('@livekit/rtc-node'); } catch { /* 退回 tool 目录 */ }
-    try {
-      const here = path.dirname(fileURLToPath(import.meta.url));
-      const req = createRequire(path.join(here, '..', '..', 'tool', 'package.json'));
-      return await import(pathToFileURL(req.resolve('@livekit/rtc-node')).href);
-    } catch { return null; }
-  })();
+  rtcPromise ??= importDep('@livekit/rtc-node').catch(() => null);
   return rtcPromise;
 }
 
@@ -104,7 +98,7 @@ export class LaresRoom {
       if (track.kind !== TrackKind.KIND_AUDIO) return;
       const id = p?.identity;
       // 不听自己,也不听别的 AI(u_ai_*):两个机器人不互相对话
-      if (!id || id === this.userId || id.startsWith('u_ai_') || id.startsWith('bot:') || this.streams.has(id)) return;
+      if (!id || id === this.userId || !isLaresHuman(id) || this.streams.has(id)) return;
       if (p.name) this._fire('names', id, p.name);
       const stream = new AudioStream(track, { sampleRate: ROOM_RATE, numChannels: 1 });
       this.streams.set(id, stream);

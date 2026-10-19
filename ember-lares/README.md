@@ -46,14 +46,14 @@ node ember-lares/index.mjs --circle <cid> [--signaling ws://…/ws] [--passcode 
 
 ## 依赖(选择与理由)
 
-- `LaresRoom` 和 DashScope ASR 按**相对路径**引用 `../server/bots/voice-agent/room.mjs` 与 `providers/dashscope.mjs`,没有复制一份。原因是它们同时也是 AI 语音助手的实现,鉴权、E2EE、rtc-node 加载这些细节只该存在一处,复制一份迟早会漂移。代价是 ember-lares 必须与 `server/` 同级放置。仓库和镜像都满足这一点:`/app/server`、`/app/ember`、`/app/ember-lares`。
+- 进房按**相对路径**引用 `../lares-bridge/index.mjs`(`LaresRoom`,`AnonRoom` 继承它),DashScope ASR 引用 `../hearthvoice/providers/dashscope.mjs`,都不复制。`lares-bridge` 是 Lares 接入层,灶语和炉灵共用:鉴权、E2EE、rtc-node 加载这些细节只存在一处,复制的话迟早会漂移。DashScope provider 属于灶语本体,平台无关,ws 从 lares-bridge 注入。
 - 炉灵本体按相对路径 `../ember/index.mjs` 引用。
+- 代价是这些包必须同级放置。仓库和镜像都满足:`/app/server`、`/app/lares-bridge`、`/app/hearthvoice`、`/app/ember`、`/app/ember-lares`。
 - npm 依赖(`ws`、`hash-wasm`、可选的 `@livekit/rtc-node`)不单独安装,从 `server/node_modules` 解析:
-  - 开发机:由 voice-agent 模块自己解析;
+  - 开发机:`lares-bridge/deps.mjs` 按 `../server/package.json` 解析;
   - 镜像:`/app/node_modules` 是指向 `/app/server/node_modules` 的软链。
-  
-  详见 `server/Dockerfile`。
 
+  详见 `server/Dockerfile` 与 `lares-bridge/README.md`。
 ## 测试
 
 `node --test ember-lares/`。测试用 FakeRoom,不出网,也不进 LiveKit,覆盖线协议映射、退出码、CLI 和密封握手。生产 E2E 在 `server/tool/anonym_v2_prod_e2e.mjs`:它留在 `server/tool`,因为需要 tool 目录装的 `@livekit/rtc-node` 和 `lares_bot.mjs`,导入路径已改为指向 `../../ember/`。

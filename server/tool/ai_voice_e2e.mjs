@@ -22,8 +22,8 @@ import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { AudioFrame } from '@livekit/rtc-node';
 import { LaresBot, authVerifier } from './lares_bot.mjs';
-import { DashscopeAsr, DashscopeTts } from '../bots/voice-agent/providers/dashscope.mjs';
-import { resample, concatInt16 } from '../bots/voice-agent/audio.mjs';
+import { DashscopeAsr, DashscopeTts } from '../../hearthvoice/providers/dashscope.mjs';
+import { resample, concatInt16 } from '../../hearthvoice/audio.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVER_DIR = path.join(HERE, '..');

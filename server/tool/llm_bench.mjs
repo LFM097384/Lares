@@ -5,7 +5,7 @@
 //   --thinking:另测 DeepSeek 开思考(EXTRA_BODY={})对照
 // 密钥只读 env,不回显、不落盘;只打印延迟数字。
 import { readFileSync } from 'node:fs';
-import { OpenAiCompatLlm, DASHSCOPE_COMPAT_BASE, resolveExtraBody } from '../bots/voice-agent/providers/openai_compat.mjs';
+import { OpenAiCompatLlm, DASHSCOPE_COMPAT_BASE, resolveExtraBody } from '../../hearthvoice/providers/openai_compat.mjs';
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(n);

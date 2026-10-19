@@ -15,7 +15,7 @@ v1 中由服务器处理内容的部分（`server/src/anonym.js` 里的 `anon_*`
                                                                     │
 信令服务器：只负责邀请 / 停止 agent、鉴权、转发密封密钥、强制关闭开关
 ```
-- agent 进程：Ember 本体 `ember/`（平台无关，经 `ember/PORT.md` 的 port 接入）+ Lares 插件 `ember-lares/`，复用 `server/bots/voice-agent/room.mjs` 的 `LaresRoom`（入房、订阅音频、data channel、E2EE `sharedKey`）和它的 DashScope ASR provider。
+- agent 进程：Ember 本体 `ember/`（平台无关，经 `ember/PORT.md` 的 port 接入）+ Lares 插件 `ember-lares/`，复用 `lares-bridge/` 的 `LaresRoom`（入房、订阅音频、data channel、E2EE `sharedKey`）和灶语本体 `hearthvoice/` 的 DashScope ASR provider。
 - 身份是 `u_ai_*`，复用现有 aiAuth 机制，`deviceId` 前缀区分。显示名「炉灵」（炉火之灵；英文 Ember）。
 - 托管模式：supervisor 按圈子 spawn 子进程，套路同 `ai_voice_supervisor.js`。独立模式：`node ember-lares/index.mjs --circle --passcode [--e2ee]`。
 - **同一圈子里隐名 agent 和语音 AI bot 互斥**：隐名 agent 在场时，语音 bot 停止。

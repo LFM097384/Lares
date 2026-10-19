@@ -20,8 +20,8 @@ import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { AudioFrame } from '@livekit/rtc-node';
 import { LaresBot, authVerifier, e2eeKeyHex } from './lares_bot.mjs';
-import { resample, concatInt16 } from '../bots/voice-agent/audio.mjs';
-import { DashscopeTts } from '../bots/voice-agent/providers/dashscope.mjs';
+import { resample, concatInt16 } from '../../hearthvoice/audio.mjs';
+import { DashscopeTts } from '../../hearthvoice/providers/dashscope.mjs';
 import { seal, hasToneMarker } from '../../ember/index.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
