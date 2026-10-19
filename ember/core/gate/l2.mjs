@@ -165,10 +165,129 @@ const SELF = [
 ];
 const PH = { zh: { org: '[某机构]', title: '[某职务]' }, en: { org: 'an organisation', title: 'a role' } };
 
+// ── Self-declared affiliation learning ─────────────────────────────────────────────────────────────
+// A participant who says "我在星辰科技负责产品" / "我是张伟，在星辰科技负责产品" / "I work at Starfield Labs"
+// has told the room their organisation. Rosters from conferencing hosts (LiveKit) carry only names, so the
+// org is not in roster.org and — if it is not in KNOWN_ORGS — would survive L2 wherever it is mentioned
+// (e.g. another participant: "星辰科技可真行，项目又延期了"). learnSelfOrgs() extracts such orgs from raw
+// text; withLearnedOrgs() folds them into a roster (as extra `org` on the speaker's entry, or a name-less
+// entry) so the ordinary roster-org path (orgFragments: 星辰科技 → 星辰) redacts them everywhere.
+// Learned KNOWN_ORGS entries (我在腾讯工作) also become roster orgs → redacted everywhere in that session,
+// consistent with "a KNOWN org contained in a roster org is always redacted". Weak cues (我们世界银行…,
+// past tense "I worked at Google", "我在读世界银行的报告") are NOT learned (per-mention self-context still
+// redacts those mentions), so public-fact keeping is unaffected for them.
+const ORG_END = /(?:大学|学院|医院|研究院|研究所|研究中心|实验室|中心|公司|集团|协会|学会|基金会|基金|事务所|律所|律师事务所|科技|资本|银行|证券|保险|传媒|网络|智能|电子|汽车|设计院|报社|杂志社|出版社|工作室|工厂|科室|部|局|厅|署|委|院|所|处|司|站|厂|行|社|会|团队|小组)$/;
+// strong (multi-char) org endings: required when the cue alone is weak (我是X的 / 我们X公司 / 我们在X)
+const ORG_END_STRONG = /(?:大学|学院|医院|研究院|研究所|研究中心|实验室|公司|集团|协会|学会|基金会|事务所|律所|科技|资本|银行|证券|保险|传媒|网络|智能|电子|汽车|设计院|报社|杂志社|出版社|工作室|科室)$/;
+const ZH_X = '[A-Za-z0-9\\u4e00-\\u9fff·&]';
+const ZH_ADV = '(?:现在|目前|现|一直|主要|平时|这两年|这几年|今年|如今)?';
+const ZH_JOB = '(?:负责|工作|上班|任职|就职|供职|担任|当|带|做|管|搞|干|实习|打工|读博|读研|念书|上学|教书|任教)';
+const ZH_STOP = new Set(['这边', '那边', '这里', '那里', '这儿', '那儿', '家里', '家', '老家', '外地', '本地', '国外', '海外', '国内', '学校', '单位', '公司里', '一线', '现场', '前线', '后台', '里面', '外面', '周末', '晚上', '白天', '平时', '业余', '那时', '现在', '这家', '那家', '自己', '大家', '团队', '部门', '小组', '杭州', '南京', '成都', '武汉', '西安', '天津', '重庆', '苏州', '香港', '台湾', '美国', '英国', '日本', '南方', '北方', '城里', '农村', '乡下', '市里', '省里', '县里', '这个', '那个', '这行', '行业', '这一行', '互联网', '金融', '体制内', '外企', '国企', '私企', '创业公司', '大厂', '小厂', '项目', '项目组', '课题组', '组里', '组内', '实验', '会上', '线上', '线下', '这次', '那次', '一家', '小公司', '大公司', '科技公司', '互联网公司']);
+const ZH_BAD = /的|一家|一个|一所|某|了|着|过|什么|哪|这|那|我|你|他|她|它|们|吗|呢|吧/;
+const ZH_VERB_START = /^(?:负责|工作|上班|做|当|带|管|搞|干|读|看|学|准备|考虑|想|写|跑|研究|开发|讨论|聊|说|讲|参加|开会|处理|帮|给|跟|和|与|对|把|被|让|为|从|在|于|去|来|到)/;
+const ZH_POS_END = /[上里中下内外时后前边头间]$/;
+const EN_X = "[A-Z][\\w&.'’-]*(?:\\s+(?:&\\s+|of\\s+|and\\s+|for\\s+)?[A-Z][\\w&.'’-]*){0,4}";
+const EN_ORG_END = /\b(?:Inc|Ltd|LLC|LLP|Corp|Corporation|Company|Co|Group|Labs?|Capital|Ventures|Partners|Bank|University|College|Institute|Hospital|Foundation|Trust|Tech|Technologies|Technology|Systems|Studio|Studios|Media|Consulting|Associates|Agency|Fund|Holdings|Centre|Center|School|Clinic|Press)\.?$/;
+const EN_STOP = new Set(['I', 'The', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Home', 'Work', 'English', 'Chinese', 'Christmas', 'Easter']);
+
+function cleanZhOrg(x, { needEnd = false } = {}) {
+  let s = String(x || '').trim().replace(/(?:这边|那边|这里|那里|里面|里)$/, '');
+  if (s.length < 2 || s.length > 14) return null;
+  if (GENERIC.has(s) || ZH_STOP.has(s) || ZH_BAD.test(s) || ZH_VERB_START.test(s)) return null;
+  const end = ORG_END.test(s);
+  if (end && s.replace(ORG_END, '').length < 2 && !/^[A-Za-z]/.test(s)) return null; // bare "公司" / "银行"
+  const head = s.replace(ORG_END, '');
+  if (end && (GENERIC.has(head) || ZH_STOP.has(head))) return null; // 科技公司 / 互联网公司
+  if (needEnd && !(ORG_END_STRONG.test(s) && s.replace(ORG_END_STRONG, '').length >= 2)) return null;
+  if (!end) {
+    if (ZH_POS_END.test(s)) return null;
+    if (isCJK(s) && s.replace(/[A-Za-z0-9·&]/g, '').length > 8) return null;
+  }
+  return s;
+}
+function cleanEnOrg(x, { needEnd = false } = {}) {
+  const s = String(x || '').trim().replace(/[.'’]+$/, '').replace(/\s+(?:and|of|for|&)$/i, '');
+  if (s.length < 2) return null;
+  const words = s.split(/\s+/);
+  if (words.every((w) => EN_GENERIC.has(w) || EN_STOP.has(w))) return null;
+  if (needEnd && !EN_ORG_END.test(s) && words.length < 2) return null;
+  return s;
+}
+
+const LEARN_ZH = [
+  // 我在X负责 / 我目前在X工作 / 本人就职于X
+  [new RegExp(`(?:我|本人)${ZH_ADV}(?:在|于)(${ZH_X}{2,14}?)(?:这边|那边|里)?${ZH_JOB}`, 'g'), {}],
+  // 我们在X做… (plural subject: only with an org-like ending)
+  [new RegExp(`(?:我们|咱们)${ZH_ADV}(?:在|于)(${ZH_X}{2,14}?)(?:这边|那边|里)?${ZH_JOB}`, 'g'), { needEnd: true }],
+  // 我(目前)就职于/任职于/供职于/来自X
+  [new RegExp(`(?:我|本人)${ZH_ADV}(?:就职于|任职于|供职于|服务于)(${ZH_X}{2,14})`, 'g'), {}],
+  [new RegExp(`(?:我|本人)${ZH_ADV}来自(${ZH_X}{2,14})(?=[，。,.!?！？；;、\\s]|$|的(?:产品|技术|研发|市场|销售|运营|团队|同事|员工))`, 'g'), {}],
+  // 我是X的(员工/产品经理/…)  — X must look like an org
+  [new RegExp(`(?:我|本人)(?:是|系)(${ZH_X}{2,14}?)的`, 'g'), { needEnd: true }],
+  // 我们X公司/团队/… (the suffix noun makes it an org)
+  [new RegExp(`(?:我们|咱们)(${ZH_X}{2,10}?(?:公司|集团|律所|实验室|工作室|科技|资本|事务所))(?![A-Za-z0-9\\u4e00-\\u9fff]*(?:公司|集团))`, 'g'), { needEnd: true, plural: true }],
+];
+// subject dropped after a self-intro clause: "我是张伟，在星辰科技负责产品" / "我叫李雷，目前就职于X"
+const DROP_ZH = new RegExp(`^\\s*${ZH_ADV}(?:(?:在|于)(${ZH_X}{2,14}?)(?:这边|那边|里)?${ZH_JOB}|(?:就职于|任职于|供职于|来自)(${ZH_X}{2,14}?)(?=[，。,.!?！？；;、\\s]|$|的|${ZH_JOB}))`);
+const INTRO_ZH = /^\s*(?:(?:大家好|各位好|你们好|大家下午好|大家上午好|大家晚上好|hi|hello|嗨|哈喽)[，,!！\s]*)?(?:我|本人)(?:是|叫|姓|名叫|就是)/i;
+const LEARN_EN = [
+  [new RegExp(`\\bI\\s+(?:currently\\s+|now\\s+|still\\s+)?work(?:s)?\\s+(?:at|for)\\s+(${EN_X})`, 'g'), {}],
+  [new RegExp(`\\bI(?:'m|’m|\\s+am)\\s+(?:currently\\s+|now\\s+)?(?:working\\s+(?:at|for)|at|based\\s+at)\\s+(${EN_X})`, 'g'), {}],
+  [new RegExp(`\\bI(?:'m|’m|\\s+am)\\s+(?:currently\\s+|now\\s+)?from\\s+(${EN_X})`, 'g'), { needEnd: true }],
+  [new RegExp(`\\bI(?:'m|’m|\\s+am)\\s+(?:a|an|the)\\s+(?:[a-z][\\w-]*\\s+){0,3}(?:at|with|for)\\s+(${EN_X})`, 'g'), {}],
+  [new RegExp(`\\b(?:[Ww]e|us)\\s+(?:here\\s+)?at\\s+(${EN_X})`, 'g'), {}],
+  [new RegExp(`\\b[Hh]ere\\s+at\\s+(${EN_X})`, 'g'), {}],
+];
+
+/** Orgs a speaker self-declares in `text` (raw utterance). Returns a de-duplicated array of strings. */
+export function learnSelfOrgs(text) {
+  text = String(text ?? '');
+  const out = new Set();
+  const add = (s) => { if (s) out.add(s); };
+  for (const [re, o] of LEARN_ZH) for (const m of text.matchAll(re)) {
+    if (o.plural && /^(?:这边|那边|这个|那个|整个|自己|大家)/.test(m[1])) continue;
+    add(cleanZhOrg(m[1], o));
+  }
+  for (const sent of text.split(/[。！？!?\n]/)) {
+    const clauses = sent.split(/[，,；;]/);
+    for (let i = 1; i < clauses.length; i++) {
+      if (!clauses.slice(0, i).some((c) => INTRO_ZH.test(c))) continue;
+      const m = clauses[i].match(DROP_ZH);
+      if (m) add(cleanZhOrg(m[1] || m[2]));
+    }
+  }
+  for (const [re, o] of LEARN_EN) for (const m of text.matchAll(re)) add(cleanEnOrg(m[1], o));
+  return [...out];
+}
+
+/**
+ * Fold learned orgs into a roster. learned: Map<speakerId, Iterable<string>> (or an array of strings for
+ * an anonymous source). Members get them appended to `org` ("，"-joined, so orgFragments splits them);
+ * learned orgs of ids not in the roster become a name-less entry { id, org }. Returns a NEW array
+ * (or the same roster if nothing was learned).
+ */
+export function withLearnedOrgs(roster = [], learned) {
+  const map = Array.isArray(learned) ? new Map([['\u0000learned', learned]]) : (learned instanceof Map ? learned : new Map());
+  const extra = new Map();
+  for (const [id, orgs] of map) { const xs = [...(orgs || [])].filter(Boolean); if (xs.length) extra.set(String(id), xs); }
+  if (!extra.size) return roster;
+  const out = (roster || []).map((p) => {
+    const xs = extra.get(String(p.id));
+    if (!xs) return p;
+    extra.delete(String(p.id));
+    const cur = p.org ? [String(p.org)] : [];
+    return { ...p, org: [...new Set([...cur, ...xs])].join('，') };
+  });
+  for (const [id, xs] of extra) out.push({ id, org: xs.join('，') });
+  return out;
+}
+
 export function detectAffiliation(text, roster = [], { allowPublicFacts = true } = {}) {
   text = String(text ?? '');
   const spans = [];
   SELF.forEach(([kind, re, rep], pri) => { for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind, match: m[0], rep, pri }); });
+  const own = learnSelfOrgs(text); // a self-declaration in this very text redacts the org throughout it
+  if (own.length) roster = withLearnedOrgs(roster, own);
   const d = dicts(roster);
   // Participant works (roster) and self-referential titles → [某作品]
   for (const re of d.work) for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind: 'work', match: m[0], pri: 40 });

@@ -26,6 +26,18 @@ test('DashscopeAsr:注入的 WebSocket / host / log 生效,密钥只在请求头
   assert.match(logs[0], /^asr warm-up ok/);
 });
 
+test('DashscopeAsr:hints → input_audio_transcription.corpus.text(唤醒词偏置);没 hints 不带', () => {
+  FakeWs.last = [];
+  const asr = new DashscopeAsr({ apiKey: 'k', WebSocket: FakeWs, log: () => {} });
+  asr.open({ identity: 'u1', hints: ['灶语', ' 灶语 ', '', '小灶'] });
+  asr.open({ identity: 'u2' });
+  const [a, b] = FakeWs.last;
+  a.emit('message', Buffer.from(JSON.stringify({ type: 'session.created' })));
+  b.emit('message', Buffer.from(JSON.stringify({ type: 'session.created' })));
+  assert.deepEqual(a.sent[0].session.input_audio_transcription, { corpus: { text: '灶语，小灶' } });
+  assert.deepEqual(b.sent[0].session.input_audio_transcription, {});
+});
+
 test('DashscopeTts:默认主机;session.updated 后 open() 返回会话', async () => {
   FakeWs.last = [];
   const tts = new DashscopeTts({ apiKey: 'k', WebSocket: FakeWs, log: () => {} });

@@ -23,6 +23,13 @@ function openWs(WS, url, apiKey, timeoutMs = 10000) {
   return new WS(url, { headers: { Authorization: `Bearer ${apiKey}` }, handshakeTimeout: timeoutMs, maxPayload: 64 * 1024 * 1024 });
 }
 
+/// 识别偏置词 → corpus 文本(去空、去重、总长 ≤ 200 字);没有就 null。
+export function asrCorpus(hints) {
+  const words = [...new Set((Array.isArray(hints) ? hints : []).map((w) => String(w ?? '').trim()).filter(Boolean))];
+  if (!words.length) return null;
+  return words.join('，').slice(0, 200);
+}
+
 // ── ASR ──────────────────────────────────────────────────────────────────
 export const ASR_MODEL = 'qwen3-asr-flash-realtime';
 const ASR_CHUNK_BYTES = 3200; // 100ms @ 16k
@@ -66,8 +73,10 @@ export class DashscopeAsr {
     });
   }
 
-  open({ identity, onPartial, onFinal, onClose, onError, onOpen }) {
+  /// hints:识别偏置词(唤醒词 / 名字),放进 input_audio_transcription.corpus.text(上下文增强)。
+  open({ identity, hints, onPartial, onFinal, onClose, onError, onOpen }) {
     this.sessions += 1;
+    const corpus = asrCorpus(hints);
     const ws = openWs(this.WS, this._url(), this.apiKey, this.handshakeTimeoutMs);
     const openedAt = Date.now();
     let live = false;
@@ -98,7 +107,8 @@ export class DashscopeAsr {
               modalities: ['text'],
               input_audio_format: 'pcm',
               sample_rate: 16000,
-              input_audio_transcription: {}, // 不给 language:中英混说自动检测最好
+              // 不给 language:中英混说自动检测最好。corpus:唤醒词偏置(没有就不带)
+              input_audio_transcription: corpus ? { corpus: { text: corpus } } : {},
               turn_detection: { type: 'server_vad', threshold: this.vadThreshold, silence_duration_ms: this.silenceMs },
             },
           }));

@@ -12,7 +12,7 @@
 import { randomUUID } from 'node:crypto';
 import { splitSegments } from '../core/gate/l0.mjs';
 import { redactPII } from '../core/gate/l1.mjs';
-import { redactAffiliation } from '../core/gate/l2.mjs';
+import { redactAffiliation, learnSelfOrgs, withLearnedOrgs } from '../core/gate/l2.mjs';
 import { hasToneMarker, mockRewriteSegment, claimKind } from '../core/gate/l3.mjs';
 import { chatJSON } from '../core/gate/llm.mjs';
 
@@ -46,7 +46,28 @@ export function createIngestGate({
   let closed = false;
   const ledger = []; // [{id, at, p, text, kind, topic, flags}]
   const metrics = { utterances: 0, droppedUnacked: 0, batches: 0, entries: 0, l3Failures: 0, maxHeldMs: 0 };
-  const rosterArr = () => { try { return (typeof roster === 'function' ? roster() : roster) || []; } catch { return []; } };
+  const baseRoster = () => { try { return (typeof roster === 'function' ? roster() : roster) || []; } catch { return []; } };
+  // Orgs participants self-declare during the session (我是张伟，在星辰科技负责产品 / I work at X): speakerId → Set.
+  // Folded into the roster as that member's org, so L2 redacts them in every utterance (anyone's), for the session.
+  const learned = new Map();
+  const rosterArr = () => withLearnedOrgs(baseRoster(), learned);
+  /// learn from RAW text (before scrub); on a new org, re-scrub what is already buffered / in the ledger
+  function learn(speakerId, text) {
+    let fresh = false;
+    for (const o of learnSelfOrgs(text)) {
+      if (!learned.has(speakerId)) learned.set(speakerId, new Set());
+      const set = learned.get(speakerId);
+      if (!set.has(o)) { set.add(o); fresh = true; }
+    }
+    if (!fresh) return;
+    const r = rosterArr();
+    for (const b of pending) b.text = scrub(b.text, r);
+    for (let i = 0; i < ledger.length; i++) {
+      const e = ledger[i];
+      const text = scrub(e.text, r), topic = scrub(e.topic || '', r);
+      if (text !== e.text || topic !== e.topic) ledger[i] = Object.freeze({ ...e, text, topic });
+    }
+  }
 
   const pseudonymOf = (speakerId) => {
     let p = pseudo.get(speakerId);
@@ -71,6 +92,7 @@ export function createIngestGate({
   /// 一句定稿。原话 text 只活在这次调用里:返回后没有任何引用留下。
   function utterance(speakerId, text) {
     if (closed || !speakerId) return 0;
+    learn(String(speakerId), text);
     const r = rosterArr();
     const segs = l0(text);
     if (!segs.length) return 0;
@@ -180,6 +202,7 @@ export function createIngestGate({
     pendingChars = 0;
     ledger.length = 0;
     pseudo.clear();
+    learned.clear();
   }
 
   return {
@@ -189,6 +212,8 @@ export function createIngestGate({
     forget,
     ledgerView: () => view,
     pseudonymCount: () => pseudo.size,
+    /// roster + session-learned orgs (local only; for the agent's own L1/L2 scrubs)
+    gateRoster: () => rosterArr(),
     metrics: () => ({ ...metrics, pending: pending.length, ledger: ledger.length }),
     /// 测试钩子:缓冲快照(只读副本)
     _pending: () => pending.map((b) => ({ ...b })),

@@ -209,6 +209,9 @@ class SpeakerAsr {
     this.live = false;
     s = a.providers.asr.open({
       identity: this.identity,
+      // 识别偏置:名字 + 唤醒词。实测(本机 e2e,DashScope TTS「灶语，…」)不给提示时
+      // qwen3-asr 把「灶语」听成「赵宇 / 造句」,同音表都救不回来;给了 3/3 识别正确。
+      hints: a.asrHints(),
       onOpen: () => markLive(),
       onPartial: () => {},
       onFinal: (text) => { markLive(); a._onAsrFinal(this.identity, text); },
@@ -336,6 +339,17 @@ export class VoiceAgent {
     }
     this._asrAllowed(); // 起始状态(ptt / 已到上限)也记一行
     this._syncState();
+  }
+
+  /// 送给 ASR 的识别偏置词(名字 + 唤醒词,去重)。provider 不认识 hints 就忽略。
+  asrHints() {
+    const c = this.config ?? {};
+    const out = [];
+    for (const w of [c.name, ...String(c.wakeWords ?? '').split(/[,，、;；\n]+/u)]) {
+      const t = String(w ?? '').trim();
+      if (t && !out.includes(t)) out.push(t);
+    }
+    return out;
   }
 
   setConfig(config) {
@@ -543,23 +557,62 @@ export class VoiceAgent {
     });
 
     // TTS 连接(热备用,通常 0ms)与 LLM 并行
-    const ttsP = this.pool.take().then((s) => {
-      if (t.ended) { s.close(); return null; }
+    // TTS 连接(热备用,通常 0ms)与 LLM 并行
+    // 看门狗:有段已提交、却 ttsStallMs 内没有任何 TTS 进展 → 这条连接哑了。本机 e2e 实测 DashScope
+    // 实时 TTS 约 1/10 的会话 commit 已确认、之后再无任何事件(裸协议同样复现);不管的话这一轮永远
+    // 不结束,AI 卡在 thinking、后面的问题全被吞掉。还没出声:换新连接把全部段重送一次;
+    // 已出声或已重试过:就此收尾(听到多少算多少,聊天照发全文)。
+    const stallMs = this.opts.ttsStallMs ?? 4000;
+    const pendingSegs = () => t.chunks.some((_, i) => !t.segDone[i]);
+    const kick = () => {
+      clearTimeout(t.ttsWatch);
+      if (t.ended || !t.tts || !pendingSegs()) return;
+      t.ttsWatch = setTimeout(() => onStall(t.tts), stallMs);
+      t.ttsWatch.unref?.();
+    };
+    const attach = (s) => {
       t.tts = s;
       s.setHandlers({
         onAudio: (seg, pcm) => {
-          if (t.ended) return;
+          if (t.ended || t.tts !== s) return;
+          t.ttsAudio = true;
           mark('ttsFirstAudio');
           t.player.enqueue(seg, pcm, s.sampleRate);
+          kick();
         },
         onSegmentDone: (seg, u) => {
+          if (t.tts !== s) return;
           t.segDone[seg] = true;
           t.usage.ttsChars += u?.characters || [...(t.chunks[seg] ?? '')].length;
+          kick();
           this._maybeEndInput(t);
         },
-        onError: (e) => { this.log(`TTS 中途出错: ${e.message}`); t.ttsFailed = true; t.player.endInput(); },
+        onError: (e) => { if (t.tts !== s) return; clearTimeout(t.ttsWatch); this.log(`TTS 中途出错: ${e.message}`); t.ttsFailed = true; t.player.endInput(); },
       });
       for (let i = 0; i < t.chunks.length; i++) s.send(t.chunks[i]);
+      kick();
+    };
+    const onStall = (s) => {
+      if (t.ended || t.tts !== s || !pendingSegs()) return;
+      try { s.close(); } catch { /* */ }
+      if (t.ttsAudio || t.ttsRetried) {
+        this.log(`TTS 无响应(${t.ttsAudio ? '播到一半' : '重试后仍无音频'}),就此收尾`);
+        t.ttsFailed = !t.ttsAudio;
+        t.player.endInput();
+        return;
+      }
+      t.ttsRetried = true;
+      this.log('TTS 无响应,换新连接重送');
+      this.pool.take().then((s2) => {
+        if (t.ended) { s2.close(); return; }
+        t.segDone = [];
+        attach(s2);
+      }, (e) => { this.log(`TTS 重连失败,改发文字: ${e.message}`); t.ttsFailed = true; t.player.endInput(); });
+    };
+    t.ttsKick = kick;
+    const ttsP = this.pool.take().then((s) => {
+      if (t.ended) { s.close(); return null; }
+      attach(s);
       return s;
     }, (e) => {
       this.log(`TTS 不可用,改发文字: ${e.message}`);
@@ -589,7 +642,7 @@ export class VoiceAgent {
       mark('firstSentence');
       t.chunks.push(c);
       t.segChars.push([...c].length);
-      if (t.tts) t.tts.send(c);
+      if (t.tts) { t.tts.send(c); t.ttsKick(); }
     };
 
     try {
@@ -667,6 +720,7 @@ export class VoiceAgent {
   _finish(t, { spoken, heard, spokenUntil, stored }) {
     if (t.ended) return;
     t.ended = true;
+    clearTimeout(t.ttsWatch);
     try { t.tts?.close(); } catch { /* */ }
     const full = stored ?? this._join(t.chunks);
     if (t.interrupted) {

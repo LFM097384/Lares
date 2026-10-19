@@ -77,6 +77,8 @@ export class EmberSession {
     this.llm = llm ? this._guardLlm(llm) : null;
     this.ingest = createIngestGate({ llm: this.llm, roster: this.rosterFn, clock, log, ...ingestOpts });
   }
+  /// roster + orgs participants self-declared this session (lives in the ingest gate; wiped at end)
+  gateRoster() { return this.ingest?.gateRoster?.() ?? this.rosterFn(); }
 
   // ── LLM 守卫:user 消息再过一次 L1/L2(名单名字永远进不了 LLM)──
   _guardLlm(llm) {
@@ -84,7 +86,7 @@ export class EmberSession {
     return Object.freeze({ chat: (messages, opts) => llm.chat(messages.map((m) => (m.role === 'system' ? m : { ...m, content: scrub(m.content) })), opts) });
   }
   _scrub(s) {
-    const r = this.rosterFn();
+    const r = this.gateRoster();
     return redactAffiliation(redactPII(String(s ?? ''), r, { allowPublicFacts: true }), r, { allowPublicFacts: true });
   }
 
@@ -255,7 +257,7 @@ export class EmberSession {
 
   // ── 出门稿:去假名 → L1/L2 → L4(本地名单扫描 + 无名单的 LLM 角色检查 + 语气)──
   async _buildDraft(rawItems) {
-    const r = this.rosterFn();
+    const r = this.gateRoster();
     let items = rawItems.map((x) => ({
       topic: this._scrub(stripPseudonyms(String(x?.topic ?? '').trim() || '讨论')).slice(0, 80),
       kind: KINDS.has(x?.kind) ? x.kind : 'idea',
@@ -325,7 +327,7 @@ export class EmberSession {
           if (tt) text = this._scrub(stripPseudonyms(tt));
         } catch { text = null; }
       }
-      it.text = text || mockGeneralise(it.text, this.rosterFn());
+      it.text = text || mockGeneralise(it.text, this.gateRoster());
       it.roleRisk = false;
       it.flags = [...it.flags.filter((f) => f !== 'role-revealing'), 'generalised'];
     }

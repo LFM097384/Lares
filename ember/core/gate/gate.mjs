@@ -2,7 +2,7 @@
 // No env reads: the caller injects `llm` ({ chat(messages, opts) -> { text, usage?, finish? } }); llm == null → mock.
 import { structural } from './l0.mjs';
 import { redactPII } from './l1.mjs';
-import { redactAffiliation } from './l2.mjs';
+import { redactAffiliation, learnSelfOrgs, withLearnedOrgs } from './l2.mjs';
 import { rewrite, claimKind } from './l3.mjs';
 import { verify } from './l4.mjs';
 
@@ -33,8 +33,12 @@ export async function runGate(transcript, {
   maxVerifierRounds = 2, seed = 1, allowPublicFacts = true, stats,
 } = {}) {
   const t0 = Date.now();
-  const roster = transcript?.roster || [];
   const lines = transcript?.lines || [];
+  // Orgs a participant self-declares anywhere in the transcript (我是张伟，在星辰科技负责产品) are treated as that
+  // speaker's roster org for the whole run: redacted in every line, by every layer (L2, L4 roster scan, final scrub).
+  const learned = new Map();
+  for (const l of lines) for (const o of learnSelfOrgs(l?.text)) { const id = String(l?.speakerId ?? '\u0000learned'); if (!learned.has(id)) learned.set(id, new Set()); learned.get(id).add(o); }
+  const roster = withLearnedOrgs(transcript?.roster || [], learned);
   stats = stats || {};
   for (const k of ['calls', 'promptTokens', 'completionTokens']) stats[k] = stats[k] || 0;
   const base = { calls: stats.calls, promptTokens: stats.promptTokens, completionTokens: stats.completionTokens };

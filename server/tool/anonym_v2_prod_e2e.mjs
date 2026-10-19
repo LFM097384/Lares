@@ -23,11 +23,14 @@ import { LaresBot, authVerifier, e2eeKeyHex } from './lares_bot.mjs';
 import { resample, concatInt16 } from '../../hearthvoice/audio.mjs';
 import { DashscopeTts } from '../../hearthvoice/providers/dashscope.mjs';
 import { seal, hasToneMarker } from '../../ember/index.mjs';
+import { LOCAL, LOCAL_WS, localDashscopeKey, localMemDir, logSince, logSize, LOCAL_LOG } from './local_target.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.join(HERE, 'anonym_v2_prod_e2e.last.txt');
+// --local / LARES_E2E_TARGET=local:本机栈(server/tool/local_stack.ps1);SSH 换成本地 server.log / .local-server/data / env 里的 key
+const TARGET = LOCAL ? 'local' : 'prod';
+const OUT = path.join(HERE, LOCAL ? `anonym_v2_local_e2e${process.argv.includes('--only') ? `_${process.argv[process.argv.indexOf('--only') + 1]}` : ''}.last.txt` : 'anonym_v2_prod_e2e.last.txt');
 const HOST = 'lares.westus.cloudapp.azure.com';
-const WSURL = process.env.LARES_WS ?? `wss://${HOST}/ws`;
+const WSURL = process.env.LARES_WS ?? (LOCAL ? LOCAL_WS : `wss://${HOST}/ws`);
 const SSH = ['-i', path.join(homedir(), '.ssh', 'lares_ed25519'), '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', `azureuser@${HOST}`];
 const CONTAINER = 'lares-lares-server-1';
 const CACHE = path.join(tmpdir(), 'lares-anonym-v2-e2e-cache');
@@ -76,6 +79,7 @@ function ssh(script, { timeoutMs = 90_000 } = {}) {
   });
 }
 async function memDir(cid) {
+  if (LOCAL) return localMemDir(cid);
   const js = 'const fs=require("fs"),p=require("path");const d=process.argv[1];if(!fs.existsSync(d)){console.log(JSON.stringify({exists:false}));}else{const files=[];const w=(x)=>{for(const e of fs.readdirSync(x,{withFileTypes:true})){const f=p.join(x,e.name);if(e.isDirectory())w(f);else files.push({f:p.relative(d,f),s:fs.readFileSync(f,"utf8")});}};w(d);console.log(JSON.stringify({exists:true,files}));}';
   const r = await ssh(`docker exec ${CONTAINER} node -e '${js}' "/app/data/anonym_memory/${cid}"\n`);
   try { return JSON.parse(r.out.trim().split('\n').pop()); } catch { return { error: (r.err || r.out).slice(0, 300) }; }
@@ -478,12 +482,13 @@ async function runCircle(label, e2ee, audio) {
 async function main() {
   const t0 = new Date();
   const results = [];
-  step('SSH reachable + DashScope key (prod container env, memory only) + TTS synthesis');
+  const log0 = LOCAL ? logSize() : 0;
+  step(LOCAL ? 'DashScope key (env / CSV, memory only) + TTS synthesis' : 'SSH reachable + DashScope key (prod container env, memory only) + TTS synthesis');
   let audio = null;
-  const probe = await ssh(`docker exec ${CONTAINER} printenv LARES_DASHSCOPE_API_KEY\n`);
+  const probe = LOCAL ? { code: 0, out: localDashscopeKey() } : await ssh(`docker exec ${CONTAINER} printenv LARES_DASHSCOPE_API_KEY\n`);
   const key = probe.out.trim();
   if (key) SECRETS.add(key);
-  ok(probe.code === 0 && key.length > 10, 'DashScope key read from prod container', { code: probe.code, present: key.length > 10 });
+  ok(probe.code === 0 && key.length > 10, LOCAL ? 'DashScope key from env/CSV' : 'DashScope key read from prod container', { code: probe.code, present: key.length > 10 });
   try {
     audio = await synthAll(UTTS, key);
     ok(true, 'TTS synthesised (DashScope qwen3-tts-flash-realtime, 48 kHz)', UTTS.map(([, t]) => Math.round(audio[t].length / 480) / 100));
@@ -496,10 +501,11 @@ async function main() {
 
   step('server logs (since run start): no utterance text, no agent child errors');
   const mins = Math.ceil((Date.now() - t0.getTime()) / 60000) + 1;
-  const lg = await ssh(`cd ~/Lares/deploy && docker compose -p lares logs --no-color --since ${mins}m lares-server 2>&1\n`, { timeoutMs: 120000 });
+  const lg = LOCAL ? (() => { const r = logSince(log0); return { code: r.ok ? 0 : 1, out: r.text }; })()
+    : await ssh(`cd ~/Lares/deploy && docker compose -p lares logs --no-color --since ${mins}m lares-server 2>&1\n`, { timeoutMs: 120000 });
   const lines = lg.out.split('\n');
   const leaks = lines.filter((l) => LOG_PROBES.some((p) => l.includes(p)) || UTTS.some(([, u]) => l.includes(u.slice(0, 10))));
-  ok(lg.code === 0 && lines.length > 1, 'logs fetched', { lines: lines.length });
+  ok(lg.code === 0 && lines.length > 1, LOCAL ? `logs read (${LOCAL_LOG})` : 'logs fetched', { lines: lines.length });
   ok(leaks.length === 0, 'no utterance / released text in logs', leaks.slice(0, 5).map((l) => l.slice(0, 200)));
   const ag = lines.filter((l) => /ember-lares|anonym /.test(l));
   info('anonym log lines', ag.map((l) => l.replace(/^\S+\s+\|\s*/, '').slice(0, 160)).slice(-60));
@@ -510,7 +516,7 @@ async function main() {
 
   const failed = steps.filter((s) => !s.ok).length;
   const out = [
-    `anonym v2 prod e2e  ${t0.toISOString()}  server=${WSURL.replace(/\/ws$/, '')}`,
+    `anonym v2 ${TARGET} e2e  ${t0.toISOString()}  server=${WSURL.replace(/\/ws$/, '')}`,
     ...results.map((r) => `circle[${r.label}]=${r.cid}… (temporary, ${r.deleted ? 'deleted' : 'DELETE FAILED'})`),
     '',
     ...steps.map((s, i) => `${s.ok ? 'PASS' : 'FAIL'}  ${i + 1}. ${s.name}${s.notes.length ? '  — ' + s.notes.join('; ') : ''}`),

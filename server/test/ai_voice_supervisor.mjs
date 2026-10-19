@@ -69,6 +69,7 @@ function setup(over = {}) {
     env: { LARES_DASHSCOPE_API_KEY: 'sk-test-SECRET', LIVEKIT_API_SECRET: 'lk-SECRET', LARES_AI_MEMBER_KEY: 'mk-SECRET', PATH: 'x',
       LARES_AI_LLM_KEY: 'sk-llm-SECRET', LARES_AI_LLM_BASE_URL: 'https://api.deepseek.com', LARES_AI_LLM_MODEL: 'deepseek-flash', LARES_AI_LLM_EXTRA_BODY: '{"x":1}', ...(over.env ?? {}) },
     dataDir: '/data',
+    platform: over.platform ?? 'linux',
     botEntry: '/srv/hearthvoice-lares/index.mjs',
     botEntryExists: () => true,
     signalingUrl: 'ws://127.0.0.1:8787/ws',
@@ -194,6 +195,19 @@ console.log('— 空房宽限 + SIGTERM → SIGKILL');
   check(sp.last().signals[0] === 'SIGTERM', '插件停用 → 立即 SIGTERM');
   sp.last().exit(0);
   check(sp.calls.length === 2, '停用后不重拉');
+}
+
+console.log('— Windows:不发 SIGTERM(那是硬杀),先 stdin stop,超时才 SIGKILL');
+{
+  const { sup, sp, world, clock } = setup({ platform: 'win32' });
+  sup.reconcile(CID);
+  const ch = sp.last();
+  world.enabled = false;
+  sup.reconcile(CID);
+  check(ch.signals.length === 0 && ch.stdinLines.some((l) => l.trim() === '{"cmd":"stop"}'), 'win32:只走 stdin stop', ch.signals);
+  clock.adv(KILL_AFTER_MS);
+  check(ch.signals.includes('SIGKILL'), 'win32:5 s 不退 → SIGKILL', ch.signals);
+  ch.exit(null, 'SIGKILL');
 }
 
 console.log('— 崩溃退避 + 每小时上限');

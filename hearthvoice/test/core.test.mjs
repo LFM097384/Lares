@@ -84,9 +84,28 @@ test('一轮完整对话:叫「灶语」→ 字幕 / 聊天 / 出站音轨 / 状
   assert.ok(states.includes('thinking') && states.includes('speaking') && states.at(-1) === 'listening', states.join(','));
   assert.equal(pv.llm.calls[0].messages.at(-1).content, 'Alice: 今天天气怎么样？');
   assert.match(pv.llm.calls[0].messages[0].content, /灶语/, '系统提示里有自己的名字');
+  assert.deepEqual(pv.asr.lastHints, ['灶语'], 'ASR 收到唤醒词偏置(名字 + 唤醒词去重)');
   await hv.stop();
   assert.equal(port.left, true);
   await hv.stop(); // 幂等
+});
+
+test('TTS 哑连接:看门狗换新连接重送,这一轮照常说完;两次都哑就改发文字、不卡死', async () => {
+  for (const [mute, expectSpoken] of [[1, true], [5, false]]) {
+    const port = memoryPort({ selfId: 'hv_self' });
+    const events = [];
+    const pv = providers();
+    pv.tts = new MockTts({ mute });
+    const hv = createHearthvoice({ port, ...pv, policy: { emit: (e) => events.push(e), agent: { paceScale: 0.25, ttsStallMs: 300 } } });
+    await hv.start();
+    await speak(port, 'p_alice', 600);
+    const turn = await until(() => events.find((e) => e.ev === 'turn'));
+    assert.ok(turn, `mute=${mute}: 这一轮必须结束`);
+    assert.equal(port.out.chats.at(-1), '今天天气不错，适合出门。', 'chat 照发全文');
+    if (expectSpoken) assert.ok(!turn.ttsFailed && turn.heardChars > 0 && port.out.frames.length > 20, `重送后说出来了: ${JSON.stringify(turn)}`);
+    else assert.equal(turn.ttsFailed, true);
+    await hv.stop();
+  }
 });
 
 test('isHuman:port 判定为非真人的声音与文字一律不理', async () => {

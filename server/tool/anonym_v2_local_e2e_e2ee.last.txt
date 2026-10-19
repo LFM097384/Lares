@@ -1,0 +1,149 @@
+anonym v2 local e2e  2026-10-19T03:22:16.681Z  server=ws://127.0.0.1:8787
+circle[e2ee]=c_hcf7wd… (temporary, deleted)
+
+PASS  1. DashScope key (env / CSV, memory only) + TTS synthesis
+PASS  2. [e2ee] register temporary v2 circle + circle_e2ee_set
+PASS  3. [e2ee] 3 humans join (signaling + LiveKit, passcode-derived E2EE key)
+PASS  4. [e2ee] owner anon_agent_invite k=2 + sealed key
+PASS  5. [e2ee] agent participant appears (after keyreq/seal) → state
+PASS  6. [e2ee] 3× ack (Ed25519 pubKey) → state all acked
+PASS  7. [e2ee] humans speak (real TTS audio over LiveKit)
+PASS  8. [e2ee] ask → answer
+PASS  9. [e2ee] skill minutes → draft
+PASS  10. [e2ee] 2 signed approvals → released
+PASS  11. [e2ee] released content checks
+PASS  12. [e2ee] mem_list → mem_retract → mem_retracted; memory dir has no retracted text
+PASS  13. [e2ee] transcript_append refused (anonym_active)
+PASS  14. [e2ee] owner end → ended{receipt} → agent leaves
+PASS  15. [e2ee] circle_delete → memory dir gone
+PASS  16. server logs (since run start): no utterance text, no agent child errors
+
+ALL PASS  (16 steps)
+
+── released text [e2ee] ──
+会议纪要 · 不署名 / Minutes · no attribution
+
+# 会议纪要 Minutes (2026-10-19)
+
+## 下半年读书计划
+**观点 Ideas**
+- 有观点认为应讨论下半年团队的读书计划。
+
+## 科幻小说阅读
+**公共事实 Public facts**
+- 《三体》由刘慈欣所写。
+
+## 读书会安排
+**决定 Decisions**
+- 与会者同意自下月起每两周的周五下午举办一次读书会，每次一小时，首本选读《三体》。
+
+## 读书会主持与笔记
+**决定 Decisions**
+- 与会者同意读书会轮流主持，每次结束时撰写一页读书笔记共享。
+
+── receipt [e2ee] ── {"reason":"convener","counts":{"utterances":5,"ledger":5,"drafts":1,"releases":1,"approvals":2}}
+
+── detail ──
+
+[1] DashScope key (env / CSV, memory only) + TTS synthesis
+  ✓ DashScope key from env/CSV: {"code":0,"present":true}
+  ✓ TTS synthesised (DashScope qwen3-tts-flash-realtime, 48 kHz): [7.36,9.28,7.6,10,7.04]
+
+[2] [e2ee] register temporary v2 circle + circle_e2ee_set
+  ✓ registered (welcome): c_hcf7wd… agent=u_ai_anon_6b8e6fbb
+  ✓ circle_e2ee_set enabled: {"t":"owner_ok"}
+
+[3] [e2ee] 3 humans join (signaling + LiveKit, passcode-derived E2EE key)
+  ✓ all humans see each other in LiveKit: [2,2,2]
+
+[4] [e2ee] owner anon_agent_invite k=2 + sealed key
+  ✓ anon_agent_invite → anon_ok: {"t":"anon_ok"}
+  ✓ anon_agent_state{invited} broadcast to members: {"present":false,"active":false,"invited":true}
+
+[5] [e2ee] agent participant appears (after keyreq/seal) → state
+  ✓ owner received anon_agent_keyreq: {"x25519PubLen":44}
+  ✓ anon_agent_key forwarded (anon_ok): {"t":"anon_ok"}
+  ✓ agent u_ai_anon_6b8e6fbb in LiveKit room: {"ms":860}
+  · agent display name: 炉灵
+  ✓ state received from agent: {"k":2,"active":false,"members":1,"convener":"u_e2e_anon_a_ce0018"}
+
+[6] [e2ee] 3× ack (Ed25519 pubKey) → state all acked
+  ✓ state: 3 members acked: {"k":2,"active":true,"members":[{"n":"张伟","a":true},{"n":"李娜","a":true},{"n":"王强","a":true}]}
+  ✓ state k=2 active: {"k":2,"active":true}
+  · convener is owner?: {"convenerIsOwner":true,"convener":"张伟"}
+  ✓ no ack errors: []
+
+[7] [e2ee] humans speak (real TTS audio over LiveKit)
+  ✓ 5 utterances played: {"seconds":41}
+  ✓ no agent error during speech: null
+
+[8] [e2ee] ask → answer
+  ✓ answer broadcast: {"t":"answer","ms":3557}
+  ✓ answer names 刘慈欣: 《三体》是刘慈欣写的，这是P2在谈科幻小说阅读时提到的。
+  ✓ answer has no participant name: []
+
+[9] [e2ee] skill minutes → draft
+  ✓ draft broadcast: {"t":"draft","items":7,"k":2,"ms":2657}
+  · draft items: [{"kind":"idea","roleRisk":false,"flags":[],"text":"有观点认为应讨论下半年团队的读书计划。"},{"kind":"fact","roleRisk":false,"flags":["public-fact"],"text":"《三体》由刘慈欣所写。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"近期在读科幻小说，并讨论文明之间的猜疑链。"},{"kind":"idea","roleRisk":true,"flags":["role-revealing"],"text":"有观点对某机构上个季度项目延期三个月表达不满。"},{"kind":"decision","roleRisk":false,"flags":[],"text":"与会者同意自下月起每两周的周五下午举办一次读书会，每次一小时，首本选读《三体》。"},{"kind":"todo","roleRisk":true,"flags":["role-revealing"],"text":"由牵头人负责组织读书会。"},{"kind":"decision","roleRisk":false,"flags":[],"text":"与会者同意读书会轮流主持，每次结束时撰写一页读书笔记共享。"}]
+  ✓ draft{sid,draftHash} matches session: {"sidMatch":true}
+
+[10] [e2ee] 2 signed approvals → released
+  ✓ released broadcast: {"len":293}
+  ✓ no approve errors: []
+  · released text: 会议纪要 · 不署名 / Minutes · no attribution
+
+# 会议纪要 Minutes (2026-10-19)
+
+## 下半年读书计划
+**观点 Ideas**
+- 有观点认为应讨论下半年团队的读书计划。
+
+## 科幻小说阅读
+**公共事实 Public facts**
+- 《三体》由刘慈欣所写。
+
+## 读书会安排
+**决定 Decisions**
+- 与会者同意自下月起每两周的周五下午举办一次读书会，每次一小时，首本选读《三体》。
+
+## 读书会主持与笔记
+**决定 Decisions**
+- 与会者同意读书会轮流主持，每次结束时撰写一页读书笔记共享。
+
+
+[11] [e2ee] released content checks
+  ✓ keeps 《三体》 + 刘慈欣 (public fact): {"三体":true,"刘慈欣":true}
+  ✓ no participant name: []
+  ✓ no organisation: []
+  ✓ sarcasm gone: {"phrases":[],"toneMarker":false}
+  ✓ no pseudonyms (P1/P2…): []
+
+[12] [e2ee] mem_list → mem_retract → mem_retracted; memory dir has no retracted text
+  ✓ mem{items}: {"n":4}
+  · retract target: 有观点认为应讨论下半年团队的读书计划。
+  ✓ before retract: item text present in memory dir: {"exists":true,"files":6}
+  ✓ mem_retracted: {"t":"mem_retracted"}
+  ✓ after retract: no retracted text in DATA_DIR/anonym_memory/<cid>/: {"exists":true,"files":["items\\2026-10.jsonl","links.json","log.jsonl","meetings\\d03acd19-c785-431d-9c86-2df1ac4b84d4.md","MEMORY.md","releases.jsonl","topics\\decisions.md","topics\\facts.md"],"hits":[]}
+  ✓ mem_list no longer lists the retracted item: {"n":3}
+
+[13] [e2ee] transcript_append refused (anonym_active)
+  ✓ transcript_error{reason:anonym_active}: {"t":"transcript_error","reason":"anonym_active"}
+
+[14] [e2ee] owner end → ended{receipt} → agent leaves
+  ✓ owner end accepted: ended
+  ✓ ended{receipt:{sid,counts,releases,sha256}}: {"reason":"convener","counts":{"utterances":5,"ledger":5,"drafts":1,"releases":1,"approvals":2},"releases":1,"sha256":true}
+  ✓ agent participant left the room: {"ms":2852}
+  ✓ anon_agent_state{present:false,active:false}: {"present":false,"active":false,"invited":true}
+  · transcript_append after end: {"t":"transcript_error","reason":"e2ee"}
+  ✓ anonym_active cleared after end: {"t":"transcript_error","reason":"e2ee"}
+
+[15] [e2ee] circle_delete → memory dir gone
+  ✓ circle_delete: {"t":"owner_ok"}
+  ✓ DATA_DIR/anonym_memory/<cid>/ removed: {"exists":false}
+
+[16] server logs (since run start): no utterance text, no agent child errors
+  ✓ logs read (D:\Projects\Lares\.local-server\server.log): {"lines":14}
+  ✓ no utterance / released text in logs: []
+  · anonym log lines: ["[ember-lares c_hcf7wd] 已启动 pid=109192","[anonym c_hcf7wd] 圈主邀请 agent","[anonym c_hcf7wd] agent 进房","[anonym c_hcf7wd] 密封密钥已转交 agent","[anonym c_hcf7wd] 强制关闭 开","[ember-lares c_hcf7wd] ev=session","[ember-lares c_hcf7wd] ev=ready","[ember-lares c_hcf7wd] ev=released","[anonym c_hcf7wd] 强制关闭 关","[ember-lares c_hcf7wd] ev=ended","[anonym c_hcf7wd] agent 离房","[ember-lares c_hcf7wd] ev=exit","[ember-lares c_hcf7wd] 已退出 code=0 signal="]
+  ✓ no agent child errors / crashes: []
+  · log lines containing display names (join/presence, not utterances): 0

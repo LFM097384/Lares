@@ -47,6 +47,7 @@ export function memoryDirFor(dataDir, cid) {
 export function createAnonymSupervisor(d) {
   const env = d.env ?? process.env;
   const spawn = d.spawn ?? nodeSpawn;
+  const platform = d.platform ?? process.platform;
   const now = d.now ?? Date.now;
   const setTimer = d.setTimer ?? ((fn, ms) => { const h = setTimeout(fn, ms); h.unref?.(); return h; });
   const clearTimer = d.clearTimer ?? ((h) => clearTimeout(h));
@@ -172,7 +173,9 @@ export function createAnonymSupervisor(d) {
     s.stopping = true;
     log.log?.(`${tag(cid)} 停止(${why})`);
     try { child.stdin?.write?.('{"cmd":"stop"}\n'); } catch { /* ignore */ }
-    try { child.kill('SIGTERM'); } catch { /* ignore */ }
+    // Windows 上 kill('SIGTERM') 就是 TerminateProcess(硬杀),子进程来不及走 stdin 的优雅退出:
+    // 只在 POSIX 立刻发 SIGTERM;Windows 靠 stdin stop,超时再硬杀。
+    if (platform !== 'win32') { try { child.kill('SIGTERM'); } catch { /* ignore */ } }
     s.killTimer = setTimer(() => {
       s.killTimer = null;
       if (s.child === child) { try { child.kill('SIGKILL'); } catch { /* ignore */ } }

@@ -4,6 +4,7 @@
 import { randomUUID } from 'node:crypto';
 import { canonicalJSON, sha256hex, verifyEd25519, rawPublicKeyB64, approvalMessage } from './crypto.mjs';
 import * as gateModule from './gate/gate.mjs';
+import { learnSelfOrgs, withLearnedOrgs } from './gate/l2.mjs';
 
 const DEFAULT_NOTICE = '会议纪要 · 不署名 / Minutes · no attribution';
 const KINDS = ['idea', 'decision', 'todo', 'fact'];
@@ -113,7 +114,13 @@ export function createSession({ sid = randomUUID(), roster = [], policy = {}, ll
   const alive = () => { if (ended) throw err('ended'); };
   const needMember = (id) => { if (id == null || !members.has(String(id))) throw err('not_member'); return String(id); };
   const getDraft = (draftId) => { const d = drafts.get(String(draftId)); if (!d) throw err('unknown_draft'); return d; };
-  const rosterArr = () => [...members.values()];
+  // Roster + orgs self-declared anywhere in the (whole) buffer: 我是张伟，在星辰科技负责产品 → 星辰科技 is that
+  // member's org for the session, so it is redacted in every utterance (also ones outside a draft's time window).
+  const rosterArr = () => {
+    const learned = new Map();
+    for (const u of buffer) if (u.final) for (const o of learnSelfOrgs(u.text)) { if (!learned.has(u.speakerId)) learned.set(u.speakerId, new Set()); learned.get(u.speakerId).add(o); }
+    return withLearnedOrgs([...members.values()], learned);
+  };
 
   // In-room view of a draft (reason is review-only metadata; never part of release / memory).
   const view = (d) => ({

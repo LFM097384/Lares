@@ -15,7 +15,7 @@
 
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,13 +23,19 @@ import WebSocket from 'ws';
 import { AudioFrame } from '@livekit/rtc-node';
 import { LaresBot, authVerifier } from './lares_bot.mjs';
 import { resample, concatInt16 } from '../../hearthvoice/audio.mjs';
+import { DashscopeTts } from '../../hearthvoice/providers/dashscope.mjs';
+import { LOCAL, LOCAL_HTTP, LOCAL_WS, LOCAL_LOG, tailLog, localProcs, localDashscopeKey } from './local_target.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
 const SKIP_AI = argv.includes('--skip-ai');
 const SKIP_PROBE = argv.includes('--skip-probe');
-const HTTP = 'https://lares.westus.cloudapp.azure.com';
-const WSURL = 'wss://lares.westus.cloudapp.azure.com/ws';
+// --local / LARES_E2E_TARGET=local:本机栈(server/tool/local_stack.ps1),日志读 .local-server/server.log,TTS key 走 env/CSV
+const HTTP = LOCAL ? LOCAL_HTTP : 'https://lares.westus.cloudapp.azure.com';
+const WSURL = LOCAL ? LOCAL_WS : 'wss://lares.westus.cloudapp.azure.com/ws';
+const TARGET = LOCAL ? 'local' : 'prod';
+const OUT_FILE = LOCAL ? 'ai_voice_local_e2e.last.txt' : 'ai_voice_prod_e2e.last.txt';
+const TTS_KEY = LOCAL ? localDashscopeKey() : '';
 const SSH = ['-i', path.join(homedir(), '.ssh', 'lares_ed25519'), '-o', 'ConnectTimeout=15', '-o', 'BatchMode=yes', 'azureuser@20.228.115.95'];
 const CONTAINER = 'lares-lares-server-1';
 const PASSCODE = `prod-ai-e2e-${crypto.randomBytes(4).toString('hex')}`;
@@ -39,7 +45,7 @@ const MAX_TURNS = 3;
 const SILENT_DB = -45;
 const CURL = process.platform === 'win32' ? 'curl.exe' : 'curl';
 
-const redact = (s) => String(s)
+const redact = (s) => (TTS_KEY ? String(s).split(TTS_KEY).join('***') : String(s))
   .replace(/lrb_[A-Za-z0-9_-]+/g, 'lrb_***')
   .replace(/sk-[A-Za-z0-9]{16,}/g, 'sk-***')
   .replace(/("(?:ownerKey|token|webhookSecret|proof|verifier|ownerHash)"\s*:\s*")[^"]+/g, '$1***');
@@ -73,7 +79,16 @@ function newCircleId() {
 const logLines = []; // {at, line}
 const logWaiters = [];
 let logProc = null;
+let localTail = null;
+function pushLogLine(raw) {
+  const l = redact(raw.replace(/\r$/, ''));
+  if (!l.trim()) return;
+  const e = { at: Date.now(), line: l };
+  logLines.push(e);
+  for (const w of [...logWaiters]) if (w.pred(l)) { logWaiters.splice(logWaiters.indexOf(w), 1); clearTimeout(w.t); w.res(e); }
+}
 function startLogStream() {
+  if (LOCAL) { localTail = tailLog(pushLogLine); return; }
   logProc = spawn('ssh', [...SSH, `docker logs -f --since 5s ${CONTAINER} 2>&1`], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let buf = '';
   const on = (d) => {
@@ -97,6 +112,7 @@ const waitLog = (pred, ms = 15000, fromIdx = 0) => {
   return new Promise((res) => { const w = { pred, res, t: setTimeout(() => res(null), ms) }; logWaiters.push(w); });
 };
 function sshRun(cmd) {
+  if (LOCAL) return localProcs().then((r) => ({ code: r.code, out: redact(r.out) }));
   return new Promise((resolve) => {
     const p = spawn('ssh', [...SSH, cmd], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     let out = '';
@@ -206,9 +222,39 @@ function trim(pcm, rate) {
   while (b > a && dbfs(pcm.subarray((b - 1) * f, b * f)) < SILENT_DB) b--;
   return pcm.slice(a * f, b * f);
 }
+function writeWav(file, pcm, rate) {
+  const data = Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  const h = Buffer.alloc(44);
+  h.write('RIFF', 0, 'ascii'); h.writeUInt32LE(36 + data.length, 4); h.write('WAVE', 8, 'ascii');
+  h.write('fmt ', 12, 'ascii'); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
+  h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+  h.write('data', 36, 'ascii'); h.writeUInt32LE(data.length, 40);
+  writeFileSync(file, Buffer.concat([h, data]));
+}
+/// --local:缓存缺的提示语用真 DashScope TTS(Cherry)合成(key 只在内存),写进同一个临时缓存
+async function ensurePrompts(texts) {
+  mkdirSync(CACHE, { recursive: true });
+  const fileOf = (t) => path.join(CACHE, `${sha256(`Cherry:${t}`).slice(0, 16)}.wav`);
+  const todo = texts.filter((t) => !existsSync(fileOf(t)));
+  if (!todo.length) return 0;
+  if (!TTS_KEY) throw new Error('no DashScope key for TTS (env LARES_DASHSCOPE_API_KEY or CSV)');
+  for (const t of todo) {
+    const tts = new DashscopeTts({ apiKey: TTS_KEY, openTimeoutMs: 30000 });
+    const sess = await tts.open({ voice: 'Cherry' });
+    const parts = [];
+    await new Promise((resolve, reject) => {
+      const to = setTimeout(() => reject(new Error('tts_timeout')), 30000);
+      sess.setHandlers({ onAudio: (_i, pcm) => parts.push(pcm), onSegmentDone: () => { clearTimeout(to); resolve(); }, onError: (e) => { clearTimeout(to); reject(e); } });
+      sess.send(t);
+    });
+    sess.close();
+    writeWav(fileOf(t), concatInt16(parts), 24000);
+  }
+  return todo.length;
+}
 function prompt(text) {
   const f = path.join(CACHE, `${sha256(`Cherry:${text}`).slice(0, 16)}.wav`);
-  if (!existsSync(f)) throw new Error(`缺 TTS 缓存 ${f}(先跑一次 ai_voice_e2e.mjs)`);
+  if (!existsSync(f)) throw new Error(`缺 TTS 缓存 ${f}(先跑一次 ai_voice_e2e.mjs,或 --local 带 DashScope key)`);
   const w = readWav(f);
   return trim(resample(w.pcm, w.rate, 48000), 48000);
 }
@@ -329,7 +375,7 @@ async function interruptTurn(h, cid, label, promptPcm, interrupter) {
 async function main() {
   startLogStream();
   await wait(2500);
-  info('prod log stream', logProc.exitCode === null ? 'attached' : `ssh exited ${logProc.exitCode}`);
+  info(`${TARGET} log stream`, LOCAL ? `tail ${LOCAL_LOG}` : (logProc.exitCode === null ? 'attached' : `ssh exited ${logProc.exitCode}`));
   const health = await curl([`${HTTP}/health`]);
   ok(health.status === 200 && health.body?.rtcConfigured === true, 'health', { status: health.status, rtcConfigured: health.body?.rtcConfigured });
 
@@ -392,16 +438,20 @@ async function main() {
 
     if (!SKIP_AI) {
       // ── [A] AI 语音 ──
-      say('\n[A] lares.ai-voice on prod (custom purpose 开会+AI)');
-      const P1 = '小助手，请用一句话介绍一下北京。';
-      const P2 = '小助手，上海有什么好吃的？一句话回答。';
-      const PL = '小助手，请详细讲讲长城的历史，多说一点。';
+      say(`\n[A] lares.ai-voice on ${TARGET} (custom purpose 开会+AI)`);
+      // local:不设 name,用默认名 = 唤醒词「灶语」(hearthvoice/config.mjs);prod 保持原来的「小助手」
+      const WAKE = LOCAL ? '灶语' : '小助手';
+      const P1 = `${WAKE}，请用一句话介绍一下北京。`;
+      const P2 = `${WAKE}，上海有什么好吃的？一句话回答。`;
+      const PL = `${WAKE}，请详细讲讲长城的历史，多说一点。`;
+      const PN = '今天天气不错，我们继续开会吧。'; // 不含唤醒词:不该触发回合(仅 --local 测)
+      if (LOCAL) info('TTS prompts synthesised now (DashScope Cherry, key from env/CSV)', await ensurePrompts([P1, P2, PL, PN]));
       const audio = { P1: prompt(P1), P2: prompt(P2), PL: prompt(PL) };
       const qw = readWav(QUAL_WAV);
       const interrupter = trim(resample(qw.pcm, qw.rate, 48000), 48000);
-      info('audio (cached TTS Cherry + syn_0_00.wav interrupter)', { P1: `${Math.round(audio.P1.length / 48)}ms`, P2: `${Math.round(audio.P2.length / 48)}ms`, PL: `${Math.round(audio.PL.length / 48)}ms`, interrupter: `${Math.round(interrupter.length / 48)}ms`, wakeWord: '小助手(默认 name)' });
+      info('audio (cached TTS Cherry + syn_0_00.wav interrupter)', { P1: `${Math.round(audio.P1.length / 48)}ms`, P2: `${Math.round(audio.P2.length / 48)}ms`, PL: `${Math.round(audio.PL.length / 48)}ms`, interrupter: `${Math.round(interrupter.length / 48)}ms`, wakeWord: LOCAL ? '灶语(默认 name,config 不设 name)' : '小助手' });
 
-      const cfg = { name: '小助手', trigger: 'wake', maxTurnsPerHour: MAX_TURNS, maxReplyChars: 120 };
+      const cfg = { ...(LOCAL ? {} : { name: '小助手' }), trigger: 'wake', maxTurnsPerHour: MAX_TURNS, maxReplyChars: 120 };
       const purpose = {
         v: 1, id: 'meeting-ai', name: '开会+AI', icon: '📝',
         features: { captions: true, transcript: true, voiceNotes: false, focus: false, plugins: true },
@@ -434,8 +484,12 @@ async function main() {
       const sum = await owner.waitFor((m) => m.t === 'circle_summary' && m.circleId === cid && m.ai >= 1, 15000);
       ok(Boolean(started && ready), 'supervisor spawned AI bot → ready', { startedMs: started ? started.at - tJoin : null, readyMs: ready ? ready.at - tJoin : null, pid: /pid=(\d+)/.exec(started?.line ?? '')?.[1] ?? null });
       ok(Boolean(sum), 'circle_summary 出现 AI 成员 (ai≥1, 不计人数)', sum ? { count: sum.count, ai: sum.ai, names: sum.names } : 'timeout');
+      await wait(1500);
+      const aiP = [...(h.bot.room?.remoteParticipants?.values?.() ?? [])].find((p) => String(p.identity).startsWith('u_ai_'));
+      info('AI display name (LiveKit participant)', aiP ? { identity: aiP.identity, name: aiP.name } : null);
+      if (LOCAL) ok(aiP?.name === '灶语', 'AI 显示名 = 默认名 灶语', aiP?.name ?? null);
       const top1 = await sshRun(`docker top ${CONTAINER} -o pid,args`);
-      ok(top1.out.includes(cid), 'docker top: hearthvoice-lares 进程在跑', top1.out.split('\n').filter((l) => l.includes('hearthvoice-lares')).map((l) => l.replace(/\s+/g, ' ').trim()));
+      ok(top1.out.includes(cid), `${LOCAL ? 'local ps' : 'docker top'}: hearthvoice-lares 进程在跑`, top1.out.split('\n').filter((l) => /hearthvoice-lares[\\/]index\.mjs/.test(l)).map((l) => l.replace(/\s+/g, ' ').trim()));
 
       // 冒充 u_ai_(在 AI 真在房时测)
       let sp = await spoofHello(cid, verifier, aiId);
@@ -447,6 +501,14 @@ async function main() {
       let stopMs = null;
       if (ready) {
         await wait(3000);
+        if (LOCAL) {
+          // 负例:没叫名字 → 不该有回合(ASR 照常跑,LLM 不调用)
+          const idxN = logLines.length;
+          const chatsN = h.chats.length;
+          await h.say(prompt(PN));
+          const evN = await waitLog((l) => l.includes(cid) && TURN_RE.test(l), 10000, idxN);
+          ok(!evN && !h.chats.slice(chatsN).some((m) => String(m.from).startsWith('u_ai_')), 'T0 不叫「灶语」→ 不回答', evN ? evN.line : 'no turn');
+        }
         for (const [label, pcm] of [['T1', audio.P1], ['T2', audio.P2]]) {
           const m = await wakeTurn(h, cid, label, pcm);
           if (m) { lat.ext.push(m.extTtfaMs); lat.bot.push(m.botTtfaMs); lat.llm.push(m.llmFirstTokenMs); }
@@ -469,7 +531,7 @@ async function main() {
       const exitLog = await waitLog((l) => l.includes(cid) && l.includes('已退出'), 15000, idx2);
       ok(Boolean(stopLog && exitLog), '房间清空 → 宽限后停 AI', { stopAfterMs: stopLog ? stopLog.at - tLeave : null, exitAfterMs: exitLog ? exitLog.at - tLeave : null, exit: exitLog?.line.replace(/^.*已退出/, '已退出') ?? null });
       const top2 = await sshRun(`docker top ${CONTAINER} -o pid,args`);
-      ok(!top2.out.includes(cid), 'docker top: hearthvoice-lares 进程已不在', top2.out.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean));
+      ok(!top2.out.includes(cid), `${LOCAL ? 'local ps' : 'docker top'}: hearthvoice-lares 进程已不在`, top2.out.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l && (!LOCAL || /hearthvoice-lares[\\/]index\.mjs/.test(l))));
     }
   } catch (e) {
     ok(false, 'exception', String(e?.stack ?? e));
@@ -487,14 +549,16 @@ async function main() {
     owner.close();
     await wait(2000);
     const errs = logLines.filter((e) => /error|Error|ERR|崩溃|失败|exception|uncaught/i.test(e.line)).map((e) => e.line);
-    info('prod log lines captured', logLines.length);
-    info('prod log error-ish lines', errs.length ? errs.slice(-30) : 'none');
-    info('prod ai-voice log', logLines.filter((e) => e.line.includes('[ai-voice]')).map((e) => e.line).slice(-30));
+    info(`${TARGET} log lines captured`, logLines.length);
+    info(`${TARGET} log error-ish lines`, errs.length ? errs.slice(-30) : 'none');
+    info(`${TARGET} ai-voice log`, logLines.filter((e) => e.line.includes('[ai-voice]')).map((e) => e.line).slice(-30));
     try { logProc?.kill(); } catch { /* */ }
-    say(failed === 0 ? '\nAI VOICE PROD E2E ALL PASS' : `\nAI VOICE PROD E2E ${failed} FAILED`);
-    writeFileSync(path.join(HERE, 'ai_voice_prod_e2e.last.txt'), redact(`# ai_voice_prod_e2e ${new Date().toISOString()}\n${lines.join('\n')}\n\nRESULTS ${JSON.stringify(results, null, 1)}\n`));
-    setTimeout(() => process.exit(failed === 0 ? 0 : 1), 500);
+    localTail?.stop();
+    say(failed === 0 ? `\nAI VOICE ${TARGET.toUpperCase()} E2E ALL PASS` : `\nAI VOICE ${TARGET.toUpperCase()} E2E ${failed} FAILED`);
+    writeFileSync(path.join(HERE, OUT_FILE), redact(`# ai_voice_${TARGET}_e2e ${new Date().toISOString()}  ws=${WSURL}\n${lines.join('\n')}\n\nRESULTS ${JSON.stringify(results, null, 1)}\n`));
+    process.exitCode = failed === 0 ? 0 : 1;
+    setTimeout(() => process.exit(), 500); // LiveKit FFI 会让事件循环一直活着
   }
 }
 
-main().catch((e) => { console.error('fatal', redact(e?.stack ?? e)); try { logProc?.kill(); } catch { /* */ } process.exit(1); });
+main().catch((e) => { console.error('fatal', redact(e?.stack ?? e)); try { logProc?.kill(); } catch { /* */ } localTail?.stop(); process.exitCode = 1; setTimeout(() => process.exit(), 500); });

@@ -55,3 +55,6 @@ app/lib/l10n/untranslated.json
 # subagent 本地化施工时的中间草稿,非交付物
 app/.l10nwork/
 app/.l10n_verify_moderation/
+
+# 本机当服务器的本地栈(livekit-server.exe / 数据 / 日志;见 server/tool/local_stack.ps1)
+.local-server/

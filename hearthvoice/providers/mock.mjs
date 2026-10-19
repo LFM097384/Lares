@@ -37,8 +37,9 @@ export class MockAsr {
     return this.script[n % this.script.length];
   }
 
-  open({ identity, onPartial, onFinal, onClose, onError, onOpen }) {
+  open({ identity, hints, onPartial, onFinal, onClose, onError, onOpen }) {
     this.sessions += 1;
+    this.lastHints = hints ?? null;
     const self = this;
     let samples = 0;
     let utter = 0;
@@ -139,8 +140,9 @@ export class MockLlm {
  * 每个字 msPerChar 毫秒的正弦音,按 deltaMs 一片吐出;合成速度 = 实时 × speed。
  */
 export class MockTts {
-  constructor({ openMs = 30, firstAudioMs = 40, msPerChar = 40, deltaMs = 100, speed = 4, sampleRate = 24000, failOpen = 0 } = {}) {
-    Object.assign(this, { openMs, firstAudioMs, msPerChar, deltaMs, speed, sampleRate, failOpen });
+  /// mute:前 N 条会话收了文字却一个事件都不回(模拟 DashScope 偶发的哑连接)
+  constructor({ openMs = 30, firstAudioMs = 40, msPerChar = 40, deltaMs = 100, speed = 4, sampleRate = 24000, failOpen = 0, mute = 0 } = {}) {
+    Object.assign(this, { openMs, firstAudioMs, msPerChar, deltaMs, speed, sampleRate, failOpen, mute });
     this.opened = 0;
     this.closed = 0;
     this.texts = [];
@@ -151,6 +153,8 @@ export class MockTts {
     if (this.failOpen > 0) { this.failOpen -= 1; throw new Error('mock_tts_open_failed'); }
     this.opened += 1;
     const self = this;
+    const muted = this.mute > 0;
+    if (muted) this.mute -= 1;
     let handlers = {};
     let queue = Promise.resolve();
     let seg = 0;
@@ -168,7 +172,7 @@ export class MockTts {
         const idx = seg++;
         self.texts.push(text);
         queue = queue.then(async () => {
-          if (dead) return;
+          if (dead || muted) return;
           await sleep(self.firstAudioMs, ac.signal);
           const total = Math.max(1, [...text].length) * self.msPerChar;
           for (let t = 0; t < total && !dead; t += self.deltaMs) {

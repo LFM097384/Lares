@@ -1726,6 +1726,12 @@ function handleConnection(ws, req) {
         saveSettings();
         pendingKnocks.delete(circleId);
         dropCircleFromPush(circleId);
+        // 转写归档 / 密文队列 / 机器人 token 一并删掉 —— 放在 owner_ok **之前**:圈主拿到 ack
+        // 就该能认定这圈的 lrb_/plg_ token 已失效(本机 e2e 实测:先 ack 后删时,紧跟的
+        // GET /api/v1/circle 仍 200)。两个清理内部自己 catch,不会吞掉 ack。
+        await transcriptWs.onCircleDeleted(circleId);
+        // 插件安装(插件 token 已随上面的 tokens.deleteCircle 删掉)
+        await pluginsSvc.onCircleDeleted(circleId);
         send(ws, { t: 'owner_ok', op: 'circle_delete', circleId });
         for (const other of sessionsOfCircle(circleId)) {
           send(other, { t: 'circle_deleted', circleId });
@@ -1733,10 +1739,7 @@ function handleConnection(ws, req) {
           other.close(4410, 'circle_deleted');
         }
         evictMedia(circleId);
-        // 转写归档 / 密文队列 / 机器人 token 一并删掉
-        await transcriptWs.onCircleDeleted(circleId);
-        // 插件安装(插件 token 已随上面的 tokens.deleteCircle 删掉)+ 专注排行榜
-        await pluginsSvc.onCircleDeleted(circleId);
+        // 专注排行榜等内存态
         focusEngine.deleteCircle(circleId);
         pushTriggers.dropCircle(circleId);
         focusSocial.dropCircle(circleId);
