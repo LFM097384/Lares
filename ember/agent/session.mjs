@@ -417,4 +417,7 @@ export function wirePort(session, port) {
   port.on('joined', (id, name) => session.participantJoined(id, name ?? port.nameOf?.(id) ?? ''));
   port.on('left', (id) => session.participantLeft(id));
   port.on('message', (id, msg) => { void session.onMessage(id, msg); });
+  // 可选的文字入口:平台自己出带说话人的定稿转写(如 Zoom RTMS)时,port.transcripts === true。
+  // 与 ASR onFinal 走同一个 onTranscript:未 ack 的丢、过 IngestGate(L0–L3 + 假名)进 ledger,原话不留。
+  if (port.transcripts === true) port.on('transcript', (id, text) => session.onTranscript(id, String(text ?? '')));
 }

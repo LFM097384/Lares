@@ -1,0 +1,21 @@
+{
+  "name": "ember-zoom",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ember(炉灵)的 Zoom 插件:RTMS 实时转写进会、Zoom App 侧边栏 = 房间、webhook 验签",
+  "bin": { "ember-zoom": "./index.mjs" },
+  "exports": {
+    ".": "./index.mjs",
+    "./port": "./port.mjs",
+    "./rtms": "./rtms_client.mjs",
+    "./webhook": "./webhook.mjs",
+    "./sim": "./sim/rtms_sim.mjs"
+  },
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test ./"
+  },
+  "//deps": "唯一 npm 依赖 ws:由 deps.mjs 从本包或 server/node_modules 解析(同 lares-bridge/deps.mjs);Ember 本体走相对路径 ../ember"
+}

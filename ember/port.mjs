@@ -12,6 +12,7 @@
  *   通知宿主平台(只有元数据,绝无会话文字):会话开关(宿主据此关转写 / 录音 / 其它机器人)与「有条目放行了」
  * @property {() => Promise<any>} join                    生命周期:进会
  * @property {() => Promise<void>} leave                  生命周期:离会(幂等)
+ * @property {boolean} [transcripts]                      true = 平台直接给带说话人的定稿转写,经 'transcript' 事件进 IngestGate(同 ASR 定稿)
  */
 
 /** 事件:
@@ -21,8 +22,11 @@
  *   'audio'        (id, Int16Array pcm, sampleRate, channels)   该参与者的一帧音频(逐人分轨)
  *   'message'      (id, obj)                           该参与者发来的一条会话协议消息(已 JSON 解析)
  *   'disconnected' (reason)                            平台连接断了(Ember 不处理;插件决定退出码)
+ *   'transcript'   (id, text)                          可选,仅当 port.transcripts === true:该参与者一句定稿转写(平台侧 ASR)。
+ *                                                      与音频同一道门:未 ack 的丢弃,其余立即过 IngestGate,原话不留引用
  */
 export const PORT_EVENTS = Object.freeze(['joined', 'left', 'name', 'audio', 'message', 'disconnected']);
+export const OPTIONAL_PORT_EVENTS = Object.freeze(['transcript']);
 
 const REQUIRED = ['on', 'send', 'notifyHost', 'join', 'leave', 'participants'];
 

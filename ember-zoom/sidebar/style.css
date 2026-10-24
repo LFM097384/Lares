@@ -1,0 +1,28 @@
+:root { --fg: #2b2118; --muted: #8a7a6a; --accent: #c2541b; --bg: #fffaf4; --card: #fff; --line: #eadfd2; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 10px; font: 14px/1.5 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--fg); background: var(--bg); }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+h1 { font-size: 18px; margin: 0; } h1 small { color: var(--muted); font-weight: 400; }
+h2 { font-size: 15px; margin: 0 0 6px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.pill { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--line); }
+.pill.on { background: #fde3d3; color: var(--accent); }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.between { justify-content: space-between; }
+.muted, .hint { color: var(--muted); font-size: 12px; }
+ul { padding-left: 18px; margin: 4px 0; }
+button { border: 0; border-radius: 8px; padding: 6px 12px; background: var(--accent); color: #fff; cursor: pointer; font: inherit; }
+button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+button.danger { background: #8b1e1e; }
+button:disabled { opacity: .45; cursor: default; }
+input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.members { list-style: none; padding: 0; } .members li { display: inline-block; margin: 2px 6px 2px 0; padding: 1px 8px; border-radius: 99px; background: #f4ece3; font-size: 12px; }
+.members li.acked::after { content: " ✓"; color: var(--accent); }
+.answers li { margin-bottom: 6px; } .answers .q { color: var(--muted); }
+.draft { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px; }
+.item { margin: 4px 0; } .item.risk { background: #fff1e8; border-radius: 6px; padding: 2px 4px; }
+.item .tag { font-size: 11px; color: var(--accent); margin-left: 4px; }
+.item button { padding: 1px 6px; font-size: 12px; margin-left: 4px; }
+pre { white-space: pre-wrap; word-break: break-word; background: #faf5ef; padding: 8px; border-radius: 8px; font-size: 12px; }
+.mem li { margin-bottom: 4px; } .mem button { padding: 1px 6px; font-size: 12px; margin-left: 6px; }
+footer { text-align: center; margin-top: 8px; }

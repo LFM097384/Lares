@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>炉灵 · 隐名会</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://appssdk.zoom.us/sdk.min.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>炉灵 <small>Ember</small></h1>
+    <span id="status" class="pill">连接中…</span>
+  </header>
+
+  <section id="notice" class="card">
+    <h2>入会前请读</h2>
+    <p>我是炉灵，一个坐在会里的 AI。规则受查塔姆规则启发，<b>非官方，与 Chatham House 无隶属</b>：会上说的话可以带出去，但不能说出是谁说的。</p>
+    <ul>
+      <li><b>我听到的是什么：</b>请我进来后，Zoom 会把带说话人的实时转写（或音频）发给我。Zoom 会在会里显示它自己的提示“本会议内容正在发送给一个或多个应用”——那就是我。</li>
+      <li><b>原话去哪里：</b>原话经过 Zoom、我方服务器内存、云端 LLM（若开启），<b>不落盘</b>；最长约 60 秒内改写成不带名字的账本，散会即焚。Zoom 在开始时可能自己缓冲最多约 60 秒，那不在我方控制内。</li>
+      <li><b>我不会：</b>告诉任何人谁说了什么；把名字、单位、职位写进纪要或记忆。去名靠规则加模型，<b>不保证万无一失</b>，所以出门前要你们审。</li>
+      <li><b>什么能出门：</b>只有 k 位参会者各自签名同意的纪要。可选地把它贴进会议聊天。记忆里的条目，签过名的人随时可撤。</li>
+      <li><b>你可以：</b>不点“我同意”——我就不处理你的话；随时请我离开。</li>
+    </ul>
+    <p class="hint">严格按规则（A 档）的会：请不要邀请我，Chatham House 官方不允许 AI 记录。</p>
+    <div class="row">
+      <button id="btn-invite">邀请炉灵（开始 RTMS）</button>
+      <button id="btn-leave" class="ghost">请炉灵离开</button>
+    </div>
+  </section>
+
+  <section id="session" class="card" hidden>
+    <div class="row between"><h2>本场</h2><span id="kinfo" class="muted"></span></div>
+    <ul id="members" class="members"></ul>
+    <div class="row"><button id="btn-ack">我已读规则，我同意</button><span id="ackinfo" class="muted"></span></div>
+  </section>
+
+  <section id="ask" class="card" hidden>
+    <h2>问炉灵</h2>
+    <form id="ask-form" class="row">
+      <input id="q" maxlength="500" placeholder="例如：刚才关于预算达成了什么？" autocomplete="off">
+      <button type="submit">问</button>
+    </form>
+    <div class="row"><button id="btn-minutes" class="ghost">生成纪要草稿</button></div>
+    <ol id="answers" class="answers"></ol>
+  </section>
+
+  <section id="drafts" class="card" hidden>
+    <h2>纪要草稿 <small class="muted">需要 k 人签名才放行</small></h2>
+    <div id="draft-list"></div>
+  </section>
+
+  <section id="released" class="card" hidden>
+    <h2>已放行</h2>
+    <div id="released-list"></div>
+  </section>
+
+  <section id="memory" class="card" hidden>
+    <div class="row between"><h2>记忆</h2><button id="btn-mem" class="ghost">刷新</button></div>
+    <ul id="mem-list" class="mem"></ul>
+  </section>
+
+  <section id="end" class="card" hidden>
+    <button id="btn-end" class="danger">散会（只有召集人可以）</button>
+  </section>
+
+  <footer class="muted" id="foot">受查塔姆规则启发 · 非官方 · 与 Chatham House 无隶属</footer>
+</body>
+</html>
