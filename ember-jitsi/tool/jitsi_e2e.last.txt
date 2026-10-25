@@ -1,0 +1,39 @@
+[   0.0s] ember-jitsi e2e · server https://localhost:8443 · room ember-e2e-be3f9d · k=2
+[   0.0s] env: LLM key present · model deepseek-flash · DashScope key present
+[   0.0s] TTS 张伟: cached WAV
+[   0.0s] TTS 李秀梅: cached WAV
+[   0.0s] TTS 王强: cached WAV
+[   1.9s] 张伟 joined as ae17bc3d
+[   3.9s] bot ready: endpoint 4eb8ee27 llm=true asr=dashscope memory=file
+[   3.9s] PASS [1] bot joins the real conference, visible as 「炉灵」 in the participant list and announces itself in chat — endpoint 4eb8ee27
+[   5.3s] 李秀梅 49a10e01 · 王强 6f040ad8 joined; all see 炉灵
+[   5.5s] 3 humans acked via chat
+[  15.4s] 张伟 spoke; bot ASR finals for endpoint ae17bc3d: 1 (19 chars)
+[  31.4s] 李秀梅 spoke; bot ASR finals for endpoint 49a10e01: 1 (45 chars)
+[  45.3s] 王强 spoke; bot ASR finals for endpoint 6f040ad8: 1 (37 chars)
+[  45.3s] PASS [2] bot per-speaker ASR (DashScope) receives each human's real speech, keyed by Jitsi endpoint — {"张伟":19,"李秀梅":45,"王强":37}
+[  48.8s] PASS [3] question in chat → answer (private to acked members) with no participant names — answer 54 chars, mentions 周五: true, names: []
+[  51.0s] draft D1 received privately (3 items)
+[  54.3s] PASS [4] minutes release needs k=2 approvals from distinct humans: 1 approval (and a repeat by the same human) released nothing; the 2nd distinct human released — released-before-k: false
+[  54.3s] PASS [5] released text has no 张伟/李秀梅/王强 and no 星辰科技 — 227 chars; offenders: []
+---- released (public, de-identified) ----
+【炉灵·已放行纪要 D1】
+会议纪要 · 不署名 / Minutes · no attribution
+
+# 会议纪要 Minutes (2026-10-24)
+
+## 读书会安排
+**观点 Ideas**
+- 提议从下个月起每两周的周五下午举办一次读书会，首本书为《三体》。
+- 建议每次读书会控制在一小时以内，地点定在三楼大会议室。
+
+## 主持与笔记
+**观点 Ideas**
+- 建议由参与者轮流主持，每次结束时撰写一页读书笔记并共享给所有人。
+
+---- end released ----
+[  56.4s] PASS [6] retract (by an approver) leaves zero trace in Ember's derived memory files — item in 2 file(s) before; after retract: 0 file(s) (of 7); non-approver retract denied: true
+[  57.4s] PASS [7] 「结束」 by the convener ends the session; non-convener refused; bot leaves the conference and exits 0 — exit 0, left: true
+[  57.4s] PASS [8] no raw speech text (or names/org) in the bot's stdout/stderr logs — 889 bytes scanned, 11 probes, leaks: 0
+[  57.4s] bot stdout events: host, session, ready, asr_final, released, ended, exit
+[  57.6s] ember-jitsi e2e: 8/8 checks passed · 2026-10-24T23:53:08.655Z

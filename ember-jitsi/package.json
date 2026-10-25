@@ -1,0 +1,12 @@
+{
+  "name": "ember-jitsi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ember(炉灵)的 Jitsi Meet 插件:无头 Chromium + lib-jitsi-meet 进会、逐人音频 ASR、会议聊天 = 房间、k-of-n 放行",
+  "bin": { "ember-jitsi": "./index.mjs" },
+  "exports": { ".": "./index.mjs", "./port": "./port.mjs", "./commands": "./commands.mjs", "./bridge": "./bridge.mjs" },
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node index.mjs", "test": "node --test ./", "e2e": "node tool/jitsi_e2e.mjs" },
+  "//deps": "playwright(无头 Chromium)与 ws 由 deps.mjs 解析:裸 import → server/node_modules → npx 缓存;Ember 本体走相对路径 ../ember"
+}
