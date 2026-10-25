@@ -24,6 +24,9 @@ const OUT = path.join(HERE, 'jitsi_e2e.last.txt');
 const URL_ = process.env.JITSI_URL || 'https://localhost:8443';
 const ROOM = `ember-e2e-${randomBytes(3).toString('hex')}`;
 const K = 2;
+// EMBER_E2E_VIA_DESK=1 或 --via-desk:bot 经 ember-desk 守护进程(进程内 startDaemon)的会话管理器拉起,多一项检查 [9]
+const VIA_DESK = process.env.EMBER_E2E_VIA_DESK === '1' || process.argv.includes('--via-desk');
+const N_CHECKS = VIA_DESK ? 9 : 8;
 const CACHE = process.env.EMBER_E2E_CACHE || path.join(os.tmpdir(), 'ember-jitsi-e2e-cache');
 const KEY_CSV = process.env.EMBER_DASHSCOPE_KEY_CSV || path.join(os.homedir(), 'Downloads', '默认业务空间-apiKey-6421725.csv');
 const NAMES = ['张伟', '李秀梅', '王强'];
@@ -135,7 +138,7 @@ function allFiles(d) {
 const hasName = (s) => [...NAMES].filter((n) => s.includes(n));
 
 async function main() {
-  say(`ember-jitsi e2e · server ${URL_} · room ${ROOM} · k=${K}`);
+  say(`ember-jitsi e2e · server ${URL_} · room ${ROOM} · k=${K}${VIA_DESK ? ' · mode via-desk (ember-desk session manager)' : ''}`);
   const llmKey = (process.env.LARES_AI_LLM_API_KEY || process.env.LARES_AI_LLM_KEY || '').trim();
   const dsKey = dashscopeKey();
   say(`env: LLM key ${llmKey ? 'present' : 'MISSING (mock LLM)'} · model ${process.env.LARES_AI_LLM_MODEL || 'deepseek-flash'} · DashScope key ${dsKey ? 'present' : 'MISSING'}`);
@@ -145,17 +148,50 @@ async function main() {
   const H = Object.fromEntries(NAMES.map((n) => [n, human(n, wavs[n])]));
   const zw = H['张伟']; const lxm = H['李秀梅']; const wq = H['王强'];
   let bot = null;
+  let desk = null; let deskDir = null;
+  const deskApi = async (method, p, body) => {
+    const r = await fetch(`http://127.0.0.1:${desk.port}${p}`, {
+      method, headers: { authorization: `Bearer ${desk.token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(60000),
+    });
+    let j = null; try { j = await r.json(); } catch { /* */ }
+    return { status: r.status, body: j };
+  };
   const botOut = []; const botErr = []; const botEv = [];
+  let exited = null;
+  const tap = (c) => {
+    let buf = '';
+    c.stdout.on('data', (d) => { const s = String(d); botOut.push(s); buf += s; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { botEv.push({ ...JSON.parse(l), at: Date.now() }); } catch { /* */ } } });
+    c.stderr.on('data', (d) => botErr.push(String(d)));
+    return new Promise((r) => c.on('exit', (code) => r(code)));
+  };
   try {
     // ── 1. 张伟先进会,然后起 bot ──
     await zw.b.join();
     say(`张伟 joined as ${zw.b.myId}`);
     const env = { ...process.env, LARES_DASHSCOPE_API_KEY: dsKey, JITSI_URL: URL_ };
-    bot = spawn(process.execPath, [path.join(PKG, 'index.mjs'), '--room', ROOM, '--url', URL_, '--k', String(K), '--memory-dir', memRoot, '--asr', 'dashscope'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-    let buf = '';
-    bot.stdout.on('data', (d) => { const s = String(d); botOut.push(s); buf += s; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { botEv.push({ ...JSON.parse(l), at: Date.now() }); } catch { /* */ } } });
-    bot.stderr.on('data', (d) => botErr.push(String(d)));
-    const exited = new Promise((r) => bot.on('exit', (code) => r(code)));
+    if (VIA_DESK) {
+      // 经 ember-desk 会话管理器拉起:守护进程在本进程内,spawn 包一层只为旁听子进程 stdout/stderr(生命周期仍归会话管理器)
+      const { startDaemon } = await import('../../ember-desk/daemon.mjs');
+      deskDir = mkdtempSync(path.join(os.tmpdir(), 'ember-desk-e2e-'));
+      writeFileSync(path.join(deskDir, 'config.json'), `${JSON.stringify({ jitsiHosts: [new URL(URL_).host.toLowerCase()], defaultK: K, enabledChannels: ['feed'], asr: 'dashscope' }, null, 2)}\n`);
+      let tapped = null;
+      const tapSpawn = (cmd, args, opts) => { const c = spawn(cmd, args, opts); tapped = c; exited = tap(c); return c; }; // 同步挂监听,不漏早期输出
+      desk = await startDaemon({
+        stateDir: deskDir, env: { ...env, EMBER_DESK_HOME: deskDir }, port: 0, spawn: tapSpawn, stdout: () => {},
+        overrides: { jitsi: { extraArgs: ['--memory-dir', memRoot, '--asr', 'dashscope'] } },
+      });
+      if (desk.already || !desk.port) throw new Error('ember-desk daemon failed to start');
+      say(`ember-desk daemon in-process on 127.0.0.1:${desk.port} (stateDir temp)`);
+      const j = await deskApi('POST', '/join', { link: `${URL_}/${ROOM}`, k: K });
+      if (j.status !== 200) throw new Error(`desk /join → ${j.status} ${j.body?.error ?? ''}`);
+      say(`desk /join → 200 session ${j.body.id} state ${j.body.state} room ${j.body.room}`);
+      if (!tapped) throw new Error('desk did not spawn the bot');
+      bot = tapped;
+    } else {
+      bot = spawn(process.execPath, [path.join(PKG, 'index.mjs'), '--room', ROOM, '--url', URL_, '--k', String(K), '--memory-dir', memRoot, '--asr', 'dashscope'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+    }
+    if (!exited) exited = tap(bot);
     const ready = await until(() => botEv.find((e) => e.ev === 'ready' || e.ev === 'exit'), 90000, 'bot ready');
     if (ready.ev !== 'ready') throw new Error(`bot failed to start: ${botEv.map((e) => e.message).filter(Boolean).join('; ')}`);
     say(`bot ready: endpoint ${ready.endpoint} llm=${ready.llm} asr=${ready.asr} memory=${ready.memory}`);
@@ -260,6 +296,12 @@ async function main() {
     const botLeft = await until(() => zw.leftIds.has(botId), 15000, 'bot left').then(() => true, () => false);
     check(7, Boolean(denied7) && Boolean(endMsg) && code === 0 && botLeft, '「结束」 by the convener ends the session; non-convener refused; bot leaves the conference and exits 0', `exit ${code}, left: ${botLeft}`);
     bot = null;
+    if (VIA_DESK) {
+      // ── 9. 守护进程回到 idle,lastSession ended / exit 0 ──
+      const st = await until(async () => { const r = await deskApi('GET', '/status'); return r.body?.state === 'idle' && r.body?.lastSession ? r.body : null; }, 15000, 'desk idle').catch(() => null);
+      const ls = st?.lastSession;
+      check(9, Boolean(st) && ls?.state === 'ended' && ls?.exitCode === 0 && ls?.room === ROOM, 'ember-desk session manager returns to idle; lastSession ended with exit 0', `state ${st?.state ?? '?'}, lastSession ${ls?.state ?? '?'} exit ${ls?.exitCode ?? '?'} events ${JSON.stringify(ls?.events ?? [])}`);
+    }
 
     // ── 8. 日志无原话 ──
     const logs = botOut.join('') + botErr.join('');
@@ -268,6 +310,11 @@ async function main() {
     const evs = [...new Set(botEv.map((e) => e.ev))];
     say(`bot stdout events: ${evs.join(', ')}`);
   } finally {
+    if (desk && !desk.already) {
+      if (bot) { await deskApi('POST', '/leave', {}).catch(() => {}); bot = null; }
+      await desk.stop().catch(() => {});
+      try { rmSync(deskDir, { recursive: true, force: true }); } catch { /* */ }
+    }
     if (bot) { try { bot.stdin.write('{"cmd":"stop"}\n'); } catch { /* */ } await sleep(3000); try { bot.kill(); } catch { /* */ } }
     for (const h of Object.values(H)) await h.b.leave().catch(() => {});
     try { rmSync(memRoot, { recursive: true, force: true }); } catch { /* */ }
@@ -277,7 +324,7 @@ async function main() {
 let fatal = null;
 try { await main(); } catch (e) { fatal = e; say(`FATAL ${String(e?.message ?? e).split('\n')[0]}`); }
 const pass = results.filter((r) => r.ok).length;
-const summary = `ember-jitsi e2e: ${pass}/8 checks passed${fatal ? ' (aborted)' : ''} · ${new Date().toISOString()}`;
+const summary = `ember-jitsi e2e${VIA_DESK ? ' (via ember-desk)' : ''}: ${pass}/${N_CHECKS} checks passed${fatal ? ' (aborted)' : ''} · ${new Date().toISOString()}`;
 say(summary);
 writeFileSync(OUT, `${lines.join('\n')}\n`);
-process.exitCode = pass === 8 && !fatal ? 0 : 1;
+process.exitCode = pass === N_CHECKS && results.length === N_CHECKS && !fatal ? 0 : 1;

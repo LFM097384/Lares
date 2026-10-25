@@ -1,0 +1,12 @@
+{
+  "name": "ember-desk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "炉灵桌面端(Windows):本机守护进程 + 托盘 + CLI + MCP + ember:// 协议;按需拉起会议插件(ember-jitsi / ember-zoom)",
+  "bin": { "ember-desk": "./cli.mjs", "ember-desk-mcp": "./mcp.mjs" },
+  "exports": { ".": "./daemon.mjs", "./client": "./client.mjs", "./links": "./links.mjs", "./protocol": "./protocol.mjs" },
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node daemon.mjs", "test": "node --test ./" },
+  "//deps": "无 npm 依赖;ws / playwright 经 ../ember-jitsi/deps.mjs 解析,Ember 本体走 ../ember"
+}

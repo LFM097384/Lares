@@ -1,0 +1,40 @@
+[   0.0s] ember-jitsi e2e · server https://localhost:8443 · room ember-e2e-c74e89 · k=2 · mode via-desk (ember-desk session manager)
+[   0.0s] env: LLM key present · model deepseek-flash · DashScope key present
+[   0.0s] TTS 张伟: cached WAV
+[   0.0s] TTS 李秀梅: cached WAV
+[   0.0s] TTS 王强: cached WAV
+[   2.0s] 张伟 joined as 4e80260a
+[   2.3s] ember-desk daemon in-process on 127.0.0.1:44909 (stateDir temp)
+[   2.4s] desk /join → 200 session 4e5ba06ebe83 state joining room ember-e2e-c74e89
+[   4.0s] bot ready: endpoint 54e6c6f8 llm=true asr=dashscope memory=file
+[   4.2s] PASS [1] bot joins the real conference, visible as 「炉灵」 in the participant list and announces itself in chat — endpoint 54e6c6f8
+[   5.5s] 李秀梅 f06f0bf0 · 王强 43d7b321 joined; all see 炉灵
+[   5.7s] 3 humans acked via chat
+[  18.6s] 张伟 spoke; bot ASR finals for endpoint 4e80260a: 1 (19 chars)
+[  40.8s] 李秀梅 spoke; bot ASR finals for endpoint f06f0bf0: 1 (45 chars)
+[  57.8s] 王强 spoke; bot ASR finals for endpoint 43d7b321: 1 (37 chars)
+[  57.8s] PASS [2] bot per-speaker ASR (DashScope) receives each human's real speech, keyed by Jitsi endpoint — {"张伟":19,"李秀梅":45,"王强":37}
+[  59.6s] PASS [3] question in chat → answer (private to acked members) with no participant names — answer 30 chars, mentions 周五: true, names: []
+[  62.4s] draft D1 received privately (3 items)
+[  66.8s] PASS [4] minutes release needs k=2 approvals from distinct humans: 1 approval (and a repeat by the same human) released nothing; the 2nd distinct human released — released-before-k: false
+[  66.8s] PASS [5] released text has no 张伟/李秀梅/王强 and no 星辰科技 — 229 chars; offenders: []
+---- released (public, de-identified) ----
+【炉灵·已放行纪要 D1】
+会议纪要 · 不署名 / Minutes · no attribution
+
+# 会议纪要 Minutes (2026-10-25)
+
+## 读书会安排
+**决定 Decisions**
+- 同意该提议：读书会由成员轮流主持，每次结束时写一页读书笔记并共享给所有人。
+**观点 Ideas**
+- 提议从下个月起每两周的周五下午举办一次读书会，首本书为《三体》。
+- 补充建议：每次读书会控制在一小时以内，地点定在三楼大会议室。
+
+---- end released ----
+[  69.0s] PASS [6] retract (by an approver) leaves zero trace in Ember's derived memory files — item in 2 file(s) before; after retract: 0 file(s) (of 8); non-approver retract denied: true
+[  71.2s] PASS [7] 「结束」 by the convener ends the session; non-convener refused; bot leaves the conference and exits 0 — exit 0, left: true
+[  71.2s] PASS [9] ember-desk session manager returns to idle; lastSession ended with exit 0 — state idle, lastSession ended exit 0 events ["host","session","ready","asr_final","released","ended","exit"]
+[  71.2s] PASS [8] no raw speech text (or names/org) in the bot's stdout/stderr logs — 891 bytes scanned, 11 probes, leaks: 0
+[  71.2s] bot stdout events: host, session, ready, asr_final, released, ended, exit
+[  71.3s] ember-jitsi e2e (via ember-desk): 9/9 checks passed · 2026-10-25T04:59:49.889Z
