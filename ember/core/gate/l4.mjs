@@ -75,7 +75,8 @@ const asClaim = (c) => (typeof c === 'string' ? { text: c } : { ...c });
 // marked risk:'role-revealing' (+flag 'role-revealing') for human k-of-n review. Claims whose tone is still
 // flagged after the last round get flag 'tone-residual' and risk 'role-revealing' (tone itself identifies).
 // `reason`/`guess` may name an attendee: review-only metadata, never exported.
-export async function verify(sections, roster, { llm = null, stats, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2 } = {}) {
+export async function verify(sections, roster, { llm = null, stats, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, lang } = {}) {
+  const langNote = /^zh/i.test(String(lang || '')) ? '\n\nWrite every rewrite in Chinese (中文).' : /^en/i.test(String(lang || '')) ? '\n\nWrite every rewrite in English.' : '';
   const flat = [];
   sections.forEach((s, si) => s.claims.forEach((c) => { const o = asClaim(c); flat.push({ ...o, i: flat.length + 1, si, flags: [...(o.flags || [])] }); }));
   const flaggedAll = [];
@@ -104,7 +105,7 @@ export async function verify(sections, roster, { llm = null, stats, threshold = 
       if (toFix.size) {
         const req = [...toFix.values()].map((f) => `${f.i}. ${byI.get(f.i).text}\n   cue: ${f.reason}${f.tone || toneSet.has(f.i) ? '\n   tone: true' : ''}`).join('\n');
         const { data: g } = await chatJSON(llm, [{ role: 'system', content: GENERALISER_PROMPT },
-          { role: 'user', content: `FLAGGED CLAIMS:\n${req}` }], { stats, temperature: 0.3 });
+          { role: 'user', content: `FLAGGED CLAIMS:\n${req}${langNote}` }], { stats, temperature: 0.3 });
         const rw = new Map((Array.isArray(g?.rewrites) ? g.rewrites : []).map((x) => [Number(x?.i), String(x?.text || '').trim()]));
         for (const f of toFix.values()) {
           const c = byI.get(f.i);

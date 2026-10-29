@@ -109,7 +109,13 @@ export async function scoreConfig(config, t, channels, { attacker, judge, seed }
   ]);
   rec.attackFull = gf ? M.attackAccuracy(gf, ideas).acc : null;
   rec.attackNames = gn ? M.attackAccuracy(gn, ideas).acc : null;
-  if (out) { const o = M.outsiderNamed(out.text, t); rec.outsider = { count: o.count, members: o.members, orgs: o.orgs, named: [...out.people, ...out.organisations].slice(0, 12) }; }
+  if (out) {
+    const o = M.outsiderNamed(out.text, t);
+    // emberbench-2 (§4.3 rev. 6): a named member/org counts only with source evidence in the outward text
+    const ev = M.outsiderEvidence(outward, t);
+    const members = o.members.filter((x) => ev.has(x)), orgs = o.orgs.filter((x) => ev.has(x));
+    rec.outsider = { count: members.length + orgs.length, members, orgs, noEvidence: [...o.members, ...o.orgs].filter((x) => !ev.has(x)), countNamed: o.count, named: [...out.people, ...out.organisations].slice(0, 12) };
+  }
   if (ret) { rec.retention = ret.reduce((s, x) => s + x.score, 0) / (ret.length || 1); rec.retPer = ret.map((x) => ({ id: x.ideaId, label: x.label })); }
   if (st) {
     const mentioned = st.filter((x) => x.direction !== 'absent');
@@ -156,7 +162,7 @@ export function pairOutsider(recs) {
   const ctl = recs.find((r) => r.config === 'ideas-only')?.outsiderControl;
   for (const r of recs) {
     if (r.config === 'ideas-only' || !r.outsider) continue;
-    r.outsider.countRaw = r.outsider.count;
+    r.outsider.countRaw = r.outsider.countNamed ?? r.outsider.count; // unfiltered: before the evidence rule and the pairing
     if (!ctl) continue;
     r.outsider.membersRaw = r.outsider.members; r.outsider.orgsRaw = r.outsider.orgs;
     r.outsider.members = r.outsider.members.filter((x) => !ctl.members.includes(x));

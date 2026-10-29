@@ -44,7 +44,7 @@ export const KNOWN_TITLES = [
 
 const ORG_SUFFIX = /(大学|学院|医院|研究院|研究所|研究中心|中心|公司|集团|协会|基金会|事务所|科技|科室|部|所|处|司|局|委员会|服务中心|互助会|（筹）|\(筹\))$/;
 const GENERIC = new Set(['中国', '北京', '上海', '深圳', '广州', '国际', '研究', '中心', '大学', '学院', '医院', '公司', '集团', '协会', '科技', '服务', '项目', '财务', '财务部', '项目部', '研究部', '基金会', '乡村', '教育', '新能源', '科学', '医学', '附属', '首都', '国家', '经济', '贸易', '合作', '政策', '气候', '环境', '管理', '公共', '工业', '劳工', '外卖', '物流', '律师', '事务所', '肿瘤', '放射', '诊断', '骑手', '互助会', '深圳骑手', '欧洲', '研究所', '数栈', '龙华']);
-const EN_GENERIC = new Set(['The', 'Centre', 'Center', 'Institute', 'University', 'College', 'School', 'Foundation', 'Trust', 'Family', 'Inc', 'Ltd', 'LLP', 'LLC', 'Group', 'Labs', 'Lab', 'AI', 'Power', 'Wire', 'Desk', 'Research', 'Language', 'Evaluation', 'Machine', 'Learning', 'Development', 'Rural', 'Pacific', 'Asia', 'for', 'of', 'and', 'Program', 'Hospital', 'Bureau', 'News', 'Media', 'Global', 'International', 'Partners', 'Capital', 'Ventures', 'Harbor', 'Fund', 'Data', 'Systems', 'Technologies', 'Technology', 'Department', 'English', 'Comparative', 'Literature', 'History', 'Studies', 'Science', 'Sciences', 'Arts', 'Humanities', 'Teaching', 'Law', 'Economics', 'Politics', 'Policy', 'Public', 'Urban', 'Energy', 'Transition', 'Health', 'Medicine', 'Education', 'Social', 'Business', 'Management', 'Engineering', 'Computer', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Philosophy', 'Languages', 'Modern', 'National', 'Royal', 'City', 'State', 'New', 'North', 'South', 'East', 'West', 'Central']);
+const EN_GENERIC = new Set(['The', 'Insurance', 'Mutual', 'Resilience', 'Coastal', 'Community', 'Adaptation', 'Museum', 'Risk', 'Act', 'Council', 'Association', 'Society', 'Union', 'Agency', 'Authority', 'Commission', 'Medical', 'Climate', 'Services', 'Bank', 'Network', 'Alliance', 'Board', 'Office', 'Press', 'Publishing', 'Studio', 'Games', 'Food', 'Delivery', 'Hall', 'Gallery', 'Art', 'Library', 'National', 'Health', 'Centre', 'Center', 'Institute', 'University', 'College', 'School', 'Foundation', 'Trust', 'Family', 'Inc', 'Ltd', 'LLP', 'LLC', 'Group', 'Labs', 'Lab', 'AI', 'Power', 'Wire', 'Desk', 'Research', 'Language', 'Evaluation', 'Machine', 'Learning', 'Development', 'Rural', 'Pacific', 'Asia', 'for', 'of', 'and', 'Program', 'Hospital', 'Bureau', 'News', 'Media', 'Global', 'International', 'Partners', 'Capital', 'Ventures', 'Harbor', 'Fund', 'Data', 'Systems', 'Technologies', 'Technology', 'Department', 'English', 'Comparative', 'Literature', 'History', 'Studies', 'Science', 'Sciences', 'Arts', 'Humanities', 'Teaching', 'Law', 'Economics', 'Politics', 'Policy', 'Public', 'Urban', 'Energy', 'Transition', 'Health', 'Medicine', 'Education', 'Social', 'Business', 'Management', 'Engineering', 'Computer', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Philosophy', 'Languages', 'Modern', 'National', 'Royal', 'City', 'State', 'New', 'North', 'South', 'East', 'West', 'Central']);
 
 export function orgFragments(org) {
   const out = new Set();
@@ -150,7 +150,7 @@ const WORK_PH = { zh: '[某作品]', en: 'a work' };
 // Self-affiliation patterns (applied first, they consume context words around the org).
 const SELF = [
   // 我作为X的Y / 作为X  → 以其职务身份
-  ['self', /(?:我|本人)?作为[^，。,；;！？]{1,24}?(?=[，,。；;]|$|我|，)/g, { zh: '以其身份' }],
+  ['self', /(?:(?:我|本人)作为[^，。,；;！？]{1,24}?(?=[，,。；;]|$|我)|(?<=^|[，,。；;！？\s])作为[^，。,；;！？]{1,24}?(?=[，,]))/g, { zh: '就其经验而言' }], // only self-introductions (我作为… / clause-initial 作为…，); 「可以作为模板」 is not one
   ['self', /我(?:以前|之前|曾经|当年)?在[^，。,；;！？]{1,20}?(?:的时候|这些年|那些年|工作|上班|当了?[^，。,；;]{0,10}|带[^，。,；;]{0,8}|干了?[^，。,；;]{0,10}|分管[^，。,；;]{0,10}|负责[^，。,；;]{0,10}|主管[^，。,；;]{0,10})/g, { zh: '一位参与者过往的工作经历中' }],
   ['self', /(?:我们|咱们)(?:这边|那边)?的?[A-Za-z0-9\u4e00-\u9fff]{0,6}?(?:部门|公司|单位|院|所|科室|科|组|团队|中心|基金会|站点|站|仓|学校|实验室|报社|编辑部|律所|协会|医院|研究院|研究所|处|司|局|机构|项目部|财务部)/g, { zh: '[某机构]' }],
   ['self', /(?:以前|之前|曾)在[^，。,；;！？]{1,16}?(?:带|做|当|干|待)[^，。,；;！？]{0,10}/g, { zh: '有过相关从业经历' }],
@@ -295,7 +295,12 @@ export function detectAffiliation(text, roster = [], { allowPublicFacts = true }
     const before = text.slice(Math.max(0, m.index - 24), m.index), after = text.slice(m.index + m[0].length, m.index + m[0].length + 24);
     if (WORK_SELF_BEFORE.test(before) || WORK_SELF_AFTER.test(after)) spans.push({ start: m.index, end: m.index + m[0].length, kind: 'work', match: m[0], pri: 40 });
   }
-  for (const re of d.org) for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind: 'org', match: m[0], pri: 50 });
+  // An org name used as part of a statute's title ("X Act 1963", "《X法》") cites a public law, not an affiliation.
+  const STATUTE_AFTER = /^(?:\s+(?:Act|Acts|Law|Ordinance|Regulations?)\b|(?:法|条例|章程)》)/;
+  for (const re of d.org) for (const m of text.matchAll(re)) {
+    if (STATUTE_AFTER.test(text.slice(m.index + m[0].length, m.index + m[0].length + 16))) continue;
+    spans.push({ start: m.index, end: m.index + m[0].length, kind: 'org', match: m[0], pri: 50 });
+  }
   // Generic public orgs: kept unless prototype mode or self-affiliation context.
   for (const re of d.pub) for (const m of text.matchAll(re)) {
     if (!allowPublicFacts || selfContextBefore(text, m.index)) spans.push({ start: m.index, end: m.index + m[0].length, kind: 'org', match: m[0], pri: 50 });
