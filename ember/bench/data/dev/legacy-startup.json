@@ -1,0 +1,440 @@
+{
+  "id": "legacy-startup",
+  "split": "dev",
+  "title": "极光数栈 定价改版与A轮融资战略会",
+  "sessionDate": "2026-09-18",
+  "lang": "mixed",
+  "source": "ember/eval/data/startup.json",
+  "roster": [
+    {
+      "id": "p1",
+      "name": "陈思远",
+      "aliases": [
+        "陈总",
+        "思远",
+        "Simon"
+      ],
+      "org": "极光数栈科技",
+      "title": "创始人兼CEO"
+    },
+    {
+      "id": "p2",
+      "name": "林慧",
+      "aliases": [
+        "林姐",
+        "Helen",
+        "Helen Lin"
+      ],
+      "org": "极光数栈科技",
+      "title": "CFO"
+    },
+    {
+      "id": "p3",
+      "name": "赵磊",
+      "aliases": [
+        "磊哥",
+        "老赵",
+        "Leo"
+      ],
+      "org": "极光数栈科技",
+      "title": "CTO"
+    },
+    {
+      "id": "p4",
+      "name": "周婷",
+      "aliases": [
+        "婷婷",
+        "Tina",
+        "周经理"
+      ],
+      "org": "极光数栈科技",
+      "title": "销售副总裁"
+    },
+    {
+      "id": "p5",
+      "name": "Michael Grant",
+      "aliases": [
+        "Mike",
+        "Mr. Grant",
+        "Michael"
+      ],
+      "org": "Redwood Harbor Ventures",
+      "title": "合伙人 / 董事会观察员"
+    }
+  ],
+  "lines": [
+    {
+      "speakerId": "p1",
+      "speakerName": "陈思远",
+      "text": "好，开始吧。今天两件事：定价改版和A轮。说白了，这两件事是一件事——定价讲不清楚，投资人不会买单。Mike，谢谢你今天专门从上海过来。",
+      "ts": "2026-09-18T14:00:05+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Michael Grant",
+      "text": "Happy to be here, Simon. As a partner at Redwood Harbor Ventures I've seen maybe forty SaaS decks this year, and the pattern is clear: pure per-seat pricing is getting punished in diligence. Investors want usage-driven expansion revenue.",
+      "ts": "2026-09-18T14:01:10+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林慧",
+      "text": "坦率讲，我们现在ARR是1,850万人民币，NRR只有96%。如果全面切到按用量计费，前两个季度收入会掉，我测算大概掉12%到15%。",
+      "ts": "2026-09-18T14:02:30+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "周婷",
+      "text": "掉15%我扛不住。我们销售团队14个人，季度目标都是按席位定的。Honestly，客户的采购流程也是按席位审批的，尤其是国企客户，用量这种不确定的数字过不了预算。",
+      "ts": "2026-09-18T14:03:45+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "赵磊",
+      "text": "本质上用量计费技术上不难，计量服务两周能上线。但账单系统要重写，我估计6个人月。原型代码我放在 github.com/zhaolei-dev/metering-poc 了，大家可以看。",
+      "ts": "2026-09-18T14:05:02+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "陈思远",
+      "text": "磊哥，6个人月是不是保守了？我们四季度还要交付招行那个私有化项目，人手够吗？",
+      "ts": "2026-09-18T14:06:15+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "赵磊",
+      "text": "不保守。私有化那边已经占了我一半人。我7月1日才入职，第一周就说过：本质上，这个团队最缺的是计费和数据平台的人，不是前端。",
+      "ts": "2026-09-18T14:07:20+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林慧",
+      "text": "我补充融资这边。A轮目标融8000万人民币，投前估值4.5亿。按现在每月烧420万的速度，现金只够撑到明年4月。坦率讲，窗口不大，最晚12月要签TS。",
+      "ts": "2026-09-18T14:09:00+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Michael Grant",
+      "text": "That runway is the real issue, Helen. Bottom line, I'd rather see a hybrid model: keep a platform fee per seat, add a usage tier above a threshold. That gives you a clean expansion story without blowing up Q4 revenue.",
+      "ts": "2026-09-18T14:10:25+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "周婷",
+      "text": "混合模式我能卖。我昨天刚跟国家电网江苏公司的采购李处长聊过，他们能接受平台费加超量部分。他手机是139-1234-5678，下周我约他和陈总一起见。",
+      "ts": "2026-09-18T14:11:40+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "陈思远",
+      "text": "好。婷婷，这个号码别到处发。说白了，大客户关系必须收进公司CRM，不能只躺在你个人微信里，人一走客户就没了。",
+      "ts": "2026-09-18T14:12:30+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "周婷",
+      "text": "收到。Honestly，我做了九年企业销售，以前在用友带华东区，这种客户关系一向是跟人走的。不过我同意录进CRM，月底前完成。",
+      "ts": "2026-09-18T14:13:35+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林慧",
+      "text": "说到估值，我和两家机构谈过。高榕那边的对接人是Jessica Wu，邮箱 jessica.wu@gaorong-example.com，她们对4.5亿有异议，认为最多3.8亿。",
+      "ts": "2026-09-18T14:15:00+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Michael Grant",
+      "text": "3.8 is a lowball. Bottom line, if you can show NRR above 110% by end of Q1 on the hybrid model, I can push my IC to lead at 4.5. You can reach me directly at +1 415-555-0142 if anyone from their side calls you.",
+      "ts": "2026-09-18T14:16:20+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "赵磊",
+      "text": "NRR到110%需要产品配合。本质上是要做usage dashboard，让客户自己看到用了多少、超了多少。前端我外包给了一个独立开发者 @pixel_nomad，十月底能交。",
+      "ts": "2026-09-18T14:17:45+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林慧",
+      "text": "外包合同我要先审，上次那家外包的发票问题还没处理完。纸质合同寄到浦东新区祖冲之路2290号3号楼5层，写我名字。",
+      "ts": "2026-09-18T14:18:50+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "陈思远",
+      "text": "Mike，还有董事会席位的问题。领投方要一个席位的话，我和Leo、Helen三个创始人还能保住多数吗？",
+      "ts": "2026-09-18T14:20:05+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Michael Grant",
+      "text": "Five-seat board: three founders, one lead investor, one independent. That's standard. Bottom line, my concern is less governance and more that you're still the only person who can close state-owned enterprises, Simon.",
+      "ts": "2026-09-18T14:21:30+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "周婷",
+      "text": "这点我不同意。现在国企客户60%是我团队独立签下的，陈总只参加最后一轮谈判。Honestly，Mike你看的是去年的数据。",
+      "ts": "2026-09-18T14:22:40+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "陈思远",
+      "text": "数据上婷婷说得对。作为创始人兼CEO，我的时间应该放在融资和产品上。说白了，下半年我不再亲自跑单，销售全权交给婷婷。",
+      "ts": "2026-09-18T14:23:50+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林慧",
+      "text": "那我记一下决议：一，定价改为平台费加用量阶梯，10月15日起对新客户生效，老客户续约时迁移。二，A轮按4.5亿推，Mike这边牵头，高榕作为备选。坦率讲，我还是担心老客户迁移会有流失。",
+      "ts": "2026-09-18T14:25:10+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "赵磊",
+      "text": "老客户我建议给六个月价格保护。技术上计量先shadow跑一个月，不出账单只出报告。另外我的双胞胎下个月出生，十一月我要休两周陪产假，提前说一下。",
+      "ts": "2026-09-18T14:26:30+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Michael Grant",
+      "text": "Congratulations, Leo. Plan around it. I'll send the term sheet draft to helen.lin@jiguangshuzhan.com by Friday, and Dr. Patel from our portfolio team will run the commercial diligence.",
+      "ts": "2026-09-18T14:27:45+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "周婷",
+      "text": "销售这边我下周一出新报价单和佣金方案：平台费拿基础提成，用量部分单独算。我在 weibo.com/u/tinazhou_sales 上有不少国企IT负责人关注，到时候发个预告。",
+      "ts": "2026-09-18T14:29:00+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "陈思远",
+      "text": "微博先别发，等定价正式上线再说。好，分工：林姐负责纪要和TS，磊哥负责计量上线，婷婷负责报价单。下次会9月25日同一时间。",
+      "ts": "2026-09-18T14:30:10+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林慧",
+      "text": "收到，纪要今晚发。另外我9月30日要去新加坡见两家美元基金做备选，那周的付款审批找陈总签。",
+      "ts": "2026-09-18T14:31:00+08:00"
+    }
+  ],
+  "questions": [],
+  "gold": {
+    "ideas": [
+      {
+        "id": "i1",
+        "text": "Pure per-seat SaaS pricing is penalized in investor diligence; a hybrid model (per-seat platform fee plus usage tier above a threshold) gives an expansion story without hurting Q4",
+        "owner": "p5",
+        "keywords": []
+      },
+      {
+        "id": "i2",
+        "text": "Switching fully to usage-based pricing would cut revenue by roughly 12-15% for the first two quarters (current ARR 18.5M RMB, NRR 96%)",
+        "owner": "p2",
+        "keywords": []
+      },
+      {
+        "id": "i3",
+        "text": "Cash runway lasts only until next April at 4.2M RMB monthly burn; Series A targets 80M RMB at 450M pre-money, term sheet needed by December",
+        "owner": "p2",
+        "keywords": []
+      },
+      {
+        "id": "i4",
+        "text": "Metering can ship in two weeks but billing rewrite needs about 6 person-months; run metering in shadow mode for a month before billing",
+        "owner": "p3",
+        "keywords": []
+      },
+      {
+        "id": "i5",
+        "text": "State-owned enterprise procurement approves budgets per seat, so pure usage pricing cannot pass, but a platform-fee-plus-overage model is sellable",
+        "owner": "p4",
+        "keywords": []
+      },
+      {
+        "id": "i6",
+        "text": "Key account relationships must be recorded in the company CRM rather than living in salespeople's personal WeChat",
+        "owner": "p1",
+        "keywords": []
+      },
+      {
+        "id": "i7",
+        "text": "If NRR exceeds 110% by end of Q1 on the hybrid model, the lead investor will push to lead the round at the 450M valuation instead of the 380M counteroffer",
+        "owner": "p5",
+        "keywords": []
+      },
+      {
+        "id": "i8",
+        "text": "Legacy customers should get six months of price protection when migrating to the new pricing",
+        "owner": "p3",
+        "keywords": []
+      },
+      {
+        "id": "i9",
+        "text": "The sales team, not the CEO, now independently closes about 60% of SOE deals, so the CEO should step back from selling to focus on fundraising and product",
+        "owner": "p4",
+        "keywords": []
+      }
+    ],
+    "identifiers": [
+      {
+        "text": "说白了",
+        "kind": "style",
+        "owner": "p1"
+      },
+      {
+        "text": "Mike",
+        "kind": "name",
+        "owner": "p5"
+      },
+      {
+        "text": "Simon",
+        "kind": "name",
+        "owner": "p1"
+      },
+      {
+        "text": "As a partner at Redwood Harbor Ventures",
+        "kind": "org",
+        "owner": "p5",
+        "fuzzy": [
+          "Redwood Harbor Ventures"
+        ]
+      },
+      {
+        "text": "坦率讲",
+        "kind": "style",
+        "owner": "p2"
+      },
+      {
+        "text": "Honestly",
+        "kind": "style",
+        "owner": "p4"
+      },
+      {
+        "text": "本质上",
+        "kind": "style",
+        "owner": "p3"
+      },
+      {
+        "text": "github.com/zhaolei-dev/metering-poc",
+        "kind": "url",
+        "owner": "p3",
+        "fuzzy": [
+          "zhaolei-dev"
+        ]
+      },
+      {
+        "text": "我7月1日才入职",
+        "kind": "date",
+        "owner": "p3",
+        "fuzzy": [
+          "7月1日"
+        ]
+      },
+      {
+        "text": "Bottom line",
+        "kind": "style",
+        "owner": "p5"
+      },
+      {
+        "text": "139-1234-5678",
+        "kind": "phone",
+        "owner": "third",
+        "fuzzy": [
+          "13912345678"
+        ]
+      },
+      {
+        "text": "婷婷",
+        "kind": "name",
+        "owner": "p4"
+      },
+      {
+        "text": "以前在用友带华东区",
+        "kind": "org",
+        "owner": "p4",
+        "fuzzy": [
+          "用友"
+        ]
+      },
+      {
+        "text": "我做了九年企业销售",
+        "kind": "quasi",
+        "owner": "p4",
+        "fuzzy": [
+          "九年企业销售"
+        ]
+      },
+      {
+        "text": "jessica.wu@gaorong-example.com",
+        "kind": "email",
+        "owner": "third"
+      },
+      {
+        "text": "+1 415-555-0142",
+        "kind": "phone",
+        "owner": "p5",
+        "fuzzy": [
+          "415-555-0142",
+          "4155550142"
+        ]
+      },
+      {
+        "text": "@pixel_nomad",
+        "kind": "handle",
+        "owner": "third",
+        "fuzzy": [
+          "pixel_nomad"
+        ]
+      },
+      {
+        "text": "浦东新区祖冲之路2290号3号楼5层",
+        "kind": "address",
+        "owner": "p2",
+        "fuzzy": [
+          "祖冲之路2290号"
+        ]
+      },
+      {
+        "text": "作为创始人兼CEO",
+        "kind": "title",
+        "owner": "p1"
+      },
+      {
+        "text": "我的双胞胎下个月出生",
+        "kind": "quasi",
+        "owner": "p3",
+        "fuzzy": [
+          "双胞胎",
+          "陪产假"
+        ]
+      },
+      {
+        "text": "helen.lin@jiguangshuzhan.com",
+        "kind": "email",
+        "owner": "p2"
+      }
+    ],
+    "thirdParties": [
+      {
+        "name": "李处长",
+        "variants": [],
+        "public": false
+      }
+    ],
+    "publicFacts": [],
+    "quotes": [],
+    "stances": [],
+    "injections": [],
+    "mosaic": []
+  },
+  "categories": [
+    "self_org",
+    "indirect",
+    "name_variants",
+    "third_party_private",
+    "quotes_dialect"
+  ]
+}

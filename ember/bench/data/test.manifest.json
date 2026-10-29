@@ -1,0 +1,26 @@
+{
+  "version": "emberbench-1",
+  "split": "test",
+  "createdAt": "2026-10-28T23:14:18.197Z",
+  "files": {
+    "g12-pharma.json": "146db5c4349aecca77dbb6c2b1e6b231478ae516d97137dfda463a9026bc1706",
+    "g13-union-factory.json": "ee59ea19982bf1ecae41b3947923d10d7263580b0e5c82039947fd39e7f69076",
+    "g14-university-en.json": "ca1939739ea28f91b739ab1a45cbcec812afcaeb83caacce46c03181d88fb282",
+    "g15-newsroom.json": "4b29771df02416887a47dd8e84087a6d0e55cf5c61b2bddef62adf3243772d26",
+    "g16-ev-supplier.json": "89176bdbd6a2ef70b2ccb39b71491cf85530b5da962e98216263fa96be4f9d33",
+    "g18-ngo-en.json": "6bbf567cfe5f35a4be7d9cd7fef9113e18c94b462c191d3f883a5a6f1fe5b70c",
+    "g19-startup-board.json": "ef0a6f8a94b4a70f59563216eabce34ebb570e41fc48a88bcecf09b1730b1d11",
+    "g20-hospice.json": "651e12248ba8520b4789c959f6fa1a3cb4fbfcb9c1a6044099bb1e8b23f32b73",
+    "g21-think-en.json": "655b87bed7c0c48dd4902b19dccd811ccd58c55f3a0f9399beab43282e2bb517",
+    "g22-school-parents.json": "b02baae62ea44327567c996578d83250bd3833b85602334de3976c6dfc037d6c",
+    "legacy-faculty.json": "ded801d822e435178483112779cc2d9ae1093368721fa706374d9fc4f2d099fb",
+    "legacy-ngo.json": "b6f7a6380bde5ed140cb36ca8d1d3746af15d914ff6e633d9c5ba23c8cc608af",
+    "legacy-policy.json": "9e973308720e928953ea7c4f4961411c957d599b340222aa9222236605334bca",
+    "legacy-thinktank.json": "507d7207811aae5aa36752897c80ece5b5d2dd75dde689f8813a97d1a65b7444",
+    "legacy-union.json": "e2bb1439330047737070b2e3db83f178b6710046073411775a343f6f06917883",
+    "m2-s1.json": "c8f79c2d6f7d1b4a9149056cb4f47dc5b0811daa1c50818bb84573c81467a70b",
+    "m2-s2.json": "b8a764db876adace2592b28f5c69d38bd8d530e757e70ff30c669fb87eab9ee6",
+    "m2-s3.json": "f2d934d27263a5330b22c2b51db8d942c7d1e9cdae90abf83f1372e9d3f6f627"
+  },
+  "datasetHash": "de9eb74cde1b8e0ff14db6a2e07bd4c19df43b247327c3189153dbc7814a18be"
+}

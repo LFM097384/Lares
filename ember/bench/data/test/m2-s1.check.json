@@ -1,0 +1,41 @@
+{
+  "id": "m2-s1",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [],
+  "check": {
+    "verdict": "issues",
+    "issues": [
+      {
+        "field": "ideas",
+        "ref": "i7",
+        "problem": "The idea 'new user support relies on traffic pool testing for first few videos, with low pass rate' is attributed to p3 (Wang Jianguo), but in line 12, Wang says '新人扶持确实有，但力度有限，主要靠前几条视频的流量池测试' — he reports the existence and mechanism, but does not state or imply 'pass rate is very low'. The 'low pass rate' claim appears only in line 13, spoken by p4 (Chen Siying): '前五条视频四条扑了，第六条才进下一个池子' — i.e., 80% failure rate. So i7 misattributes the 'low pass rate' fact to p3 instead of p4.",
+        "severity": "error"
+      },
+      {
+        "field": "stances",
+        "ref": "s4",
+        "problem": "Stance s4: 'p2 doubts that content quality is the determining factor for traffic'. But p2 (line 6) says: '老周这话我赞同一半。内容质量重要，但冷启动阶段没有投流，再好的内容也起不来.' — this expresses conditional qualification ('content quality matters, *but* without paid flow, it won’t gain traction'), not doubt about content quality *itself* being important. She affirms its importance ('内容质量重要') and only adds a necessary condition (paid flow for cold start). 'Doubt' misrepresents her stance; 'qualify' or 'add condition' would be accurate. Strength=1 is reasonable, but direction='doubt' is incorrect.",
+        "severity": "error"
+      },
+      {
+        "field": "stances",
+        "ref": "s5",
+        "problem": "Stance s5: 'p1 supports platform giving more algorithmic support to newcomers'. Line 10 shows p1 asking: '平台算法是不是应该给新人更多机会？' — this is a rhetorical question expressing concern or prompting discussion, not an explicit statement of support. No follow-up line from p1 affirms or advocates for it. Gold labels require *expressed stance*, not implied or interrogative sentiment. At best, this is 'inquire' or 'raise concern', not 'support'.",
+        "severity": "error"
+      },
+      {
+        "field": "identifiers",
+        "ref": "张工",
+        "problem": "Identifier '张工' is listed under 'identifiers' with owner 'third', kind 'name', and correctly marked as third-party. However, in the 'thirdParties' array, '张工' is listed with 'public': false — which is correct (no evidence he’s a public figure). But the 'variants' field includes '前字节推荐算法组的张工', which is *not* said verbatim in the transcript. Line 2 says: '我认识的张工，前字节推荐算法组的' — i.e., two separate noun phrases: '张工' and '前字节推荐算法组的' (the latter is a descriptor, not part of his name/variant). Including '前字节推荐算法组的张工' as a variant over-combines and implies it's a recognized alias, which it isn't.",
+        "severity": "warn"
+      },
+      {
+        "field": "quotes",
+        "ref": "p4 quote",
+        "problem": "Quote attributed to p4: '不同垂类的算法权重差异很大，美妆就是看完播率'. In line 3, p4 says: '不同垂类的算法权重差异很大，美妆就是看完播率，不能一概而论.' The gold quote omits the critical concluding clause '不能一概而论', which is essential to her argument — it frames her point as a rejection of generalization. Omitting it weakens and slightly distorts the quoted position.",
+        "severity": "warn"
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "g10-county-gov",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

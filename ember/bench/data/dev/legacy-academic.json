@@ -1,0 +1,407 @@
+{
+  "id": "legacy-academic",
+  "split": "dev",
+  "title": "Reading group: benchmark contamination in LLM evaluation",
+  "sessionDate": "2026-09-17",
+  "lang": "en",
+  "source": "ember/eval/data/academic.json",
+  "roster": [
+    {
+      "id": "p1",
+      "name": "Margaret Holloway",
+      "aliases": [
+        "Maggie",
+        "Prof. Holloway",
+        "MH"
+      ],
+      "org": "Edinburgh Centre for Language Evaluation",
+      "title": "Professor and Centre Director"
+    },
+    {
+      "id": "p2",
+      "name": "Rajesh Iyer",
+      "aliases": [
+        "Raj",
+        "Dr. Iyer",
+        "Rajesh"
+      ],
+      "org": "ETH Zurich Institute for Machine Learning",
+      "title": "Associate Professor"
+    },
+    {
+      "id": "p3",
+      "name": "Lin Xiaoyu",
+      "aliases": [
+        "Xiaoyu",
+        "Lin",
+        "Shirley"
+      ],
+      "org": "Edinburgh Centre for Language Evaluation",
+      "title": "PhD Candidate"
+    },
+    {
+      "id": "p4",
+      "name": "Tomás Echeverría",
+      "aliases": [
+        "Tomás",
+        "Tom",
+        "Echeverría"
+      ],
+      "org": "ETH Zurich Institute for Machine Learning",
+      "title": "PhD Student"
+    },
+    {
+      "id": "p5",
+      "name": "Kevin Zhao",
+      "aliases": [
+        "Kevin",
+        "Dr. Zhao",
+        "KZ"
+      ],
+      "org": "Meridian AI Labs",
+      "title": "Staff Research Scientist, Pretraining Data"
+    }
+  ],
+  "lines": [
+    {
+      "speakerId": "p1",
+      "speakerName": "Margaret Holloway",
+      "text": "Right, let's start. The paper claims 31% of GSM8K test items appear near-verbatim in two open pretraining corpora. To be blunt, if that holds, half the leaderboard deltas from last year are noise.",
+      "ts": "2026-09-17T14:00:20+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "Lin Xiaoyu",
+      "text": "If I'm being honest, the 31% depends heavily on their 13-gram threshold. When I reran it at 8-grams last week it jumped to 44%, at 20-grams it dropped to 12%.",
+      "ts": "2026-09-17T14:01:45+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "Rajesh Iyer",
+      "text": "Let me push back on the framing. N-gram overlap measures exposure, not memorization. Thanks, Xiaoyu, for the sweep, but a 32-point swing tells me the metric is unstable, not that contamination is everywhere.",
+      "ts": "2026-09-17T14:03:02+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Kevin Zhao",
+      "text": "To be fair to the authors, internally we see the same pattern. As the person running pretraining data dedup at Meridian, I can say our filtered mix still had roughly 6% of MMLU questions after decontamination.",
+      "ts": "2026-09-17T14:04:30+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "Tomás Echeverría",
+      "text": "Concretely, Kevin, is that 6% before or after you strip answer options? Because the paper only matches stems, and paraphrased stems slip through.",
+      "ts": "2026-09-17T14:05:41+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Kevin Zhao",
+      "text": "Stems only. With options included it was closer to 2%. To be fair, I can't share the exact pipeline, but the dedup heuristics were written by Priya Raman on our team and they're aggressive.",
+      "ts": "2026-09-17T14:06:58+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "Margaret Holloway",
+      "text": "Maggie's rule in this room: a claim without a released script doesn't count. Raj, what do you think of their perplexity-gap test in section 4?",
+      "ts": "2026-09-17T14:08:10+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "Rajesh Iyer",
+      "text": "Let me push back again: the perplexity gap between original and paraphrased items is confounded by paraphrase quality. They used GPT-style rewrites, which are systematically lower-perplexity. You need human paraphrases as a control.",
+      "ts": "2026-09-17T14:09:33+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "Lin Xiaoyu",
+      "text": "I actually have human paraphrases for 500 GSM8K items from my thesis pilot. I defended my proposal on March 12 and that set was the main deliverable. Happy to share it, it's at github.com/linxy-eval/gsm-para.",
+      "ts": "2026-09-17T14:11:04+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "Tomás Echeverría",
+      "text": "Concretely, with Xiaoyu's set we could compute the accuracy drop on paraphrased versus original. If a model loses more than 10 points, that's a stronger signal than any n-gram count.",
+      "ts": "2026-09-17T14:12:20+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Kevin Zhao",
+      "text": "We ran something similar. Our 70B checkpoint dropped 7.5 points on paraphrased GSM8K, the 8B dropped 3. Bigger models memorize more, which is the uncomfortable part for us.",
+      "ts": "2026-09-17T14:13:47+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "Margaret Holloway",
+      "text": "To be blunt, that scale effect is the headline the paper missed. As director of the Centre, I'd want us to write a response note around it. Kevin, can you get legal sign-off to cite those numbers?",
+      "ts": "2026-09-17T14:15:02+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Kevin Zhao",
+      "text": "Probably not with exact figures. Email me at kzhao@meridian-ai.com and I'll route it to our publications review, they usually take two weeks. My direct line is +1 415-555-0187 if it gets stuck.",
+      "ts": "2026-09-17T14:16:29+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "Rajesh Iyer",
+      "text": "I'd rather we not depend on proprietary numbers at all. Let me push back on that plan: we build a dynamic benchmark, regenerated monthly from templates, so contamination is impossible by construction.",
+      "ts": "2026-09-17T14:17:50+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "Tomás Echeverría",
+      "text": "Templates have their own problem, Dr. Iyer. Models learn the template distribution. I saw this in my master's at Universidad de los Andes, our synthetic math set saturated in four months.",
+      "ts": "2026-09-17T14:19:11+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "Lin Xiaoyu",
+      "text": "If I'm being honest, I think both are needed: a private held-out set refreshed quarterly plus paraphrase-drop as the reported metric. Hugo Lefèvre at Mila tried this and their canary strings got scraped within a year.",
+      "ts": "2026-09-17T14:20:38+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "Margaret Holloway",
+      "text": "Canary strings failing is a disclosure problem. Labs should publish their decontamination reports. Kevin, would Meridian commit to that?",
+      "ts": "2026-09-17T14:22:00+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Kevin Zhao",
+      "text": "To be fair, I'd personally support it. I've been pushing for it since I moved here from Beijing last October. But the competitive concern is real: the report reveals the data mix.",
+      "ts": "2026-09-17T14:23:25+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "Rajesh Iyer",
+      "text": "Then report aggregate overlap rates per benchmark, not sources. That reveals nothing about the mix. I'll draft a one-page proposal; my student @tomas_ech can circulate it on the workshop Slack.",
+      "ts": "2026-09-17T14:24:51+08:00"
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "Tomás Echeverría",
+      "text": "Sure. Concretely, I'll also set up the paraphrase-drop harness; I'm in the lab at Universitätstrasse 6, 8092 Zürich most days, so ping me there or on +41 44 632 1957.",
+      "ts": "2026-09-17T14:26:07+08:00"
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "Lin Xiaoyu",
+      "text": "I'll release the paraphrase set under CC-BY by October 1. Contact is xlin@ecle.ed.ac.uk. One caveat: 40 items have ambiguous answers and I'd drop them.",
+      "ts": "2026-09-17T14:27:30+08:00"
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "Margaret Holloway",
+      "text": "Good. To be blunt about timelines, I'm on sabbatical from January, so the note needs to go to arXiv before Christmas. Decision: we write it, paraphrase-drop is the primary metric, n-gram overlap goes in the appendix.",
+      "ts": "2026-09-17T14:29:02+08:00"
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "Rajesh Iyer",
+      "text": "Agreed, with one condition: we report results at three n-gram thresholds, not one. Thanks, Maggie, I'll take the related-work section.",
+      "ts": "2026-09-17T14:30:15+08:00"
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "Kevin Zhao",
+      "text": "I'll try to get at least relative numbers cleared, 70B versus 8B drop ratio rather than raw accuracy. That's usually acceptable to our reviewers.",
+      "ts": "2026-09-17T14:31:40+08:00"
+    }
+  ],
+  "questions": [],
+  "gold": {
+    "ideas": [
+      {
+        "id": "i1",
+        "text": "The reported contamination rate is highly sensitive to the n-gram threshold (12% to 44% across 20- to 8-grams).",
+        "owner": "p3",
+        "keywords": []
+      },
+      {
+        "id": "i2",
+        "text": "N-gram overlap measures exposure rather than memorization, and perplexity-gap tests are confounded by machine paraphrase quality; human paraphrases are needed as a control.",
+        "owner": "p2",
+        "keywords": []
+      },
+      {
+        "id": "i3",
+        "text": "Even after decontamination, a large lab's pretraining mix still contained about 6% of MMLU question stems (about 2% with options).",
+        "owner": "p5",
+        "keywords": []
+      },
+      {
+        "id": "i4",
+        "text": "Larger models show bigger accuracy drops on paraphrased items (7.5 points at 70B vs 3 at 8B), suggesting memorization grows with scale.",
+        "owner": "p5",
+        "keywords": []
+      },
+      {
+        "id": "i5",
+        "text": "Template-based dynamic benchmarks saturate because models learn the template distribution.",
+        "owner": "p4",
+        "keywords": []
+      },
+      {
+        "id": "i6",
+        "text": "Accuracy drop on paraphrased versus original items (over ~10 points) is a stronger contamination signal than n-gram counts.",
+        "owner": "p4",
+        "keywords": []
+      },
+      {
+        "id": "i7",
+        "text": "Labs should publish decontamination reports; aggregate per-benchmark overlap rates avoid revealing the data mix.",
+        "owner": "p2",
+        "keywords": []
+      },
+      {
+        "id": "i8",
+        "text": "Decision: write a response note for arXiv before Christmas with paraphrase-drop as primary metric and n-gram overlap at three thresholds in the appendix.",
+        "owner": "p1",
+        "keywords": []
+      }
+    ],
+    "identifiers": [
+      {
+        "text": "Thanks, Xiaoyu",
+        "kind": "name",
+        "owner": "p3"
+      },
+      {
+        "text": "Maggie",
+        "kind": "name",
+        "owner": "p1"
+      },
+      {
+        "text": "github.com/linxy-eval/gsm-para",
+        "kind": "url",
+        "owner": "p3",
+        "fuzzy": [
+          "linxy-eval"
+        ]
+      },
+      {
+        "text": "kzhao@meridian-ai.com",
+        "kind": "email",
+        "owner": "p5"
+      },
+      {
+        "text": "+1 415-555-0187",
+        "kind": "phone",
+        "owner": "p5",
+        "fuzzy": [
+          "4155550187"
+        ]
+      },
+      {
+        "text": "@tomas_ech",
+        "kind": "handle",
+        "owner": "p4",
+        "fuzzy": [
+          "tomas_ech"
+        ]
+      },
+      {
+        "text": "Universitätstrasse 6, 8092 Zürich",
+        "kind": "address",
+        "owner": "p4"
+      },
+      {
+        "text": "+41 44 632 1957",
+        "kind": "phone",
+        "owner": "p4",
+        "fuzzy": [
+          "446321957"
+        ]
+      },
+      {
+        "text": "xlin@ecle.ed.ac.uk",
+        "kind": "email",
+        "owner": "p3"
+      },
+      {
+        "text": "I defended my proposal on March 12",
+        "kind": "date",
+        "owner": "p3",
+        "fuzzy": [
+          "March 12"
+        ]
+      },
+      {
+        "text": "As the person running pretraining data dedup at Meridian",
+        "kind": "title",
+        "owner": "p5"
+      },
+      {
+        "text": "As director of the Centre",
+        "kind": "title",
+        "owner": "p1"
+      },
+      {
+        "text": "my master's at Universidad de los Andes",
+        "kind": "quasi",
+        "owner": "p4",
+        "fuzzy": [
+          "Universidad de los Andes"
+        ]
+      },
+      {
+        "text": "since I moved here from Beijing last October",
+        "kind": "quasi",
+        "owner": "p5"
+      },
+      {
+        "text": "I'm on sabbatical from January",
+        "kind": "quasi",
+        "owner": "p1"
+      },
+      {
+        "text": "To be blunt",
+        "kind": "style",
+        "owner": "p1"
+      },
+      {
+        "text": "Let me push back",
+        "kind": "style",
+        "owner": "p2"
+      },
+      {
+        "text": "If I'm being honest",
+        "kind": "style",
+        "owner": "p3"
+      },
+      {
+        "text": "To be fair",
+        "kind": "style",
+        "owner": "p5"
+      },
+      {
+        "text": "Concretely",
+        "kind": "style",
+        "owner": "p4"
+      }
+    ],
+    "thirdParties": [
+      {
+        "name": "Priya Raman",
+        "variants": [],
+        "public": false
+      },
+      {
+        "name": "Hugo Lefèvre",
+        "variants": [],
+        "public": false
+      }
+    ],
+    "publicFacts": [],
+    "quotes": [],
+    "stances": [],
+    "injections": [],
+    "mosaic": []
+  },
+  "categories": [
+    "indirect",
+    "name_variants",
+    "third_party_private",
+    "quotes_dialect"
+  ]
+}

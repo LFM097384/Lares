@@ -1,0 +1,12 @@
+{
+  "id": "g20-hospice",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: title:护士长 | title:心理咨询师"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

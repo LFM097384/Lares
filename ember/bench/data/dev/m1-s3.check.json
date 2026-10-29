@@ -1,0 +1,13 @@
+{
+  "id": "m1-s3",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "identifier \"在市发改委政策研究室干了十七年\" (quasi) not verbatim",
+    "repair dropped non-verbatim identifiers: org:某高校经济学院 | org:某互联网公司 | org:某三甲医院 | org:某会计师事务所 | title:政策研究室主任 | title:副教授 | title:战略投资部总监 | title:心内科主治医师 | title:高级审计师"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

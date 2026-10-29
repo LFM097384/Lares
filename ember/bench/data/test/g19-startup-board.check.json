@@ -1,0 +1,12 @@
+{
+  "id": "g19-startup-board",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: name:老王 | title:首席执行官 | title:首席财务官 | title:首席技术官 | title:首席运营官 | title:首席产品官"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

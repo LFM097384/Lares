@@ -1,0 +1,12 @@
+{
+  "id": "g02-village-teachers",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: title:项目总监 | title:副局长 | title:教导主任"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

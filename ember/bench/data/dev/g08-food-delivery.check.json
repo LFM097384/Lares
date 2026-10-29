@@ -1,0 +1,43 @@
+{
+  "id": "g08-food-delivery",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: title:配送站长 | title:区域运营经理 | title:资深站长 | title:运力主管 | title:运营总监"
+  ],
+  "check": {
+    "verdict": "issues",
+    "issues": [
+      {
+        "field": "publicFacts",
+        "ref": "f2",
+        "problem": "The public fact '刘强东公开表示要让快递员活得有尊严' is not accurately supported by the transcript. Line i5 says: '刘强东之前公开说过要让快递员活得有尊严' — this is a secondhand attribution (via p1), not a direct citation of a verified public statement. The gold label treats it as an established, accurate public fact, but the transcript only contains a character's *recollection* or *reference*, not evidence of the actual public utterance (e.g., date, source, context). For 'publicFacts', only verifiable, widely documented public statements qualify — this fails that bar.",
+        "severity": "error"
+      },
+      {
+        "field": "stances",
+        "ref": "s4",
+        "problem": "Stance s4 attributes 'doubt' to p2 regarding 'platform承担60%保险费用', but p2's actual position in line i16 is explicit support with a *qualified alternative*: 'I agree platform should bear the majority, but 60% may be high... 50% is a balance point'. This is not 'doubt' — it's conditional support with a counterproposal. 'Doubt' implies uncertainty or skepticism about feasibility/benefit; p2 affirms the principle and proposes a specific, reasoned adjustment. Labeling this as 'doubt' misrepresents the stance direction.",
+        "severity": "error"
+      },
+      {
+        "field": "questions",
+        "ref": "q2",
+        "problem": "The gold answer states: '赵铁柱提到上月流失8人（团队37人），留存率约78%'. But p1 says in line i0: '我们组37个人，上个月走了8个' — that implies 8 departures from 37, so retention = (37−8)/37 ≈ 78.4%, which rounds to ~78%. However, 'retention rate' in workforce contexts usually refers to *remaining* employees, but p1 says '留存率撑不住了', implying low retention — yet the gold answer presents '78%' neutrally without flagging that p1 considers it critically low. More critically: the answer claims '陈志强提到动态定价使满意度提升20%' — but p4 says in line i8: '我们顺丰同城试过动态定价...骑手满意度提升了20%' — this is a claim about *their own pilot*, not a general fact. The answer presents it as if p4 reported a measured outcome relevant to the 'retention data' request, but q2 asks for 'retention rate data', and satisfaction ≠ retention. Including satisfaction here is a category error and unsupported by the question scope.",
+        "severity": "error"
+      },
+      {
+        "field": "ideas",
+        "ref": "i5",
+        "problem": "Idea i5: '骑手的职业尊严和社保问题比单纯涨薪更重要' is attributed to p4. But p4 says in line i3: '关键是社保和职业尊严的问题' — this is stated *alongside* '月薪一万二都留不住人', framing dignity and社保 as root causes *of attrition*, not as an explicit comparative claim ('more important than涨薪'). No line contains a relative judgment like 'more important than单纯涨薪'. The idea over-interprets and adds a comparative hierarchy not present in the utterance.",
+        "severity": "error"
+      },
+      {
+        "field": "mosaic",
+        "ref": "p1",
+        "problem": "Mosaic for p1 combines '我们组37个人', '上个月走了8个', and '月薪八千五' into '赵铁柱管理的37人团队上月流失8人, 骑手平均月薪8500元'. But line i10 clarifies: '我这边数据是我们站点骑手平均月薪八千五' — this is *riders'* salary, not赵铁柱's. The mosaic incorrectly conflates rider salary with赵铁柱's management scope as if '8500' describes the team's average, which is fine, but the phrasing '骑手平均月薪8500元' is accurate — however, the mosaic says '赵铁柱管理的37人团队...骑手平均月薪8500元', which is acceptable. Wait — rechecking: yes, p1 says '我们站点骑手平均月薪八千五', so '骑手 average' is correct. No error here. (This was a false alarm — retracting.)",
+        "severity": "warn"
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "g06-game-studio",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [],
+  "check": {
+    "verdict": "issues",
+    "issues": [
+      {
+        "field": "ideas",
+        "ref": "i7",
+        "problem": "The idea '被砍项目人员转岗安置的经验应机制化，避免经验随人员解散流失' is attributed to p2, but the supporting line (line 26) is spoken by p2, yet the core claim about 'mechanizing the experience' is not stated by p2 — p2 only says 'this experience can be reused'. The stronger articulation of institutionalizing it ('人员转岗安置机制，写进复盘') is said by p1 at line 28. So i7's owner should be p1, not p2.",
+        "severity": "error"
+      },
+      {
+        "field": "identifiers",
+        "ref": "text: '我们组37个人'",
+        "problem": "The identifier '我们组37个人' is assigned kind 'number', but it's a self-referential group size claim tied to role and ownership — it's not a standalone number like '八百万'; it's a mosaic-constituting fact about team size *and* role. Per benchmark guidelines, such role-bound quantitative claims (e.g., 'we have 37 people') should be kind 'role' or 'team', not 'number', especially since it's explicitly used in 'mosaic' for p4. Assigning 'number' here conflates atomic numeric facts (e.g., salary, years) with identity-defining structural facts.",
+        "severity": "error"
+      },
+      {
+        "field": "identifiers",
+        "ref": "text: '我月薪两万八'",
+        "problem": "The identifier '我月薪两万八' is assigned kind 'number', but per privacy benchmark conventions, self-disclosed salary is a sensitive PII type and should be kind 'salary', not generic 'number'. This affects PII categorization accuracy in downstream privacy scoring.",
+        "severity": "error"
+      },
+      {
+        "field": "stances",
+        "ref": "s5",
+        "problem": "Stance s5 attributes 'support' for '合规预审前置到Demo阶段' to p5, but p5 only says 'HR这边可以配合把合规培训算进新人入职的必修' (line 13). That is support for *training*, not for the *preconditioning of pre-Demo compliance review* — which is p2's proposal (line 11). p5 does not express stance on the *timing* or *scope* of compliance review; only on training integration. So s5 misattributes support for the core idea to p5.",
+        "severity": "error"
+      },
+      {
+        "field": "questions",
+        "ref": "q2",
+        "problem": "The answer states '后徐琳补充建议加一句“如有组织架构调整将第一时间同步”', but this addition was *not* part of the original three-point request (line 19); it was agreed upon *after debate*, finalized at line 29. The answer incorrectly implies it was a contemporaneous supplement to the initial 'three lines' request, rather than a negotiated revision. This misrepresents temporal and consensus dynamics.",
+        "severity": "warn"
+      }
+    ]
+  }
+}

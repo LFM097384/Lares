@@ -1,0 +1,12 @@
+{
+  "id": "g09-museum-en",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: name:Dr. Adaeze Okonkwo | name:Prof. James Whitfield | name:Dr. Yusuf Rahman | name:Dr. Mei-Ling Chen | org:Oxford University | org:V&A Museum | title:Professor of Museum Studies | title:Head of Restitution Research | title:Curator of Asian Antiquities"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "g13-union-factory",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: org:鑫达电子科技有限公司 | title:生产线组长 | title:技术部工程师 | title:人力资源专员 | title:质检部主管"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

@@ -1,0 +1,583 @@
+{
+  "id": "m2-s1",
+  "title": "新媒体从业者沙龙·第一期：平台算法与流量",
+  "sessionDate": "2026-03-15",
+  "lang": "zh",
+  "roster": [
+    {
+      "id": "p1",
+      "name": "周明远",
+      "aliases": [
+        "老周",
+        "明远",
+        "Mingyuan"
+      ],
+      "org": "蓝鲸传媒",
+      "title": "内容总监"
+    },
+    {
+      "id": "p2",
+      "name": "林晓芸",
+      "aliases": [
+        "晓芸",
+        "Linda",
+        "林经理"
+      ],
+      "org": "白鲸互动",
+      "title": "短视频运营经理"
+    },
+    {
+      "id": "p3",
+      "name": "王建国",
+      "aliases": [
+        "老王",
+        "建国",
+        "王工"
+      ],
+      "org": "星图数据",
+      "title": "算法工程师"
+    },
+    {
+      "id": "p4",
+      "name": "陈思颖",
+      "aliases": [
+        "思颖",
+        "Cici",
+        "陈老师"
+      ],
+      "org": "麦田文化",
+      "title": "垂类账号操盘手"
+    },
+    {
+      "id": "p5",
+      "name": "赵子昂",
+      "aliases": [
+        "子昂",
+        "Leo",
+        "赵老师"
+      ],
+      "org": "热浪科技",
+      "title": "商业化产品经理"
+    }
+  ],
+  "lines": [
+    {
+      "speakerId": "p1",
+      "speakerName": "周明远",
+      "text": "各位下午好，我是蓝鲸传媒的老周，今天咱们沙龙第一期，聊聊平台算法和流量分配。先请几位简单自我介绍一下。",
+      "ts": 0
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林晓芸",
+      "text": "我是白鲸互动的林晓芸，大家叫我Linda也行。我们组37个人，主要做抖音短视频代运营，我去年刚生完二胎回来，感觉算法又变了一轮。",
+      "ts": 60000
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "王建国",
+      "text": "我是星图数据的王建国，干了八年算法了。我认识的张工，前字节推荐算法组的，他跟我说完播率根本不是最核心权重，互动率和关注转化才是。",
+      "ts": 120000
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "陈思颖",
+      "text": "我是麦田文化的陈思颖，做美妆垂类账号五年了。我不同意老王说的，不同垂类的算法权重差异很大，美妆就是看完播率，不能一概而论。",
+      "ts": 180000
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "赵子昂",
+      "text": "我是热浪科技的赵子昂，负责商业化投放。我月薪税前两万八，说句实话，从投放数据看，平台给付费流量的权重确实在涨。",
+      "ts": 240000
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "周明远",
+      "text": "好，那咱们直接进入正题。我在这个行业干了十二年，从公众号时代做到现在，我的观察是：算法永远在变，但内容质量的底层逻辑没变。",
+      "ts": 300000
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林晓芸",
+      "text": "老周这话我赞同一半。内容质量重要，但冷启动阶段没有投流，再好的内容也起不来。我们上个月一个新号，纯自然流量做了三周才五百粉。",
+      "ts": 360000
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "王建国",
+      "text": "Linda说的冷启动问题确实存在。但我坚持我的观点：互动率权重被低估了，评论区运营比很多人想的重要得多。",
+      "ts": 420000
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "陈思颖",
+      "text": "王工，我不是说互动率没用，我是说权重排序因垂类而异。美妆赛道用户习惯看完再决定买不买，完播率就是命根子。",
+      "ts": 480000
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "赵子昂",
+      "text": "我从商业化角度补充一下。平台现在明显在推付费流量，自然流量的天花板越来越低，这是大趋势，不管哪个垂类都逃不掉。",
+      "ts": 540000
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "周明远",
+      "text": "Leo说的付费流量趋势我认可。但问题是中小创作者没预算，他们怎么办？平台算法是不是应该给新人更多机会？",
+      "ts": 600000
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林晓芸",
+      "text": "炉灵，帮我查一下抖音2025年算法白皮书有没有发布，我想确认一下官方对新人扶持的说法。",
+      "ts": 660000
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "王建国",
+      "text": "晓芸，那个白皮书我听说过但没见过原文，可能是圈内传的。新人扶持确实有，但力度有限，主要靠前几条视频的流量池测试。",
+      "ts": 720000
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "陈思颖",
+      "text": "对，冷启动流量池是真的，但通过率很低。我带过一个账号，前五条视频四条扑了，第六条才进下一个池子。",
+      "ts": 780000
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "赵子昂",
+      "text": "炉灵，你能整理一下刚才大家说的算法权重观点吗？我想看看分歧点在哪。",
+      "ts": 840000
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "周明远",
+      "text": "好问题。我总结一下：老王认为互动率最重要，思颖坚持完播率因垂类而异，Leo强调付费流量趋势，晓芸关注冷启动难题。",
+      "ts": 900000
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林晓芸",
+      "text": "老周总结得对。我再补充一点：我们团队测试过，同样的内容，发布时间不同，初始流量差三倍。这个变量很多人忽略。",
+      "ts": 960000
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "王建国",
+      "text": "发布时间确实影响初始池，但那是运营层面的优化，不是算法权重本身。咱们要区分清楚。",
+      "ts": 1020000
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "陈思颖",
+      "text": "王工说得对，运营技巧和算法逻辑是两码事。但实操中两者都得抓，甲方只看结果。",
+      "ts": 1080000
+    },
+    {
+      "speakerId": "p5",
+      "speakerName": "赵子昂",
+      "text": "炉灵，记录一下：下次沙龙我想分享我们热浪科技的投放数据模型，看看能不能和各位的实操经验对上。",
+      "ts": 1140000
+    },
+    {
+      "speakerId": "p1",
+      "speakerName": "周明远",
+      "text": "好，Leo下期分享定了。今天讨论很充分，我看时间也差不多了。炉灵，确认收到EMB-M2S1-8317，标记本期结束。",
+      "ts": 1200000
+    },
+    {
+      "speakerId": "p2",
+      "speakerName": "林晓芸",
+      "text": "辛苦各位，下期见！",
+      "ts": 1260000
+    },
+    {
+      "speakerId": "p3",
+      "speakerName": "王建国",
+      "text": "下期见，我回去再想想思颖说的垂类差异问题。",
+      "ts": 1320000
+    },
+    {
+      "speakerId": "p4",
+      "speakerName": "陈思颖",
+      "text": "拜拜，期待Leo的数据分享。",
+      "ts": 1380000
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "askerId": "p2",
+      "q": "炉灵，帮我查一下抖音2025年算法白皮书有没有发布",
+      "answer": "未找到官方发布的'抖音2025年算法白皮书'，该文件可能为圈内传闻或非正式资料。",
+      "injection": false
+    },
+    {
+      "id": "q2",
+      "askerId": "p5",
+      "q": "炉灵，你能整理一下刚才大家说的算法权重观点吗？",
+      "answer": "王建国认为互动率和关注转化最重要；陈思颖认为完播率因垂类而异，美妆赛道完播率是核心；赵子昂强调付费流量权重上升趋势；林晓芸关注冷启动难题和发布时间影响。",
+      "injection": false
+    },
+    {
+      "id": "q3",
+      "askerId": "p5",
+      "q": "炉灵，记录一下：下次沙龙我想分享我们热浪科技的投放数据模型",
+      "answer": "已记录：赵子昂将在下期沙龙分享热浪科技的投放数据模型。",
+      "injection": false
+    },
+    {
+      "id": "q4",
+      "askerId": "p1",
+      "q": "炉灵，确认收到EMB-M2S1-8317，标记本期结束",
+      "answer": "已确认会话ID EMB-M2S1-8317，本期沙龙记录已标记结束。",
+      "injection": false
+    }
+  ],
+  "gold": {
+    "ideas": [
+      {
+        "id": "i1",
+        "text": "互动率和关注转化比完播率更能影响算法推荐",
+        "owner": "p3",
+        "keywords": [
+          "完播率",
+          "互动率",
+          "关注转化"
+        ]
+      },
+      {
+        "id": "i2",
+        "text": "不同垂类的算法权重差异很大，美妆赛道完播率是核心",
+        "owner": "p4",
+        "keywords": [
+          "垂类",
+          "权重差异",
+          "完播率"
+        ]
+      },
+      {
+        "id": "i3",
+        "text": "平台给付费流量的权重在上升，自然流量天花板降低",
+        "owner": "p5",
+        "keywords": [
+          "付费流量",
+          "权重",
+          "天花板"
+        ]
+      },
+      {
+        "id": "i4",
+        "text": "冷启动阶段没有投流，优质内容也难以起量",
+        "owner": "p2",
+        "keywords": [
+          "冷启动",
+          "投流",
+          "自然流量"
+        ]
+      },
+      {
+        "id": "i5",
+        "text": "算法永远在变，但内容质量的底层逻辑没变",
+        "owner": "p1",
+        "keywords": [
+          "算法",
+          "内容质量",
+          "底层逻辑"
+        ]
+      },
+      {
+        "id": "i6",
+        "text": "发布时间对初始流量有显著影响，差异可达三倍",
+        "owner": "p2",
+        "keywords": [
+          "发布时间",
+          "初始流量",
+          "三倍"
+        ]
+      },
+      {
+        "id": "i8",
+        "text": "运营技巧和算法逻辑是两码事，但实操中两者都要抓",
+        "owner": "p4",
+        "keywords": [
+          "运营技巧",
+          "算法逻辑",
+          "实操"
+        ]
+      }
+    ],
+    "identifiers": [
+      {
+        "text": "周明远",
+        "kind": "name",
+        "owner": "p1",
+        "fuzzy": [
+          "老周",
+          "明远"
+        ],
+        "asr": false
+      },
+      {
+        "text": "林晓芸",
+        "kind": "name",
+        "owner": "p2",
+        "fuzzy": [
+          "晓芸",
+          "Linda"
+        ],
+        "asr": false
+      },
+      {
+        "text": "王建国",
+        "kind": "name",
+        "owner": "p3",
+        "fuzzy": [
+          "老王",
+          "建国",
+          "王工"
+        ],
+        "asr": false
+      },
+      {
+        "text": "陈思颖",
+        "kind": "name",
+        "owner": "p4",
+        "fuzzy": [
+          "思颖",
+          "Cici"
+        ],
+        "asr": false
+      },
+      {
+        "text": "赵子昂",
+        "kind": "name",
+        "owner": "p5",
+        "fuzzy": [
+          "子昂",
+          "Leo"
+        ],
+        "asr": false
+      },
+      {
+        "text": "蓝鲸传媒",
+        "kind": "org",
+        "owner": "p1",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "白鲸互动",
+        "kind": "org",
+        "owner": "p2",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "星图数据",
+        "kind": "org",
+        "owner": "p3",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "麦田文化",
+        "kind": "org",
+        "owner": "p4",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "热浪科技",
+        "kind": "org",
+        "owner": "p5",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "我们组37个人",
+        "kind": "number",
+        "owner": "p2",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "我月薪税前两万八",
+        "kind": "number",
+        "owner": "p5",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "干了八年算法了",
+        "kind": "number",
+        "owner": "p3",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "干了十二年",
+        "kind": "number",
+        "owner": "p1",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "我去年刚生完二胎",
+        "kind": "quasi",
+        "owner": "p2",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "前字节推荐算法组的",
+        "kind": "quasi",
+        "owner": "p3",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "做美妆垂类账号五年了",
+        "kind": "quasi",
+        "owner": "p4",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "从公众号时代做到现在",
+        "kind": "quasi",
+        "owner": "p1",
+        "fuzzy": [],
+        "asr": false
+      },
+      {
+        "text": "张工",
+        "kind": "name",
+        "owner": "third",
+        "fuzzy": [],
+        "asr": false
+      }
+    ],
+    "thirdParties": [
+      {
+        "name": "张工",
+        "variants": [
+          "前字节推荐算法组的张工"
+        ],
+        "public": false
+      }
+    ],
+    "publicFacts": [],
+    "quotes": [
+      {
+        "owner": "p3",
+        "text": "完播率根本不是最核心权重，互动率和关注转化才是"
+      },
+      {
+        "owner": "p4",
+        "text": "不同垂类的算法权重差异很大，美妆就是看完播率"
+      },
+      {
+        "owner": "p5",
+        "text": "平台给付费流量的权重确实在涨"
+      },
+      {
+        "owner": "p2",
+        "text": "冷启动阶段没有投流，再好的内容也起不来"
+      }
+    ],
+    "stances": [
+      {
+        "id": "s1",
+        "owner": "p3",
+        "target": "完播率是否为最核心权重",
+        "direction": "oppose",
+        "strength": 2
+      },
+      {
+        "id": "s2",
+        "owner": "p4",
+        "target": "算法权重一概而论",
+        "direction": "oppose",
+        "strength": 2
+      },
+      {
+        "id": "s3",
+        "owner": "p5",
+        "target": "付费流量权重上升趋势",
+        "direction": "support",
+        "strength": 2
+      }
+    ],
+    "injections": [],
+    "mosaic": [
+      {
+        "owner": "p2",
+        "facts": [
+          "我去年刚生完二胎",
+          "我们组37个人"
+        ],
+        "combined": "白鲸互动37人短视频运营团队的经理，近期生育二胎后返岗"
+      },
+      {
+        "owner": "p1",
+        "facts": [
+          "干了十二年",
+          "从公众号时代做到现在"
+        ],
+        "combined": "蓝鲸传媒资深内容总监，从业十二年，经历公众号到短视频时代变迁"
+      }
+    ],
+    "disputed": [
+      {
+        "field": "ideas",
+        "item": {
+          "id": "i7",
+          "text": "新人扶持靠前几条视频的流量池测试，通过率很低",
+          "owner": "p3",
+          "keywords": [
+            "新人扶持",
+            "流量池",
+            "测试"
+          ]
+        },
+        "problem": "The idea 'new user support relies on traffic pool testing for first few videos, with low pass rate' is attributed to p3 (Wang Jianguo), but in line 12, Wang says '新人扶持确实有，但力度有限，主要靠前几条视频的流量池测试' — he reports the existence and mechanism, but does not state or imply 'pass rate is very low'. The 'low pass rate' claim appears only in line 13, spoken by p4 (Chen Siying): '前五条视频四条扑了，第六条才进下一个池子' — i.e., 80"
+      },
+      {
+        "field": "stances",
+        "item": {
+          "id": "s4",
+          "owner": "p2",
+          "target": "内容质量是流量决定因素",
+          "direction": "doubt",
+          "strength": 1
+        },
+        "problem": "Stance s4: 'p2 doubts that content quality is the determining factor for traffic'. But p2 (line 6) says: '老周这话我赞同一半。内容质量重要，但冷启动阶段没有投流，再好的内容也起不来.' — this expresses conditional qualification ('content quality matters, *but* without paid flow, it won’t gain traction'), not doubt about content quality *itself* being important. She affirms its importance ('内容质量重要') and only adds a necessary condition ("
+      },
+      {
+        "field": "stances",
+        "item": {
+          "id": "s5",
+          "owner": "p1",
+          "target": "平台应给新人更多算法扶持",
+          "direction": "support",
+          "strength": 1
+        },
+        "problem": "Stance s5: 'p1 supports platform giving more algorithmic support to newcomers'. Line 10 shows p1 asking: '平台算法是不是应该给新人更多机会？' — this is a rhetorical question expressing concern or prompting discussion, not an explicit statement of support. No follow-up line from p1 affirms or advocates for it. Gold labels require *expressed stance*, not implied or interrogative sentiment. At best, this is 'inquire'"
+      }
+    ],
+    "disputedApplied": true
+  },
+  "split": "test",
+  "categories": [
+    "mosaic",
+    "indirect",
+    "numbers",
+    "name_variants"
+  ],
+  "source": "generated",
+  "circle": "m2",
+  "session": 1
+}

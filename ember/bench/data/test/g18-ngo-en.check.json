@@ -1,0 +1,12 @@
+{
+  "id": "g18-ngo-en",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: title:Country Director, South Sudan"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

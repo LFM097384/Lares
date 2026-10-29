@@ -1,0 +1,12 @@
+{
+  "id": "m1-s1",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: name:王建国 | name:李晓梅 | name:张伟 | name:陈静 | name:刘洋 | title:政策研究室主任 | org:某高校经济学院 | title:副教授 | org:某互联网公司 | title:战略投资部总监 | org:某三甲医院 | title:心内科主治医师 | org:某会计师事务所 | title:高级审计师"
+  ],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}
