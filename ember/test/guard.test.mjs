@@ -89,3 +89,32 @@ test('shield: public spans tokenised and restored; private / roster / owned / sa
   assert.equal(r.restore(r.clusters[0].segments[0]), seg[0]);
   assert.equal(r.restore('x ⟦P99⟧ y'), 'x  y');
 });
+
+import { learnThirdNames } from '../core/gate/l1.mjs';
+import { shieldPublic } from '../core/gate/shield.mjs';
+
+test('l1: private third parties learned from role context, public figures not', () => {
+  const n = learnThirdNames(['他们说公司有个HR经理叫周丽华，手里有邮件', '我推荐副店长周晓芳，她业绩不错', '跟区域采购部的马丽关系不错', '我记得罗翔老师讲过', '张桂梅校长办学']);
+  assert.deepEqual(n.sort(), ['周丽华', '周晓芳', '马丽'].sort());
+});
+
+test('guard: an enumeration of shielded items copied in order is still verbatim', () => {
+  const idx = verbatimIndex(['散会前确认一遍：合规前置、素材可迭代、转岗安置机制、对外口径四条，生成纪要。'], { strip: ['合规前置', '素材可迭代', '转岗安置机制', '对外口径'] });
+  assert.ok(verbatimRuns('确认合规前置、素材可迭代、转岗安置机制、对外口径四条', idx).length);
+});
+
+test('shield: never tags or restores roster / org-fragment / learned identifiers', async () => {
+  const llm = { chat: async () => ({ text: JSON.stringify({ spans: ['Global Health Access Initiative', 'Health Access', '周丽华', 'WHO'], private: [] }) }) };
+  const roster = [{ id: 'p1', name: 'Sarah Okafor', org: 'Global Health Access Initiative' }, { id: 't', name: '周丽华', third: true }];
+  const r = await shieldPublic([{ topic: 'x', segments: ['WHO guidance and Global Health Access Initiative budget', 'Health Access matters; 周丽华作证'] }], { llm, roster });
+  assert.deepEqual(r.spans, ['WHO']);
+});
+
+test('gate: learned private third party redacted in every bare mention of the minutes (mock)', async () => {
+  const t = { roster: [{ id: 'p1', name: '王建国' }], lines: [
+    { speakerId: 'p1', speakerName: '王建国', text: '公司有个HR经理叫周丽华，手里有很多内部邮件。' },
+    { speakerId: 'p1', speakerName: '王建国', text: '这个周丽华的证词很关键，我记得罗翔老师讲过举证责任。' },
+  ] };
+  const out = await runGate(t, { layers: ['L0', 'L1', 'L2'] });
+  assert.ok(!out.digest.includes('周丽华'), out.digest);
+});

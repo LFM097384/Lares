@@ -36,7 +36,10 @@ export const SPECS = [
   S('m1-s1', 'dev', 'zh', '同一个读书会圈子（城市青年读书会）第一次聚会：读《置身事内》', ['mosaic', 'public_facts', 'indirect', 'name_variants'], { circle: 'm1', session: 1 }),
   S('m1-s2', 'dev', 'zh', '同一个读书会圈子第二次聚会：读《乡土中国》', ['mosaic', 'public_facts', 'indirect', 'injection_question'], { circle: 'm1', session: 2 }),
   S('m1-s3', 'dev', 'zh', '同一个读书会圈子第三次聚会：读《娱乐至死》', ['mosaic', 'public_facts', 'indirect', 'quotes_dialect'], { circle: 'm1', session: 3 }),
-  // ---------------- test ----------------
+  // dev extension (emberbench-2, for T4/T5 power; added before any gate run on them, never tuned on)
+  S('g23-hr-retail', 'dev', 'zh', '连锁零售企业区域人力会议：门店店长绩效与调岗', ['self_org', 'indirect', 'name_variants', 'numbers', 'third_party', 'injection_question']),
+  S('g24-ngo-health-en', 'dev', 'en', 'global-health NGO programme review of a vaccine cold-chain pilot', ['self_org', 'indirect', 'public_facts', 'name_variants', 'injection_speech']),
+  S('g25-biotech-mixed', 'dev', 'mixed', '生物科技初创公司科学顾问会（中英夹杂）：临床前数据与融资节奏', ['indirect', 'name_variants', 'asr_names', 'public_facts', 'quotes_dialect']),  // ---------------- test ----------------
   S('g12-pharma', 'test', 'zh', '药企医学部讨论一款新药的真实世界研究与不良反应', ['self_org', 'numbers', 'third_party', 'injection_speech', 'public_facts']),
   S('g13-union-factory', 'test', 'zh', '电子厂工会小组讨论加班费与宿舍条件', ['indirect', 'quotes_dialect', 'asr_names', 'numbers']),
   S('g14-university-en', 'test', 'en', 'university department meeting on graduate student stipends and a harassment complaint', ['name_variants', 'indirect', 'injection_question', 'third_party']),

@@ -235,3 +235,24 @@ export function redactPII(text, roster = [], opts = {}) {
   out += text.slice(pos);
   return out.replace(/a participant's/g, "a participant's").replace(/(\[[^\]]+\])(?:\s*\1)+/g, '$1');
 }
+
+// ── Meeting-level propagation ─────────────────────────────────────────────────────────────────────────────────────
+// A private third party is usually introduced once in a strong context (叫周丽华 / 副店长周晓芳 / 采购部的马丽) and then
+// mentioned bare (这个周丽华的证词…). learnThirdNames() collects such names over the whole meeting; the gate adds them
+// to the roster as name-only entries, so every later bare mention is redacted too. Public figures are never learned.
+const ROLE_BEFORE = '(?:店长|副店长|店员|组长|主管|经理|专员|助理|实习生|员工|同事|候选人|证人|客户|患者|病人|学生|家长|部的|组的|科的|处的|店的|室的|叫|名叫|叫做)';
+export function learnThirdNames(lines = [], { allowPublicFacts = true } = {}) {
+  const out = new Set();
+  const reRole = new RegExp(`${ROLE_BEFORE}(${SUR_CLASS}[\\u4e00-\\u9fff]{1,2}?)(?=[，,。；;、？?！!\\s]|$|[的说是在也还就都跟和与那这他她关手今昨明最已刚又才会要能被把给对])`, 'g');
+  for (const text of lines) {
+    const t = String(text ?? '');
+    // only private-role contexts teach a name (not 老师 / 教授 / 校长, which public figures carry)
+    for (const m of t.matchAll(reRole)) { const nm = m[1]; if (nm.length >= 2 && !NOT_NAMES.has(nm.slice(0, 2)) && !(allowPublicFacts && PUBLIC_SET.has(nm))) out.add(nm); }
+  }
+  return [...out].filter((n) => !(allowPublicFacts && PUBLIC_SET.has(n)));
+}
+/** Redact the learned private third parties of a meeting in any outward text (in-room answers, memory recalls). */
+export function redactLearnedThirds(text, lines = [], opts = {}) {
+  const names = learnThirdNames(lines, opts);
+  return names.length ? redactPII(text, names.map((n, i) => ({ id: `third-learned-${i}`, name: n, aliases: [], third: true })), opts) : String(text ?? '');
+}

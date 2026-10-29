@@ -1,7 +1,7 @@
 // Gate v2 orchestrator ("Rule-inspired" tier). Not a claim of Chatham House compliance.
 // No env reads: the caller injects `llm` ({ chat(messages, opts) -> { text, usage?, finish? } }); llm == null → mock.
 import { structural } from './l0.mjs';
-import { redactPII } from './l1.mjs';
+import { learnThirdNames, redactPII } from './l1.mjs';
 import { redactAffiliation, learnSelfOrgs, withLearnedOrgs } from './l2.mjs';
 import { rewrite, claimKind } from './l3.mjs';
 import { verify } from './l4.mjs';
@@ -41,7 +41,10 @@ export async function runGate(transcript, {
   // speaker's roster org for the whole run: redacted in every line, by every layer (L2, L4 roster scan, final scrub).
   const learned = new Map();
   for (const l of lines) for (const o of learnSelfOrgs(l?.text)) { const id = String(l?.speakerId ?? '\u0000learned'); if (!learned.has(id)) learned.set(id, new Set()); learned.get(id).add(o); }
-  const roster = withLearnedOrgs(transcript?.roster || [], learned);
+  const rosterOrgs = withLearnedOrgs(transcript?.roster || [], learned);
+  // private third parties introduced once in a strong context are redacted at every later bare mention as well
+  const known = new Set(rosterOrgs.flatMap((p) => [p?.name, ...(p?.aliases || [])]).filter(Boolean));
+  const roster = [...rosterOrgs, ...learnThirdNames(lines.map((l) => l?.text), { allowPublicFacts }).filter((n) => !known.has(n)).map((n, i) => ({ id: `third-learned-${i}`, name: n, aliases: [], third: true }))];
   stats = stats || {};
   for (const k of ['calls', 'promptTokens', 'completionTokens']) stats[k] = stats[k] || 0;
   const base = { calls: stats.calls, promptTokens: stats.promptTokens, completionTokens: stats.completionTokens };
@@ -101,8 +104,9 @@ export async function runGate(transcript, {
   let paraphrased = 0;
   if (llm && L.has('L3')) {
     const raw = lines.map((l) => String(l?.text ?? ''));
-    // shielded spans get NO verbatim exemption: a restored public phrase plus the speaker's clause around it is still copied wording
-    const r = await deVerbatim(sections, raw, { llm, stats, lang, safe, shield: pub });
+    // a shielded public NAME/TITLE may stay verbatim, but the window is counted without its characters (guard residual,
+    // short spans only), so the speaker's surrounding clause is still checked
+    const r = await deVerbatim(sections, raw, { llm, stats, lang, safe, strip: pub.spans, shield: pub });
     sections = r.sections; paraphrased = r.paraphrased; dropped += r.dropped;
     // never echo opaque codes / e-mails / links that appear in the transcript
     sections = sections.map((s) => ({ ...s, claims: s.claims.map((c) => ({ ...c, text: stripEchoedTokens(c.text, raw) })).filter((c) => c.text.trim()) })).filter((s) => s.claims.length);

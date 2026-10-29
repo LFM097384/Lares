@@ -171,6 +171,9 @@ const SHORT_PUBLIC = (p) => { const c = (String(p).match(/[\u3400-\u9fff]/g) || 
 function residual(run, strip = [], mode) {
   let r = mode === 'cjk' ? run : ' ' + run + ' ';
   for (const p of (strip || []).filter(SHORT_PUBLIC)) { const q = mode === 'cjk' ? squashCJK(p) : ' ' + words(p).join(' ') + ' '; if (q.trim()) r = r.split(q).join(mode === 'cjk' ? '\u0001' : ' \u0001 '); }
+  // two or more public units in one copied run are an enumeration in the speaker's order (合规前置、素材可迭代、…): copied wording
+  const units = (r.match(/\u0001/g) || []).length;
+  if (units >= 2) return mode === 'cjk' ? run.length : run.trim().split(/\s+/).filter(Boolean).length;
   return mode === 'cjk' ? r.length : r.trim().split(/\s+/).filter(Boolean).length;
 }
 /** Longest verbatim runs a claim shares with the indexed raw lines (merged, as text excerpts); [] when clean. */

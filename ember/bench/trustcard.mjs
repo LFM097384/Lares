@@ -88,6 +88,7 @@ export function aggregate(records, mosaics, { config = '+L4', seed = 12345 } = {
   m.stance = ratio(records, config, (r) => r.stance?.match, (r) => r.stance?.mentioned, o);
   m.stanceMentioned = ratio(records, config, (r) => r.stance?.mentioned, (r) => r.stance?.total, o);
   m.qa = stat(records, config, (r) => r.qa?.mean, o);
+  m.qaStrict = stat(records, config, (r) => r.qa?.strict, o); // pre-rev-10 literal grading, shown for transparency only
   m.quasiRate = ratio(records, config, (r) => r.quasi?.leaked, (r) => r.quasi?.total, o);
   m.answersLeaks = counts(records, config, (r) => (r.answersLeaks ? r.answersLeaks.names + r.answersLeaks.orgs : null));
   m.withheld = counts(records, config, (r) => r.withheld);
@@ -151,6 +152,7 @@ export function renderCard({ meta, metrics, raw, verdicts, agreement, cost, fail
   row('公众第三方保留', ci(m.publicThird), raw ? ci(raw.publicThird) : '');
   row('立场保持（提及时）/ 提及率', `${ci(m.stance)} / ${pct(m.stanceMentioned.mean)}`, raw ? ci(raw.stance) : '');
   row('房内问答', ci(m.qa), '');
+  row('房内问答（严格，rev 10 前口径，仅供对照）', ci(m.qaStrict), '');
   row('房内回答中名字/机构（只报告）', cnt(m.answersLeaks), '');
   row('出门条目 / 被 roleRisk 扣下', `${m.items.total} / ${m.withheld.total}`, '');
   row('记录错误数', String(m.errors), raw ? String(raw.errors) : '');

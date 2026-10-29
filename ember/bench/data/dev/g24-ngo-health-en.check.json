@@ -1,0 +1,10 @@
+{
+  "id": "g24-ngo-health-en",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [],
+  "check": {
+    "verdict": "ok",
+    "issues": []
+  }
+}

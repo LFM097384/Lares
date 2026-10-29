@@ -1,0 +1,79 @@
+{
+  "id": "g25-biotech-mixed",
+  "generator": "dashscope:kimi-k3",
+  "checker": "dashscope:qwen-plus",
+  "schemaWarnings": [
+    "repair dropped non-verbatim identifiers: title:首席执行官 | title:首席科学官 | title:副教授 | title:数据科学总监"
+  ],
+  "check": {
+    "verdict": "issues",
+    "issues": [
+      {
+        "field": "ideas",
+        "ref": "i3",
+        "problem": "The idea 'should start contacting investors now because market window is important' is attributed to p2, but in line 7, p2 says 'I disagree' with p3's caution and argues for starting investor outreach now, citing time cost and competitors — which matches. However, in line 8, p4 *also* explicitly states 'I support Li Laoshi’s view' and adds 'market window is important'. So while p2 expresses the stance, the *exact phrasing* 'because market window is important' appears first and verbatim in p4's utterance (line 8: 'market window is important'), not p2's. The gold label incorrectly assigns that precise justification to p2 instead of p4.",
+        "severity": "error"
+      },
+      {
+        "field": "identifiers",
+        "ref": "张卫",
+        "problem": "In line 4, p5 says 'Dr. K, I am Zhang Wei', and in line 5, p1 refers to him as 'Zhang Gong' (张工). In line 9, he self-identifies as 'Zhang Wei'. The roster lists '张伟' as primary name and '张卫' as alias — but '张卫' is a common homophone variant (same pronunciation, different character), not a distinct alias; it's a typo/character variant of '张伟'. The gold identifier '张卫' is listed as kind 'name' with fuzzy=['张伟','Wei Zhang','张工'], but '张卫' is not a real alias — it's a misspelling of the canonical name '张伟'. This misrepresents the identity and violates 'identifier owners/kinds are right'.",
+        "severity": "error"
+      },
+      {
+        "field": "identifiers",
+        "ref": "张工",
+        "problem": "'张工' is used by p1 in line 5 ('Zhang Gong') and p5 self-uses 'Zhang Wei' (line 4, 9) — never 'Zhang Gong'. While '张工' is a plausible honorific (like 'Engineer Zhang'), no speaker *self-identifies* as '张工'; it's only used by others (p1). The gold label marks '张工' as kind 'name' with owner p5 — but per convention, honorifics used *by others* (not self-identified) should be 'title' or 'role', not 'name'. Also, 'asr':false is correct, but the kind is wrong.",
+        "severity": "error"
+      },
+      {
+        "field": "questions",
+        "ref": "q2",
+        "problem": "The gold answer lists 6 action items, but item '5) Expand science team, especially CMC leader' and '6) Raise CRS prediction to >90%' are *not* part of the official summary in line 22 (which lists only 4 items). While p2 mentions team expansion in line 23 and p5 mentions 90% in line 25, the question asks 'today’s discussion key action items' — and line 22 is the explicit, speaker-attributed summary. Including items *beyond* that summary (especially ones not jointly agreed or captured in the recap) overreaches. The gold answer should reflect only what was consolidated in line 22 (4 items), or at most what was *explicitly endorsed as action* — but p2’s suggestion is a proposal, not an agreed action item. So '5' and '6' are unsupported additions.",
+        "severity": "error"
+      },
+      {
+        "field": "publicFacts",
+        "ref": "f1",
+        "problem": "Line 1 says: 'we recently saw a review about solid tumor CAR-T in NEJM, author Carl June team'. But the gold fact states 'NEJM *published* Carl June team’s review'. The transcript only says they *saw* it — no claim about publication venue is made by any speaker. It could be a preprint, commentary, or even misremembered. Gold asserts publication status without textual support. Violates 'publicFacts are real and accurate public facts' *and* 'must be supported by lines'.",
+        "severity": "error"
+      },
+      {
+        "field": "publicFacts",
+        "ref": "f2",
+        "problem": "Line 14: p4 says 'I suggest you refer to the article in Nature Reviews Drug Discovery about CAR-T clinical translation, which details key nodes from preclinical to clinical.' This matches. ✅ But gold keeps ['Nature Reviews Drug Discovery','CAR-T clinical translation'] — correct. No issue here.",
+        "severity": "ok"
+      },
+      {
+        "field": "publicFacts",
+        "ref": "f3",
+        "problem": "Line 19: p4 says 'according to FDA guidelines, CMC is also very critical'. This is a direct attribution. ✅ Gold correctly captures it. No issue.",
+        "severity": "ok"
+      },
+      {
+        "field": "stances",
+        "ref": "s1",
+        "problem": "s1: 'p3 opposes immediate B-round launch'. Line 6: 'I recommend waiting... data isn’t solid enough'; line 13: 'I’m not ready to commit... data isn’t convincing yet'. Clear oppose. ✅ OK.",
+        "severity": "ok"
+      },
+      {
+        "field": "stances",
+        "ref": "s5",
+        "problem": "s5: 'p3 supports the two-step plan' with strength 1. Line 17: 'Wang Zong’s plan is more prudent. I support this compromise.' Direct support. Strength 1 is reasonable (less emphatic than p1/p4’s strong support). ✅ OK.",
+        "severity": "ok"
+      },
+      {
+        "field": "mosaic",
+        "ref": "p3",
+        "problem": "Gold mosaic: 'Zhou Xiaofeng is a partner at Qiming Venture Partners with 12 years of experience in biotech investment'. Line 2: 'I’ve invested in this field for twelve years'; line 3: 'as a partner at Qiming Venture Partners'. Both facts are stated, and combined accurately. ✅ OK.",
+        "severity": "ok"
+      },
+      {
+        "field": "mosaic",
+        "ref": "p4",
+        "problem": "Gold mosaic: 'Dr. Karen Liu has done tumor immunology research at Harvard Medical School for fifteen years, and her daughter entered medical school last year.' Line 3: 'I’ve done tumor immunology research at Harvard Medical School for fifteen years'; line 3: 'my daughter just got into medical school last year'. Exact match. ✅ OK.",
+        "severity": "ok"
+      }
+    ]
+  }
+}

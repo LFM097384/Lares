@@ -32,6 +32,7 @@ export const GENERIC_ORG_FRAGMENTS = new Set([
   'museum', 'museums', 'british', 'insurance', 'partner', 'partners', 'system', 'systems', 'internal', 'national', 'international', 'university', 'foundation', 'institute', 'capital',
   'resilience', 'adaptation', 'coastal', 'community', 'urban', 'mutual', 'trust', 'global', 'research', 'group', 'company', 'center', 'centre', 'college', 'school', 'hospital', 'venture', 'ventures', 'palace', 'program', 'programme', 'council', 'association', 'office', 'department',
   'evaluation', 'language', 'learning', 'machine', 'development', 'studies', 'science', 'policy', // emberbench-2 (§4.1 rev. 3)
+  'health', 'access', 'initiative', 'logistics', 'partnership', 'alliance', 'network', // emberbench-2 (§4.1 rev. 11): category words
   '基金会', '小学', '中学', '大学', '局里', '第一', '第二', '第三', '胸科', '医学科', '教育', '人民', '中心', '公司', '集团', '协会', '医院', '学院', '研究院', '研究所',
 ]);
 const fragOK = (v) => usable(v) && !GENERIC_ORG_FRAGMENTS.has(normText(v).trim());
