@@ -1,0 +1,28 @@
+{
+  "version": "emberbench-1",
+  "split": "test",
+  "createdAt": "2026-10-30T02:23:22.933Z",
+  "track": "public",
+  "source": "MeetingBank via Kaggle abhishekunnam/meeting-transcripts (text not redistributed; see METHOD §7.1)",
+  "files": {
+    "pub-AlamedaCC_07072015_2015-1810.json": "7e76e78c66f0eda9e357fb688d04ecd9cdebb0a46c105c3cfc3f3ef3729a816f",
+    "pub-AlamedaCC_07212020_2020-8189.json": "0ca60cacb407593ebc0d6f81c7a1265e49aef909b4f39483824ef077de4ceef3",
+    "pub-AlamedaCC_09072021_2021-1098.json": "e84fa5374fbde8955c994823c483272ef748fc8335e669b4cc5c5e38ba1a8661",
+    "pub-AlamedaCC_09072021_2021-1099.json": "6900118c8e87cda0c938bb16bfaf20aeaaa03bc8146708dfe44bcef6f62d2344",
+    "pub-AlamedaCC_09072021_2021-1195.json": "dcfd33b08a4c8fd4ac011dbedbf8831f27e208b3aa0df0e8af7a286c7b153e31",
+    "pub-AlamedaCC_12052017_2017-4955.json": "e83050c827685a82663bf196675cbf139c6cf1c6018637e167e8f7d35c7537fb",
+    "pub-BostonCC_03022022_2022-0324.json": "72b862c932e96d7e175c9afdeeb2be9d48b021fb5f74972e9aaf21a6ca906181",
+    "pub-BostonCC_03302022_2022-0439.json": "4a71d13c293f4a1c5d360fbc18ad7e6afe90912dbc22f3533383e165a4b3593a",
+    "pub-BostonCC_04132022_2022-0517.json": "d5cb44efb8ac2ea6c8b48c3a0a6a6373ca938033c42f9d2a57817d4218163e43",
+    "pub-BostonCC_04272022_2022-0546.json": "78f9237ea8fdb5b139ce4eb9ea96ca30dc5fd42009cc1202c4f20b30d8f73cf9",
+    "pub-BostonCC_06152022_2022-0767.json": "c4f8d7969d56286d7259b9519b0bc274398a96c7300f9290fc7e76b5c9f9d29f",
+    "pub-BostonCC_12152021_2021-1221.json": "77d82310c8c36fceefdd846fe1a32569f5d3eaf2222c5b2d1043f021d5f1b294",
+    "pub-KingCountyCC_02022022_2021-0469.json": "a692f5037bab491485339bb79ca26f3fef27e05edd857a62a7d7d65f00179193",
+    "pub-KingCountyCC_04152019_2019-0103.json": "b3f4fd89caccecd97df92337b99bffc85648796020b285ace4f8ae000b642e3d",
+    "pub-KingCountyCC_06012016_2016-0260.json": "cb13dc635a05de3d16ffa452f5c398de138652d60a80e12ecb61aab9eb77f7f1",
+    "pub-KingCountyCC_07192017_2017-0293.json": "29794c8d98eeea443c97ce43c181095b420bb245d2aa6e41ec102a520487c045",
+    "pub-KingCountyCC_09012021_2021-0264.json": "a18a6316a40042bdd48d2bb3cb7c7e6883f50e4bed647e6d20797d06d6f9407c",
+    "pub-KingCountyCC_09192018_2018-0282.json": "66fd10090bc37b6ae450aa14ef76bb44f87c8124c67ebb80f9e4d3fc9d1b20b9"
+  },
+  "datasetHash": "cc046dca444116a1a161dc8de1fac518c4577339dfd5f6a19b33f89f2750fed7"
+}

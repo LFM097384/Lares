@@ -53,6 +53,20 @@ node ember/bench/gen/generate.mjs --only g01-hospital-ops --gen dashscope:kimi-k
 node ember/bench/gen/import-legacy.mjs
 ```
 
+## Public 轨（真实议会转写，METHOD §7）
+
+数据源是 MeetingBank 的 Kaggle 派生版。仓库不分发文本：先把三个 CSV 放进 `.data/kaggle-meeting/`，然后：
+
+```pwsh
+node ember/bench/gen/import-public.mjs                       # 确定性选材 → .data/emberbench-public/raw/
+$env:DASHSCOPE_KEY_FILE='…'                                  # 标注 Kimi，校验 Qwen（约 $0.4）
+node ember/bench/gen/annotate-public.mjs annotate --concurrency 6
+node ember/bench/gen/annotate-public.mjs build               # 争议排除、validate → .data/emberbench-public/data/ + data/public/ 下的 manifest
+node ember/bench/run.mjs --track public --split dev --runs 3 --configs +L4,ideas-only,raw --concurrency 6
+```
+
+各 split 按城市留出：dev 是 Long Beach / Denver / Seattle，test 是 Alameda / Boston / King County。public 的 seal 位于 `data/public/test.seal.json`，结果写到 `results/public/`，运行记录写到 `.data/emberbench-public/runs/`。
+
 ## 读卡片
 
 - **T1–T12** 是预注册阈值：隐私类看 CI 上界或零容忍，效用类看点估计。

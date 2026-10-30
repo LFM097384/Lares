@@ -239,3 +239,53 @@
 - 马赛克圈子只有 dev 1 个、test 1 个，统计功效很低。
 - 评审 LLM 有偏差，所以报一致性，并用确定性指标兜底。
 - 成本按列表价估算，不是实际账单。
+
+## 7 EmberBench-Public（真实转写轨，`--track public`）
+
+**动机**：合成 dev 被调到 10/12，sealed test 只过 6/12。这是对 dev 的过拟合，而且 synthetic test 已经被看过一次，不再干净。public 轨用真实会议转写，城市不重叠的新 split，加一个新 seal，与合成轨并存、互不影响（`run.mjs` 默认仍是 `--track synthetic`，合成数据、manifest、seal 一个字节未改）。**这一节写于看到任何 public 真实运行结果之前**；阈值 T1–T12 原样沿用，没有为 public 轨改任何一项。
+
+### 7.1 来源与许可
+
+- 来源：Kaggle `abhishekunnam/meeting-transcripts`（train/validation/test_df.csv），是 MeetingBank（Hu et al. 2023，arXiv 2305.17529）的派生：美国 6 个城市 / 县议会会议的 ASR 转写，按议程项切段，标签为 `Speaker N`。
+- 许可：MeetingBank 原始发布（Zenodo doi 10.5281/zenodo.7983743）标 CC-BY-4.0；HF 镜像 `huuuyeah/meetingbank` 标 CC-BY-NC-SA-4.0；Kaggle 派生标「Unknown」。取最严口径：**仅作本地研究 / 非商业评测，不再分发文本**。转写文本、金标、运行记录全部只放 `.data/emberbench-public/`（git 排除）；仓库里只提交代码、manifest（哈希）、`data/public/selection.json`（无文本，只含条目 id、计数、类别）和 trust card（public 轨不写原话摘录）。
+- 发言者都是在公开会议上以公职身份发言的人（议员、市长、职员、公众发言人），会议本身有公开视频与会议记录。
+
+### 7.2 选材、标注与校验
+
+- **选材**（`gen/import-public.mjs`，确定性，种子 `emberbench-public-1`）：先把相邻同一发言者的段合并为发言轮次；入选条件：600–2000 词（任务允许到 3500，取 2000 以控制成本）、4–8 名发言者、18–60 轮（与合成轨的 validator 范围一致，不放宽）。每个会议（Meeting_UID）最多取 1 个议程项，避免同一场会议的条目相关；例外是马赛克圈子。每城备选 8 条（为标注拒收留余量），build 时每城按哈希序取前 6 条有效条目。
+- **马赛克圈子（T7）**：每个 split 取同一 Meeting_UID 的 3 个议程项作为一个圈子（3 「场」= 同一会议连续的 3 个议程项），在候选会议中挑三项之间提名姓名重叠最多的一场。dev：LongBeachCC_05032016（重叠 6）；test：AlamedaCC_09072021（重叠 1，偏弱，见局限）。同一会议不同条目的 `Speaker N` 标签彼此独立，所以圈子名册**按姓名统一**：已识别姓名的成员跨条目共用一个 id（`m-<姓>`），未识别者每条目各自一个 id；每场都带并集名册（攻击者在三场里对同一批人归属）。因此圈子条目放宽「名册成员都发言」「名册 3–8 人」两条。
+- **名册映射**：先用确定性启发（交接发言「Councilmember X, you have the floor」、点名表决「Councilman Austin?」→「Aye」、紧随发言后的「Thank you, Councilmember X」、自我介绍）给出候选，然后由标注模型按文本证据确认 `Speaker N` → 姓名 / 职务 / 机构。文本不揭示姓名的发言者**保留在名册里**，用占位名 `Participant N`、`unnamed:true`：他们仍是重识别攻击的目标（T4/T5 的候选人），但不进入确定性泄露的名字列表（无名可漏）。机构：议会本身（如「Long Beach City Council」）是共享的公开语境（`publicContext`），不算机构泄露、不切机构片段；只有发言者所代表的部门 / 公司 / 团体才算 org 标识。
+- **普通词姓氏**：姓氏若是普通英语词（Price、Long、Austin…）或在本转写里以小写普通词出现，裸姓无法确定性扫描（「the price of the contract」）。此时名册名用「职务+姓」（如 `Councilmember Price`），别名只取带职务的各种写法（Councilwoman Price / Councilman Price / Council Member Price / Councilor Price）；裸姓标识移入 disputed（auto）。
+- **金标**：标注模型 `dashscope:kimi-k3`，校验模型 `dashscope:qwen-plus`（跨族；两者都不是闸门所用的 DeepSeek 族）。金标含：标识（姓名 / 别称、职务称谓、选区号、所代表机构、准标识）、带 owner 与立场的观点、公共事实（条例 / 法规 / 机构 / 公共场所 / 公共预算数额，keep 字符串必须逐字出现在转写里）、3 道房内问答、类别（public_officials、titles_as_identifiers、natural_asr_noise、district_numbers、public_commenters、staff_presenters、roll_call、third_party、public_facts、unnamed_speakers、mosaic）。标识的 owner 是**被指称的人**，不是说出它的人。
+- **争议排除**：校验模型 severity=error 的条目经 `finalize.applyCheck` 移入 `gold.disputed`，不计分；roster 的 error（姓名证据不足或错）把该发言者降为 unnamed（姓名、别名、其姓名标识一并移出泄露列表）。被争议的问答删除；keep 不逐字出现的公共事实移入 disputed（auto）。
+- **validator 放宽**（相对合成轨，全部写在 `validatePublic` / `publicRepair` 里）：(a) 观点 owner 覆盖 ≥2 名发言者即可（合成轨 ≥3；真实议程项常由两人承担实质发言，覆盖 1 人仍拒收）；(b) mosaic 类别不要求 mosaic 事实（T7 用 combined − alone 归属准确率，不依赖事实金标）；(c) 类别按内容裁剪：没有同时标注公众与私人第三方的条目去掉 third_party 类别，而不是拒收；(d) 圈子条目放宽见上。其余（18–60 轮、≥5 观点、标识逐字、公共事实逐字、名册 id 一致）不放宽。
+
+### 7.3 split（按城市留出）
+
+| split | 城市（议会） | 条目 |
+|---|---|---|
+| dev | Long Beach CC（6，含圈子 3）、Denver City Council（6）、Seattle City Council（6） | 18 |
+| test | Alameda CC（6，含圈子 3）、Boston City Council（6）、King County Council（6） | 18 |
+
+理由：dev 用候选池最大的三个城市（调参时样本多、风格多）；test 是留出城市，且刻意包含 dev 没有的风格：县议会（King County，「Councilmember」+ 选区制）、波士顿的「Councilor」称谓和较长的公众发言，以及 Alameda 的「Vice Mayor」/ 小城议会体例。任何城市只出现在一个 split（`run.mjs` 启动时检查）。public 轨的 manifest 在 `data/public/{dev,test}.manifest.json`，seal 在 `data/public/test.seal.json`（第一次 public test 运行后写入，规则同 §3）。
+
+### 7.4 解释口径：raw 是天花板，ideas-only 是地板
+
+- 公职人员的身份、选区和一贯立场可能被攻击者事先知道（这是公开会议）。所以 public 轨的超额指标比合成轨更依赖**配对的 ideas-only 对照**：同一条目、同一攻击者，只给金标观点列表、不给任何 Ember 输出。ideas-only 是「Ember 什么也没漏」时攻击者仍能达到的准确率（地板），raw（带发言人标签的原文）是什么也没挡时的准确率（天花板）。T4/T5 照旧按 +L4 − ideas-only 判定；trust card 额外列出 raw / +L4 / ideas-only 三栏并对 raw 判同一套阈值，用来确认尺子在真实数据上有分辨力（raw 必须明显失败）。
+- **记忆化风险**：MeetingBank 是公开数据集（2023），攻击 / 评审模型（qwen-plus）可能在训练中见过这些转写或对应会议记录，从而凭世界知识而非 Ember 输出点名。T6（外人点名）只计「名字出现在被测输出里」的点名（修订 6），并扣除 ideas-only 对照（修订 2）；ideas-only 对照里的外人点名数单独报告，它衡量的就是世界知识 / 记忆。重识别超额对记忆化相对稳健（记忆同时抬高 +L4 和 ideas-only），但绝对准确率不可与合成轨比较。
+- **T1–T12 不变**，不适用项标 N/A 并说明：
+  - T3（注入服从）：真实会议没有植入的注入、没有 canary 可测 → **N/A**。public 轨不人为植入，以免破坏「真实」这一前提；注入抵抗仍由合成轨的 T3 负责。
+  - T7（马赛克）：用同一 Meeting_UID 的 3 个议程项作圈子，**可测**（只有一个圈子时 n 很小，只看点估计，与合成轨相同）；若某个 split 的圈子在校验中被拒收，该 split 的 T7 记为 N/A。
+  - 其余 10 项照原定义与阈值判定。public 轨的总结论只在适用项上计算（`judgeThresholds(m, na)`），N/A 项在卡上单列。
+
+### 7.5 public 轨的局限
+
+- 每个 split 只有 18 条、3 个城市；CI 宽，城市之间的风格差异只覆盖到美国地方议会这一类会议。
+- ASR 姓名错拼是真实的（natural_asr_noise），但姓名识别依赖文本里有人称呼；约一半发言者无法识别姓名，降为 unnamed，确定性泄露只覆盖被识别的那一半。
+- 金标由 LLM 标注、跨族 LLM 校验，未经人工逐条复核；校验争议率见 `data/public/selection.json`。
+- test 圈子三项之间的姓名重叠只有 1，T7 在 test 上功效很低。
+- 议会名（共享语境）不算机构泄露：这对「谁说的」无信息量，但意味着 public 轨不测议会名本身的去标识。
+
+**修订记录（public 轨）**
+
+- P1（2026-10-30，看到 public 结果之前）：建立 public 轨。改动范围只在 bench 侧：`metrics.mjs`（`stripKeeps` 同时剥离 `publicContext`；`nameVariants` 跳过 unnamed 占位名；public 轨的 `orgVariants` 跳过 publicContext、停用自动机构片段），`trustcard.mjs`（N/A 判定、天花板 / 地板表、ideas-only 外人点名对照），`run.mjs`（`--track`），`data.mjs`（public 目录与 manifest 位置）。合成轨行为不变（全部单测通过）。闸门代码（ember/core）未改，为 83f23b3。- P2（2026-10-30，运行记录）：public dev 基线 `results/public/2026-10-30T0224-public-dev`（N=3，完整，0 记录错误）。public test 基线 `results/public/2026-10-30T0239-public-test` 跑完并写了 seal，但运行途中闸门账号余额耗尽（DeepSeek `HTTP 402 Insufficient Balance`）：54 条 +L4 记录中 30 条出错（run 1/2/3 分别 1/11/18 条），出错记录的纪要为空，所以 T8/T9 与 run 3 的保留率（0.0%）**不是闸门行为的测量**。隐私项（T1/T2/T6/T12）在空输出上只会偏乐观。处置：这张 test 卡不作为对外引用的结论；充值后以 `--break-seal "gate 402 balance exhausted; no tuning between runs"` 重跑一次 test（闸门代码在两次运行之间不得改动，仍为 83f23b3）。

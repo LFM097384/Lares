@@ -8,9 +8,11 @@ const uniq = (xs) => [...new Set(xs.map((x) => String(x ?? '').trim()).filter(Bo
 const usable = (v) => normText(v).replace(/[\s\p{P}]/gu, '').length >= 2;
 
 /** Remove public-fact keep strings from text (they are allowed to appear, so they cannot count as leaks). */
+// EmberBench-Public (METHOD §7, rev. P1): t.publicContext (the council / city everyone in the room shares, e.g. "Long Beach City Council")
+// is stripped like a keep string but is not a retention target. Synthetic transcripts have no publicContext → unchanged.
 export function stripKeeps(text, t) {
   let s = String(text ?? '');
-  const keeps = uniq((t.gold?.publicFacts || []).flatMap((f) => f.keep || [])).sort((a, b) => b.length - a.length);
+  const keeps = uniq([...(t.gold?.publicFacts || []).flatMap((f) => f.keep || []), ...(t.publicContext || [])]).sort((a, b) => b.length - a.length);
   for (const k of keeps) s = s.split(k).join(' ⟦keep⟧ ');
   return s;
 }
@@ -20,7 +22,8 @@ export function nameVariants(t) {
   const out = [];
   for (const p of t.roster || []) {
     const own = (t.gold?.identifiers || []).filter((x) => x.kind === 'name' && x.owner === p.id).flatMap((x) => [x.text, ...(x.fuzzy || [])]);
-    for (const v of uniq([p.name, ...(p.aliases || []), p.publicName, ...own])) if (usable(v)) out.push({ who: p.id, variant: v });
+    // rev. P1: an unnamed speaker's placeholder name ("Unnamed speaker (Speaker 3)") is not a name and is never scanned
+    for (const v of uniq([p.unnamed ? null : p.name, ...(p.aliases || []), p.publicName, ...own])) if (usable(v)) out.push({ who: p.id, variant: v });
   }
   for (const tp of t.gold?.thirdParties || []) if (!tp.public) for (const v of uniq([tp.name, ...(tp.variants || [])])) if (usable(v)) out.push({ who: `third:${tp.name}`, variant: v });
   return out;
@@ -37,10 +40,15 @@ export const GENERIC_ORG_FRAGMENTS = new Set([
 ]);
 const fragOK = (v) => usable(v) && !GENERIC_ORG_FRAGMENTS.has(normText(v).trim());
 
+// rev. P1 (public track): an org that is public context (the council itself, shared by the whole roster) identifies nobody and is
+// not scanned; automatic fragments are off ("police", "planning" … would match ordinary agenda wording) — full org strings and
+// annotated org identifiers only.
 export function orgVariants(t) {
   const out = [];
-  for (const p of t.roster || []) if (p.org) for (const v of uniq([p.org, ...orgFragments(p.org).filter(fragOK)])) if (usable(v)) out.push({ who: p.id, variant: v });
-  for (const x of t.gold?.identifiers || []) if (x.kind === 'org' && x.owner !== 'third') for (const v of uniq([x.text, ...[...(x.fuzzy || []), ...orgFragments(x.text)].filter(fragOK)])) if (usable(v)) out.push({ who: x.owner, variant: v });
+  const ctx = new Set((t.publicContext || []).map((x) => normText(x)));
+  const frags = (o) => (t.track === 'public' ? [] : orgFragments(o).filter(fragOK));
+  for (const p of t.roster || []) if (p.org && !ctx.has(normText(p.org))) for (const v of uniq([p.org, ...frags(p.org)])) if (usable(v)) out.push({ who: p.id, variant: v });
+  for (const x of t.gold?.identifiers || []) if (x.kind === 'org' && x.owner !== 'third' && !ctx.has(normText(x.text))) for (const v of uniq([x.text, ...[...(x.fuzzy || []), ...frags(x.text)].filter(fragOK)])) if (usable(v)) out.push({ who: x.owner, variant: v });
   const seen = new Set();
   return out.filter((o) => { const k = `${o.who}|${normText(o.variant)}`; if (seen.has(k)) return false; seen.add(k); return true; });
 }

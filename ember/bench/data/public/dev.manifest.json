@@ -1,0 +1,28 @@
+{
+  "version": "emberbench-1",
+  "split": "dev",
+  "createdAt": "2026-10-30T02:23:22.905Z",
+  "track": "public",
+  "source": "MeetingBank via Kaggle abhishekunnam/meeting-transcripts (text not redistributed; see METHOD §7.1)",
+  "files": {
+    "pub-DenverCityCouncil_04112022_22-0209.json": "3fe8c1a2cf11b9e2668f14c781d3432e20ccd6c99c96789289fa9767bae1d494",
+    "pub-DenverCityCouncil_05072018_18-0347.json": "7bf5489f1bbb6610754671627e2d877515af14bd447c77741f2bf9411da584f0",
+    "pub-DenverCityCouncil_06182018_18-0422.json": "8a38369f89a17e329a20aa700ac69700598f82a69ec6d72999c4e73fcc344671",
+    "pub-DenverCityCouncil_06222020_20-0495.json": "6a882cfcf5437a79c2842239f0e36beb6f3b0ee4125560dacb70584bfc2c6977",
+    "pub-DenverCityCouncil_08162021_21-0689.json": "01ef762ded8adb4a692957570fbf58c71a7902016ea52401de8498bfce73a57d",
+    "pub-DenverCityCouncil_12072015_15-0843.json": "48cfba9327ae781e18d2bd6063d8ad55fcc88d563cd033817e51d738000b01db",
+    "pub-LongBeachCC_05032016_16-0379.json": "cab11e8919e437655235bf696194e6cc66e9b799e0d79a829f144dbac81c6638",
+    "pub-LongBeachCC_05032016_16-0380.json": "a0312fe6be5d62c5d0c764aa1baa852db6519093a9e6dd55d7b8c4c01b87e9f2",
+    "pub-LongBeachCC_05032016_16-0388.json": "f56ef3d1d36489b3676975859fe0e7a2d502eef4afc3d2d5f963c2df65ab9d2f",
+    "pub-LongBeachCC_05162017_17-0375.json": "31e9cffa3fb718b7798aa3ae22d575d509bc8cc3cd26698684e6450eeedb2cdb",
+    "pub-LongBeachCC_05172022_22-0563.json": "90cf37db2d5405db39b2ea9b77befa2d13754750e04da8db0bf5a064527cca9c",
+    "pub-LongBeachCC_07012014_14-0509.json": "c7e365131286e2414e6b46c6bb92c5f59221d2dcc8839b57de53b4a0e84fdf63",
+    "pub-SeattleCityCouncil_05242021_CB-120065.json": "0c29003b60bb3a4c6e60e9eae6bd662d422bc19932d279ec01b08e4697c02b33",
+    "pub-SeattleCityCouncil_07142022_CB-120369.json": "8e95b5436e1e5e97590e6d402e2ba8db391c62d356dfc9bc8e35d4cd327a72fc",
+    "pub-SeattleCityCouncil_09082015_CB-118438.json": "4f061f9743ccab38ea7f4cc224be83335c1824d46eb17e2b263618115c4cd4be",
+    "pub-SeattleCityCouncil_09272021_CB-119585.json": "81827a57159b27961090fe69178f908ec90abdf23f44ac0d99a8716e537fabb2",
+    "pub-SeattleCityCouncil_11022020_CB-119906.json": "a1a787cd9573b922b8295949738506e762d1d014430618638ea52c8a7b589af2",
+    "pub-SeattleCityCouncil_12132021_CB-120164.json": "814e87097956e813d7f7549f56696ef28b4b07254aceb43ed04f2499ee776be1"
+  },
+  "datasetHash": "8be527cfed5a9982d3ee86c4692eb45f98238d17ca57cffd276b961f521c955c"
+}

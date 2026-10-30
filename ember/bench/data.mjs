@@ -8,6 +8,14 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 export const DATA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data');
+// EmberBench-Public (METHOD §7): transcripts are real council text → kept out of git under .data/; only the hash-only
+// manifest / seal / selection list live in the repo (data/public/).
+export const PUBLIC_DATA_DIR = path.resolve(DATA_DIR, '..', '..', '..', '.data', 'emberbench-public', 'data');
+export const PUBLIC_META_DIR = path.join(DATA_DIR, 'public');
+export const TRACKS = {
+  synthetic: { data: DATA_DIR, meta: DATA_DIR },
+  public: { data: PUBLIC_DATA_DIR, meta: PUBLIC_META_DIR },
+};
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 const isTranscript = (f) => f.endsWith('.json') && !/\.(check|rejected)\.json$/.test(f);
 
@@ -25,15 +33,15 @@ export function hashSplit(split, dir = DATA_DIR) {
   return { files, datasetHash };
 }
 
-export function writeManifest(split, dir = DATA_DIR) {
-  const m = { version: 'emberbench-1', split, createdAt: new Date().toISOString(), ...hashSplit(split, dir) };
-  writeFileSync(path.join(dir, `${split}.manifest.json`), JSON.stringify(m, null, 2) + '\n');
+export function writeManifest(split, dir = DATA_DIR, metaDir = dir, extra = {}) {
+  const m = { version: 'emberbench-1', split, createdAt: new Date().toISOString(), ...extra, ...hashSplit(split, dir) };
+  writeFileSync(path.join(metaDir, `${split}.manifest.json`), JSON.stringify(m, null, 2) + '\n');
   return m;
 }
 
 /** Throws if the split's files differ from its manifest (added, removed or changed). */
-export function verifyManifest(split, dir = DATA_DIR) {
-  const mf = path.join(dir, `${split}.manifest.json`);
+export function verifyManifest(split, dir = DATA_DIR, metaDir = dir) {
+  const mf = path.join(metaDir, `${split}.manifest.json`);
   if (!existsSync(mf)) { if (split === 'test') throw new Error('test split has no manifest (data/test.manifest.json) — refusing to run'); return null; }
   const want = JSON.parse(readFileSync(mf, 'utf8'));
   const got = hashSplit(split, dir);
