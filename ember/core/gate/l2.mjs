@@ -87,9 +87,60 @@ export const ORG_GROUPS = [
   ['Financial Times', 'FT'], ['New York Times', 'NYT'], ['Wall Street Journal', 'WSJ'], ['Caixin', '财新'], ['DeepSeek', '深度求索'], ['NVIDIA', 'Nvidia'],
 ];
 
+// ── Shared public context (opt-in, host-declared: "public body: Seattle City Council") ─────────────────────────────
+// expandPublicContext(['Seattle City Council']) → the body, its jurisdiction ("Seattle") and the usual forms
+// ("City of Seattle", "City Council"). Everyone in a public body's meeting shares it: it says nothing about who spoke.
+export function expandPublicContext(bodies = []) {
+  const out = new Set();
+  for (const b0 of bodies || []) {
+    const b = String(b0 || '').trim(); if (b.length < 2) continue;
+    out.add(b);
+    const j = b.replace(/\s*\b(?:City|Town|County|Village|Municipal|Metropolitan)?\s*(?:Council|Commission|Board(?:\s+of\s+\w+)?|Assembly|Legislature|Parliament)\b.*$/i, '').trim();
+    if (j && j !== b && j.length >= 3) {
+      out.add(j); out.add(`City of ${j}`); out.add(`County of ${j}`); out.add(`City and County of ${j}`);
+      const kind = b.slice(b.indexOf(j) + j.length).trim(); if (kind.split(/\s+/).length >= 2) out.add(kind);
+    }
+  }
+  return [...out];
+}
+const wb = (hay, needle) => new RegExp(`(?<![\\p{L}\\p{N}])${esc(needle)}(?![\\p{L}\\p{N}])`, 'iu').test(hay);
+/** true when org is (contained in) a shared public-context entry: "Seattle City Council", "City of Seattle". */
+export function isSharedOrg(org, shared = []) {
+  const o = String(org || '').trim(); if (!o || !shared?.length) return false;
+  return shared.some((s) => wb(s, o));
+}
+/** orgFragments minus every fragment that is part of the shared public context ("Denver" of "East Denver Residents Council"). */
+export function orgFragmentsShared(org, shared = []) {
+  const f = orgFragments(org);
+  if (!shared?.length) return f;
+  for (const x of [...f]) if (x !== String(org).trim() && shared.some((s) => wb(s, x))) f.delete(x);
+  return f;
+}
+/** Fragments of an org the gate learned from context (partner / committee): the full name, its multi-word parts and,
+ *  for names of ≤ 2 words, its distinctive single words / acronyms ("CBS Taco" → CBS, Taco). Single words of longer
+ *  names ("Committee", "Rights") are ordinary vocabulary and are not redacted on their own. */
+export function tightFragments(org, shared = []) {
+  const s = String(org || '').trim();
+  const f = orgFragmentsShared(s, shared);
+  if (s.split(/\s+/).length > 2) for (const x of [...f]) if (x !== s && !/\s/.test(x) && !/^[A-Z&]{2,6}$/.test(x)) f.delete(x);
+  return f;
+}
+export function memberOrgFragments(p, shared = []) {
+  if (!p?.org) return new Set();
+  if (!shared?.length) return p.tight ? tightFragments(p.org, shared) : orgFragments(p.org);
+  // public-body mode: each org of the member separately; a shared one (the convening body) contributes nothing
+  const out = new Set();
+  for (const o of String(p.org).split('，').map((x) => x.trim()).filter(Boolean)) {
+    if (isSharedOrg(o, shared)) continue;
+    for (const f of (p.tight ? tightFragments(o, shared) : orgFragmentsShared(o, shared))) out.add(f);
+  }
+  return out;
+}
+
 const cache = new WeakMap();
-function dicts(roster = []) {
-  if (cache.has(roster)) return cache.get(roster);
+function dicts(roster = [], shared = []) {
+  const key = (shared || []).join('\u0001');
+  if (cache.has(roster) && cache.get(roster).key === key) return cache.get(roster);
   const orgs = new Set(), titles = new Set(KNOWN_TITLES), works = new Set();
   const rosterOrgs = roster.map((p) => String(p.org || '')).filter(Boolean);
   const inRoster = (k) => rosterOrgs.some((o) => (isCJK(k) ? o.includes(k) : new RegExp(`(?<![A-Za-z0-9])${esc(k)}(?![A-Za-z0-9])`).test(o)));
@@ -105,7 +156,7 @@ function dicts(roster = []) {
       if (inner.length >= 2) { works.add(`《${inner}》`); works.add(inner); }
     }
     if (p.publicName && String(p.publicName).trim().length >= 2) orgs.add(String(p.publicName).trim()); // pen name etc.
-    for (const f of orgFragments(p.org)) orgs.add(f);
+    for (const f of memberOrgFragments(p, shared)) orgs.add(f);
     if (p.title) {
       const t = String(p.title).trim();
       titles.add(t);
@@ -120,7 +171,13 @@ function dicts(roster = []) {
     return [cj.length ? new RegExp(cj.join('|'), 'g') : null, as.length ? new RegExp(`(?<![A-Za-z0-9À-ÿ])(?:${as.join('|')})(?![A-Za-z0-9À-ÿ])`, 'g') : null].filter(Boolean);
   };
   for (const k of pub) if (orgs.has(k)) pub.delete(k);
-  const d = { org: mk(orgs), title: mk(titles), pub: mk(pub), work: mk(works), pubAll: mk(new Set(KNOWN_ORGS)) };
+  const orgRes = mk(orgs);
+  // public-body mode: a member's multi-word org also matches in lower case ("public works" for "Public Works")
+  if (shared?.length) {
+    const multi = [...orgs].filter((x) => !isCJK(x) && /\s/.test(x.trim())).sort((a, b) => b.length - a.length).map(esc);
+    if (multi.length) orgRes.push(new RegExp(`(?<![A-Za-z0-9À-ÿ])(?:${multi.join('|')})(?![A-Za-z0-9À-ÿ])`, 'gi'));
+  }
+  const d = { key, org: orgRes, title: mk(titles), pub: mk(pub), work: mk(works), pubAll: mk(new Set(KNOWN_ORGS)) };
   cache.set(roster, d);
   return d;
 }
@@ -239,6 +296,49 @@ const LEARN_EN = [
   [new RegExp(`\\b[Hh]ere\\s+at\\s+(${EN_X})`, 'g'), {}],
 ];
 
+// Public-body mode only (gate opt publicContext): in a public meeting, staff and officials mostly speak for an office,
+// and the bodies they say they work / partner / contract with are where they sit ("we will be working with the Office of
+// X", "we were able to work with the Arts Council", "we have contracts with CBS", "rallied … alongside X Trust"). Such
+// partner orgs point to the speaker as much as their own employer does: they are learned like self-declared orgs.
+const AUX_EN = "(?:'ve|'re|'m|'d|\\s+(?:have|had|were|are|was|am|will|would|could|can|did|do))?(?:\\s+(?:been|be|also|then|always|just|able\\s+to|going\\s+to|continue\\s+to|continued\\s+to|happy\\s+to|proud\\s+to|glad\\s+to|need\\s+to|want\\s+to|really))*";
+// no '.' inside a partner name: it never runs across a sentence stop ("Office of X. We were able …")
+const EN_XP = "[A-Z][\\w&'’-]*(?:\\s+(?:&\\s+|of\\s+|and\\s+|for\\s+)?[A-Z][\\w&'’-]*){0,4}";
+const PARTNER_EN = [
+  new RegExp(`\\b(?:[Ww]e|I|[Mm]y\\s+office|[Oo]ur\\s+(?:office|team|department|staff))${AUX_EN}\\s+(?:work(?:s|ed|ing)?|partner(?:s|ed|ing)?|collaborat(?:e|es|ed|ing)|contract(?:s|ed|ing)?|coordinat(?:e|es|ed|ing)|team(?:ed)?\\s+up)\\s+(?:closely\\s+|directly\\s+)?with\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+  new RegExp(`\\b(?:[Ww]e|I)${AUX_EN}\\s+(?:have|had|hold|signed)\\s+(?:a\\s+|an\\s+)?(?:contracts?|agreements?|partnerships?)\\s+with\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+  new RegExp(`\\b(?:alongside|on\\s+behalf\\s+of|in\\s+partnership\\s+with)\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+  new RegExp(`\\bI(?:'m|’m|\\s+am)\\s+(?:here\\s+)?with\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+];
+/** Partner / sponsor orgs a speaker names in `text` (public-body mode). */
+export function learnPartnerOrgs(text) {
+  const out = new Set();
+  for (const re of PARTNER_EN) for (const m of String(text ?? '').matchAll(re)) { const raw = m[1].split(/[.!?]\s|[.!?]$/)[0].trim().replace(/\s+(?:and|of|for|&)$/i, ''); const s = cleanEnOrg(raw) || (raw.split(/\s+/).length >= 2 && !raw.split(/\s+/).every((w) => EN_STOP.has(w)) ? raw : null); if (s && !/^(?:Councilmember|Councilman|Councilwoman|Council\s+Member|Mayor|Mr|Ms|Mrs|Dr)\b/.test(s)) out.add(s); }
+  return [...out];
+}
+/** Bodies an official's roster title names: "Councilmember, chair of Sustainability and Renters Rights Committee". */
+export function titleBodies(title) {
+  const out = [];
+  for (const m of String(title || '').matchAll(/\b(?:chair|co-chair|vice[- ]chair|chairman|chairwoman|chairperson|president|member|director|head)\s+of\s+(?:the\s+)?([A-Z][\w'&-]*(?:\s+(?:and|of|for|on|&|[A-Z][\w'&-]*))*)/gi)) {
+    const s = cleanEnOrg(m[1].replace(/\s+(?:and|of|for|on|&)$/i, '')); if (s && s.split(/\s+/).length >= 2) out.push(s);
+  }
+  return out;
+}
+
+/** Public-body mode: a named unit stated to sit inside a roster member's own (non-shared) org — "the Office of
+ *  Sustainability in the Department of Development Services" — identifies that member's workplace as well. */
+export function subUnitsOf(text, roster = [], shared = []) {
+  const orgs = roster.flatMap((p) => String(p?.org || '').split('，')).map((o) => o.trim()).filter((o) => o && !isSharedOrg(o, shared));
+  const out = [];
+  if (!orgs.length) return out;
+  const UNIT = /\b(?:[Tt]he\s+)?((?:Office|Bureau|Division|Section|Unit|Program|Programme|Team|Branch)\s+of\s+[A-Z][\w'&-]*(?:\s+(?:and\s+)?[A-Z][\w'&-]*){0,3}|(?!The\s)(?:[A-Z][\w'&-]*\s+){1,3}(?:Office|Bureau|Division|Section|Unit|Program|Team|Branch))\s+(?:in|within|at|under|inside)\s+(?:the\s+|our\s+)?([A-Z][\w'&-]*(?:\s+(?:of|for|and|&)?\s*[A-Z][\w'&-]*){0,5})/g;
+  for (const m of String(text ?? '').matchAll(UNIT)) {
+    const parent = m[2].trim();
+    if (orgs.some((o) => normOrg(o).includes(normOrg(parent)) || normOrg(parent).includes(normOrg(o)))) out.push(m[1].trim());
+  }
+  return out;
+}
+const normOrg = (s) => String(s).toLowerCase().replace(/^the\s+/, '').replace(/\bdepartment of\s+/, '').replace(/\s+/g, ' ').trim();
+
 /** Orgs a speaker self-declares in `text` (raw utterance). Returns a de-duplicated array of strings. */
 export function learnSelfOrgs(text) {
   text = String(text ?? '');
@@ -282,13 +382,13 @@ export function withLearnedOrgs(roster = [], learned) {
   return out;
 }
 
-export function detectAffiliation(text, roster = [], { allowPublicFacts = true } = {}) {
+export function detectAffiliation(text, roster = [], { allowPublicFacts = true, shared = [] } = {}) {
   text = String(text ?? '');
   const spans = [];
   SELF.forEach(([kind, re, rep], pri) => { for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind, match: m[0], rep, pri }); });
   const own = learnSelfOrgs(text); // a self-declaration in this very text redacts the org throughout it
   if (own.length) roster = withLearnedOrgs(roster, own);
-  const d = dicts(roster);
+  const d = dicts(roster, shared);
   // Participant works (roster) and self-referential titles → [某作品]
   for (const re of d.work) for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind: 'work', match: m[0], pri: 40 });
   for (const m of text.matchAll(TITLE_RE)) {

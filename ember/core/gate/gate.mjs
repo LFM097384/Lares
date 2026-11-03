@@ -2,11 +2,11 @@
 // No env reads: the caller injects `llm` ({ chat(messages, opts) -> { text, usage?, finish? } }); llm == null → mock.
 import { structural } from './l0.mjs';
 import { learnThirdNames, redactPII } from './l1.mjs';
-import { redactAffiliation, learnSelfOrgs, withLearnedOrgs } from './l2.mjs';
+import { redactAffiliation, learnSelfOrgs, withLearnedOrgs, expandPublicContext, isSharedOrg, learnPartnerOrgs, titleBodies, subUnitsOf } from './l2.mjs';
 import { rewrite, claimKind } from './l3.mjs';
 import { verify } from './l4.mjs';
 import { chatJSON } from './llm.mjs';
-import { shieldPublic, SHIELD_NOTE } from './shield.mjs';
+import { shieldPublic, civicKind, CIVIC_KINDS, SHIELD_NOTE } from './shield.mjs';
 import { dominantLang, isInjection, dropInjection, verbatimIndex, verbatimRuns, stripEchoedTokens, selfFigures, maskSelfFigures } from './guard.mjs';
 
 export const NOTICE = '会议纪要 · 不署名 / Minutes · no attribution';
@@ -33,18 +33,32 @@ const normClaim = (c) => {
 //  -> { digest, digestStrict, claims:[{ topic, text, kind, flags[], risk?, confidence?, reason?, guess? }], meta }
 export async function runGate(transcript, {
   llm = null, layers = ['L0', 'L1', 'L2', 'L3', 'L4'], threshold = 0.5, flagThreshold = 0.7,
-  maxVerifierRounds = 2, seed = 1, allowPublicFacts = true, stats, trace = null,
+  maxVerifierRounds = 2, seed = 1, allowPublicFacts = true, stats, trace = null, publicContext = null,
 } = {}) {
   const t0 = Date.now();
   const lines = transcript?.lines || [];
+  // Public-body mode (opt-in; host-declared at setup, e.g. publicContext: ['Seattle City Council']): the convening body and
+  // its jurisdiction are shared context, the meeting's civic record (bill numbers, votes, codes, subject properties) is
+  // public, and the bodies an official says they partner with / chair are treated as identifying. Unset → unchanged.
+  const shared = Array.isArray(publicContext) && publicContext.length ? expandPublicContext(publicContext) : null;
   // Orgs a participant self-declares anywhere in the transcript (我是张伟，在星辰科技负责产品) are treated as that
   // speaker's roster org for the whole run: redacted in every line, by every layer (L2, L4 roster scan, final scrub).
   const learned = new Map();
   for (const l of lines) for (const o of learnSelfOrgs(l?.text)) { const id = String(l?.speakerId ?? '\u0000learned'); if (!learned.has(id)) learned.set(id, new Set()); learned.get(id).add(o); }
-  const rosterOrgs = withLearnedOrgs(transcript?.roster || [], learned);
+  let rosterOrgs = withLearnedOrgs(transcript?.roster || [], learned);
+  if (shared) {
+    // partner orgs and the committees an official's title names become extra name-less roster orgs (tight fragments)
+    const partner = new Set();
+    for (const l of lines) for (const o of learnPartnerOrgs(l?.text)) partner.add(o);
+    for (const p of transcript?.roster || []) for (const o of titleBodies(p?.title)) partner.add(o);
+    // a named unit inside a member's own org ("the Office of Sustainability in the Department of Development Services")
+    for (const l of lines) for (const o of subUnitsOf(l?.text, rosterOrgs, shared)) partner.add(o);
+    const extra = [...partner].filter((o) => !isSharedOrg(o, shared) && !rosterOrgs.some((p) => p?.org && String(p.org).split('，').includes(o)));
+    rosterOrgs = [...rosterOrgs, ...extra.map((o, i) => ({ id: `org-learned-${i}`, org: o, tight: true, third: true }))];
+  }
   // private third parties introduced once in a strong context are redacted at every later bare mention as well
   const known = new Set(rosterOrgs.flatMap((p) => [p?.name, ...(p?.aliases || [])]).filter(Boolean));
-  const roster = [...rosterOrgs, ...learnThirdNames(lines.map((l) => l?.text), { allowPublicFacts }).filter((n) => !known.has(n)).map((n, i) => ({ id: `third-learned-${i}`, name: n, aliases: [], third: true }))];
+  const roster = [...rosterOrgs, ...learnThirdNames(lines.map((l) => l?.text), { allowPublicFacts, shared }).filter((n) => !known.has(n)).map((n, i) => ({ id: `third-learned-${i}`, name: n, aliases: [], third: true }))];
   stats = stats || {};
   for (const k of ['calls', 'promptTokens', 'completionTokens']) stats[k] = stats[k] || 0;
   const base = { calls: stats.calls, promptTokens: stats.promptTokens, completionTokens: stats.completionTokens };
@@ -63,7 +77,7 @@ export async function runGate(transcript, {
     return { digest: d, digestStrict: d, claims: raw.map((text) => ({ topic: 'raw', text, kind: 'idea', flags: [] })), meta: meta({ flagged: 0 }) };
   }
 
-  const popts = { allowPublicFacts };
+  const popts = shared ? { allowPublicFacts, shared } : { allowPublicFacts };
   // Output language is decided deterministically from the lines (the LLM otherwise drifts to Chinese on English meetings).
   const lang = transcript?.lang || dominantLang(lines.map((l) => l?.text));
   // In an utterance that tries to override the assistant's rules, the trigger sentence AND everything after it are
@@ -78,7 +92,7 @@ export async function runGate(transcript, {
   // Public-entity shield (LLM path): public world knowledge that survived the L1/L2 scrub is carried through the L3
   // rewrite as opaque tokens and restored verbatim before L4, so the attacker / generaliser still judge the full text.
   let pub = { restore: (t) => t, spans: [] };
-  if (llm && L.has('L3')) { pub = await shieldPublic(clusters, { llm, stats, roster, rawLines: lines.map((l) => String(l?.text ?? '')) }); clusters = pub.clusters; }
+  if (llm && L.has('L3')) { pub = await shieldPublic(clusters, { llm, stats, roster, rawLines: lines.map((l) => String(l?.text ?? '')), shared }); clusters = pub.clusters; }
   let sections = L.has('L3')
     ? await rewrite(clusters, { llm, stats, lang, note: pub.spans.length ? SHIELD_NOTE : '' })
     : clusters.map((c) => ({ topic: c.topic, claims: c.segments }));
@@ -87,7 +101,7 @@ export async function runGate(transcript, {
   trace?.('L3', sections);
   let verifierRounds = 0, dropped = 0;
   if (L.has('L4')) {
-    const v = await verify(sections, roster, { llm, stats, threshold, flagThreshold, maxRounds: maxVerifierRounds, lang });
+    const v = await verify(sections, roster, { llm, stats, threshold, flagThreshold, maxRounds: maxVerifierRounds, lang, shared });
     sections = v.sections; verifierRounds = v.rounds; dropped = v.dropped;
     trace?.('L4', sections);
   }
@@ -99,6 +113,26 @@ export async function runGate(transcript, {
     .map((s) => ({ topic: safe(s.topic), claims: s.claims.map(normClaim).map((c) => ({ ...c, text: safe(c.text) })).filter((c) => c.text.trim()) }))
     .filter((s) => s.claims.length);
 
+  // public-body mode (METHOD P3): the shielded civic record (bill / item numbers, votes, codes, public bodies, subject
+  // properties, figures) that the rewrite left out is listed in a closing "Public record" section, the way minutes carry
+  // a record of actions. Entries come only from the shield's deterministic civic shapes that survived its identifier-set
+  // exclusion and restore check (never gold, never an LLM-classified name); they are grouped by type and sorted
+  // alphabetically (no speaker order or linkage), and the section then passes through the same final scrub, verbatim
+  // guard, echo / self-figure masking and k-of-n release as every other section.
+  if (shared && llm && L.has('L3') && pub.civic?.length) {
+    const have = sections.flatMap((s) => [s.topic, ...s.claims.map((c) => c.text)]).join('\n').toLowerCase();
+    const rec = [];
+    for (const s of [...pub.civic].sort((a, b) => b.length - a.length)) {
+      const v = safe(s).trim();
+      if (!v || v !== s || have.includes(v.toLowerCase()) || rec.some((r) => r.toLowerCase().includes(v.toLowerCase()))) continue;
+      rec.push(v);
+    }
+    const groups = new Map();
+    for (const v of rec) { const k = civicKind(v); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(v); }
+    const claims = [...groups].sort(([a], [b]) => CIVIC_KINDS.indexOf(a) - CIVIC_KINDS.indexOf(b))
+      .map(([k, vs]) => ({ text: `${k}: ${vs.sort((x, y) => x.localeCompare(y)).join('; ')}.`, flags: [], kind: 'record' }));
+    if (claims.length) sections = [...sections, { topic: lang === 'zh' ? '公开记录' : 'Public record', claims }];
+  }
   // Verbatim guard (LLM path): no claim may copy a long run of a speaker's words. Offending claims get one forced
   // paraphrase; a claim that still copies is dropped (fail closed).
   let paraphrased = 0;
@@ -126,7 +160,7 @@ export async function runGate(transcript, {
     digest: render(mark(false), transcript.sessionDate),
     digestStrict: render(mark(true), transcript.sessionDate),
     claims,
-    meta: meta({ verifierRounds, dropped, flagged, paraphrased, lang }),
+    meta: meta({ verifierRounds, dropped, flagged, paraphrased, lang, ...(shared ? { publicBody: true } : {}) }),
   };
 }
 
@@ -135,10 +169,13 @@ export async function runGate(transcript, {
 // Runs L4 over a flat list (single section). items[k] corresponds to texts[k]; a dropped claim is the string 'DROP'.
 // Used by memory for the output-time mosaic check.
 export const DROP = 'DROP';
-export async function verifyClaims(texts, roster, { llm = null, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, stats } = {}) {
+export async function verifyClaims(texts, roster, { llm = null, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, stats, lang = null, publicContext = null } = {}) {
   const list = (texts || []).map((t) => String(t ?? ''));
   if (!list.length) return { items: [], flagged: 0 };
-  const v = await verify([{ topic: 'recall', claims: list.map((text, k) => ({ text, _k: k, flags: [] })) }], roster || [], { llm, stats, threshold, flagThreshold, maxRounds });
+  // rewrites stay in the items' own language (the generaliser otherwise drifts to Chinese on English memory)
+  const L = lang || dominantLang(list);
+  const shared = Array.isArray(publicContext) && publicContext.length ? expandPublicContext(publicContext) : null;
+  const v = await verify([{ topic: 'recall', claims: list.map((text, k) => ({ text, _k: k, flags: [] })) }], roster || [], { llm, stats, threshold, flagThreshold, maxRounds, lang: L, shared });
   const items = list.map(() => DROP);
   for (const c of v.sections.flatMap((s) => s.claims)) {
     const it = { text: c.text };

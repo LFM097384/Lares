@@ -85,6 +85,8 @@ export function aggregate(records, mosaics, { config = '+L4', seed = 12345 } = {
   m.retention = stat(records, config, (r) => r.retention, o);
   m.kwRecall = stat(records, config, (r) => r.kwRecall, o);
   m.publicFacts = ratio(records, config, (r) => r.publicFacts?.kept, (r) => r.publicFacts?.total, o);
+  // METHOD P3: same records, gate's Public-record appendix stripped (reported alongside; absent on older records)
+  m.publicFactsNoAppendix = ratio(records, config, (r) => (r.publicFactsNoAppendix ?? r.publicFacts)?.kept, (r) => (r.publicFactsNoAppendix ?? r.publicFacts)?.total, o);
   m.publicThird = ratio(records, config, (r) => r.publicThird?.kept, (r) => r.publicThird?.total, o);
   m.stance = ratio(records, config, (r) => r.stance?.match, (r) => r.stance?.mentioned, o);
   m.stanceMentioned = ratio(records, config, (r) => r.stance?.mentioned, (r) => r.stance?.total, o);
@@ -154,6 +156,7 @@ export function renderCard({ meta, metrics, raw, verdicts, agreement, cost, fail
   row('观点保留（评审）', `${ci(m.retention)} ${sp(m.retention)}`, raw ? ci(raw.retention) : '');
   row('观点关键词召回（确定性）', ci(m.kwRecall), raw ? ci(raw.kwRecall) : '');
   row('公共事实保留', ci(m.publicFacts), raw ? ci(raw.publicFacts) : '');
+  if (m.publicFactsNoAppendix && m.publicFactsNoAppendix.mean !== m.publicFacts?.mean) row('公共事实保留（剥离 Public record 附录，P3）', ci(m.publicFactsNoAppendix), '');
   row('公众第三方保留', ci(m.publicThird), raw ? ci(raw.publicThird) : '');
   row('立场保持（提及时）/ 提及率', `${ci(m.stance)} / ${pct(m.stanceMentioned.mean)}`, raw ? ci(raw.stance) : '');
   row('房内问答', ci(m.qa), '');

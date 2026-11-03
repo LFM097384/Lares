@@ -289,3 +289,16 @@
 **修订记录（public 轨）**
 
 - P1（2026-10-30，看到 public 结果之前）：建立 public 轨。改动范围只在 bench 侧：`metrics.mjs`（`stripKeeps` 同时剥离 `publicContext`；`nameVariants` 跳过 unnamed 占位名；public 轨的 `orgVariants` 跳过 publicContext、停用自动机构片段），`trustcard.mjs`（N/A 判定、天花板 / 地板表、ideas-only 外人点名对照），`run.mjs`（`--track`），`data.mjs`（public 目录与 manifest 位置）。合成轨行为不变（全部单测通过）。闸门代码（ember/core）未改，为 83f23b3。- P2（2026-10-30，运行记录）：public dev 基线 `results/public/2026-10-30T0224-public-dev`（N=3，完整，0 记录错误）。public test 基线 `results/public/2026-10-30T0239-public-test` 跑完并写了 seal，但运行途中闸门账号余额耗尽（DeepSeek `HTTP 402 Insufficient Balance`）：54 条 +L4 记录中 30 条出错（run 1/2/3 分别 1/11/18 条），出错记录的纪要为空，所以 T8/T9 与 run 3 的保留率（0.0%）**不是闸门行为的测量**。隐私项（T1/T2/T6/T12）在空输出上只会偏乐观。处置：这张 test 卡不作为对外引用的结论；充值后以 `--break-seal "gate 402 balance exhausted; no tuning between runs"` 重跑一次 test（闸门代码在两次运行之间不得改动，仍为 83f23b3）。
+- P3（2026-11-03，dev 调参，test 未运行）：**闸门侧新增可选的部署输入 `publicContext`**（不是度量修订，所有阈值与评分规则不变）。`publicContext` 是主持方在开会前声明的会议设定，例如「公共机构：Seattle City Council」，相当于告诉闸门「这是一场公开的议会会议」；它不来自 gold 标注或标识符。bench 侧从 transcript 元数据 `t.publicContext` 原样传入：`harness.mjs` runCore → `policy.publicContext` → `createSession` → `runGate`。合成轨 transcript 没有该字段，**未设置时闸门所有路径与此前完全一致**（单测覆盖 unset 分支）。设置后的机制都是通用规则，不含任何 dev 字符串：
+  - (a) 共享机构：议会、所辖城市及其「City of X / County of X」变体识别不了任何人，不作为成员机构去打码。
+  - (b) 合作方机构学习：「we work / partner / contract with X」「on behalf of X」中的 X 记为第三方机构并紧口径打码；「chair of X Committee」同样处理。
+  - (c) 英文第三方姓名学习：致谢、点名句式。
+  - (d) 公共记录形态的地址与日期（议案标的物业、听证日期）不由 L1 打码；与人绑定的地址（「I am …, 386 X Street」「my house at …」）仍然打码。
+  - (e) 议员职位称呼（「Madam Secretary」「Mr. President」）和议员选区（「District one」「my district」）：一个席位只对应一个人，在 L1 作为准标识打码。占位用不带角色信息的「a member」「one area」。曾用「the presiding officer」，会把被打码的人指认为主持人，L4 攻击方据此把大量程序性陈述归给主持人，造成 T8 下降，因此弃用。
+  - (i) 带头衔的议员姓氏（「councilmembers Morales and Sewell」「President Gonzalez」）学习为姓名。即使 roster 把该发言人列为未具名，也在后续所有裸提及处打码。
+  - (j) 下属单位：「the Office of X in <成员自身机构>」中的 X 视同该成员机构的一部分。成员的多词机构名在 public-body 模式下不区分大小写匹配（「public works」对应「Public Works」）。
+  - (f) shield 新增公共记录候选形态：议案/条目号、法规编号、票数、「the bill passes」、公共部门、街道地址、日期、数额与数量短语。硬形态（编号、票数、法规）跳过 LLM 精度复核；软形态（数额、部门、地址、日期）仍走全部所有权与精度检查。
+  - (g) L4 与 verifyClaims 的语言约束：显式传入转写语言；新增确定性语言检查 `wrongLang`，改写语言不符时重试一次，仍不符则不用该改写。
+  - (h) 纪要末尾增加「Public record」一节，**这是闸门功能，可能抬高 keep-string 指标 T9**。条目只来自 shield 的确定性公共记录形态，并且已通过标识符集排除与 restore 复核：不来自 gold，也不含 LLM 分类出的名字。条目按类型分组、组内按字母排序，与发言人无关联，也不按发言顺序排列。整节与其他各节一样经过最终 scrub（L1/L2，含准标识）、verbatim guard、回显与自述数字屏蔽，并进入 k-of-n 放行。度量侧：`harness.mjs` 对同一份输出再算一次去掉该节后的 T9（`metrics.stripRecordAppendix`，记为 `publicFactsNoAppendix`），trust card 两者并列报告，**报告以去附录的数字为准**。
+
+  调参期间修复了一处自引入的 bug：L4 civicNote 的运算符优先级错误，导致所有改写被要求「用中文写」，run 0227 英文纪要中混入中文。该 bug 在 P3 内修复，未进入任何 test 运行。

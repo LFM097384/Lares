@@ -65,6 +65,15 @@ async function attackRound(llm, live, pub, { stats, threshold }) {
   return { flagged, tone };
 }
 
+/** true when `text` is clearly not in `lang` ('en' text with CJK runs, 'zh' text without any CJK). */
+export function wrongLang(text, lang) {
+  const s = String(text ?? '');
+  const cjk = (s.match(/[\u3400-\u9fff]/g) || []).length, lat = (s.match(/[A-Za-z]/g) || []).length;
+  if (/^en/i.test(String(lang || ''))) return cjk >= 4 && cjk * 2 > lat / 4;
+  if (/^zh/i.test(String(lang || ''))) return cjk === 0 && lat >= 12;
+  return false;
+}
+
 const asClaim = (c) => (typeof c === 'string' ? { text: c } : { ...c });
 
 // verify(sections, roster, { llm, stats, threshold, flagThreshold, maxRounds })
@@ -75,8 +84,9 @@ const asClaim = (c) => (typeof c === 'string' ? { text: c } : { ...c });
 // marked risk:'role-revealing' (+flag 'role-revealing') for human k-of-n review. Claims whose tone is still
 // flagged after the last round get flag 'tone-residual' and risk 'role-revealing' (tone itself identifies).
 // `reason`/`guess` may name an attendee: review-only metadata, never exported.
-export async function verify(sections, roster, { llm = null, stats, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, lang } = {}) {
-  const langNote = /^zh/i.test(String(lang || '')) ? '\n\nWrite every rewrite in Chinese (中文).' : /^en/i.test(String(lang || '')) ? '\n\nWrite every rewrite in English.' : '';
+export async function verify(sections, roster, { llm = null, stats, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, lang, shared = null } = {}) {
+  const civicNote = shared?.length ? `\n\nThis is a public meeting of ${shared[0]}: keep its civic record verbatim — bill / resolution / item numbers, codes, vote counts and outcomes, public departments and the properties an item concerns; never change a number or a vote.` : '';
+  const langNote = civicNote + (/^zh/i.test(String(lang || '')) ? '\n\nWrite every rewrite in Chinese (中文).' : /^en/i.test(String(lang || '')) ? '\n\nWrite every rewrite in English.' : '');
   const flat = [];
   sections.forEach((s, si) => s.claims.forEach((c) => { const o = asClaim(c); flat.push({ ...o, i: flat.length + 1, si, flags: [...(o.flags || [])] }); }));
   const flaggedAll = [];
@@ -107,6 +117,16 @@ export async function verify(sections, roster, { llm = null, stats, threshold = 
         const { data: g } = await chatJSON(llm, [{ role: 'system', content: GENERALISER_PROMPT },
           { role: 'user', content: `FLAGGED CLAIMS:\n${req}${langNote}` }], { stats, temperature: 0.3 });
         const rw = new Map((Array.isArray(g?.rewrites) ? g.rewrites : []).map((x) => [Number(x?.i), String(x?.text || '').trim()]));
+        // deterministic language check: a rewrite in the wrong script gets one retry; a still-wrong one is not used
+        const bad = [...rw].filter(([, t]) => t && t !== 'DROP' && wrongLang(t, lang)).map(([i]) => i);
+        if (bad.length) {
+          const req2 = bad.filter((i) => toFix.has(i)).map((i) => `${i}. ${byI.get(i).text}\n   cue: ${toFix.get(i).reason}`).join('\n');
+          const { data: g2 } = req2 ? await chatJSON(llm, [{ role: 'system', content: GENERALISER_PROMPT },
+            { role: 'user', content: `FLAGGED CLAIMS:\n${req2}${langNote}\n\nYour previous rewrite was in the wrong language: answer ONLY in ${/^zh/i.test(String(lang)) ? 'Chinese' : 'English'}.` }], { stats, temperature: 0.3 }).catch(() => ({ data: null })) : { data: null };
+          const rw2 = new Map((Array.isArray(g2?.rewrites) ? g2.rewrites : []).map((x) => [Number(x?.i), String(x?.text || '').trim()]));
+          if (stats) stats.langRetry = (stats.langRetry || 0) + bad.length;
+          for (const i of bad) { const t2 = rw2.get(i); if (t2 && !wrongLang(t2, lang)) rw.set(i, t2); else rw.delete(i); }
+        }
         for (const f of toFix.values()) {
           const c = byI.get(f.i);
           const t = rw.get(f.i);

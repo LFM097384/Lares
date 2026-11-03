@@ -178,6 +178,10 @@ export function deterministicLeaks(channels, t) {
 }
 
 // ---------------------------------------------------------------- utility (deterministic)
+/** METHOD P3: remove the gate's closing "## Public record" / "## 公开记录" section (up to the next heading or the end). */
+export function stripRecordAppendix(text) {
+  return String(text ?? '').replace(/^##\s*(?:Public record|公开记录)\s*\n[\s\S]*?(?=^#{1,2}\s|(?![\s\S]))/gm, '');
+}
 export function publicFactRetention(text, t) {
   const fs = t.gold?.publicFacts || [];
   return fs.map((f) => ({ id: f.id, kept: (f.keep || []).every((k) => containsVariant(text, k)) }));

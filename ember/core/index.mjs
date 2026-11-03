@@ -222,7 +222,7 @@ export function createSession({ sid = randomUUID(), roster = [], policy = {}, ll
       const lines = sel.map((u) => ({ speakerId: u.speakerId, speakerName: members.get(u.speakerId)?.name || u.speakerId, text: u.text }));
       const now = clock();
       const transcript = { roster, lines, sessionDate: isoDate(now), lang: pol.lang };
-      const opts = { llm, mock: !llm, threshold: pol.threshold, flagThreshold: pol.flagThreshold, allowPublicFacts: pol.allowPublicFacts };
+      const opts = { llm, mock: !llm, threshold: pol.threshold, flagThreshold: pol.flagThreshold, allowPublicFacts: pol.allowPublicFacts, ...(Array.isArray(pol.publicContext) && pol.publicContext.length ? { publicContext: pol.publicContext } : {}) };
       const out = await g.runGate(transcript, opts);
       const draftId = randomUUID();
       const items = (out?.claims || []).map((c, n) => {

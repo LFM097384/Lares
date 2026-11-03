@@ -38,8 +38,8 @@ const THIRD_PREFIX = '(?:患者|病人|病例是|病人是|叫做|名叫|叫|副
 const FIRST_NAMES = 'James John Robert Michael William David Richard Joseph Thomas Charles Christopher Daniel Matthew Anthony Mark Donald Steven Paul Andrew Joshua Kenneth Kevin Brian George Edward Ronald Timothy Jason Jeffrey Ryan Jacob Gary Nicholas Eric Jonathan Stephen Larry Justin Scott Brandon Benjamin Samuel Frank Gregory Raymond Alexander Patrick Jack Dennis Jerry Tyler Aaron Henry Adam Peter Nathan Zachary Kyle Walter Harold Jeremy Ethan Carl Keith Roger Gerald Christian Terry Sean Arthur Austin Noah Lawrence Jesse Joe Bryan Billy Jordan Albert Dylan Bruce Willie Gabriel Alan Juan Logan Wayne Ralph Roy Eugene Randy Vincent Russell Louis Philip Bobby Johnny Bradley Hugo Oliver Lucas Leo Max Felix Omar Ahmed Mohammed Ali Raj Rahul Arjun Vikram Hiroshi Kenji Takeshi Mary Patricia Jennifer Linda Elizabeth Barbara Susan Jessica Sarah Karen Nancy Lisa Betty Margaret Sandra Ashley Kimberly Emily Donna Michelle Dorothy Carol Amanda Melissa Deborah Stephanie Rebecca Sharon Laura Cynthia Kathleen Amy Shirley Angela Helen Anna Brenda Pamela Nicole Emma Samantha Katherine Christine Debra Rachel Catherine Carolyn Janet Ruth Maria Heather Diane Virginia Julie Joyce Victoria Olivia Kelly Christina Lauren Joan Evelyn Judith Megan Cheryl Andrea Hannah Martha Jacqueline Frances Gloria Ann Teresa Kathryn Sara Janice Jean Alice Madison Doris Abigail Julia Judy Grace Denise Amber Marilyn Beverly Danielle Theresa Sophia Marie Diana Brittany Natalie Isabella Charlotte Rose Alexis Kayla Priya Ananya Aisha Fatima Mei Yuki Sophie Chloe Claire Lucy Zoe Mia Nina Ingrid Astrid Elena Sofia Lena Clara Paula Laila Tina Jenny Vivian Cindy Wendy Peggy Fiona Eva Irene Iris'.split(' ');
 
 const PH = {
-  zh: { name: '[参与者]', third: '[某人]', phone: '[电话]', email: '[邮箱]', idcard: '[证件号]', bankcard: '[账号]', url: '[链接]', handle: '[账号]', address: '[地址]', date: '[日期]' },
-  en: { name: 'a participant', third: 'someone', phone: '[phone]', email: '[email]', idcard: '[ID number]', bankcard: '[account]', url: '[link]', handle: '[handle]', address: '[address]', date: '[date]' },
+  zh: { name: '[参与者]', third: '[某人]', phone: '[电话]', email: '[邮箱]', idcard: '[证件号]', bankcard: '[账号]', url: '[链接]', handle: '[账号]', address: '[地址]', date: '[日期]', seat: '[某成员]', district: '[选区]' },
+  en: { name: 'a participant', third: 'someone', phone: '[phone]', email: '[email]', idcard: '[ID number]', bankcard: '[account]', url: '[link]', handle: '[handle]', address: '[address]', date: '[date]', seat: 'a member', district: 'one area' },
 };
 
 export function localLang(text, start, end) {
@@ -125,6 +125,16 @@ const PATTERNS = [
   ['date', /(?<!\d)(?:19|20)\d{2}[-/.](?:0?[1-9]|1[0-2])[-/.](?:0?[1-9]|[12]\d|3[01])(?!\d)|(?:(?:19|20)\d{2}年)?(?<!\d)(?:0?[1-9]|1[0-2])月(?:0?[1-9]|[12]\d|3[01])(?:日|号)|\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+(?:19|20)\d{2})?\b|\b\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b(?:\s+(?:19|20)\d{2})?|(?<![\d.])(?!9\/11(?![\d/.%]))(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])(?![\d/.%])/g], // 9/11 is a public event, not a personal date
 ];
 
+// a person's own address / date: personal words in the same sentence before it ("I am X, 386 …", "resident … at 6333 …",
+// "my birthday is May 8"), or a name / roster placeholder right before it ("Bruce O'Donnell, 386 Emmerson Street")
+const PERSONAL_EN = /\b(?:I|I'm|I've|me|my|mine|we|our|us|resident|residents|live|lives|living|lived|home|house|born|birthday|wife|husband|daughter|son|mother|father|family|grew\s+up|moved)\b/i;
+function publicRecordSpan(text, start) {
+  const before = text.slice(Math.max(0, start - 160), start);
+  const sent = before.split(/[.!?;\n]\s/).pop();
+  if (PERSONAL_EN.test(sent)) return false;
+  if (/[A-Z][\p{L}'’-]+,\s*$/u.test(sent) && !/\b(?:on|at|for|to|of|from|in)\s+[A-Z][\p{L}'’-]+,\s*$/u.test(sent)) return false; // "Name, 386 …"
+  return true;
+}
 const ADDR_LEAD = /^(?:住在|住|地址是|地址|位于|寄到|搬到|送到|在|到|是|去|从|的)+/;
 const ADMIN_UNITS = /(省|自治区|市|区|县|乡|镇|村|街道|街|路|巷|弄|胡同|园区|里)/g;
 
@@ -183,7 +193,12 @@ function thirdPartyNames(text, { allowPublicFacts = true } = {}) {
   return out;
 }
 
-export function detectPII(text, roster = [], { allowPublicFacts = true } = {}) {
+const ORD_EN = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|\\d{1,2}';
+const SEAT_EN = [
+  ['seat', /\b(?:Madam|Madame|Mister|Mr\.?)\s+(?:Vice\s+|Deputy\s+)?(?:Council\s+)?(?:President|Secretary|Clerk|Chair(?:man|woman|person)?|Mayor|Speaker)(?:\s+pro\s+tem)?\b/g],
+  ['district', new RegExp(`\\b(?:(?:my|our|your|his|her|their)\\s+(?:own\\s+)?(?:council\\s+)?district|(?:Council\\s+)?District\\s+(?:No\\.?\\s*)?(?:${ORD_EN})|(?:the\\s+)?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|1st|2nd|3rd|[4-9]th)\\s+(?:council\\s+)?district)\\b`, 'gi')],
+];
+export function detectPII(text, roster = [], { allowPublicFacts = true, shared = null } = {}) {
   text = String(text ?? '');
   const spans = [];
   PATTERNS.forEach(([kind, re], pri) => {
@@ -199,12 +214,18 @@ export function detectPII(text, roster = [], { allowPublicFacts = true } = {}) {
         if (!hasNum && /(?:思|道|线|套|门|出|网|半|走|进|心|马|一)路|(?:这|那|哪|心|市|城|家|夜)里/.test(match) && units <= 3) continue; // 思路/市里 are words
       }
       if (kind === 'bankcard' && match.replace(/\D/g, '').length < 16) continue;
+      // public-body mode: a street address or calendar date on the public record (the property a bill rezones, the day
+      // of a hearing) is the subject of the meeting; only one tied to a person in the same sentence is redacted
+      if (shared && (kind === 'address' || kind === 'date') && !isCJK(match) && publicRecordSpan(text, start)) continue;
       if (!match) continue;
       spans.push({ start, end: start + match.length, kind, match, pri });
     }
   });
   for (const re of rosterPatterns(roster)) for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind: 'name', match: m[0], pri: 20 });
   for (const s of thirdPartyNames(text, { allowPublicFacts })) spans.push({ ...s, pri: 30 });
+  // public-body mode: an officer's vocative (\"Madam Secretary\", \"Mr. President\") and a council district number each
+  // name exactly one seat — one person — so they are quasi-identifiers of whoever holds or represents it
+  if (shared) for (const [kind, re] of SEAT_EN) for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind, match: m[0], pri: 25 });
   // Resolve overlaps: earlier start wins, then higher priority (lower number), then longer.
   spans.sort((a, b) => a.start - b.start || a.pri - b.pri || (b.end - b.start) - (a.end - a.start));
   const out = [];
@@ -241,8 +262,36 @@ export function redactPII(text, roster = [], opts = {}) {
 // mentioned bare (这个周丽华的证词…). learnThirdNames() collects such names over the whole meeting; the gate adds them
 // to the roster as name-only entries, so every later bare mention is redacted too. Public figures are never learned.
 const ROLE_BEFORE = '(?:店长|副店长|店员|组长|主管|经理|专员|助理|实习生|员工|同事|候选人|证人|客户|患者|病人|学生|家长|部的|组的|科的|处的|店的|室的|叫|名叫|叫做)';
-export function learnThirdNames(lines = [], { allowPublicFacts = true } = {}) {
+// English (public-body mode): a person thanked by full name ("thank you to Lynne Ferguson", "thanks to Ana Ruiz for …")
+// is a private third party (staff, volunteer, constituent) unless a known public figure. Exactly two capitalised words,
+// not a title + surname, not part of the shared public context.
+const THANK_EN = /\b(?:[Tt]hank(?:s|\s+you)?\s+(?:also\s+|again\s+|so\s+much\s+)?(?:to\s+)?|[Gg]rateful\s+to\s+|[Aa]ppreciat(?:e|ion\s+(?:to|for))\s+|[Ss]hout[- ]?out\s+to\s+|[Rr]ecogni[sz]e\s+)([A-Z][a-z][\p{L}'’-]+)\s+([A-Z][a-z][\p{L}'’-]+)(?!\s+[A-Z])(?![\p{L}'’-])/gu;
+const NOT_FIRST_EN = /^(?:Councilmember|Councilman|Councilwoman|Council|Commissioner|Mayor|Chair|Chairman|Chairwoman|President|Director|Mr|Ms|Mrs|Dr|Madam|Madame|Mister|Vice|Deputy|Senator|Representative|Governor|Judge|Officer|Chief|Captain|Sergeant|Professor|Father|Sister|Brother|Saint|St|City|County|State|The|This|That|All|Everyone|God|Lord|Happy|Good|Merry|North|South|East|West|New|Old|Great|Our|Your|My)$/;
+export function learnThirdNamesEn(lines = [], { allowPublicFacts = true, shared = [] } = {}) {
   const out = new Set();
+  const sharedLow = (shared || []).map((s) => String(s).toLowerCase());
+  for (const text of lines) for (const m of String(text ?? '').matchAll(THANK_EN)) {
+    const nm = `${m[1]} ${m[2]}`;
+    if (NOT_FIRST_EN.test(m[1]) || /^(?:Department|Office|Council|Committee|Commission|Board|Staff|Team|Center|Centre|Society|Trust|Foundation|Association|Program|Project|Police|Fire|Public|Parks|Health|Housing|Library|Schools?|Transit|Works|Services|City|County|Street|Avenue)$/.test(m[2])) continue;
+    if (sharedLow.some((s) => s.includes(m[1].toLowerCase()) || s.includes(m[2].toLowerCase()))) continue;
+    if (allowPublicFacts && PUBLIC_SET.has(nm)) continue;
+    out.add(nm);
+  }
+  // an elected member's titled surname ("Councilmember Morales", "councilmembers Morales and Sewell", "President
+  // Gonzalez") names someone in the room even when the roster lists them as an unnamed speaker: learned as a name
+  const TITLED = /\b(?:[Cc]ouncil\s*(?:[Mm]ember|[Ww]oman|[Mm]an|[Pp]resident)s?|[Vv]ice\s+[Mm]ayor|[Mm]ayor|[Pp]resident|[Cc]hair(?:man|woman)?|[Cc]ommissioners?)\s+((?:[A-Z][a-z][\p{L}'’-]+)(?:(?:,\s*|\s+and\s+|,\s+and\s+)[A-Z][a-z][\p{L}'’-]+)*)/gu;
+  for (const text of lines) for (const m of String(text ?? '').matchAll(TITLED)) {
+    for (const nm of m[1].split(/,\s*(?:and\s+)?|\s+and\s+/)) {
+      if (!nm || NOT_FIRST_EN.test(nm) || /^(?:Pro|Tem|Elect|Emeritus|Office|Members?)$/.test(nm)) continue;
+      if (sharedLow.some((s) => s.split(/\s+/).includes(nm.toLowerCase()))) continue;
+      if (allowPublicFacts && PUBLIC_SET.has(nm)) continue;
+      out.add(nm);
+    }
+  }
+  return [...out];
+}
+export function learnThirdNames(lines = [], { allowPublicFacts = true, shared = null } = {}) {
+  const out = new Set(shared ? learnThirdNamesEn(lines, { allowPublicFacts, shared }) : []);
   const reRole = new RegExp(`${ROLE_BEFORE}(${SUR_CLASS}[\\u4e00-\\u9fff]{1,2}?)(?=[，,。；;、？?！!\\s]|$|[的说是在也还就都跟和与那这他她关手今昨明最已刚又才会要能被把给对])`, 'g');
   for (const text of lines) {
     const t = String(text ?? '');

@@ -22,7 +22,9 @@ const safe = async (errors, label, fn) => { try { return await fn(); } catch (e)
 export async function runCore(t, { llm, memory, seed = 1 }) {
   const roster = t.roster;
   const sid = `${t.id}-r${seed}`;
-  const s = createSession({ sid, roster, policy: { k: Math.min(2, roster.length) }, llm, memory });
+  // public track: the host-declared convening body (transcript metadata, never gold) → opt-in public-body mode (METHOD P3)
+  const policy = { k: Math.min(2, roster.length), ...(Array.isArray(t.publicContext) && t.publicContext.length ? { publicContext: t.publicContext } : {}) };
+  const s = createSession({ sid, roster, policy, llm, memory });
   const keys = {};
   for (const m of roster) { keys[m.id] = generateEd25519(); s.join({ ...m, pubKey: keys[m.id].pubB64 }); }
   let ts = 1_700_000_000_000 + (t.session || 0) * 86_400_000;
@@ -89,6 +91,9 @@ export async function scoreConfig(config, t, channels, { attacker, judge, seed }
   rec.injDet = det.injections;
   const pf = M.publicFactRetention(outward, t);
   rec.publicFacts = { kept: pf.filter((x) => x.kept).length, total: pf.length, missing: pf.filter((x) => !x.kept).map((x) => x.id) };
+  // METHOD P3: the gate's "Public record" appendix may inflate keep-string matching; T9 is also reported with it stripped
+  const pfx = M.publicFactRetention(M.stripRecordAppendix(outward), t);
+  rec.publicFactsNoAppendix = { kept: pfx.filter((x) => x.kept).length, total: pfx.length };
   const p3 = M.publicThirdPartyRetention(outward, t);
   rec.publicThird = { kept: p3.filter((x) => x.kept).length, total: p3.length };
   const kw = M.ideaKeywordRecall(channels.release || '', t).filter((x) => ideas.some((i) => i.id === x.id));
