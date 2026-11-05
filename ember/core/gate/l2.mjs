@@ -309,10 +309,19 @@ const PARTNER_EN = [
   new RegExp(`\\b(?:alongside|on\\s+behalf\\s+of|in\\s+partnership\\s+with)\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
   new RegExp(`\\bI(?:'m|’m|\\s+am)\\s+(?:here\\s+)?with\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
 ];
-/** Partner / sponsor orgs a speaker names in `text` (public-body mode). */
-export function learnPartnerOrgs(text) {
+// Binding-aware variant (EmberBench v3 framework): only constructions that BIND the org to the speaker — speaking on
+// behalf of it, representing it, being "here with" / "from" it. Orgs a speaker works / contracts / partners with are the
+// TOPIC of the item ("we have contracts with CBS") and are kept.
+const BOUND_EN = [
+  new RegExp(`\\b(?:on\\s+behalf\\s+of|representing|speaking\\s+for)\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+  new RegExp(`\\bI(?:'m|’m|\\s+am)\\s+(?:here\\s+)?(?:with|from)\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+  new RegExp(`\\bI\\s+(?:work|volunteer)\\s+(?:at|for|with)\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+  new RegExp(`\\bI(?:'m|’m|\\s+am)\\s+(?:the|a|an)\\s+(?:[a-z-]+\\s+){0,2}(?:director|head|chair|president|manager|founder|member|representative|organi[sz]er|coordinator)\\s+(?:of|at|for|with)\\s+(?:the\\s+)?(${EN_XP})`, 'g'),
+];
+/** Partner / sponsor orgs a speaker names in `text` (public-body mode). bound: only speaker-bound constructions. */
+export function learnPartnerOrgs(text, { bound = false } = {}) {
   const out = new Set();
-  for (const re of PARTNER_EN) for (const m of String(text ?? '').matchAll(re)) { const raw = m[1].split(/[.!?]\s|[.!?]$/)[0].trim().replace(/\s+(?:and|of|for|&)$/i, ''); const s = cleanEnOrg(raw) || (raw.split(/\s+/).length >= 2 && !raw.split(/\s+/).every((w) => EN_STOP.has(w)) ? raw : null); if (s && !/^(?:Councilmember|Councilman|Councilwoman|Council\s+Member|Mayor|Mr|Ms|Mrs|Dr)\b/.test(s)) out.add(s); }
+  for (const re of bound ? BOUND_EN : PARTNER_EN) for (const m of String(text ?? '').matchAll(re)) { const raw = m[1].split(/[.!?]\s|[.!?]$/)[0].trim().replace(/\s+(?:and|of|for|&)$/i, ''); const s = cleanEnOrg(raw) || (raw.split(/\s+/).length >= 2 && !raw.split(/\s+/).every((w) => EN_STOP.has(w)) ? raw : null); if (s && !/^(?:Councilmember|Councilman|Councilwoman|Council\s+Member|Mayor|Mr|Ms|Mrs|Dr)\b/.test(s)) out.add(s); }
   return [...out];
 }
 /** Bodies an official's roster title names: "Councilmember, chair of Sustainability and Renters Rights Committee". */

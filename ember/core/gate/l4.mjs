@@ -52,16 +52,21 @@ function mockVerifyRound(flat, toks) {
 }
 
 // Returns { flagged: attribution hits >= threshold, tone: Set of claim numbers with residual tone }.
-async function attackRound(llm, live, pub, { stats, threshold }) {
+// Public-body mode: the attacker also names the KIND of cue. Under the binding framework (EmberBench v3, METHOD §8.1) a
+// stance, a procedural act of the meeting or content-inherent role knowledge is not a leak; only these cue kinds keep a
+// claim withheld after the last round.
+export const CUE_NOTE = `\nAlso set "cue" to the kind of cue your guess rests on: "name" (a name or nickname), "seat" (an officer seat, a district or ward the speaker represents), "affiliation" (the speaker's own employer / office / organisation), "selfTrait" (a self-disclosed personal fact: tenure, residence, career, family, being the only / first X), "style" (tone, idiolect, catchphrase), "role" (what the claim is about implies who would know it), "stance" (a known position on the issue) or "procedure" (running the meeting: motions, roll calls, votes, calling speakers). Output rows as {"i","guess","confidence","reason","tone","cue"}.`;
+export const BINDING_CUES = new Set(['name', 'seat', 'affiliation', 'selftrait', 'style']);
+async function attackRound(llm, live, pub, { stats, threshold, cueNote = '' }) {
   const list = live.map((c) => `${c.i}. ${c.text}`).join('\n');
-  const { data } = await chatJSON(llm, [{ role: 'system', content: ATTACKER_PROMPT },
+  const { data } = await chatJSON(llm, [{ role: 'system', content: ATTACKER_PROMPT + cueNote },
     { role: 'user', content: `ATTENDEES:\n${JSON.stringify(pub)}\n\nCLAIMS:\n${list}` }], { stats, temperature: 0.2 });
   const ids = new Set(live.map((c) => c.i));
   const rows = (Array.isArray(data?.results) ? data.results : []).filter((r) => ids.has(Number(r?.i)));
   const tone = new Set(rows.filter((r) => r.tone === true || r.tone === 'true').map((r) => Number(r.i)));
   const flagged = rows
     .filter((r) => r.guess && Number(r.confidence) >= threshold)
-    .map((r) => ({ i: Number(r.i), guess: String(r.guess), confidence: Number(r.confidence), reason: String(r.reason || '').slice(0, 200), tone: tone.has(Number(r.i)) }));
+    .map((r) => ({ i: Number(r.i), guess: String(r.guess), confidence: Number(r.confidence), reason: String(r.reason || '').slice(0, 200), tone: tone.has(Number(r.i)), cue: String(r.cue || '').toLowerCase().replace(/[^a-z]/g, '') }));
   return { flagged, tone };
 }
 
@@ -108,8 +113,11 @@ export async function verify(sections, roster, { llm = null, stats, threshold = 
       flagged = mockVerifyRound(live, toks);
     } else {
       const byI = new Map(live.map((c) => [c.i, c]));
-      const r = await attackRound(llm, live, pub, { stats, threshold });
-      flagged = r.flagged; toneSet = r.tone;
+      const r = await attackRound(llm, live, pub, { stats, threshold, cueNote: shared?.length ? CUE_NOTE : '' });
+      // public-body mode: only binding cues (name, seat, affiliation, self-trait, style) are generalised; a guess resting on
+      // the claim's own content (role knowledge, a stance, a procedural act) would only be fixed by deleting the content
+      flagged = shared?.length ? r.flagged.filter((f) => !f.cue || BINDING_CUES.has(f.cue)) : r.flagged;
+      toneSet = r.tone;
       const toFix = new Map(flagged.map((f) => [f.i, f]));
       for (const i of toneSet) if (!toFix.has(i)) toFix.set(i, { i, guess: null, confidence: 0, reason: 'residual tone', tone: true });
       if (toFix.size) {
@@ -146,8 +154,13 @@ export async function verify(sections, roster, { llm = null, stats, threshold = 
         residual = live2.filter((c) => toks.some((t) => tokenRe(t).test(c.text))).map((c) => ({ i: c.i, guess: null, confidence: 1, reason: 'roster token' }));
         residualTone = new Set(live2.filter((c) => hasToneMarker(c.text)).map((c) => c.i));
       } else if (live2.length) {
-        const r = await attackRound(llm, live2, pub, { stats, threshold: Math.max(threshold, flagThreshold) });
-        residual = r.flagged; residualTone = r.tone;
+        const r = await attackRound(llm, live2, pub, { stats, threshold: Math.max(threshold, flagThreshold), cueNote: shared?.length ? CUE_NOTE : '' });
+        // public-body mode: a residual guess resting on a stance, a procedural act or content-inherent role knowledge is
+        // not a binding leak (measured by the re-identification excess instead): the claim is released, not withheld
+        residual = shared?.length ? r.flagged.filter((f) => !f.cue || BINDING_CUES.has(f.cue)) : r.flagged;
+        // public-body mode: residual tone withholds only when a deterministic tone marker (sarcasm / catchphrase shape)
+        // is still present — the attacker's tone flag alone fires on ordinary procedural and rhetorical lines
+        residualTone = shared?.length ? new Set([...r.tone].filter((i) => hasToneMarker(live2.find((c) => c.i === i)?.text || ''))) : r.tone;
       }
     }
   }

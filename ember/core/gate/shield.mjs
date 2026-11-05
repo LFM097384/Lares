@@ -16,6 +16,7 @@ import { chatJSON } from './llm.mjs';
 import { rosterTokens } from './l4.mjs';
 import { orgFragments, memberOrgFragments, isSharedOrg } from './l2.mjs';
 import { opaqueTokens, selfFigures, maskSelfFigures } from './guard.mjs';
+import { isPersonShaped, PUBLIC_FIGURES } from './l1.mjs';
 
 const CLASSIFY_SYSTEM = `You find PUBLIC WORLD KNOWLEDGE in fragments of a private meeting. List exact substrings (copied character for character) that are:
 - names of laws, regulations, court bodies, official documents, public programmes, public reports and their publishers;
@@ -46,6 +47,15 @@ const VERIFY_SYSTEM = `Below is a private meeting (already partly anonymised) an
 Keep (do NOT return) laws, published works and their authors, public figures, public companies cited as context, places, public events, and statistics from public sources.
 Output only JSON {"private":["..."]}.`;
 
+// Public-body mode: the meeting's own business (items, decisions, figures, codes, programmes) IS the public record; only
+// what is private to a person in the room or binds them to an organisation is private.
+const VERIFY_PUBLIC = `Below is a PUBLIC meeting of a government body (already partly anonymised) and candidate spans. The body's business is public record: agenda items, bill / ordinance / section numbers, codes, votes, outcomes, the figures, dates, addresses, programmes, agencies and organisations the items concern. Return ONLY the candidates that are PRIVATE, i.e.:
+- a private person (a member of the public, staff, a relative, anyone not a public office holder) or a nickname;
+- a speaker's own employer, firm, group or organisation they represent, their own home, family, pay, tenure or life story;
+- a phrase that is a speaker's personal manner of speaking (a catchphrase).
+Do NOT return item / bill / section numbers, codes, vote tallies, figures, dates, addresses, public agencies, public programmes, policies or the subjects of an item.
+Output only JSON {"private":["..."]}.`;
+
 // Deterministic cues (no LLM): book / document titles and capitalised named documents or bodies.
 const CUE_PATTERNS = [
   /《[^《》\n]{1,30}》/g,
@@ -57,8 +67,10 @@ const cueSpans = (text) => CUE_PATTERNS.flatMap((re) => [...text.matchAll(re)].m
 // codes, vote tallies and outcomes, named public offices and programmes, street addresses and dates of the record.
 const NUMW = '(?:\\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen)';
 const CIVIC_PATTERNS = [
-  /\b(?:Council|Senate|House|Assembly)\s+Bills?\s+(?:No\.?\s*|Number\s+)?\d[\d,.-]*(?:\s+\d[\d-]*)?(?:,?\s*[Dd]ash\s+\d+\w*)?/g,
-  /\b(?:Resolution|Ordinance|Bill|Item|Amendment|Proclamation|Motion|File|Case|Docket|Communication|Rezoning|Application|Report)\s+(?:No\.?\s*|Number\s+|#\s*)?\d[\w.-]*(?:,?\s*[Dd]ash\s+\d+\w*)?(?:\s+Communication)?/g,
+  /\b(?:[Cc]ouncil|Senate|House|Assembly)\s+[Bb]ills?\s+(?:No\.?\s*|Number\s+)?\d[\d,.-]*(?:\s+\d[\d-]*)?(?:,?\s*[Dd]ash\s+\d+\w*)?/g,
+  /\b(?:Resolution|Ordinance|Bill|Item|Amendment|Proclamation|Motion|File|Case|Docket|Communication|Rezoning|Application|Report)\s+(?:No\.?\s*|Number\s+|#\s*)?\d[\w.-]*(?:\s+\d[\d-]{2,}\b)?(?:,?\s*[Dd]ash\s+\d+\w*)?(?:\s+Communication)?/g,
+  // section / chapter numbers incl. spoken (ASR) continuations: "sections 7.20 4.0 or 3020 2.202.0 80 and 22.20 6.1 80"
+  /\b(?:[Ss]ections?|[Cc]hapters?|[Tt]itle|[Aa]rticles?|[Ss]ubsections?)\s+\d+(?:\.\d+)+[\w.]*(?:(?:\s+(?:or|and|,)?\s*)\d[\d.]*){0,8}(?:\s+(?:of\s+the\s+(?:[A-Z][\w.]*\s+){1,4}Code))?|\b\d{1,3}\.\d{1,3}\.\d{1,4}\b/g,
   /\b[A-Z]{1,3}\s+[Dd]ash\s+\d+\w*|\b\d{1,3},?\s+[Dd]ash\s+\d+\w*/g,
   /\b(?:Title|Chapter|Section|Article)\s+\d[\w.]*\s+of\s+the\s+(?:[A-Z][\w.]*\s+){1,5}Code(?:\s+[A-Z][a-z]+)?/g,
   /\b(?:[A-Z][\w.]*\s+){0,4}(?:[Mm]unicipal|[Zz]oning|[Rr]evised|[Aa]dministrative|[Bb]uilding|[Hh]ousing|[Ll]and\s+[Uu]se|[Ff]ire)\s+[Cc]ode\b/g,
@@ -80,16 +92,16 @@ const civicOf = (pats, text) => pats.flatMap((re) => [...String(text ?? '').matc
 export const CIVIC_KINDS = ['Legislation and items', 'Votes and outcomes', 'Codes', 'Public bodies', 'Properties', 'Dates', 'Figures'];
 export function civicKind(s) {
   const at = (i) => civicOf([CIVIC_PATTERNS[i]], s).some((x) => x === s);
-  if ([0, 1, 2].some(at)) return 'Legislation and items';
-  if ([5, 6].some(at)) return 'Votes and outcomes';
-  if ([3, 4].some(at)) return 'Codes';
-  if (at(8)) return 'Properties';
-  if (at(9) || at(12)) return 'Dates';
-  if (at(7)) return 'Public bodies';
+  if ([0, 1, 3].some(at)) return 'Legislation and items';
+  if ([6, 7].some(at)) return 'Votes and outcomes';
+  if ([2, 4, 5].some(at)) return 'Codes';
+  if (at(9)) return 'Properties';
+  if (at(10) || at(13)) return 'Dates';
+  if (at(8)) return 'Public bodies';
   return 'Figures';
 }
-export const civicStrong = (text) => civicOf(CIVIC_PATTERNS.slice(0, 7), text);
-export const civicSpans = (text) => [...civicStrong(text), ...civicOf(CIVIC_PATTERNS.slice(7), text)];
+export const civicStrong = (text) => civicOf(CIVIC_PATTERNS.slice(0, 8), text);
+export const civicSpans = (text) => [...civicStrong(text), ...civicOf(CIVIC_PATTERNS.slice(8), text)];
 
 const CJK = /[\u3400-\u9fff]/g;
 const OWN_BEFORE = /(?:我的|我们的?|咱们的?|我那|我这|本单位|本公司|\bour\b|\bmy\b)\s*$/i;
@@ -125,7 +137,7 @@ export function eligible(span, text, { toks, own, record = false }) {
   // (a civic-record shape — a vote tally "nine ayes, three nays" — may carry a comma)
   if (!record && /[，,。；;！？!?：:]/.test(s.replace(/《[^《》]*》/g, ''))) return false;
   const nC = (s.match(CJK) || []).length, nW = (s.match(/[A-Za-z0-9]+/g) || []).length;
-  if (nC > 16 || nW > 8 || (!nC && nW < 1)) return false;
+  if (nC > 16 || nW > (record ? 16 : 8) || (!nC && nW < 1)) return false;
   if (opaqueTokens(s).length || /@|https?:|www\./i.test(s)) return false;
   // a statute named after an organisation (British Museum Act 1963, 《某某法》) is a law, not the organisation — the same
   // exemption L2 applies; the roster token is only ignored when the statute suffix follows it directly
@@ -184,11 +196,14 @@ export async function shieldPublic(clusters, { llm, stats, roster = [], rawLines
   const toks = [...new Set([...rt, ...frag.map((x) => String(x).trim()).filter((x) => x.length >= 2)])].sort((a, b) => b.length - a.length);
   const own = selfFigures(rawLines);
   let spans = [...new Set(cand)].filter((s) => eligible(s, text, { toks, own, record: civic.has(s) })).sort((a, b) => b.length - a.length);
+  // public-body mode: a person-shaped span (given name / nickname ± surname) is never public by the shield's say-so —
+  // only the curated public-figure list is; everyone else at a public hearing is a member of the public
+  if (shared) spans = spans.filter((s) => !isPersonShaped(s) || PUBLIC_FIGURES.includes(s));
   if (spans.length) {
     try {
       // deterministic civic-record spans are public by shape: they skip the LLM precision pass (still eligibility-checked)
       const ask2 = spans.filter((s) => !civic.has(s));
-      const msgs = [{ role: 'system', content: VERIFY_SYSTEM }, { role: 'user', content: `${ctxNote}MEETING:\n${text}\n\nCANDIDATES:\n${JSON.stringify(ask2)}` }];
+      const msgs = [{ role: 'system', content: shared ? VERIFY_PUBLIC : VERIFY_SYSTEM }, { role: 'user', content: `${ctxNote}MEETING:\n${text}\n\nCANDIDATES:\n${JSON.stringify(ask2)}` }];
       const { data } = await chatJSON(llm, msgs, { stats, temperature: 0 }).catch(() => chatJSON(llm, msgs, { stats, temperature: 0 })); // one retry before failing closed
       const priv = new Set((Array.isArray(data?.private) ? data.private : []).map((x) => String((x && typeof x === 'object' ? x.text ?? '' : x) ?? '').trim()));
       spans = spans.filter((s) => !priv.has(s));
@@ -206,10 +221,10 @@ export async function shieldPublic(clusters, { llm, stats, roster = [], rawLines
   const apply = (s) => { let o = String(s ?? ''); for (const [span, t] of tok) o = o.split(span).join(t); return o; };
   // defence in depth: a restored span is re-checked against the identifier set and dropped if it would un-mask anything
   const safeBack = (v) => (v && !toks.some((t) => t.length >= 2 && v.toLowerCase().includes(t.toLowerCase())) ? v : '');
-  const restore = (s) => String(s ?? '').replace(/⟦P(\d+)⟧/g, (m) => safeBack(back.get(m))).replace(/⟦[^⟧]*⟧/g, '');
+  const restore = (s) => String(s ?? '').replace(/⟦P(\d+)⟧/g, (m) => safeBack(back.get(m))).replace(/⟦[^⟧]*⟧/g, '').replace(/⟦P?\d*⟦?|⟧/g, '');
   return { clusters: clusters.map((c) => ({ topic: apply(c.topic), segments: c.segments.map(apply) })), hide: apply, restore, spans: kept, civic: kept.filter((s) => civicAll.has(s)) };
 }
 
-const PUBLIC_BODY_NOTE = (shared) => `CONTEXT: this is a PUBLIC meeting of ${shared[0]}. Its civic record is public world knowledge: agenda item, bill, resolution and ordinance numbers, municipal codes, vote tallies and outcomes, public departments, agencies and programmes of ${shared[0]}, and the addresses / properties and dates that the items concern. The private side is still private: who said what, a speaker's own office, employer, district, home, family or life story, private people they name, and organisations a speaker says they work, partner or contract with.`;
+const PUBLIC_BODY_NOTE = (shared) => `CONTEXT: this is a PUBLIC meeting of ${shared[0]}. Its civic record is public world knowledge: agenda item, bill, resolution and ordinance numbers, municipal codes, vote tallies and outcomes, public departments, agencies and programmes of ${shared[0]}, and the addresses / properties and dates that the items concern. The private side is still private: who said what, a speaker's own office, employer, district, home, family or life story, private people they name, and private organisations a speaker represents or works at. An organisation discussed as the subject of an item (a contractor, a partner, a grantee) is part of the record.`;
 
 export const SHIELD_NOTE = 'Tokens like ⟦P1⟧ stand for public names or public facts (laws, works, public figures, statistics). Copy every such token unchanged, exactly where it belongs in the sentence; never drop, translate or explain it.';

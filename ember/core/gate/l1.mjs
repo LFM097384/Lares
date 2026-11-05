@@ -198,7 +198,11 @@ const SEAT_EN = [
   ['seat', /\b(?:Madam|Madame|Mister|Mr\.?)\s+(?:Vice\s+|Deputy\s+)?(?:Council\s+)?(?:President|Secretary|Clerk|Chair(?:man|woman|person)?|Mayor|Speaker)(?:\s+pro\s+tem)?\b/g],
   ['district', new RegExp(`\\b(?:(?:my|our|your|his|her|their)\\s+(?:own\\s+)?(?:council\\s+)?district|(?:Council\\s+)?District\\s+(?:No\\.?\\s*)?(?:${ORD_EN})|(?:the\\s+)?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|1st|2nd|3rd|[4-9]th)\\s+(?:council\\s+)?district)\\b`, 'gi')],
 ];
-export function detectPII(text, roster = [], { allowPublicFacts = true, shared = null } = {}) {
+/** A span shaped like a person's name: a known given name / nickname alone or followed by ≤ 2 capitalised words. */
+// public-body mode only (shield eligibility): given names incl. short forms; ambiguous words (Bill, Will, Pat …) excluded
+const NICKS = 'Chris Bob Mike Jim Tom Dan Steve Joe Dave Matt Tony Ken Ron Rick Kate Liz Sam Nick Andy Jeff Greg Tim Fred Jen Jenny Becky Katie Meg Tina Terry Jerry Larry Gary Kathy Cathy Patty Wendy Vicky Ted Hank Alex Zach Josh Jake'.split(' ');
+export const isPersonShaped = (s) => { const w = String(s ?? '').trim().split(/\s+/); return w.length <= 3 && (FIRST_NAMES.includes(w[0]) || NICKS.includes(w[0])) && w.slice(1).every((x) => /^[A-Z][\p{L}'’-]+$/u.test(x)); };
+export function detectPII(text, roster = [], { allowPublicFacts = true, shared = null, seats = null } = {}) {
   text = String(text ?? '');
   const spans = [];
   PATTERNS.forEach(([kind, re], pri) => {
@@ -225,7 +229,12 @@ export function detectPII(text, roster = [], { allowPublicFacts = true, shared =
   for (const s of thirdPartyNames(text, { allowPublicFacts })) spans.push({ ...s, pri: 30 });
   // public-body mode: an officer's vocative (\"Madam Secretary\", \"Mr. President\") and a council district number each
   // name exactly one seat — one person — so they are quasi-identifiers of whoever holds or represents it
-  if (shared) for (const [kind, re] of SEAT_EN) for (const m of text.matchAll(re)) spans.push({ start: m.index, end: m.index + m[0].length, kind, match: m[0], pri: 25 });
+  // With `seats` (the gate's binding pass: districts a speaker calls their own), a numbered district that nobody binds to
+  // themselves is the subject of an item ("the property is in Council District eight") and stays; "my district" always goes.
+  if (shared) for (const [kind, re] of SEAT_EN) for (const m of text.matchAll(re)) {
+    if (kind === 'district' && seats && !/^(?:my|our|your|his|her|their)\s/i.test(m[0]) && !seats.has(m[0].replace(/^the\s+/i, '').toLowerCase())) continue;
+    spans.push({ start: m.index, end: m.index + m[0].length, kind, match: m[0], pri: 25 });
+  }
   // Resolve overlaps: earlier start wins, then higher priority (lower number), then longer.
   spans.sort((a, b) => a.start - b.start || a.pri - b.pri || (b.end - b.start) - (a.end - a.start));
   const out = [];

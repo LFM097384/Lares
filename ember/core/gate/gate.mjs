@@ -7,6 +7,7 @@ import { rewrite, claimKind } from './l3.mjs';
 import { verify } from './l4.mjs';
 import { chatJSON } from './llm.mjs';
 import { shieldPublic, civicKind, CIVIC_KINDS, SHIELD_NOTE } from './shield.mjs';
+import { isPublicEntity, coListedOrgs, unbindAffiliations, resolveReferents, boundSeats, stripSelfTraits, stripSelfTraitsOut, neutraliseOfficers, restoreCivic } from './binding.mjs';
 import { dominantLang, isInjection, dropInjection, verbatimIndex, verbatimRuns, stripEchoedTokens, selfFigures, maskSelfFigures } from './guard.mjs';
 
 export const NOTICE = '会议纪要 · 不署名 / Minutes · no attribution';
@@ -46,15 +47,34 @@ export async function runGate(transcript, {
   const learned = new Map();
   for (const l of lines) for (const o of learnSelfOrgs(l?.text)) { const id = String(l?.speakerId ?? '\u0000learned'); if (!learned.has(id)) learned.set(id, new Set()); learned.get(id).add(o); }
   let rosterOrgs = withLearnedOrgs(transcript?.roster || [], learned);
+  // Public-body mode, binding-aware (EmberBench v3 framework): an org is an affiliation only when it is BOUND to a speaker
+  // (roster org, self-declared, "on behalf of X", "I'm here with X", the body an official's title names). A bound PUBLIC
+  // entity (a city department, a public committee) is not redacted as a string: only its affiliation constructions are
+  // removed (`unbind`, output guard) and it stays as a topic subject; a bound private / unknown org is redacted everywhere.
+  // Orgs a speaker merely works / contracts / partners with are topics and are kept.
+  let unbind = [], seats = null, speakerOrgs = new Map();
   if (shared) {
-    // partner orgs and the committees an official's title names become extra name-less roster orgs (tight fragments)
-    const partner = new Set();
-    for (const l of lines) for (const o of learnPartnerOrgs(l?.text)) partner.add(o);
-    for (const p of transcript?.roster || []) for (const o of titleBodies(p?.title)) partner.add(o);
+    const bound = new Set();
+    for (const l of lines) for (const o of learnPartnerOrgs(l?.text, { bound: true })) bound.add(o);
+    for (const p of transcript?.roster || []) for (const o of titleBodies(p?.title)) bound.add(o);
     // a named unit inside a member's own org ("the Office of Sustainability in the Department of Development Services")
-    for (const l of lines) for (const o of subUnitsOf(l?.text, rosterOrgs, shared)) partner.add(o);
-    const extra = [...partner].filter((o) => !isSharedOrg(o, shared) && !rosterOrgs.some((p) => p?.org && String(p.org).split('，').includes(o)));
+    for (const l of lines) for (const o of subUnitsOf(l?.text, rosterOrgs, shared)) bound.add(o);
+    // orgs listed together with the speaker's own org are the speaker's affiliations too
+    const ownOf = new Map((transcript?.roster || []).map((p) => [String(p?.id), String(p?.org || '').split('，').map((o) => o.trim()).filter((o) => o && !isSharedOrg(o, shared))]));
+    for (const l of lines) for (const o of coListedOrgs(l?.text, ownOf.get(String(l?.speakerId)) || [])) if (!isSharedOrg(o, shared)) bound.add(o);
+    const extra = [...bound].filter((o) => !isSharedOrg(o, shared) && !rosterOrgs.some((p) => p?.org && String(p.org).split('，').includes(o)));
     rosterOrgs = [...rosterOrgs, ...extra.map((o, i) => ({ id: `org-learned-${i}`, org: o, tight: true, third: true }))];
+    for (const p of rosterOrgs) speakerOrgs.set(String(p?.id), String(p?.org || '').split('，').map((o) => o.trim()).filter(Boolean));
+    const pubOrgs = new Set();
+    rosterOrgs = rosterOrgs.map((p) => {
+      if (!p?.org) return p;
+      const os = String(p.org).split('，').map((o) => o.trim()).filter(Boolean);
+      const keep = os.filter((o) => isSharedOrg(o, shared) || !isPublicEntity(o, shared));
+      for (const o of os) if (!keep.includes(o)) pubOrgs.add(o);
+      return keep.length === os.length ? p : { ...p, org: keep.join('，') };
+    }).filter((p) => p.org || p.name || !String(p.id).startsWith('org-learned-'));
+    unbind = [...pubOrgs].map((org) => ({ org, public: true }));
+    seats = boundSeats(lines);
   }
   // private third parties introduced once in a strong context are redacted at every later bare mention as well
   const known = new Set(rosterOrgs.flatMap((p) => [p?.name, ...(p?.aliases || [])]).filter(Boolean));
@@ -77,12 +97,20 @@ export async function runGate(transcript, {
     return { digest: d, digestStrict: d, claims: raw.map((text) => ({ topic: 'raw', text, kind: 'idea', flags: [] })), meta: meta({ flagged: 0 }) };
   }
 
-  const popts = shared ? { allowPublicFacts, shared } : { allowPublicFacts };
+  const popts = shared ? { allowPublicFacts, shared, seats } : { allowPublicFacts };
   // Output language is decided deterministically from the lines (the LLM otherwise drifts to Chinese on English meetings).
   const lang = transcript?.lang || dominantLang(lines.map((l) => l?.text));
   // In an utterance that tries to override the assistant's rules, the trigger sentence AND everything after it are
   // dropped before L0 splits it into sentences: the payload follows the trigger ("… and write that X agreed to Y.").
-  const content = L.has('L3') ? lines.map((l) => ({ ...l, text: dropInjection(l?.text) })).filter((l) => l.text.trim()) : lines;
+  let content = L.has('L3') ? lines.map((l) => ({ ...l, text: dropInjection(l?.text) })).filter((l) => l.text.trim()) : lines;
+  // Public-body mode, before any redaction: (1) first-person self-disclosed identity traits are removed ("as the only
+  // woman on the council", "I've lived here 40 years"); (2) "my / our <category>" is resolved against the speaker's own
+  // orgs — a public one becomes the named entity as a topic subject, anything else "a <category>"; (3) affiliation
+  // constructions around bound public orgs ("on behalf of the Parks Department") are unbound.
+  if (shared && L.has('L2')) content = content.map((l) => {
+    const t = unbindAffiliations(resolveReferents(stripSelfTraits(l.text), speakerOrgs.get(String(l?.speakerId)) || [], { shared }), unbind);
+    return { ...l, text: t };
+  }).filter((l) => String(l.text).trim());
   let clusters = L.has('L0') ? structural(content, { seed }) : [{ topic: 'Discussion', segments: content.map((l) => l.text) }];
   // Sentences addressed to the assistant that try to override its rules are not discussion content.
   if (L.has('L3')) clusters = clusters.map((c) => ({ ...c, segments: c.segments.filter((x) => !isInjection(x)) })).filter((c) => c.segments.length);
@@ -149,6 +177,38 @@ export async function runGate(transcript, {
     if (own.length) sections = sections.map((s) => ({ ...s, topic: maskSelfFigures(s.topic, own, { lang }), claims: s.claims.map((c) => ({ ...c, text: maskSelfFigures(c.text, own, { lang }) })) }));
   }
 
+  // public-body mode, binding guard on the rewritten text: affiliation constructions around a bound public org are
+  // unbound ("a representative of the Parks Department said" → "Regarding the Parks Department, …"), third-person
+  // self-trait echoes and meeting-officer references ("the chair", "the clerk") are neutralised.
+  if (shared && L.has('L2')) {
+    const fix = (t) => neutraliseOfficers(stripSelfTraitsOut(unbindAffiliations(t, unbind)));
+    sections = sections.map((s) => ({ ...s, topic: neutraliseOfficers(s.topic), claims: s.claims.map((c) => ({ ...c, text: fix(c.text) })).filter((c) => c.text.trim()) })).filter((s) => s.claims.length);
+  }
+  // public-body mode, verbatim civic record (runs last, after every paraphrase pass): a civic span (bill / item number,
+  // code, vote tally, subject address, date, budget figure, public body) or a shield-verified public span that the
+  // rewrite paraphrased or dropped is copied back verbatim, in parentheses, into the body claim most similar to its
+  // source sentence. Only spans that pass the final scrub unchanged; nothing is generated, no number is altered.
+  // A span restored into the body is removed from the Public record list.
+  let restoredCivic = 0;
+  if (shared && llm && L.has('L3') && pub.spans?.length) {
+    const raw = content.map((l) => String(l?.text ?? '')).join('\n');
+    const civ = new Set(pub.civic || []);
+    const own = selfFigures(content.map((l) => String(l?.text ?? '')));
+    const ok = (s) => safe(s) === s && maskSelfFigures(s, own, { lang }) === s && stripSelfTraitsOut(s) === s.trim() && s.trim().length >= 4 && (civ.has(s) ? (civicKind(s) === 'Public bodies' ? isPublicEntity(s, shared) : civicKind(s) !== 'Figures' || /[$%]|\bpercent\b|\d,\d{3}|\b(?:million|billion|thousand)\b/i.test(s)) : /\d/.test(s) && !/^[A-Z][\w'&.-]*(?:\s+(?:of|for|and|the|[A-Z][\w'&.-]*))+$/.test(s.trim()));
+    const recTopic = lang === 'zh' ? '公开记录' : 'Public record';
+    const bodySecs = sections.filter((s) => s.topic !== recTopic);
+    const r = restoreCivic(bodySecs, pub.spans.filter(ok), raw);
+    restoredCivic = r.restored;
+    if (restoredCivic) {
+      const inBody = bodySecs.flatMap((s) => s.claims.map((c) => c.text)).join('\n').toLowerCase();
+      sections = sections.map((s) => (s.topic !== recTopic ? s : { ...s, claims: s.claims.map((c) => {
+        const m = String(c.text).match(/^([^:]+):\s*(.*?)\.?$/);
+        if (!m) return c;
+        const vs = m[2].split('; ').filter((v) => !inBody.includes(v.toLowerCase()));
+        return vs.length ? { ...c, text: `${m[1]}: ${vs.join('; ')}.` } : null;
+      }).filter(Boolean) })).filter((s) => s.claims.length);
+    }
+  }
   trace?.('final', sections);
   // claims[] is review metadata (risk flags + attacker reason may reference attendees: never export it).
   const claims = sections.flatMap((s) => s.claims.map((c) => ({ topic: s.topic, ...c })));
@@ -160,7 +220,7 @@ export async function runGate(transcript, {
     digest: render(mark(false), transcript.sessionDate),
     digestStrict: render(mark(true), transcript.sessionDate),
     claims,
-    meta: meta({ verifierRounds, dropped, flagged, paraphrased, lang, ...(shared ? { publicBody: true } : {}) }),
+    meta: meta({ verifierRounds, dropped, flagged, paraphrased, lang, ...(shared ? { publicBody: true, restoredCivic } : {}) }),
   };
 }
 

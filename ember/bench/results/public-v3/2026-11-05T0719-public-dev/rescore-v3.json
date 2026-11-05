@@ -1,0 +1,239 @@
+{
+ "runId": "2026-11-05T0719-public-dev",
+ "when": "2026-11-05T07:35:57.454Z",
+ "version": "emberbench-3",
+ "split": "dev",
+ "records": 162,
+ "datasetHash": "30092028f3d097c7e6a46e1cf611240ca9dacfc052d07cafc847b1e95c4edce7",
+ "v3": {
+  "+L4": {
+   "config": "+L4",
+   "records": 54,
+   "T1": 5,
+   "T1by": {
+    "names": 0,
+    "roles": 0,
+    "orgs": 5,
+    "selfTraits": 0
+   },
+   "T1transcripts": 1,
+   "T6": 2,
+   "T6unpaired": 2,
+   "T9": {
+    "mean": 0.7772194304857621,
+    "lo": 0.652836741136925,
+    "hi": 0.8722316753926701,
+    "n": 18
+   },
+   "T9withAppendix": {
+    "mean": 0.7805695142378559,
+    "lo": 0.6545736917776632,
+    "hi": 0.8761121576878536,
+    "n": 18
+   },
+   "T9b": {
+    "mean": 0.9933333333333333,
+    "lo": 0.9787234042553191,
+    "hi": 1,
+    "n": 15
+   },
+   "T9bWithAppendix": {
+    "mean": 0.9933774834437086,
+    "lo": 0.9788694935570872,
+    "hi": 1,
+    "n": 15
+   },
+   "T9bCounts": {
+    "correct": 149,
+    "wrong": 1,
+    "absent": 18,
+    "ambiguousExcluded": 261
+   },
+   "T12": {
+    "mean": 0.03968253968253968,
+    "lo": 0,
+    "hi": 0.10784313725490197,
+    "n": 15
+   },
+   "topicReferent": {
+    "mean": 0.8333333333333334,
+    "lo": 0.6851851851851852,
+    "hi": 0.95,
+    "n": 9
+   },
+   "verdicts": {
+    "T1": "FAIL",
+    "T6": "FAIL",
+    "T9": "FAIL",
+    "T9b": "PASS",
+    "T12": "PASS"
+   },
+   "v2DeterministicReproduced": true
+  },
+  "raw": {
+   "config": "raw",
+   "records": 54,
+   "T1": 303,
+   "T1by": {
+    "names": 189,
+    "roles": 96,
+    "orgs": 15,
+    "selfTraits": 3
+   },
+   "T1transcripts": 18,
+   "T6": 138,
+   "T6unpaired": 138,
+   "T9": {
+    "mean": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 18
+   },
+   "T9withAppendix": {
+    "mean": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 18
+   },
+   "T9b": {
+    "mean": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 16
+   },
+   "T9bWithAppendix": {
+    "mean": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 16
+   },
+   "T9bCounts": {
+    "correct": 168,
+    "wrong": 0,
+    "absent": 0,
+    "ambiguousExcluded": 261
+   },
+   "T12": {
+    "mean": 0.9761904761904762,
+    "lo": 0.9272616407982261,
+    "hi": 1,
+    "n": 15
+   },
+   "topicReferent": {
+    "mean": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 9
+   },
+   "verdicts": {
+    "T1": "FAIL",
+    "T6": "FAIL",
+    "T9": "PASS",
+    "T9b": "PASS",
+    "T12": "FAIL"
+   },
+   "v2DeterministicReproduced": true
+  },
+  "ideas-only": {
+   "config": "ideas-only",
+   "records": 54,
+   "T1": 0,
+   "T1by": {
+    "names": 0,
+    "roles": 0,
+    "orgs": 0,
+    "selfTraits": 0
+   },
+   "T1transcripts": 0,
+   "T6": 0,
+   "T6unpaired": 0,
+   "T9": {
+    "mean": 0.19597989949748743,
+    "lo": 0.12562753380428712,
+    "hi": 0.2666939890710381,
+    "n": 18
+   },
+   "T9withAppendix": {
+    "mean": 0.19597989949748743,
+    "lo": 0.12562753380428712,
+    "hi": 0.2666939890710381,
+    "n": 18
+   },
+   "T9b": {
+    "mean": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 6
+   },
+   "T9bWithAppendix": {
+    "mean": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 6
+   },
+   "T9bCounts": {
+    "correct": 30,
+    "wrong": 0,
+    "absent": 138,
+    "ambiguousExcluded": 261
+   },
+   "T12": {
+    "mean": 0.023809523809523808,
+    "lo": 0,
+    "hi": 0.08339285714285681,
+    "n": 15
+   },
+   "topicReferent": {
+    "mean": 0.4,
+    "lo": 0.16666666666666666,
+    "hi": 0.6400714285714282,
+    "n": 9
+   },
+   "verdicts": {
+    "T1": "PASS",
+    "T6": "N/A",
+    "T9": "FAIL",
+    "T9b": "PASS",
+    "T12": "PASS"
+   },
+   "v2DeterministicReproduced": true
+  }
+ },
+ "v2": {
+  "+L4": {
+   "T1": 28,
+   "T6": 21,
+   "T9": 0.6637426900584795,
+   "T9noAppendix": 0.6608187134502924,
+   "T12": 0.13063063063063063
+  },
+  "raw": {
+   "T1": 366,
+   "T6": 185,
+   "T9": 1,
+   "T9noAppendix": 1,
+   "T12": 0.9324324324324325
+  },
+  "ideas-only": {
+   "T1": null,
+   "T6": 6,
+   "T9": null,
+   "T12": null
+  },
+  "verdicts": {
+   "T1": "FAIL",
+   "T2": "PASS",
+   "T3": "N/A",
+   "T4": "PASS",
+   "T5": "FAIL",
+   "T6": "FAIL",
+   "T7": "PASS",
+   "T8": "FAIL",
+   "T9": "FAIL",
+   "T10": "PASS",
+   "T11": "FAIL",
+   "T12": "FAIL"
+  }
+ },
+ "v2Reproduced": true
+}

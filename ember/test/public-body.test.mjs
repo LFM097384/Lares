@@ -27,6 +27,8 @@ test('shared org fragments are not redacted; distinct orgs still are', () => {
 test('learnPartnerOrgs: first-person partner / contract / alongside contexts', () => {
   const got = learnPartnerOrgs('We will be working with the Office of Sustainability. We were able to work with the Arts Council. We have contracts with CBS. We rallied alongside Africa Town Community Land Trust.');
   assert.deepEqual(got, ['Office of Sustainability', 'Arts Council', 'CBS', 'Africa Town Community Land Trust']);
+  // bound-only (v3): partners / contractors are topics; only representing / being here with / working at binds
+  assert.deepEqual(learnPartnerOrgs('We have contracts with CBS. I am here on behalf of Greenleaf Neighbors Alliance. I work at Harbor Legal Aid.', { bound: true }), ['Greenleaf Neighbors Alliance', 'Harbor Legal Aid']);
   assert.deepEqual(learnPartnerOrgs('The committee works on housing.'), []);
   assert.deepEqual(titleBodies('Councilmember, chair of Sustainability and Renters Rights Committee'), ['Sustainability and Renters Rights Committee']);
   assert.ok(!tightFragments('Sustainability and Renters Rights Committee').has('Committee'));
@@ -63,8 +65,11 @@ test('runGate (mock) is unchanged without publicContext and accepts it when set'
   const off = await runGate(transcript, { llm: null });
   const on = await runGate(transcript, { llm: null, publicContext: ['Denver City Council'] });
   const t = (r) => JSON.stringify(r.sections ?? r);
-  assert.doesNotMatch(t(on), /Office of Sustainability/);
+  // binding-aware (v3): an org the speaker works WITH is a topic and stays; a bound private org is generalised
+  assert.match(t(on), /Office of Sustainability/);
   assert.match(t(on), /Denver/);
+  const priv = await runGate({ roster, lines: [{ speakerId: 'a', text: "I'm here on behalf of Greenleaf Neighbors Alliance and we support the plan." }], lang: 'en' }, { llm: null, publicContext: ['Denver City Council'] });
+  assert.doesNotMatch(t(priv), /Greenleaf/);
   assert.doesNotMatch(t(off), /Denver/);
 });
 
