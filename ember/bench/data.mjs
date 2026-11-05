@@ -64,8 +64,10 @@ export function loadSplit(split, dir = DATA_DIR) {
 }
 
 /** Scenario-disjointness: ids, mosaic circles and legacy sources may not appear in both splits. */
-export function checkDisjoint(dev, test) {
-  const key = (t) => [t.id, t.circle && `circle:${t.circle}`, t.source && t.source !== 'generated' && `src:${t.source}`].filter(Boolean);
+export function checkDisjoint(dev, test, { allowSharedSource = false } = {}) {
+  // allowSharedSource: v3 public test is a DATE hold-out on the dev cities (METHOD §8.6), so the
+  // per-city source key is shared by design; disjointness is then enforced per meeting by the caller.
+  const key = (t) => [t.id, t.circle && `circle:${t.circle}`, !allowSharedSource && t.source && t.source !== 'generated' && `src:${t.source}`].filter(Boolean);
   const a = new Set(dev.flatMap(key));
   const clash = [...new Set(test.flatMap(key))].filter((k) => a.has(k));
   if (clash.length) throw new Error(`dev/test overlap: ${clash.join(', ')}`);

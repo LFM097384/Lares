@@ -120,7 +120,7 @@ export async function main(argv = process.argv.slice(2)) {
   const dataSplit = a.split === 'test' ? testSplit : 'dev';
   const manifest = verifyManifest(dataSplit, T.data, T.meta);
   const dev = loadSplit('dev', T.data), test = loadSplit(testSplit, T.data);
-  checkDisjoint(dev, test);
+  checkDisjoint(dev, test, { allowSharedSource: v3 && a.track === 'public' });
   if (v3) {
     // v3 test is a DATE hold-out on the dev cities (METHOD §8.6): no meeting may appear in both splits
     const devM = new Set(dev.map((t) => t.meetingUid));
