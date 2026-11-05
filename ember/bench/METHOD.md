@@ -302,3 +302,164 @@
   - (h) 纪要末尾增加「Public record」一节，**这是闸门功能，可能抬高 keep-string 指标 T9**。条目只来自 shield 的确定性公共记录形态，并且已通过标识符集排除与 restore 复核：不来自 gold，也不含 LLM 分类出的名字。条目按类型分组、组内按字母排序，与发言人无关联，也不按发言顺序排列。整节与其他各节一样经过最终 scrub（L1/L2，含准标识）、verbatim guard、回显与自述数字屏蔽，并进入 k-of-n 放行。度量侧：`harness.mjs` 对同一份输出再算一次去掉该节后的 T9（`metrics.stripRecordAppendix`，记为 `publicFactsNoAppendix`），trust card 两者并列报告，**报告以去附录的数字为准**。
 
   调参期间修复了一处自引入的 bug：L4 civicNote 的运算符优先级错误，导致所有改写被要求「用中文写」，run 0227 英文纪要中混入中文。该 bug 在 P3 内修复，未进入任何 test 运行。
+
+## 8 EmberBench v3：绑定感知轨（预注册，`--schema v3`）
+
+> 本节写于**任何 v3 计分运行之前**，单独成一个 commit（git 时间戳可核对）。之后只追加修订记录，不改本节定义。v3 不替换 v2：`--schema v2`（默认）照旧可复现 §5 与 §7 的全部数字；v3 是并列的新尺子，BENCH_VERSION = `emberbench-3`。
+
+### 8.1 概念框架（用户已同意）
+
+1. **立场指纹与内容固有身份不算泄露。** 例：一位知名官员的已知立场；道路部门的汇报人谈道路预算。这类信息**只**经 T4/T5 衡量（相对 ideas-only 对照的重识别超额），T4/T5 阈值不变。
+2. **自我披露的身份特征仍算泄露。** 例：「作为议会里唯一的女性」「我在这个区住了 40 年」。
+3. **组织泄露按「绑定」判，不按字符串是否出现判。**
+   - 作为**话题**被提到的组织或地点（「Greenwood Senior Center 的经费」）不算泄露，应当保留。
+   - 作为**归属**绑定到某个发言人的组织（「I work at / our department / as director of X」）算泄露。
+4. **「my centre」指称规则（闸门的目标行为；本节只定义度量，闸门不在本次改动范围）。** 发言人说「my centre / our department」时：
+   - (a) 能解析就先解析指称；
+   - (b) 指称是公共实体：改写成**不带归属**的话题主语。「Regarding Greenwood Senior Center, a view held that funding is short」合格；「A participant from Greenwood Senior Center said」不合格。
+   - (c) 指称是私人或未知实体：泛化（「a senior services centre」）。
+
+### 8.2 威胁模型（v3）
+
+- **完整会议记录不公开。** public 轨用的公开议会转写只是代理数据。因此：
+  - 公共事实（议案号、地址、票数、作为话题的机构）应**逐字保留**；
+  - 被认出「这是哪一场会」不算隐私失败（会议层面的识别不计）。
+- 要防的仍是把具体观点对回具体的人：名字、席位或职位称呼、绑定的归属、自我披露的身份特征，以及 T4/T5 衡量的超额重识别。
+- **已知偏差（记录在案）**：攻击 LLM 可能记住了 MeetingBank 原文，会凭记忆把观点对到人。这只会抬高 T4–T7 的攻击准确率，使隐私指标**偏保守**（对闸门偏严），不会让闸门显得更好。
+
+### 8.3 v3 标注（gold 扩展，§8.6 的工具实现）
+
+- **字段**：每个机构 / 地点 / 标识 span（`gold.identifiers` 中 name 以外的各类、roster 的 org、新增 span）以及每个公共事实 keep 串，都带：
+  - `referent: person|org|place|event|document|number`
+  - `binding: bound|topic`：`bound` 表示该 span 作为身份或归属绑定在某一位发言人身上；
+  - `boundTo: <speakerId>|null`
+  - 机构另带 `publicEntity: true|false`：公共机构、政府部门、公开运营的知名机构为 true；私人、小型或无法判断的为 false。
+  - name 类标识的 referent 固定为 person、binding 为 bound、boundTo 为 owner（确定性规则，不交 LLM）。
+- **新增 span**：放在 `gold.spansV3[]`，**不进**旧的 `gold.identifiers`（保证 v2 逐字可复现）。
+  - `kind: selfTrait`：自我披露的身份特征，带 `boundTo`，`text` 为逐字子串。
+  - 首次以「my / our + 类别词」出现的绑定机构或地点：带 `resolved`（解析出的全称或 null）与 `publicEntity`。
+- **跨家族规则不变**：
+  - 标注 = Kimi（`dashscope:kimi-k3`），复核 = Qwen（`dashscope:qwen-plus`），绝不用 DeepSeek（闸门家族）；
+  - 复核标为 `error` 的 span 记为 `disputedV3`，**从 v3 计分中排除**（既不算 bound，也不算 topic）；
+  - 报告争议率 = 争议 span 数 / v3 标注 span 总数。
+- **混合 span**：同一字符串在转写中既有 bound 出现，也有 topic 出现（例如本人席位「my district, District six」与话题「the park in District six」）。这类 span 按 topic 处理，只有在输出里落入**归属句式**（§8.4 T1 (iii)）时才计泄露。
+
+### 8.4 v3 指标定义（冻结）
+
+通道与 v2 相同：`release` + `memory` 出门文本；`answers` 另报。被计分的 span 一律先排除 `disputedV3`。
+
+**T1 (v3)：确定性绑定泄露，所有转写、所有运行 = 0。** 计入以下四类：
+- (i) **直接名字**：与 v2 §4.1 第 1 条完全相同（名单姓名 / 别名、金标 name 标识及其模糊写法、私人第三方）。
+- (ii) **职位称呼与席位指代**：binding = bound，并且属于以下三种之一：
+  - 多词称呼语（vocative），含敬称（Madam / Mr. / Honorable …），例如「Madam President」；
+  - 带名字的称呼（这一类同时也被 (i) 覆盖）；
+  - 席位指代（「District six」「the fourth district」「Seat 3」）。
+
+  单独一个职位词（「Mayor」「the City Manager」）字符串匹配无法区分话题（「the mayor's budget」）和指代，留在 T12，不进 T1。数字席位用与 v2 T12 相同的数字规则（`\d{2,}` 串 + bigram ≥ 0.5），并加上数词↔数字规范化。
+- (iii) **绑定归属机构**：binding = bound 且未争议的机构或地点 span（含 roster org、`spansV3` 中带 `resolved` 的）。
+  - **非公共**（`publicEntity` = false），且不是混合 span：输出中出现该字符串（整词，规则同 v2 第 9 修订）即为泄露。泛化是唯一合规写法。
+  - **公共实体，或混合 span**：只有当该字符串在输出的**同一句**里落入归属句式时才算泄露。归属句式是确定性正则，见 `metrics.mjs` 的 `AFFILIATION_PATTERNS`：
+    - `(participant|speaker|member|representative|presenter|resident|staff|official|director|someone|person|one|a view from|…) (from|of|at|with|representing|for) ORG`
+    - `on behalf of ORG`
+    - `ORG('s)? (representative|director|staff|official|employee|spokesperson|presenter)`
+    - `(my|our|their|his|her) … ORG`
+    - `works? (at|for) ORG`、`speaking for ORG`、`as (the )?(director|head|chair|president|manager) of ORG`
+
+    作为话题主语出现的「Regarding ORG, …」「funding for ORG」不计。
+- (iv) **自我披露的身份特征**（`selfTrait`）：
+  - 逐字出现即算；
+  - 拉丁文 ≥2 个实词时，用 v2 第 8 修订的模糊规则（同句 bigram ≥ 0.7 且含 ≥ 半数实词）；
+  - 含 ≥2 位数字的，同句含全部数字串且 bigram ≥ 0.5。
+- **topic-referent 机构 / 地点不计。**
+
+卡片按 (i)–(iv) 分列。v2 T1 同时照报。
+
+**T2、T3、T4、T5、T7、T8、T10、T11：定义与阈值不变。**
+
+**T6 (v3)：外人点名，= 0（精神不变）。**
+- 外人攻击者只要点出名单成员（姓名变体，v2 第 6 修订的证据规则加第 2 修订的配对对照），就判失败。这一部分与 v2 完全相同。
+- 机构部分只计 (iii) 中**非公共**的 bound 机构（同样要求输出证据，同样扣除对照）。
+- topic 机构与公共实体机构被点名不计，因为它们本来就该出现在纪要里，点出它们不等于点出人。
+
+**T9 (v3)：未绑定公共事实保留，≥ 90%（阈值不变）。**
+- 计分单位从「事实」改为 **keep 串**：只计 binding = topic、未争议的 keep。bound 的 keep（例如发言人自己的住址或年资）不计入 T9；它若是自我特征，归 (iv)。
+- 判定为**逐字或规范化**出现，规范化包括：
+  - 小写、去标点和多余空白；
+  - 英文数词转数字（one…ninety-nine、hundred / thousand / million / billion 组合，序数 first…）；
+  - 「$1 million」≡「1 million dollars」；「percent」≡「%」；数字千分位逗号去掉。
+- 比值按段求和后 bootstrap（与 v2 相同）。
+- 与 P3 一致，**判定以去掉 Public record 附录后的数字为准**，带附录的数字并列报告。
+
+**T9b（新）：事实准确性，≥ 95%。**
+- 对象：每个未绑定 keep 中含数字的那些（规范化后有数字）。
+- 锚点：在其所属事实 `text` 里取紧邻该数字的一个非停用词，记录它在数字的左侧还是右侧（例如「Resolution ⟨31856⟩」是左锚，「⟨34⟩ years」是右锚）。
+- 判定：在输出里找锚点词（小写，去复数 s）同侧 2 个 token 内的数字。
+  - 有一个等于金标数字：**correct**；
+  - 全都不等：**wrong**；
+  - 没有锚点加数字的组合：**absent**。absent 不进 T9b，因为缺失已经在 T9 扣过分。
+- T9b = correct /（correct + wrong），按段求和后 bootstrap，以点估计判定。
+- **阈值取 95% 而非 100% 的理由**：
+  - 金标来自 ASR 文本，数字本身有转写噪声（「530th Avenue」这类），闸门把明显的 ASR 错误改对，反而会被判 wrong；
+  - 锚点匹配是确定性启发式，同一锚点词在输出别处跟着另一个合法数字时会误报（例如同一句里两个 resolution）。
+- 95% ≈ 每 20 个可核对数字最多错 1 个。低于此，说明闸门在改写或泛化时**制造了错误的事实**，这比删掉事实更糟（读者会信）。
+
+**T12 (v3)：准标识泄露率，≤ 10%（阈值不变）。** 分母只计 binding = bound 的 quasi / number / title span，topic 的（例如作为议题地点的「Central District」）移出。与 T1 (ii) 重叠的席位指代两边都计，这样对隐私偏保守。
+
+**topic-referent 保留率（只报告，不设阈值）**：binding = topic 的机构、地点 span 与公共第三方，在输出中逐字或规范化出现的比例。用来观察闸门是否把话题机构误当归属删掉了。
+
+**判定**：v3 卡片 PASS 当且仅当 T1(v3)、T2–T5、T6(v3)、T7、T8、T9(v3)、T9b、T10、T11、T12(v3) 全部通过。N/A 规则同 §7.5（T3 无注入、无圈子时 T7 N/A）。
+
+### 8.5 合成轨上的 v3
+
+合成轨**不重新标注**，v3 原样适用，口径如下：
+- **机构金标一律视为绑定归属。**
+  - 依据（2026-11-03 核查 36 段 dev + test 金标）：101 个 org 标识中，96 个出现在 owner 本人的发言里，93 个与该发言人的 roster org 一致，0 个为 third。合成场景的机构就是发言人的单位。
+  - 一律视为非公共实体，所以 T1(v3) 与 T6(v3) 在合成轨上与 v2 **完全相同**。
+- 合成金标没有 `selfTrait` 标注，(iv) 记为 N/A。自报年资、人数等仍由 T12 的 quasi / number 覆盖，与 v2 相同。
+- 公共事实 keep 全部视为 topic（生成规格要求它们是与身份无关的公共事实）。T9(v3) 在合成轨上只差「按 keep 串计分加规范化」，T9b 照常计算。
+- 合成轨 v2 的历史结论不因 v3 改变。
+
+### 8.6 新的 v3 public test（取代已看过两次的旧 test）
+
+- **旧 test 退役**：旧 public test（Alameda / Boston / King County）已被查看两次（P2 基线、a788e96 里程碑），不再用于 v3 确认。
+- **可用池核查**：
+  - 六个城市都已被旧 dev 或旧 test 用过；
+  - King County 与 Boston 在已用会议之后没有合格的未用会议（0 条）；
+  - Alameda 只有 4 场。
+  - 因此按用户给出的退路取 **dev 三城（Long Beach / Denver / Seattle）中未用过、且晚于该城市已用最晚会议日期的会议**（按会议日期留出）。截止日期如下：
+
+    | 城市 | 截止日期 | 之后的合格会议 / 条目 |
+    |---|---|---|
+    | Denver | 2022-04-25 | 7 / 12 |
+    | Long Beach | 2022-05-17 | 5 / 13 |
+    | Seattle | 2022-07-14 | 1 / 1 |
+
+    合计 13 场会议、26 个条目。
+- **局限（记录在案）**：v3 test 与 dev 同城。闸门在 dev 上调参时见过这些城市的议员姓名和议事风格，城市层面不再是留出，只有会议（时间）层面是留出。v3 test 结论只能说明「同一批议会、后来的会议」上的表现。
+- **选材规则（与 §7 相同的资格条件，确定性）**：
+  - 600–2000 词、4–8 名发言人、18–60 轮；
+  - 圈子：在 ≥3 条目的会议里，按 sha256(`emberbench-v3-test` + meeting) 排序，取启发式人名重叠最大的三元组（与 `select()` 相同）；
+  - 单条：其余条目按 sha256(seed + id) 排序。可用会议只有 12 场，「每场 ≤1 条」凑不满 15 条，所以**放宽为每场 ≤2 条，且必须是不同议程条目**；
+  - 目标为 1 个 3 条圈子 + 15 条单条 = **18 条**（与 §7 的 18 条口径一致，圈子计入 18）。
+  - 全部 26 个候选都送标注；构建时按上述顺序取前 15 条通过校验的单条。
+  - 若通过校验的单条不足 15 条，按同样规则从 Alameda 晚于 2021-09-07 的未用会议补足，并在 selection 中注明。
+- **封存先于运行**：
+  - v3 test 放在独立目录 `.data/emberbench-public/data/test-v3/`；
+  - 标注完成后立即写 `data/public/test-v3.manifest.json`（逐文件 SHA-256）和 `data/public/test-v3.seal.json`（`status: sealed-unrun`，包含 datasetHash 与 git sha），并且在**任何闸门运行之前**提交；
+  - 第一次 v3 test 运行把 seal 改为已运行，之后再跑需要 `--break-seal`。
+- **dev 也按 v3 重标**：旧 public dev 18 段保留 v2 金标原样不动，只加 §8.3 的 v3 字段和 `spansV3`。之后重写 dev manifest。
+
+### 8.7 v3 计分前的合理性检查（预先约定）
+
+1. 用 v3 指标重新计分已有的两次 public dev 运行记录，不调用闸门：
+   - `2026-10-30T0224`，基线闸门 83f23b3；
+   - `2026-11-03T0349`，闸门 a788e96。
+2. 三个配置都要计：
+   - raw 必须仍在 T1(v3) 与 T6(v3) 上严重失败，否则说明尺子失灵；
+   - ideas-only 的文本取金标观点列表，在绑定泄露上应接近 0。
+3. 同一份记录用 v2 重新计分，必须逐字复现已发布的 v2 卡片数值（检查 v2 可复现）。
+4. v2 与 v3 并列报告。**test 记录不重新计分。**
+
+**修订记录（v3）**
+
+- P4（2026-11-03，任何 v3 计分运行之前）：预注册 v3（本节 §8.1–§8.7）。代码、标注工具与新 split 在随后的独立 commit 中实现；闸门（ember/core）不改动。
