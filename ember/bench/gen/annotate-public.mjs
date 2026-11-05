@@ -8,6 +8,7 @@
 //             write .data/emberbench-public/data/{dev,test}/ and the hash-only manifests in ember/bench/data/public/.
 //   node ember/bench/gen/annotate-public.mjs annotate [--only id,…] [--concurrency 4]
 //   node ember/bench/gen/annotate-public.mjs build [--per-city 6]
+//   v3 (METHOD §8.6): annotate --raw raw-v3 --ann-dir ann-v3, then build-v3 [--singles 15] → test-v3-base/ (+ data/public/selection-v3.json)
 // Needs DASHSCOPE_API_KEY or DASHSCOPE_KEY_FILE for annotate. Text stays under .data/ (git-excluded).
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
@@ -192,22 +193,23 @@ export function validatePublic(t) {
   return v;
 }
 
-async function annotate(args) {
+export async function annotate(args) {
   if (process.env.DASHSCOPE_KEY_FILE && !process.env.DASHSCOPE_API_KEY) loadDashscopeKeyFile(process.env.DASHSCOPE_KEY_FILE);
   const am = newMeter(), cm = newMeter();
   const ann = makeLLM(args.ann || 'dashscope:kimi-k3', { meter: am });
   const check = makeLLM(args.check || 'dashscope:qwen-plus', { meter: cm });
   const only = args.only ? new Set(String(args.only).split(',')) : null;
-  const items = ['dev', 'test'].flatMap((s) => (existsSync(path.join(RAW, s)) ? readdirSync(path.join(RAW, s)).filter((f) => f.endsWith('.json')).map((f) => ({ s, f })) : []))
+  const RAWD = args.raw ? path.join(PUBLIC_ROOT, args.raw) : RAW, ANND = args['ann-dir'] ? path.join(PUBLIC_ROOT, args['ann-dir']) : ANN;
+  const items = ['dev', 'test'].flatMap((s) => (existsSync(path.join(RAWD, s)) ? readdirSync(path.join(RAWD, s)).filter((f) => f.endsWith('.json')).map((f) => ({ s, f })) : []))
     .filter(({ f }) => !only || only.has(f.replace(/\.json$/, '')));
   let i = 0, done = 0;
   const conc = Number(args.concurrency) || 4;
   await Promise.all(Array.from({ length: conc }, async () => {
     while (i < items.length) {
       const { s, f } = items[i++];
-      const of = path.join(ANN, s, f);
+      const of = path.join(ANND, s, f);
       if (existsSync(of) && !args.force) { done++; continue; }
-      const t = JSON.parse(readFileSync(path.join(RAW, s, f), 'utf8'));
+      const t = JSON.parse(readFileSync(path.join(RAWD, s, f), 'utf8'));
       try {
         const a = await askJSON(ann, SYSTEM, userPrompt(t), { maxTokens: 6000 });
         const m = mergeAnnotation(t, a);
@@ -281,11 +283,61 @@ function build(args) {
   console.log(JSON.stringify({ counts: summary.counts, stats: { ...stats, rejected: stats.rejected.length }, rejected: stats.rejected }, null, 1));
 }
 
+/**
+ * v3 test base (METHOD §8.6): same deterministic check / repair / validation as `build`, applied to raw-v3 + ann-v3; keeps the
+ * circle (all three or none) plus the first `--singles` valid singles in selection rank order. Writes .data/emberbench-public/test-v3-base/
+ * (binding labels are added by annotate-v3.mjs, which writes data/test-v3/ + test-v3.manifest.json).
+ */
+function buildV3(args) {
+  const singles = Number(args.singles) || 15;
+  const RAWD = path.join(PUBLIC_ROOT, 'raw-v3'), ANND = path.join(PUBLIC_ROOT, 'ann-v3');
+  const sel = JSON.parse(readFileSync(path.join(RAWD, 'selection.json'), 'utf8'));
+  const stats = { items: 0, rejected: [], goldItems: 0, disputedItems: 0, rosterDemoted: 0, checkFailed: 0 };
+  const loaded = [];
+  for (const p of sel.picked) {
+    const f = path.join(ANND, 'test', `${p.id}.json`);
+    if (!existsSync(f)) { stats.rejected.push({ id: p.id, why: 'not annotated' }); continue; }
+    const { transcript: t, check } = JSON.parse(readFileSync(f, 'utf8'));
+    const issues = check?.issues || [];
+    if (check?.verdict === 'check-failed') stats.checkFailed++;
+    stats.goldItems += ['ideas', 'identifiers', 'thirdParties', 'publicFacts', 'stances'].reduce((s, k) => s + (t.gold[k] || []).length, 0) + t.questions.length + t.roster.filter((r) => !r.unnamed).length;
+    const r = applyPublicCheck(t, issues);
+    repair(t); publicRepair(t);
+    stats.items++; stats.disputedItems += t.gold.disputed.filter((d) => !d.unmatched && !d.auto).length; stats.rosterDemoted += r.demoted;
+    loaded.push({ p, t });
+  }
+  const final = [];
+  const c = sel.circles?.test;
+  if (c) {
+    const ss = c.items.map((id) => loaded.find((x) => x.t.kaggleId === id)).filter(Boolean);
+    const u = ss.length === 3 ? unifyCircle(ss.map((x) => x.t)) : [];
+    const vs = u.map(validatePublic);
+    if (u.length && vs.every((v) => v.ok)) for (const [k, t] of u.entries()) final.push({ city: ss[k].p.city, t });
+    else stats.rejected.push({ id: c.meeting, why: `circle invalid: ${vs.flatMap((v) => v.errors).slice(0, 3).join(' | ')}` });
+  }
+  let n = 0;
+  for (const { p, t } of loaded) {
+    if (t.circle || n >= singles) continue;
+    const v = validatePublic(t);
+    if (!v.ok) { stats.rejected.push({ id: t.id, why: v.errors.slice(0, 3).join(' | ') }); continue; }
+    final.push({ city: p.city, t }); n++;
+  }
+  const out = path.join(PUBLIC_ROOT, 'test-v3-base');
+  rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true });
+  for (const { t } of final) { const { proposal, ...clean } = t; for (const r of clean.roster) delete r.label; clean.split = 'test'; writeFileSync(path.join(out, `${t.id}.json`), JSON.stringify(clean, null, 2) + '\n'); }
+  stats.disputeRate = stats.goldItems ? stats.disputedItems / stats.goldItems : null;
+  const items = final.map(({ city, t }) => ({ split: 'test', city, id: t.id, kaggleId: t.kaggleId, meetingUid: t.meetingUid, sessionDate: t.sessionDate, circle: t.circle || null, turns: t.lines.length, roster: t.roster.length, named: t.roster.filter((r) => !r.unnamed).length, ideas: t.gold.ideas.length, identifiers: t.gold.identifiers.length, publicFacts: t.gold.publicFacts.length, questions: t.questions.filter((q) => q.answer).length, categories: t.categories }));
+  const summary = { builtAt: new Date().toISOString(), rule: 'METHOD §8.6 (date hold-out on dev cities)', seed: sel.seed, cutoff: sel.cutoff, usedMeetings: sel.usedMeetings, poolMeetings: sel.poolMeetings, poolItems: sel.poolItems, candidates: sel.picked.map((x) => ({ id: x.id, meeting: x.meeting, circle: x.circle, rank: x.rank })), counts: { test: items.length, circleSessions: items.filter((x) => x.circle).length, meetings: new Set(items.map((x) => x.meetingUid)).size }, stats, items };
+  writeFileSync(path.join(PUBLIC_META_DIR, 'selection-v3.json'), JSON.stringify(summary, null, 2) + '\n');
+  console.log(JSON.stringify({ counts: summary.counts, stats: { ...stats, rejected: stats.rejected.length }, rejected: stats.rejected }, null, 1));
+}
+
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const args = Object.fromEntries(rest.map((a, i, xs) => (a.startsWith('--') ? [a.slice(2), xs[i + 1] && !xs[i + 1].startsWith('--') ? xs[i + 1] : true] : null)).filter(Boolean));
   if (cmd === 'annotate') await annotate(args);
   else if (cmd === 'build') build(args);
-  else throw new Error('usage: annotate-public.mjs annotate|build');
+  else if (cmd === 'build-v3') buildV3(args);
+  else throw new Error('usage: annotate-public.mjs annotate|build|build-v3');
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((e) => { console.error(e.stack || e.message); process.exit(1); });

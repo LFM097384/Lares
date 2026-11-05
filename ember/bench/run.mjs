@@ -6,13 +6,16 @@
 //        [--allow-same-family] [--break-seal "<reason>"] [--seal] [--out ember/bench/results] [--track synthetic|public]
 // --track public (METHOD §7): real council transcripts from .data/emberbench-public/data (git-excluded), manifest/seal in
 // data/public/, results default to results/public/<run-id>/ with records.jsonl written to .data/ (it carries transcript text).
+// --schema v2|v3 (default v2). v3 (METHOD §8, public only): binding-aware T1/T6/T9/T12 + T9b on data/dev (gold.spansV3);
+// --split test then means the sealed date-held-out split test-v3 (seal status sealed-unrun → first run allowed, then sealed-run).
 // Writes results/<run-id>/{trustcard.md, trustcard.json, records.jsonl}.
 import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { makeLLM, newMeter, costUSD, loadDashscopeKeyFile, parseSpec } from './providers.mjs';
-import { loadSplit, verifyManifest, hashSplit, checkDisjoint, readSeal, writeSeal, circles, TRACKS } from './data.mjs';
+import { loadSplit, verifyManifest, hashSplit, checkDisjoint, readSeal, writeSeal, circles, TRACKS, V3_TEST_SPLIT } from './data.mjs';
+import { rescoreRecords, summarise, THRESHOLDS_V3, BENCH_VERSION_V3 } from './rescore-v3.mjs';
 import { runTask, CONFIGS } from './harness.mjs';
 import { aggregate, judgeThresholds, renderCard, extractFailures, BENCH_VERSION } from './trustcard.mjs';
 import { judgeRetention } from './attack.mjs';
@@ -21,11 +24,12 @@ import { cohensKappa, ideaKeywordRecall } from './metrics.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 export function parseArgs(argv) {
-  const a = { track: 'synthetic', split: 'dev', runs: 3, configs: ['+L4', 'ideas-only', 'raw'], concurrency: 4, mock: false, seed: 12345, agreementSample: 10, out: path.join(HERE, 'results') };
+  const a = { track: 'synthetic', schema: 'v2', split: 'dev', runs: 3, configs: ['+L4', 'ideas-only', 'raw'], concurrency: 4, mock: false, seed: 12345, agreementSample: 10, out: path.join(HERE, 'results') };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i], v = () => argv[++i];
     if (k === '--split') a.split = v();
     else if (k === '--track') a.track = v();
+    else if (k === '--schema') a.schema = v();
     else if (k === '--runs') a.runs = Number(v());
     else if (k === '--configs') a.configs = v().split(',').map((s) => s.trim()).filter(Boolean);
     else if (k === '--concurrency') a.concurrency = Number(v());
@@ -45,6 +49,8 @@ export function parseArgs(argv) {
   }
   if (!['dev', 'test'].includes(a.split)) throw new Error('--split must be dev|test');
   if (!TRACKS[a.track]) throw new Error(`--track must be ${Object.keys(TRACKS).join('|')}`);
+  if (!['v2', 'v3'].includes(a.schema)) throw new Error('--schema must be v2|v3');
+  if (a.schema === 'v3' && a.track !== 'public') throw new Error('--schema v3 is defined for --track public only (METHOD §8.5: synthetic v3 = v2)');
   if (a.track === 'public' && !a.outSet) a.out = path.join(HERE, 'results', 'public');
   for (const c of a.configs) if (!CONFIGS.includes(c)) throw new Error(`unknown config ${c} (have ${CONFIGS.join(', ')})`);
   if (a.configs.includes('+L4') && !a.configs.includes('ideas-only')) a.configs.push('ideas-only'); // excess needs the baseline
@@ -109,20 +115,33 @@ export async function main(argv = process.argv.slice(2)) {
 
   // ---- data integrity
   const T = TRACKS[a.track];
-  const manifest = verifyManifest(a.split, T.data, T.meta);
-  const dev = loadSplit('dev', T.data), test = loadSplit('test', T.data);
+  const v3 = a.schema === 'v3';
+  const testSplit = v3 ? V3_TEST_SPLIT : 'test';
+  const dataSplit = a.split === 'test' ? testSplit : 'dev';
+  const manifest = verifyManifest(dataSplit, T.data, T.meta);
+  const dev = loadSplit('dev', T.data), test = loadSplit(testSplit, T.data);
   checkDisjoint(dev, test);
-  if (a.track === 'public') {
+  if (v3) {
+    // v3 test is a DATE hold-out on the dev cities (METHOD §8.6): no meeting may appear in both splits
+    const devM = new Set(dev.map((t) => t.meetingUid));
+    const shared = test.filter((t) => devM.has(t.meetingUid));
+    if (shared.length) throw new Error(`v3: meetings in both splits: ${shared.map((t) => t.meetingUid).join(', ')}`);
+    if (dev.some((t) => !t.gold?.spansV3)) throw new Error('v3: dev items lack gold.spansV3 — run annotate-v3.mjs build --split dev');
+  } else if (a.track === 'public') {
     // held-out cities (METHOD §7.3): no city may appear in both splits
     const cities = (ts) => new Set(ts.map((t) => t.city));
     const both = [...cities(dev)].filter((c) => cities(test).has(c));
     if (both.length) throw new Error(`public track: cities in both splits: ${both.join(', ')}`);
   }
-  const seal = readSeal(T.meta);
-  if (a.split === 'test' && seal && !a.breakSeal) throw new Error(`test split is sealed (${seal.sealedAt}, run ${seal.runId}); pass --break-seal "<reason>" to run it again`);
+  const seal = readSeal(T.meta, testSplit);
+  // v3 seal is written BEFORE any run with status sealed-unrun (§8.6); the first run is allowed and flips it to sealed-run
+  const unrun = v3 && seal?.status === 'sealed-unrun';
+  if (a.split === 'test' && v3 && !seal) throw new Error('v3 test has no seal (data/public/test-v3.seal.json) — refusing to run');
+  if (a.split === 'test' && seal && !unrun && !a.breakSeal) throw new Error(`test split is sealed (${seal.sealedAt}, run ${seal.runId}); pass --break-seal "<reason>" to run it again`);
   let ts = a.split === 'dev' ? dev : test;
   if (a.only) ts = ts.filter((t) => a.only.includes(t.id) || a.only.includes(t.circle));
-  const datasetHash = manifest?.datasetHash || hashSplit(a.split, T.data).datasetHash;
+  const datasetHash = manifest?.datasetHash || hashSplit(dataSplit, T.data).datasetHash;
+  if (unrun && a.split === 'test' && seal.datasetHash !== datasetHash) throw new Error('v3 test datasetHash differs from the seal');
 
   // ---- models
   const meters = { gate: newMeter(), attacker: newMeter(), judge: newMeter(), altJudge: newMeter() };
@@ -162,7 +181,18 @@ export async function main(argv = process.argv.slice(2)) {
   const metrics = aggregate(records, mosaics, { config: '+L4', seed: a.seed });
   const raw = a.configs.includes('raw') ? aggregate(records.map((r) => (r.config === 'raw' ? { ...r, config: '+L4' } : r.config === '+L4' ? { ...r, config: '_' } : r)), [], { config: '+L4', seed: a.seed }) : null;
   const na = a.track === 'public' ? publicNA(ts) : {};
-  const verdicts = judgeThresholds(metrics, na);
+  let verdicts = judgeThresholds(metrics, na);
+  let v3card = null;
+  if (v3) {
+    // v3 replaces T1 / T6 / T9 / T12 and adds T9b (METHOD §8.4); every other threshold is v2's, unchanged
+    const rs = rescoreRecords(records, ts);
+    v3card = { '+L4': summarise(rs, '+L4'), raw: a.configs.includes('raw') ? summarise(rs, 'raw') : null, 'ideas-only': summarise(rs, 'ideas-only') };
+    const s = v3card['+L4'];
+    const obs = { T1: s.T1, T6: s.T6, T9: s.T9.mean, T9b: s.T9b.mean, T12: s.T12.mean };
+    const rep = new Map(THRESHOLDS_V3.map((t) => [t.id, t]));
+    const mk = (t) => ({ id: t.id, key: `v3.${t.id}`, label: t.label, kind: t.kind, ...(t.value != null ? { value: t.value } : {}), observed: obs[t.id] ?? null, pass: obs[t.id] == null ? null : t.kind === 'zero' ? obs[t.id] === 0 : t.kind === 'mean≥' ? obs[t.id] >= t.value : obs[t.id] <= t.value });
+    verdicts = [...verdicts.map((v) => (rep.has(v.id) ? mk(rep.get(v.id)) : v)), mk(rep.get('T9b'))];
+  }
   let agreement = null;
   if (alt && a.agreementSample > 0) {
     const sample = records.filter((r) => r.config === '+L4' && r.seed === 1 && r.release).slice(0, a.agreementSample);
@@ -174,16 +204,17 @@ export async function main(argv = process.argv.slice(2)) {
   const cost = { roles, usd: roles.reduce((s, r) => s + r.usd, 0), wallMs: Date.now() - t0, gateMsPerTranscript: gateRecs.length ? gateRecs.reduce((s, r) => s + r.gateMs, 0) / gateRecs.length : null };
   const g = git();
   const meta = {
-    runId, when, version: BENCH_VERSION, track: a.track, na, split: a.split, config: '+L4', configs: a.configs, gitSha: g.sha, gitDirty: g.dirty, mock: a.mock,
+    runId, when, version: v3 ? BENCH_VERSION_V3 : BENCH_VERSION, schema: a.schema, track: a.track, na, split: a.split, config: '+L4', configs: a.configs, gitSha: g.sha, gitDirty: g.dirty, mock: a.mock,
     models: { gate: a.gate, attacker: a.attacker, judge: a.judge, altJudge: a.altJudge }, datasetHash, transcripts: ts.length, circles: groups.filter((x) => x.sessions.length > 1).length,
-    runs: a.runs, seeds, bootSeed: a.seed, sealNote: a.split === 'test' ? (seal ? `re-run, seal broken: ${a.breakSeal}` : a.seal ? 'first (pre-tuning) test run — seal written after this run' : 'unsealed') : null, fatal,
+    runs: a.runs, seeds, bootSeed: a.seed, sealNote: a.split === 'test' ? (unrun ? 'first v3 test run (seal was sealed-unrun)' : seal ? `re-run, seal broken: ${a.breakSeal}` : a.seal ? 'first (pre-tuning) test run — seal written after this run' : 'unsealed') : null, fatal,
   };
   // public track: the committed card must not carry transcript text → verbatim-quote excerpts are dropped (line numbers stay)
   const failures = extractFailures(records).map((f) => (a.track === 'public' && f.kind === 'verbatim-quote' ? { ...f, detail: f.detail.replace(/: ".*"$/, ': ⟦excerpt withheld — public track⟧') } : f));
   const { md, overall } = renderCard({ meta, metrics, raw, verdicts, agreement, cost, failures });
   writeFileSync(path.join(dir, 'trustcard.md'), md);
-  writeFileSync(path.join(dir, 'trustcard.json'), JSON.stringify({ meta, overall, verdicts, metrics: strip(metrics), raw: raw && strip(raw), agreement, cost, failures, mosaics }, null, 1) + '\n');
-  if (a.split === 'test' && a.seal && !seal && !a.only) writeSeal({ runId, datasetHash, gitSha: g.sha, overall, models: meta.models, ...(a.track === 'public' ? { track: 'public' } : {}) }, T.meta);
+  writeFileSync(path.join(dir, 'trustcard.json'), JSON.stringify({ meta, overall, verdicts, metrics: strip(metrics), raw: raw && strip(raw), ...(v3card ? { v3: v3card } : {}), agreement, cost, failures, mosaics }, null, 1) + '\n');
+  if (unrun && a.split === 'test' && !a.only) writeSeal({ ...seal, status: 'sealed-run', firstRun: { runId, gitSha: g.sha, overall, models: meta.models } }, T.meta, testSplit);
+  else if (!v3 && a.split === 'test' && a.seal && !seal && !a.only) writeSeal({ runId, datasetHash, gitSha: g.sha, overall, models: meta.models, ...(a.track === 'public' ? { track: 'public' } : {}) }, T.meta);
   console.error(`[bench] ${overall} → ${path.relative(process.cwd(), path.join(dir, 'trustcard.md'))}  cost $${cost.usd.toFixed(4)}`);
   return { dir, overall, metrics, verdicts, cost, records, mosaics };
 }

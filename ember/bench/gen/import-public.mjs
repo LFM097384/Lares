@@ -247,8 +247,61 @@ export function select(rows, { perCity = 8, maxWords = 2000, seed = 'emberbench-
   return { picked, circles, poolSizes: Object.fromEntries(Object.keys(CITIES).map((k) => [k, pool.filter((x) => x.city === k).length])) };
 }
 
+// ---------------------------------------------------------------- v3 test selection (METHOD §8.6)
+export const V3_DEV_CITIES = ['LongBeachCC', 'DenverCityCouncil', 'SeattleCityCouncil'];
+export const isoDate = (meetingUid) => { const d = String(meetingUid).split('_')[1] || ''; return `${d.slice(4, 8)}-${d.slice(0, 2)}-${d.slice(2, 4)}`; };
+/**
+ * v3 sealed test (METHOD §8.6): never-used items of the dev cities from meetings held strictly after that city's latest
+ * already-used meeting (date hold-out). One 3-item same-meeting circle (meetings with ≥3 eligible items in
+ * sha256(seed+meeting) order, best name-overlap triple); singles in sha256(seed+id) order, ≤ maxPerMeeting per meeting.
+ * Every candidate is returned in rank order (all are annotated; build keeps the first `singles` valid ones).
+ */
+export function selectV3(rows, usedMeetings, { cities = V3_DEV_CITIES, maxWords = 2000, seed = 'emberbench-v3-test', maxPerMeeting = 2 } = {}) {
+  const used = new Set(usedMeetings);
+  const cutoff = Object.fromEntries(cities.map((c) => [c, [...used].filter((m) => cityOf(m) === c).map(isoDate).sort().at(-1) || '0000-00-00']));
+  const pool = rows.map((r) => ({ r, p: profile(r), city: cityOf(r.meeting) }))
+    .filter((x) => cities.includes(x.city) && !used.has(x.r.meeting) && isoDate(x.r.meeting) > cutoff[x.city] && eligible(x.p, { maxWords }));
+  const byMeeting = new Map();
+  for (const x of pool) { if (!byMeeting.has(x.r.meeting)) byMeeting.set(x.r.meeting, []); byMeeting.get(x.r.meeting).push(x); }
+  let best = null;
+  for (const [m, xs] of [...byMeeting].sort((a, b) => (h(seed + a[0]) < h(seed + b[0]) ? -1 : 1))) {
+    if (xs.length < 3) continue;
+    const names = xs.map((x) => new Set(Object.values(proposeRoster(x.p.turnList)).filter(Boolean).map((v) => v.surname.toLowerCase())));
+    for (let a = 0; a < xs.length; a++) for (let b = a + 1; b < xs.length; b++) for (let c = b + 1; c < xs.length; c++) {
+      const ov = (i, j) => [...names[i]].filter((n) => names[j].has(n)).length;
+      const score = ov(a, b) + ov(a, c) + ov(b, c);
+      if (!best || score > best.score) best = { meeting: m, score, items: [xs[a], xs[b], xs[c]].sort((u, v) => (u.r.item < v.r.item ? -1 : 1)) };
+    }
+  }
+  const picked = [];
+  if (best) for (const [k, x] of best.items.entries()) picked.push({ ...x, split: 'test', circle: `circle-${best.meeting}`, session: k + 1 });
+  const per = new Map();
+  const singles = pool.filter((x) => !best || x.r.meeting !== best.meeting).sort((a, b) => (h(seed + a.r.id) < h(seed + b.r.id) ? -1 : 1));
+  for (const x of singles) { const n = per.get(x.r.meeting) || 0; if (n >= maxPerMeeting) continue; per.set(x.r.meeting, n + 1); picked.push({ ...x, split: 'test', rank: picked.length }); }
+  return { picked, cutoff, circle: best ? { meeting: best.meeting, overlap: best.score, items: best.items.map((x) => x.r.id) } : null, poolMeetings: byMeeting.size, poolItems: pool.length };
+}
+
+async function mainV3(args) {
+  const src = path.resolve(args.src || path.join(REPO, '.data', 'kaggle-meeting'));
+  const out = path.resolve(args.out || path.join(PUBLIC_ROOT, 'raw-v3'));
+  const rows = loadRows(src);
+  const prev = JSON.parse(readFileSync(path.join(PUBLIC_ROOT, 'raw', 'selection.json'), 'utf8'));
+  const usedMeetings = [...new Set(prev.picked.map((x) => rows.find((r) => transcriptId(r) === x.id)?.meeting).filter(Boolean))];
+  const sel = selectV3(rows, usedMeetings, { seed: args.seed || 'emberbench-v3-test', cities: args.cities ? String(args.cities).split(',') : V3_DEV_CITIES });
+  mkdirSync(path.join(out, 'test'), { recursive: true });
+  for (const x of sel.picked) {
+    const t = toSkeleton(x.r, 'test');
+    if (x.circle) { t.circle = x.circle; t.session = x.session; }
+    writeFileSync(path.join(out, 'test', `${t.id}.json`), JSON.stringify(t, null, 2) + '\n');
+  }
+  const summary = { createdAt: new Date().toISOString(), rule: 'METHOD §8.6', seed: args.seed || 'emberbench-v3-test', usedMeetings: usedMeetings.length, cutoff: sel.cutoff, poolMeetings: sel.poolMeetings, poolItems: sel.poolItems, circles: sel.circle ? { test: sel.circle } : {}, picked: sel.picked.map((x) => ({ id: transcriptId(x.r), split: 'test', city: x.city, meeting: x.r.meeting, words: x.p.words, speakers: x.p.speakers, turns: x.p.turns, circle: x.circle || null, rank: x.rank ?? null })) };
+  writeFileSync(path.join(out, 'selection.json'), JSON.stringify(summary, null, 2) + '\n');
+  console.log(JSON.stringify({ cutoff: sel.cutoff, poolMeetings: sel.poolMeetings, poolItems: sel.poolItems, circle: sel.circle, picked: sel.picked.length }, null, 1));
+}
+
 async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map((a, i, xs) => (a.startsWith('--') ? [a.slice(2), xs[i + 1] && !xs[i + 1].startsWith('--') ? xs[i + 1] : true] : null)).filter(Boolean));
+  if (args.v3) return mainV3(args);
   const src = path.resolve(args.src || path.join(REPO, '.data', 'kaggle-meeting'));
   const out = path.resolve(args.out || path.join(PUBLIC_ROOT, 'raw'));
   const rows = loadRows(src);

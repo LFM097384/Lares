@@ -12,6 +12,9 @@ export const DATA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 // manifest / seal / selection list live in the repo (data/public/).
 export const PUBLIC_DATA_DIR = path.resolve(DATA_DIR, '..', '..', '..', '.data', 'emberbench-public', 'data');
 export const PUBLIC_META_DIR = path.join(DATA_DIR, 'public');
+// v3 (METHOD §8.6): dev keeps its v2 gold and gains spansV3 in place; the date-held-out v3 test is the split `test-v3`
+// (.data/emberbench-public/data/test-v3/, data/public/test-v3.manifest.json + test-v3.seal.json). The v2 test seal is untouched.
+export const V3_TEST_SPLIT = 'test-v3';
 export const TRACKS = {
   synthetic: { data: DATA_DIR, meta: DATA_DIR },
   public: { data: PUBLIC_DATA_DIR, meta: PUBLIC_META_DIR },
@@ -42,7 +45,7 @@ export function writeManifest(split, dir = DATA_DIR, metaDir = dir, extra = {}) 
 /** Throws if the split's files differ from its manifest (added, removed or changed). */
 export function verifyManifest(split, dir = DATA_DIR, metaDir = dir) {
   const mf = path.join(metaDir, `${split}.manifest.json`);
-  if (!existsSync(mf)) { if (split === 'test') throw new Error('test split has no manifest (data/test.manifest.json) — refusing to run'); return null; }
+  if (!existsSync(mf)) { if (split.startsWith('test')) throw new Error('test split has no manifest (data/test.manifest.json) — refusing to run'); return null; }
   const want = JSON.parse(readFileSync(mf, 'utf8'));
   const got = hashSplit(split, dir);
   const problems = [];
@@ -69,12 +72,12 @@ export function checkDisjoint(dev, test) {
   return true;
 }
 
-export function readSeal(dir = DATA_DIR) {
-  const f = path.join(dir, 'test.seal.json');
+export function readSeal(dir = DATA_DIR, split = 'test') {
+  const f = path.join(dir, `${split}.seal.json`);
   return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null;
 }
-export function writeSeal(rec, dir = DATA_DIR) {
-  writeFileSync(path.join(dir, 'test.seal.json'), JSON.stringify({ sealedAt: new Date().toISOString(), ...rec }, null, 2) + '\n');
+export function writeSeal(rec, dir = DATA_DIR, split = 'test') {
+  writeFileSync(path.join(dir, `${split}.seal.json`), JSON.stringify({ sealedAt: new Date().toISOString(), ...rec }, null, 2) + '\n');
 }
 
 /** Mosaic circles in a split: [{circle, sessions:[t…] ordered}] */

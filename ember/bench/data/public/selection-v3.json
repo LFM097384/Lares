@@ -1,0 +1,634 @@
+{
+  "builtAt": "2026-11-05T06:33:07.509Z",
+  "rule": "METHOD §8.6 (date hold-out on dev cities)",
+  "seed": "emberbench-v3-test",
+  "cutoff": {
+    "LongBeachCC": "2022-05-17",
+    "DenverCityCouncil": "2022-04-25",
+    "SeattleCityCouncil": "2022-07-14"
+  },
+  "usedMeetings": 44,
+  "poolMeetings": 13,
+  "poolItems": 26,
+  "candidates": [
+    {
+      "id": "pub-LongBeachCC_05242022_22-0611",
+      "meeting": "LongBeachCC_05242022",
+      "circle": "circle-LongBeachCC_05242022",
+      "rank": null
+    },
+    {
+      "id": "pub-LongBeachCC_05242022_22-0618",
+      "meeting": "LongBeachCC_05242022",
+      "circle": "circle-LongBeachCC_05242022",
+      "rank": null
+    },
+    {
+      "id": "pub-LongBeachCC_05242022_22-0621",
+      "meeting": "LongBeachCC_05242022",
+      "circle": "circle-LongBeachCC_05242022",
+      "rank": null
+    },
+    {
+      "id": "pub-DenverCityCouncil_05092022_22-0353",
+      "meeting": "DenverCityCouncil_05092022",
+      "circle": null,
+      "rank": 3
+    },
+    {
+      "id": "pub-SeattleCityCouncil_07262022_CB-120365",
+      "meeting": "SeattleCityCouncil_07262022",
+      "circle": null,
+      "rank": 4
+    },
+    {
+      "id": "pub-DenverCityCouncil_06202022_22-0475",
+      "meeting": "DenverCityCouncil_06202022",
+      "circle": null,
+      "rank": 5
+    },
+    {
+      "id": "pub-DenverCityCouncil_05232022_22-0342",
+      "meeting": "DenverCityCouncil_05232022",
+      "circle": null,
+      "rank": 6
+    },
+    {
+      "id": "pub-DenverCityCouncil_06202022_22-0470",
+      "meeting": "DenverCityCouncil_06202022",
+      "circle": null,
+      "rank": 7
+    },
+    {
+      "id": "pub-LongBeachCC_07122022_22-0774",
+      "meeting": "LongBeachCC_07122022",
+      "circle": null,
+      "rank": 8
+    },
+    {
+      "id": "pub-LongBeachCC_06212022_22-0692",
+      "meeting": "LongBeachCC_06212022",
+      "circle": null,
+      "rank": 9
+    },
+    {
+      "id": "pub-DenverCityCouncil_07182022_22-0585",
+      "meeting": "DenverCityCouncil_07182022",
+      "circle": null,
+      "rank": 10
+    },
+    {
+      "id": "pub-DenverCityCouncil_07252022_22-0637",
+      "meeting": "DenverCityCouncil_07252022",
+      "circle": null,
+      "rank": 11
+    },
+    {
+      "id": "pub-DenverCityCouncil_05232022_22-0628",
+      "meeting": "DenverCityCouncil_05232022",
+      "circle": null,
+      "rank": 12
+    },
+    {
+      "id": "pub-LongBeachCC_07052022_22-0741",
+      "meeting": "LongBeachCC_07052022",
+      "circle": null,
+      "rank": 13
+    },
+    {
+      "id": "pub-DenverCityCouncil_08012022_22-0654",
+      "meeting": "DenverCityCouncil_08012022",
+      "circle": null,
+      "rank": 14
+    },
+    {
+      "id": "pub-LongBeachCC_07122022_22-0807",
+      "meeting": "LongBeachCC_07122022",
+      "circle": null,
+      "rank": 15
+    },
+    {
+      "id": "pub-DenverCityCouncil_06062022_22-0412",
+      "meeting": "DenverCityCouncil_06062022",
+      "circle": null,
+      "rank": 16
+    },
+    {
+      "id": "pub-DenverCityCouncil_07182022_22-0791",
+      "meeting": "DenverCityCouncil_07182022",
+      "circle": null,
+      "rank": 17
+    },
+    {
+      "id": "pub-LongBeachCC_08092022_22-0946",
+      "meeting": "LongBeachCC_08092022",
+      "circle": null,
+      "rank": 18
+    },
+    {
+      "id": "pub-LongBeachCC_08092022_22-0930",
+      "meeting": "LongBeachCC_08092022",
+      "circle": null,
+      "rank": 19
+    },
+    {
+      "id": "pub-DenverCityCouncil_07252022_22-0804",
+      "meeting": "DenverCityCouncil_07252022",
+      "circle": null,
+      "rank": 20
+    }
+  ],
+  "counts": {
+    "test": 18,
+    "circleSessions": 3,
+    "meetings": 12
+  },
+  "stats": {
+    "items": 21,
+    "rejected": [],
+    "goldItems": 1005,
+    "disputedItems": 99,
+    "rosterDemoted": 13,
+    "checkFailed": 0,
+    "disputeRate": 0.09850746268656717
+  },
+  "items": [
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05242022_22-0611",
+      "kaggleId": "LongBeachCC_05242022_22-0611",
+      "meetingUid": "LongBeachCC_05242022",
+      "sessionDate": "2022-05-24",
+      "circle": "circle-LongBeachCC_05242022",
+      "turns": 32,
+      "roster": 18,
+      "named": 4,
+      "ideas": 8,
+      "identifiers": 6,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers",
+        "mosaic"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05242022_22-0618",
+      "kaggleId": "LongBeachCC_05242022_22-0618",
+      "meetingUid": "LongBeachCC_05242022",
+      "sessionDate": "2022-05-24",
+      "circle": "circle-LongBeachCC_05242022",
+      "turns": 24,
+      "roster": 18,
+      "named": 4,
+      "ideas": 9,
+      "identifiers": 16,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers",
+        "mosaic"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05242022_22-0621",
+      "kaggleId": "LongBeachCC_05242022_22-0621",
+      "meetingUid": "LongBeachCC_05242022",
+      "sessionDate": "2022-05-24",
+      "circle": "circle-LongBeachCC_05242022",
+      "turns": 22,
+      "roster": 18,
+      "named": 4,
+      "ideas": 9,
+      "identifiers": 16,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers",
+        "mosaic"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_05092022_22-0353",
+      "kaggleId": "DenverCityCouncil_05092022_22-0353",
+      "meetingUid": "DenverCityCouncil_05092022",
+      "sessionDate": "2022-05-09",
+      "circle": null,
+      "turns": 22,
+      "roster": 6,
+      "named": 3,
+      "ideas": 7,
+      "identifiers": 17,
+      "publicFacts": 8,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_07262022_CB-120365",
+      "kaggleId": "SeattleCityCouncil_07262022_CB 120365",
+      "meetingUid": "SeattleCityCouncil_07262022",
+      "sessionDate": "2022-07-26",
+      "circle": null,
+      "turns": 20,
+      "roster": 4,
+      "named": 0,
+      "ideas": 6,
+      "identifiers": 12,
+      "publicFacts": 4,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_06202022_22-0475",
+      "kaggleId": "DenverCityCouncil_06202022_22-0475",
+      "meetingUid": "DenverCityCouncil_06202022",
+      "sessionDate": "2022-06-20",
+      "circle": null,
+      "turns": 29,
+      "roster": 8,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 12,
+      "publicFacts": 8,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_05232022_22-0342",
+      "kaggleId": "DenverCityCouncil_05232022_22-0342",
+      "meetingUid": "DenverCityCouncil_05232022",
+      "sessionDate": "2022-05-23",
+      "circle": null,
+      "turns": 27,
+      "roster": 6,
+      "named": 3,
+      "ideas": 7,
+      "identifiers": 12,
+      "publicFacts": 7,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_06202022_22-0470",
+      "kaggleId": "DenverCityCouncil_06202022_22-0470",
+      "meetingUid": "DenverCityCouncil_06202022",
+      "sessionDate": "2022-06-20",
+      "circle": null,
+      "turns": 22,
+      "roster": 8,
+      "named": 2,
+      "ideas": 6,
+      "identifiers": 16,
+      "publicFacts": 7,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_07122022_22-0774",
+      "kaggleId": "LongBeachCC_07122022_22-0774",
+      "meetingUid": "LongBeachCC_07122022",
+      "sessionDate": "2022-07-12",
+      "circle": null,
+      "turns": 31,
+      "roster": 7,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 14,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_06212022_22-0692",
+      "kaggleId": "LongBeachCC_06212022_22-0692",
+      "meetingUid": "LongBeachCC_06212022",
+      "sessionDate": "2022-06-21",
+      "circle": null,
+      "turns": 19,
+      "roster": 5,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 6,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_07182022_22-0585",
+      "kaggleId": "DenverCityCouncil_07182022_22-0585",
+      "meetingUid": "DenverCityCouncil_07182022",
+      "sessionDate": "2022-07-18",
+      "circle": null,
+      "turns": 33,
+      "roster": 6,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 15,
+      "publicFacts": 8,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_07252022_22-0637",
+      "kaggleId": "DenverCityCouncil_07252022_22-0637",
+      "meetingUid": "DenverCityCouncil_07252022",
+      "sessionDate": "2022-07-25",
+      "circle": null,
+      "turns": 23,
+      "roster": 5,
+      "named": 2,
+      "ideas": 6,
+      "identifiers": 9,
+      "publicFacts": 7,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_05232022_22-0628",
+      "kaggleId": "DenverCityCouncil_05232022_22-0628",
+      "meetingUid": "DenverCityCouncil_05232022",
+      "sessionDate": "2022-05-23",
+      "circle": null,
+      "turns": 30,
+      "roster": 6,
+      "named": 2,
+      "ideas": 7,
+      "identifiers": 17,
+      "publicFacts": 8,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_07052022_22-0741",
+      "kaggleId": "LongBeachCC_07052022_22-0741",
+      "meetingUid": "LongBeachCC_07052022",
+      "sessionDate": "2022-07-05",
+      "circle": null,
+      "turns": 24,
+      "roster": 7,
+      "named": 4,
+      "ideas": 6,
+      "identifiers": 14,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_08012022_22-0654",
+      "kaggleId": "DenverCityCouncil_08012022_22-0654",
+      "meetingUid": "DenverCityCouncil_08012022",
+      "sessionDate": "2022-08-01",
+      "circle": null,
+      "turns": 22,
+      "roster": 4,
+      "named": 1,
+      "ideas": 9,
+      "identifiers": 16,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_07122022_22-0807",
+      "kaggleId": "LongBeachCC_07122022_22-0807",
+      "meetingUid": "LongBeachCC_07122022",
+      "sessionDate": "2022-07-12",
+      "circle": null,
+      "turns": 24,
+      "roster": 7,
+      "named": 1,
+      "ideas": 6,
+      "identifiers": 8,
+      "publicFacts": 4,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_06062022_22-0412",
+      "kaggleId": "DenverCityCouncil_06062022_22-0412",
+      "meetingUid": "DenverCityCouncil_06062022",
+      "sessionDate": "2022-06-06",
+      "circle": null,
+      "turns": 57,
+      "roster": 7,
+      "named": 3,
+      "ideas": 8,
+      "identifiers": 10,
+      "publicFacts": 7,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_07182022_22-0791",
+      "kaggleId": "DenverCityCouncil_07182022_22-0791",
+      "meetingUid": "DenverCityCouncil_07182022",
+      "sessionDate": "2022-07-18",
+      "circle": null,
+      "turns": 51,
+      "roster": 5,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 5,
+      "publicFacts": 4,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    }
+  ]
+}

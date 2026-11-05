@@ -1,0 +1,29 @@
+{
+  "version": "emberbench-3",
+  "split": "test-v3",
+  "createdAt": "2026-11-05T06:33:08.001Z",
+  "track": "public",
+  "schema": "v3 (v2 gold unchanged + gold.spansV3)",
+  "source": "MeetingBank via Kaggle abhishekunnam/meeting-transcripts (text not redistributed; see METHOD §7.1, §8.6)",
+  "files": {
+    "pub-DenverCityCouncil_05092022_22-0353.json": "60e660b65a5371003bd7587225bc581b0827477060fadaecc89c90bb80c9d1e4",
+    "pub-DenverCityCouncil_05232022_22-0342.json": "0774eb3df9f9c5d796ce57823ccb7735d1e8bc94f5662943595ca94c7dd7c135",
+    "pub-DenverCityCouncil_05232022_22-0628.json": "9031e0f70c28d26352ee3c4f86694f0c6bdd94e64beaf1d570af309130b99c36",
+    "pub-DenverCityCouncil_06062022_22-0412.json": "986aa7c40311741c9194548f6bf81822e1e9c8cc106c10f408e01900329f36f1",
+    "pub-DenverCityCouncil_06202022_22-0470.json": "3d16213ae5d0f48cb24baa78d95d1634abdf5838b493f908264d6df34ded1138",
+    "pub-DenverCityCouncil_06202022_22-0475.json": "eeac4120a812f2f892121ec6818eeae518b746eb6dac62fd8b174c09b7ab1877",
+    "pub-DenverCityCouncil_07182022_22-0585.json": "f900b689c294f18a92a2d0326fa36e59af3cc3a478003a0b3278ecb5fe901cef",
+    "pub-DenverCityCouncil_07182022_22-0791.json": "ae8b43b49efb5b77774fcd0e4cdcd1b9abd408e752403a754edbf4626433548e",
+    "pub-DenverCityCouncil_07252022_22-0637.json": "3198b5434f842b327e4ca6ef483d5b956bd0d1fe82a0b6a589d8dca850b51f59",
+    "pub-DenverCityCouncil_08012022_22-0654.json": "f819aeef33b571204fe4e6bc43aa7369124f84b5057e3686ea55daeac2ab945a",
+    "pub-LongBeachCC_05242022_22-0611.json": "b2c84a4dc57c3f1dc5258412873a2c0968934a66157469edf3c604b7e924c7a2",
+    "pub-LongBeachCC_05242022_22-0618.json": "7ece49f3677bac524808fc1fca1494b7ae6911157306683bcef6b6b4c67e670c",
+    "pub-LongBeachCC_05242022_22-0621.json": "a2de58f9206bb4f425f382aa523225a679741ceffa6d877e3510602639461ce7",
+    "pub-LongBeachCC_06212022_22-0692.json": "a360de8a5d518e2c09879f147b983828557e878e1bcf1d4687bae8ac684c7869",
+    "pub-LongBeachCC_07052022_22-0741.json": "d720dea5b240c175e89e162b6435feec4d64b8538a3526bbc68c4852b29a4589",
+    "pub-LongBeachCC_07122022_22-0774.json": "2dfef0b5214bf9cbabf5f99c2a6269857755d4ca18d7596ea8b8418b3bba4adc",
+    "pub-LongBeachCC_07122022_22-0807.json": "21ef4b505cd8ba13fc20ed46b4c574188df6d4d75424c60506b20ca8a96cc97b",
+    "pub-SeattleCityCouncil_07262022_CB-120365.json": "c2b63121c4164e80de45758dddc6a2d375d0064f6b61c599f651b2766792e103"
+  },
+  "datasetHash": "df57471cfe7588a7ed55a0aeceb0b4c56eb539fc5d3020ddc97eb1f27a019a3c"
+}

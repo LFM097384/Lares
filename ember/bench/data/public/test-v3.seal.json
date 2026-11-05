@@ -1,0 +1,21 @@
+{
+  "sealedAt": "2026-11-05T06:43:00.590Z",
+  "status": "sealed-unrun",
+  "split": "test-v3",
+  "version": "emberbench-3",
+  "datasetHash": "df57471cfe7588a7ed55a0aeceb0b4c56eb539fc5d3020ddc97eb1f27a019a3c",
+  "files": 18,
+  "gitShaAtSeal": "3ab3c0c65155",
+  "note": "Written after v3 annotation and BEFORE any gate run on test-v3 (METHOD §8.6). No gate, attacker or judge has seen these items. The first `run.mjs --track public --schema v3 --split test` flips status to sealed-run; later runs need --break-seal.",
+  "composition": {
+    "test": 18,
+    "circleSessions": 3,
+    "meetings": 12
+  },
+  "cutoffs": {
+    "LongBeachCC": "2022-05-17",
+    "DenverCityCouncil": "2022-04-25",
+    "SeattleCityCouncil": "2022-07-14"
+  },
+  "disputeRate": 0.1295
+}
