@@ -1,6 +1,6 @@
 {
   "sealedAt": "2026-11-05T06:43:00.590Z",
-  "status": "sealed-unrun",
+  "status": "sealed-run",
   "split": "test-v3",
   "version": "emberbench-3",
   "datasetHash": "df57471cfe7588a7ed55a0aeceb0b4c56eb539fc5d3020ddc97eb1f27a019a3c",
@@ -17,5 +17,16 @@
     "DenverCityCouncil": "2022-04-25",
     "SeattleCityCouncil": "2022-07-14"
   },
-  "disputeRate": 0.1295
+  "disputeRate": 0.1295,
+  "firstRun": {
+    "runId": "2026-11-07T1756-public-test",
+    "gitSha": "cdd7b4be520b",
+    "overall": "FAIL",
+    "models": {
+      "gate": "deepseek:deepseek-flash",
+      "attacker": "dashscope:qwen-plus",
+      "judge": "dashscope:qwen-plus",
+      "altJudge": "deepseek:deepseek-flash"
+    }
+  }
 }
