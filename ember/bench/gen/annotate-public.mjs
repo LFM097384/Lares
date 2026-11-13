@@ -332,12 +332,43 @@ function buildV3(args) {
   console.log(JSON.stringify({ counts: summary.counts, stats: { ...stats, rejected: stats.rejected.length }, rejected: stats.rejected }, null, 1));
 }
 
+/** v4 test base (METHOD §9.9): raw-v4 + ann-v4, same check / repair / validation; per city the first `quota` valid candidates in rank order. → test-v4-base/ */
+function buildV4() {
+  const RAWD = path.join(PUBLIC_ROOT, 'raw-v4'), ANND = path.join(PUBLIC_ROOT, 'ann-v4');
+  const sel = JSON.parse(readFileSync(path.join(RAWD, 'selection.json'), 'utf8'));
+  const stats = { items: 0, rejected: [], goldItems: 0, disputedItems: 0, rosterDemoted: 0, checkFailed: 0 };
+  const final = [], taken = {};
+  for (const p of sel.picked) {
+    if ((taken[p.city] || 0) >= p.quota) continue;
+    const f = path.join(ANND, 'test', `${p.id}.json`);
+    if (!existsSync(f)) { stats.rejected.push({ id: p.id, why: 'not annotated' }); continue; }
+    const { transcript: t, check } = JSON.parse(readFileSync(f, 'utf8'));
+    if (check?.verdict === 'check-failed') stats.checkFailed++;
+    stats.goldItems += ['ideas', 'identifiers', 'thirdParties', 'publicFacts', 'stances'].reduce((s, k) => s + (t.gold[k] || []).length, 0) + t.questions.length + t.roster.filter((r) => !r.unnamed).length;
+    const r = applyPublicCheck(t, check?.issues || []);
+    repair(t); publicRepair(t);
+    stats.items++; stats.disputedItems += t.gold.disputed.filter((d) => !d.unmatched && !d.auto).length; stats.rosterDemoted += r.demoted;
+    const v = validatePublic(t);
+    if (!v.ok) { stats.rejected.push({ id: t.id, why: v.errors.slice(0, 3).join(' | ') }); continue; }
+    final.push({ city: p.city, t }); taken[p.city] = (taken[p.city] || 0) + 1;
+  }
+  const out = path.join(PUBLIC_ROOT, 'test-v4-base');
+  rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true });
+  for (const { t } of final) { const { proposal, ...clean } = t; for (const r of clean.roster) delete r.label; clean.split = 'test'; writeFileSync(path.join(out, `${t.id}.json`), JSON.stringify(clean, null, 2) + '\n'); }
+  stats.disputeRate = stats.goldItems ? stats.disputedItems / stats.goldItems : null;
+  const items = final.map(({ city, t }) => ({ split: 'test', city, id: t.id, kaggleId: t.kaggleId, meetingUid: t.meetingUid, sessionDate: t.sessionDate, turns: t.lines.length, roster: t.roster.length, named: t.roster.filter((r) => !r.unnamed).length, ideas: t.gold.ideas.length, identifiers: t.gold.identifiers.length, publicFacts: t.gold.publicFacts.length, questions: t.questions.filter((q) => q.answer).length, categories: t.categories }));
+  const perCity = Object.fromEntries(Object.entries(sel.perCity).map(([c, v]) => [c, { ...v, built: taken[c] || 0 }]));
+  const summary = { builtAt: new Date().toISOString(), rule: 'METHOD §9.9 (stratified city quotas, unused meetings)', seed: sel.seed, usedIds: sel.usedIds, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity, candidates: sel.picked.map((x) => ({ id: x.id, city: x.city, meeting: x.meeting, rank: x.rank })), counts: { test: items.length, meetings: new Set(items.map((x) => x.meetingUid)).size }, stats, items };
+  writeFileSync(path.join(PUBLIC_META_DIR, 'selection-v4.json'), JSON.stringify(summary, null, 2) + '\n');
+  console.log(JSON.stringify({ counts: summary.counts, perCity, stats: { ...stats, rejected: stats.rejected.length }, rejected: stats.rejected }, null, 1));
+}
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const args = Object.fromEntries(rest.map((a, i, xs) => (a.startsWith('--') ? [a.slice(2), xs[i + 1] && !xs[i + 1].startsWith('--') ? xs[i + 1] : true] : null)).filter(Boolean));
   if (cmd === 'annotate') await annotate(args);
   else if (cmd === 'build') build(args);
   else if (cmd === 'build-v3') buildV3(args);
+  else if (cmd === 'build-v4') buildV4(args);
   else throw new Error('usage: annotate-public.mjs annotate|build|build-v3');
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((e) => { console.error(e.stack || e.message); process.exit(1); });

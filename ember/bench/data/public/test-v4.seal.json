@@ -1,0 +1,28 @@
+{
+  "sealedAt": "2026-11-13T09:50:09.724Z",
+  "status": "sealed-unrun",
+  "split": "test-v4",
+  "version": "emberbench-4",
+  "datasetHash": "4ae36afd66ff25aea7df393b3fe878e9fcf0f40a9b1b0d76bcde258bcd6cc6ea",
+  "files": 60,
+  "gitShaAtSeal": "30d5e88e4f09",
+  "note": "Written after v2 + v3 annotation and BEFORE any gate run on test-v4 (METHOD §9.9). No gate, attacker or judge has seen these items. Run once, strictness 1, by the orchestrator: `run.mjs --track public --schema v4 --split test --runs 3`; that run flips status to sealed-run; later runs need --break-seal.",
+  "composition": {
+    "test": 60,
+    "meetings": 60,
+    "circles": 0,
+    "perCity": {
+      "LongBeachCC": 12,
+      "DenverCityCouncil": 12,
+      "SeattleCityCouncil": 12,
+      "AlamedaCC": 12,
+      "KingCountyCC": 8,
+      "BostonCC": 4
+    }
+  },
+  "calibration": "data/public/calibration-v4.json (frozen, fitted on dev raw)",
+  "disputeRate": {
+    "v2gold": 0.1002,
+    "v3spans": 0.1258
+  }
+}

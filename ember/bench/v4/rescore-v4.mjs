@@ -5,6 +5,7 @@
 //   --fit-calibration                           (dev only) fit τ on dev raw and write data/public/calibration-v4.json (refuses to overwrite)
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadSplit, verifyManifest, PUBLIC_DATA_DIR, PUBLIC_META_DIR } from '../data.mjs';
 import { makeLLM, newMeter, costUSD, parseSpec, loadDashscopeKeyFile } from '../providers.mjs';
@@ -46,7 +47,7 @@ export async function main(argv = process.argv.slice(2)) {
   let calib;
   if (a['fit-calibration']) {
     if (existsSync(CALIB) && !a.force) throw new Error(`${CALIB} exists (frozen) — refusing to overwrite`);
-    const c = fitCalibration(blocks, items, names, { datasetHash: manifest.datasetHash, fittedAt: new Date().toISOString(), runId: path.basename(path.resolve(a.run)) });
+    const c = fitCalibration(blocks, items, names, { gitSha: (() => { try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return null; } })(), datasetHash: manifest.datasetHash, fittedAt: new Date().toISOString(), runId: path.basename(path.resolve(a.run)) });
     writeFileSync(CALIB, JSON.stringify(c, null, 1) + '\n');
     console.error(`[v4] calibration written → ${CALIB}`);
   }

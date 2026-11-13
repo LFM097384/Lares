@@ -14,12 +14,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeLLM, newMeter, askJSON, loadDashscopeKeyFile, costUSD } from '../providers.mjs';
 import { PUBLIC_ROOT } from './import-public.mjs';
-import { writeManifest, PUBLIC_DATA_DIR, PUBLIC_META_DIR, V3_TEST_SPLIT } from '../data.mjs';
+import { writeManifest, PUBLIC_DATA_DIR, PUBLIC_META_DIR, V3_TEST_SPLIT, V4_TEST_SPLIT } from '../data.mjs';
 
 const ANN = path.join(PUBLIC_ROOT, 'ann-v3-binding');
 // sources: the pristine v2 dev copy (so rebuilds are idempotent) and the base-annotated v3 test (annotate-public.mjs build-v3)
-const SRC = { dev: path.join(PUBLIC_ROOT, 'data-v2-dev-pristine'), test: path.join(PUBLIC_ROOT, 'test-v3-base') };
-const OUT_SPLIT = { dev: 'dev', test: V3_TEST_SPLIT };
+const SRC = { dev: path.join(PUBLIC_ROOT, 'data-v2-dev-pristine'), test: path.join(PUBLIC_ROOT, 'test-v3-base'), 'test-v4': path.join(PUBLIC_ROOT, 'test-v4-base') };
+const OUT_SPLIT = { dev: 'dev', test: V3_TEST_SPLIT, 'test-v4': V4_TEST_SPLIT };
 export const REFERENTS = ['person', 'org', 'place', 'event', 'document', 'number'];
 const KINDS = ['name', 'org', 'title', 'number', 'quasi'];
 
@@ -163,7 +163,7 @@ function build(args) {
     items.push({ id: u.id, city: u.city, meetingUid: u.meetingUid, sessionDate: u.sessionDate, circle: u.circle || null, spans: S.length, disputed: S.filter((s) => s.disputed).length, bound: S.filter((s) => !s.disputed && s.binding === 'bound').length, selfTraits: S.filter((s) => !s.disputed && s.kind === 'selfTrait').length });
   }
   stats.disputeRate = stats.spans ? stats.disputed / stats.spans : null;
-  writeManifest(outSplit, PUBLIC_DATA_DIR, PUBLIC_META_DIR, { version: 'emberbench-3', track: 'public', schema: 'v3 (v2 gold unchanged + gold.spansV3)', source: 'MeetingBank via Kaggle abhishekunnam/meeting-transcripts (text not redistributed; see METHOD §7.1, §8.6)' });
+  writeManifest(outSplit, PUBLIC_DATA_DIR, PUBLIC_META_DIR, { version: split === 'test-v4' ? 'emberbench-4' : 'emberbench-3', track: 'public', schema: 'v3 (v2 gold unchanged + gold.spansV3)', source: 'MeetingBank via Kaggle abhishekunnam/meeting-transcripts (text not redistributed; see METHOD §7.1, §8.6)' });
   const sf = path.join(PUBLIC_META_DIR, 'binding-v3.json');
   const prev = existsSync(sf) ? JSON.parse(readFileSync(sf, 'utf8')) : {};
   prev[outSplit] = { builtAt: new Date().toISOString(), stats, items };

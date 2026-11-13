@@ -6,7 +6,7 @@
 // Writes skeleton transcripts (bench schema; roster from the deterministic name heuristic, gold empty) to
 // <out>/<split>/<id>.json plus <out>/selection.json. The text NEVER goes into git: the default paths are under
 // .data/ (git-excluded). gen/annotate-public.mjs then adds the roster mapping and gold (Kimi + Qwen check).
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -299,9 +299,49 @@ async function mainV3(args) {
   console.log(JSON.stringify({ cutoff: sel.cutoff, poolMeetings: sel.poolMeetings, poolItems: sel.poolItems, circle: sel.circle, picked: sel.picked.length }, null, 1));
 }
 
+// ---------------------------------------------------------------- v4 test selection (METHOD §9.9)
+export const V4_QUOTAS = { LongBeachCC: 12, DenverCityCouncil: 12, SeattleCityCouncil: 12, AlamedaCC: 12, KingCountyCC: 8, BostonCC: 4 };
+/**
+ * test-v4: items never used as a candidate in raw/ or raw-v3/ (nor in dev / test / test-v3), from meetings none of whose items
+ * were ever used, ≤ 1 item per meeting, no circles. Per city: meetings ordered by sha256(seed + meeting); in each meeting the item
+ * with the smallest sha256(seed + item id); ⌈quota × 1.25⌉ candidates per city (in order).
+ */
+export function selectV4(rows, usedIds, { quotas = V4_QUOTAS, maxWords = 2000, seed = 'emberbench-v4-test', over = 1.25 } = {}) {
+  const used = new Set(usedIds);
+  const usedMeetings = new Set(rows.filter((r) => used.has(transcriptId(r))).map((r) => r.meeting));
+  const pool = rows.map((r) => ({ r, p: profile(r), city: cityOf(r.meeting) }))
+    .filter((x) => quotas[x.city] && !used.has(transcriptId(x.r)) && !usedMeetings.has(x.r.meeting) && eligible(x.p, { maxWords }));
+  const picked = [], perCity = {};
+  for (const [city, q] of Object.entries(quotas)) {
+    const byMeeting = new Map();
+    for (const x of pool.filter((y) => y.city === city)) { if (!byMeeting.has(x.r.meeting)) byMeeting.set(x.r.meeting, []); byMeeting.get(x.r.meeting).push(x); }
+    const ms = [...byMeeting.keys()].sort((a, b) => (h(seed + a) < h(seed + b) ? -1 : 1));
+    const want = Math.ceil(q * over);
+    const cand = ms.slice(0, want).map((m) => byMeeting.get(m).sort((a, b) => (h(seed + transcriptId(a.r)) < h(seed + transcriptId(b.r)) ? -1 : 1))[0]);
+    cand.forEach((x, k) => picked.push({ ...x, split: 'test', rank: k, quota: q }));
+    perCity[city] = { quota: q, candidates: cand.length, poolMeetings: ms.length };
+  }
+  return { picked, perCity, usedMeetings: usedMeetings.size, poolItems: pool.length };
+}
+
+async function mainV4(args) {
+  const src = path.resolve(args.src || path.join(REPO, '.data', 'kaggle-meeting'));
+  const out = path.resolve(args.out || path.join(PUBLIC_ROOT, 'raw-v4'));
+  const rows = loadRows(src);
+  const usedIds = new Set();
+  for (const f of ['raw', 'raw-v3']) { const p = path.join(PUBLIC_ROOT, f, 'selection.json'); if (existsSync(p)) for (const x of JSON.parse(readFileSync(p, 'utf8')).picked) usedIds.add(x.id); }
+  for (const sp of ['dev', 'test', 'test-v3']) { const d = path.join(PUBLIC_ROOT, 'data', sp); if (existsSync(d)) for (const f of readdirSync(d).filter((n) => n.endsWith('.json'))) usedIds.add(f.replace(/\.json$/, '')); }
+  const sel = selectV4(rows, usedIds, { seed: args.seed || 'emberbench-v4-test' });
+  mkdirSync(path.join(out, 'test'), { recursive: true });
+  for (const x of sel.picked) { const t = toSkeleton(x.r, 'test'); writeFileSync(path.join(out, 'test', `${t.id}.json`), JSON.stringify(t, null, 2) + '\n'); }
+  const summary = { createdAt: new Date().toISOString(), rule: 'METHOD §9.9', seed: args.seed || 'emberbench-v4-test', usedIds: usedIds.size, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity: sel.perCity, picked: sel.picked.map((x) => ({ id: transcriptId(x.r), split: 'test', city: x.city, meeting: x.r.meeting, words: x.p.words, speakers: x.p.speakers, turns: x.p.turns, rank: x.rank, quota: x.quota })) };
+  writeFileSync(path.join(out, 'selection.json'), JSON.stringify(summary, null, 2) + '\n');
+  console.log(JSON.stringify({ usedIds: usedIds.size, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity: sel.perCity, picked: sel.picked.length }, null, 1));
+}
 async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map((a, i, xs) => (a.startsWith('--') ? [a.slice(2), xs[i + 1] && !xs[i + 1].startsWith('--') ? xs[i + 1] : true] : null)).filter(Boolean));
   if (args.v3) return mainV3(args);
+  if (args.v4) return mainV4(args);
   const src = path.resolve(args.src || path.join(REPO, '.data', 'kaggle-meeting'));
   const out = path.resolve(args.out || path.join(PUBLIC_ROOT, 'raw'));
   const rows = loadRows(src);

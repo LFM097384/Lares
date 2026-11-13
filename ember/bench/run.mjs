@@ -145,6 +145,7 @@ export async function main(argv = process.argv.slice(2)) {
     const both = [...cities(dev)].filter((c) => cities(test).has(c));
     if (both.length) throw new Error(`public track: cities in both splits: ${both.join(', ')}`);
   }
+  if (v4 && a.split === 'test' && (a.strictness ?? 1) !== 1) throw new Error('v4: test-v4 runs at strictness 1 only (METHOD §9.8)');
   const seal = readSeal(T.meta, testSplit);
   // v3 seal is written BEFORE any run with status sealed-unrun (§8.6); the first run is allowed and flips it to sealed-run
   const unrun = v3 && seal?.status === 'sealed-unrun';
