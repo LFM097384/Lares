@@ -1,0 +1,1978 @@
+{
+  "builtAt": "2026-11-13T23:27:27.258Z",
+  "rule": "METHOD §10.7 (stratified city quotas, unused meetings)",
+  "seed": "emberbench-v5-test",
+  "usedIds": 143,
+  "usedMeetings": 131,
+  "poolItems": 813,
+  "perCity": {
+    "LongBeachCC": {
+      "quota": 16,
+      "candidates": 20,
+      "poolMeetings": 184,
+      "built": 16
+    },
+    "DenverCityCouncil": {
+      "quota": 16,
+      "candidates": 20,
+      "poolMeetings": 176,
+      "built": 16
+    },
+    "SeattleCityCouncil": {
+      "quota": 14,
+      "candidates": 18,
+      "poolMeetings": 73,
+      "built": 14
+    },
+    "AlamedaCC": {
+      "quota": 14,
+      "candidates": 18,
+      "poolMeetings": 55,
+      "built": 14
+    }
+  },
+  "candidates": [
+    {
+      "id": "pub-LongBeachCC_05192015_15-0459",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_05192015",
+      "rank": 0
+    },
+    {
+      "id": "pub-LongBeachCC_01232018_18-0065",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_01232018",
+      "rank": 1
+    },
+    {
+      "id": "pub-LongBeachCC_03242015_15-0267",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_03242015",
+      "rank": 2
+    },
+    {
+      "id": "pub-LongBeachCC_06022015_15-0484",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_06022015",
+      "rank": 3
+    },
+    {
+      "id": "pub-LongBeachCC_02142017_17-0099",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_02142017",
+      "rank": 4
+    },
+    {
+      "id": "pub-LongBeachCC_07132021_21-0648",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_07132021",
+      "rank": 5
+    },
+    {
+      "id": "pub-LongBeachCC_05202014_14-0379",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_05202014",
+      "rank": 6
+    },
+    {
+      "id": "pub-LongBeachCC_08112020_20-0747",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_08112020",
+      "rank": 7
+    },
+    {
+      "id": "pub-LongBeachCC_01182022_22-0070",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_01182022",
+      "rank": 8
+    },
+    {
+      "id": "pub-LongBeachCC_02022016_16-0083",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_02022016",
+      "rank": 9
+    },
+    {
+      "id": "pub-LongBeachCC_05102016_16-0414",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_05102016",
+      "rank": 10
+    },
+    {
+      "id": "pub-LongBeachCC_05062014_14-0327",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_05062014",
+      "rank": 11
+    },
+    {
+      "id": "pub-LongBeachCC_05052020_20-0388",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_05052020",
+      "rank": 12
+    },
+    {
+      "id": "pub-LongBeachCC_07102018_18-0584",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_07102018",
+      "rank": 13
+    },
+    {
+      "id": "pub-LongBeachCC_05242016_16-0463",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_05242016",
+      "rank": 14
+    },
+    {
+      "id": "pub-LongBeachCC_03102020_20-0211",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_03102020",
+      "rank": 15
+    },
+    {
+      "id": "pub-LongBeachCC_10132015_15-1050",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_10132015",
+      "rank": 16
+    },
+    {
+      "id": "pub-LongBeachCC_04232019_19-0390",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_04232019",
+      "rank": 17
+    },
+    {
+      "id": "pub-LongBeachCC_12172019_19-1238",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_12172019",
+      "rank": 18
+    },
+    {
+      "id": "pub-LongBeachCC_02102015_15-0108",
+      "city": "LongBeachCC",
+      "meeting": "LongBeachCC_02102015",
+      "rank": 19
+    },
+    {
+      "id": "pub-DenverCityCouncil_03292016_16-0105",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_03292016",
+      "rank": 0
+    },
+    {
+      "id": "pub-DenverCityCouncil_02092015_15-0085",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_02092015",
+      "rank": 1
+    },
+    {
+      "id": "pub-DenverCityCouncil_06072021_21-0516",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_06072021",
+      "rank": 2
+    },
+    {
+      "id": "pub-DenverCityCouncil_05182015_15-0257",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_05182015",
+      "rank": 3
+    },
+    {
+      "id": "pub-DenverCityCouncil_10212019_19-1154",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_10212019",
+      "rank": 4
+    },
+    {
+      "id": "pub-DenverCityCouncil_04122021_21-0257",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_04122021",
+      "rank": 5
+    },
+    {
+      "id": "pub-DenverCityCouncil_08092021_21-0523",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_08092021",
+      "rank": 6
+    },
+    {
+      "id": "pub-DenverCityCouncil_10162017_17-1085",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_10162017",
+      "rank": 7
+    },
+    {
+      "id": "pub-DenverCityCouncil_07082019_19-0540",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_07082019",
+      "rank": 8
+    },
+    {
+      "id": "pub-DenverCityCouncil_08282017_17-0883",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_08282017",
+      "rank": 9
+    },
+    {
+      "id": "pub-DenverCityCouncil_12232019_19-1330",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_12232019",
+      "rank": 10
+    },
+    {
+      "id": "pub-DenverCityCouncil_04082019_19-0246",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_04082019",
+      "rank": 11
+    },
+    {
+      "id": "pub-DenverCityCouncil_11292021_21-1188",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_11292021",
+      "rank": 12
+    },
+    {
+      "id": "pub-DenverCityCouncil_04232018_18-0419",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_04232018",
+      "rank": 13
+    },
+    {
+      "id": "pub-DenverCityCouncil_01032022_21-1532",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_01032022",
+      "rank": 14
+    },
+    {
+      "id": "pub-DenverCityCouncil_05312016_16-0270",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_05312016",
+      "rank": 15
+    },
+    {
+      "id": "pub-DenverCityCouncil_10142019_19-1082",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_10142019",
+      "rank": 16
+    },
+    {
+      "id": "pub-DenverCityCouncil_05172021_21-0370",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_05172021",
+      "rank": 17
+    },
+    {
+      "id": "pub-DenverCityCouncil_01312022_22-0051",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_01312022",
+      "rank": 18
+    },
+    {
+      "id": "pub-DenverCityCouncil_12182017_17-1395",
+      "city": "DenverCityCouncil",
+      "meeting": "DenverCityCouncil_12182017",
+      "rank": 19
+    },
+    {
+      "id": "pub-SeattleCityCouncil_02162021_CB-119996",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_02162021",
+      "rank": 0
+    },
+    {
+      "id": "pub-SeattleCityCouncil_11132017_Res-31760",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_11132017",
+      "rank": 1
+    },
+    {
+      "id": "pub-SeattleCityCouncil_07262021_CB-120126",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_07262021",
+      "rank": 2
+    },
+    {
+      "id": "pub-SeattleCityCouncil_08142017_Res-31764",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_08142017",
+      "rank": 3
+    },
+    {
+      "id": "pub-SeattleCityCouncil_10052020_Res-31971",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_10052020",
+      "rank": 4
+    },
+    {
+      "id": "pub-SeattleCityCouncil_07132020_Res-31955",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_07132020",
+      "rank": 5
+    },
+    {
+      "id": "pub-SeattleCityCouncil_05182020_Res-31946",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_05182020",
+      "rank": 6
+    },
+    {
+      "id": "pub-SeattleCityCouncil_08062018_CF-314356",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_08062018",
+      "rank": 7
+    },
+    {
+      "id": "pub-SeattleCityCouncil_05042015_CB-118369",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_05042015",
+      "rank": 8
+    },
+    {
+      "id": "pub-SeattleCityCouncil_09142020_CB-119827",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_09142020",
+      "rank": 9
+    },
+    {
+      "id": "pub-SeattleCityCouncil_11182019_CB-119697",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_11182019",
+      "rank": 10
+    },
+    {
+      "id": "pub-SeattleCityCouncil_06192017_CB-118993",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_06192017",
+      "rank": 11
+    },
+    {
+      "id": "pub-SeattleCityCouncil_08102020_CB-119839",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_08102020",
+      "rank": 12
+    },
+    {
+      "id": "pub-SeattleCityCouncil_11232020_CB-119933",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_11232020",
+      "rank": 13
+    },
+    {
+      "id": "pub-SeattleCityCouncil_07202020_CB-119832",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_07202020",
+      "rank": 14
+    },
+    {
+      "id": "pub-SeattleCityCouncil_10072019_CB-119288",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_10072019",
+      "rank": 15
+    },
+    {
+      "id": "pub-SeattleCityCouncil_03012021_CB-119975",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_03012021",
+      "rank": 16
+    },
+    {
+      "id": "pub-SeattleCityCouncil_04302018_Res-31813",
+      "city": "SeattleCityCouncil",
+      "meeting": "SeattleCityCouncil_04302018",
+      "rank": 17
+    },
+    {
+      "id": "pub-AlamedaCC_10202015_2015-2128",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_10202015",
+      "rank": 0
+    },
+    {
+      "id": "pub-AlamedaCC_06162020_2020-7999",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_06162020",
+      "rank": 1
+    },
+    {
+      "id": "pub-AlamedaCC_04052016_2016-2724",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_04052016",
+      "rank": 2
+    },
+    {
+      "id": "pub-AlamedaCC_01072020_2020-7556",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_01072020",
+      "rank": 3
+    },
+    {
+      "id": "pub-AlamedaCC_04182017_2017-4155",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_04182017",
+      "rank": 4
+    },
+    {
+      "id": "pub-AlamedaCC_02052019_2019-6387",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_02052019",
+      "rank": 5
+    },
+    {
+      "id": "pub-AlamedaCC_12182018_2018-6294",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_12182018",
+      "rank": 6
+    },
+    {
+      "id": "pub-AlamedaCC_06022015_2015-1701",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_06022015",
+      "rank": 7
+    },
+    {
+      "id": "pub-AlamedaCC_11012016_2016-3338",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_11012016",
+      "rank": 8
+    },
+    {
+      "id": "pub-AlamedaCC_12032019_2019-7447",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_12032019",
+      "rank": 9
+    },
+    {
+      "id": "pub-AlamedaCC_06192018_2018-5608",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_06192018",
+      "rank": 10
+    },
+    {
+      "id": "pub-AlamedaCC_04162019_2019-6741",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_04162019",
+      "rank": 11
+    },
+    {
+      "id": "pub-AlamedaCC_12202016_2016-3626",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_12202016",
+      "rank": 12
+    },
+    {
+      "id": "pub-AlamedaCC_11172015_2015-2171",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_11172015",
+      "rank": 13
+    },
+    {
+      "id": "pub-AlamedaCC_09202016_2016-3321",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_09202016",
+      "rank": 14
+    },
+    {
+      "id": "pub-AlamedaCC_10152019_2019-7331",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_10152019",
+      "rank": 15
+    },
+    {
+      "id": "pub-AlamedaCC_06042019_2019-6450",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_06042019",
+      "rank": 16
+    },
+    {
+      "id": "pub-AlamedaCC_04022019_2019-6691",
+      "city": "AlamedaCC",
+      "meeting": "AlamedaCC_04022019",
+      "rank": 17
+    }
+  ],
+  "counts": {
+    "test": 60,
+    "meetings": 60
+  },
+  "stats": {
+    "items": 65,
+    "rejected": [
+      {
+        "id": "pub-SeattleCityCouncil_02162021_CB-119996",
+        "why": "ideas must cover ≥3 speakers (got 1)"
+      },
+      {
+        "id": "pub-SeattleCityCouncil_08102020_CB-119839",
+        "why": "need ≥5 ideas (got 4)"
+      },
+      {
+        "id": "pub-AlamedaCC_12182018_2018-6294",
+        "why": "need ≥5 ideas (got 4)"
+      },
+      {
+        "id": "pub-AlamedaCC_06192018_2018-5608",
+        "why": "need ≥5 ideas (got 4)"
+      },
+      {
+        "id": "pub-AlamedaCC_12202016_2016-3626",
+        "why": "ideas must cover ≥3 speakers (got 1)"
+      }
+    ],
+    "goldItems": 2766,
+    "disputedItems": 260,
+    "rosterDemoted": 50,
+    "checkFailed": 2,
+    "disputeRate": 0.09399855386840203
+  },
+  "items": [
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05192015_15-0459",
+      "kaggleId": "LongBeachCC_05192015_15-0459",
+      "meetingUid": "LongBeachCC_05192015",
+      "sessionDate": "2015-05-19",
+      "turns": 25,
+      "roster": 7,
+      "named": 4,
+      "ideas": 7,
+      "identifiers": 12,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_01232018_18-0065",
+      "kaggleId": "LongBeachCC_01232018_18-0065",
+      "meetingUid": "LongBeachCC_01232018",
+      "sessionDate": "2018-01-23",
+      "turns": 21,
+      "roster": 6,
+      "named": 0,
+      "ideas": 8,
+      "identifiers": 9,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_03242015_15-0267",
+      "kaggleId": "LongBeachCC_03242015_15-0267",
+      "meetingUid": "LongBeachCC_03242015",
+      "sessionDate": "2015-03-24",
+      "turns": 18,
+      "roster": 7,
+      "named": 4,
+      "ideas": 6,
+      "identifiers": 9,
+      "publicFacts": 3,
+      "questions": 1,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "roll_call",
+        "public_facts",
+        "staff_presenters",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_06022015_15-0484",
+      "kaggleId": "LongBeachCC_06022015_15-0484",
+      "meetingUid": "LongBeachCC_06022015",
+      "sessionDate": "2015-06-02",
+      "turns": 19,
+      "roster": 8,
+      "named": 4,
+      "ideas": 6,
+      "identifiers": 12,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_02142017_17-0099",
+      "kaggleId": "LongBeachCC_02142017_17-0099",
+      "meetingUid": "LongBeachCC_02142017",
+      "sessionDate": "2017-02-14",
+      "turns": 25,
+      "roster": 7,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 13,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_07132021_21-0648",
+      "kaggleId": "LongBeachCC_07132021_21-0648",
+      "meetingUid": "LongBeachCC_07132021",
+      "sessionDate": "2021-07-13",
+      "turns": 19,
+      "roster": 6,
+      "named": 3,
+      "ideas": 6,
+      "identifiers": 10,
+      "publicFacts": 4,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05202014_14-0379",
+      "kaggleId": "LongBeachCC_05202014_14-0379",
+      "meetingUid": "LongBeachCC_05202014",
+      "sessionDate": "2014-05-20",
+      "turns": 27,
+      "roster": 7,
+      "named": 2,
+      "ideas": 7,
+      "identifiers": 14,
+      "publicFacts": 6,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_08112020_20-0747",
+      "kaggleId": "LongBeachCC_08112020_20-0747",
+      "meetingUid": "LongBeachCC_08112020",
+      "sessionDate": "2020-08-11",
+      "turns": 35,
+      "roster": 6,
+      "named": 2,
+      "ideas": 8,
+      "identifiers": 7,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_01182022_22-0070",
+      "kaggleId": "LongBeachCC_01182022_22-0070",
+      "meetingUid": "LongBeachCC_01182022",
+      "sessionDate": "2022-01-18",
+      "turns": 42,
+      "roster": 6,
+      "named": 0,
+      "ideas": 5,
+      "identifiers": 14,
+      "publicFacts": 6,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_02022016_16-0083",
+      "kaggleId": "LongBeachCC_02022016_16-0083",
+      "meetingUid": "LongBeachCC_02022016",
+      "sessionDate": "2016-02-02",
+      "turns": 25,
+      "roster": 5,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 7,
+      "publicFacts": 5,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05102016_16-0414",
+      "kaggleId": "LongBeachCC_05102016_16-0414",
+      "meetingUid": "LongBeachCC_05102016",
+      "sessionDate": "2016-05-10",
+      "turns": 22,
+      "roster": 5,
+      "named": 3,
+      "ideas": 5,
+      "identifiers": 4,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05062014_14-0327",
+      "kaggleId": "LongBeachCC_05062014_14-0327",
+      "meetingUid": "LongBeachCC_05062014",
+      "sessionDate": "2014-05-06",
+      "turns": 25,
+      "roster": 8,
+      "named": 1,
+      "ideas": 10,
+      "identifiers": 12,
+      "publicFacts": 8,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05052020_20-0388",
+      "kaggleId": "LongBeachCC_05052020_20-0388",
+      "meetingUid": "LongBeachCC_05052020",
+      "sessionDate": "2020-05-05",
+      "turns": 39,
+      "roster": 6,
+      "named": 3,
+      "ideas": 7,
+      "identifiers": 11,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_07102018_18-0584",
+      "kaggleId": "LongBeachCC_07102018_18-0584",
+      "meetingUid": "LongBeachCC_07102018",
+      "sessionDate": "2018-07-10",
+      "turns": 33,
+      "roster": 7,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 15,
+      "publicFacts": 5,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_05242016_16-0463",
+      "kaggleId": "LongBeachCC_05242016_16-0463",
+      "meetingUid": "LongBeachCC_05242016",
+      "sessionDate": "2016-05-24",
+      "turns": 32,
+      "roster": 8,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 10,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "LongBeachCC",
+      "id": "pub-LongBeachCC_03102020_20-0211",
+      "kaggleId": "LongBeachCC_03102020_20-0211",
+      "meetingUid": "LongBeachCC_03102020",
+      "sessionDate": "2020-03-10",
+      "turns": 51,
+      "roster": 8,
+      "named": 3,
+      "ideas": 10,
+      "identifiers": 20,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_03292016_16-0105",
+      "kaggleId": "DenverCityCouncil_03292016_16-0105",
+      "meetingUid": "DenverCityCouncil_03292016",
+      "sessionDate": "2016-03-29",
+      "turns": 26,
+      "roster": 5,
+      "named": 2,
+      "ideas": 7,
+      "identifiers": 10,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_02092015_15-0085",
+      "kaggleId": "DenverCityCouncil_02092015_15-0085",
+      "meetingUid": "DenverCityCouncil_02092015",
+      "sessionDate": "2015-02-09",
+      "turns": 19,
+      "roster": 4,
+      "named": 2,
+      "ideas": 6,
+      "identifiers": 12,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_06072021_21-0516",
+      "kaggleId": "DenverCityCouncil_06072021_21-0516",
+      "meetingUid": "DenverCityCouncil_06072021",
+      "sessionDate": "2021-06-07",
+      "turns": 39,
+      "roster": 5,
+      "named": 1,
+      "ideas": 6,
+      "identifiers": 13,
+      "publicFacts": 3,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_05182015_15-0257",
+      "kaggleId": "DenverCityCouncil_05182015_15-0257",
+      "meetingUid": "DenverCityCouncil_05182015",
+      "sessionDate": "2015-05-18",
+      "turns": 21,
+      "roster": 5,
+      "named": 2,
+      "ideas": 6,
+      "identifiers": 9,
+      "publicFacts": 10,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_10212019_19-1154",
+      "kaggleId": "DenverCityCouncil_10212019_19-1154",
+      "meetingUid": "DenverCityCouncil_10212019",
+      "sessionDate": "2019-10-21",
+      "turns": 40,
+      "roster": 6,
+      "named": 3,
+      "ideas": 5,
+      "identifiers": 11,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_04122021_21-0257",
+      "kaggleId": "DenverCityCouncil_04122021_21-0257",
+      "meetingUid": "DenverCityCouncil_04122021",
+      "sessionDate": "2021-04-12",
+      "turns": 50,
+      "roster": 4,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 21,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_08092021_21-0523",
+      "kaggleId": "DenverCityCouncil_08092021_21-0523",
+      "meetingUid": "DenverCityCouncil_08092021",
+      "sessionDate": "2021-08-09",
+      "turns": 47,
+      "roster": 8,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 7,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_10162017_17-1085",
+      "kaggleId": "DenverCityCouncil_10162017_17-1085",
+      "meetingUid": "DenverCityCouncil_10162017",
+      "sessionDate": "2017-10-16",
+      "turns": 39,
+      "roster": 6,
+      "named": 4,
+      "ideas": 7,
+      "identifiers": 13,
+      "publicFacts": 7,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_07082019_19-0540",
+      "kaggleId": "DenverCityCouncil_07082019_19-0540",
+      "meetingUid": "DenverCityCouncil_07082019",
+      "sessionDate": "2019-07-08",
+      "turns": 33,
+      "roster": 6,
+      "named": 2,
+      "ideas": 10,
+      "identifiers": 8,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_08282017_17-0883",
+      "kaggleId": "DenverCityCouncil_08282017_17-0883",
+      "meetingUid": "DenverCityCouncil_08282017",
+      "sessionDate": "2017-08-28",
+      "turns": 26,
+      "roster": 8,
+      "named": 5,
+      "ideas": 8,
+      "identifiers": 21,
+      "publicFacts": 8,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_12232019_19-1330",
+      "kaggleId": "DenverCityCouncil_12232019_19-1330",
+      "meetingUid": "DenverCityCouncil_12232019",
+      "sessionDate": "2019-12-23",
+      "turns": 20,
+      "roster": 4,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 10,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_04082019_19-0246",
+      "kaggleId": "DenverCityCouncil_04082019_19-0246",
+      "meetingUid": "DenverCityCouncil_04082019",
+      "sessionDate": "2019-04-08",
+      "turns": 27,
+      "roster": 8,
+      "named": 3,
+      "ideas": 9,
+      "identifiers": 9,
+      "publicFacts": 9,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_11292021_21-1188",
+      "kaggleId": "DenverCityCouncil_11292021_21-1188",
+      "meetingUid": "DenverCityCouncil_11292021",
+      "sessionDate": "2021-11-29",
+      "turns": 25,
+      "roster": 5,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 8,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "public_commenters",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_04232018_18-0419",
+      "kaggleId": "DenverCityCouncil_04232018_18-0419",
+      "meetingUid": "DenverCityCouncil_04232018",
+      "sessionDate": "2018-04-23",
+      "turns": 27,
+      "roster": 6,
+      "named": 2,
+      "ideas": 8,
+      "identifiers": 8,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_01032022_21-1532",
+      "kaggleId": "DenverCityCouncil_01032022_21-1532",
+      "meetingUid": "DenverCityCouncil_01032022",
+      "sessionDate": "2022-01-03",
+      "turns": 25,
+      "roster": 5,
+      "named": 3,
+      "ideas": 5,
+      "identifiers": 16,
+      "publicFacts": 4,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "DenverCityCouncil",
+      "id": "pub-DenverCityCouncil_05312016_16-0270",
+      "kaggleId": "DenverCityCouncil_05312016_16-0270",
+      "meetingUid": "DenverCityCouncil_05312016",
+      "sessionDate": "2016-05-31",
+      "turns": 44,
+      "roster": 8,
+      "named": 2,
+      "ideas": 7,
+      "identifiers": 14,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_11132017_Res-31760",
+      "kaggleId": "SeattleCityCouncil_11132017_Res 31760",
+      "meetingUid": "SeattleCityCouncil_11132017",
+      "sessionDate": "2017-11-13",
+      "turns": 18,
+      "roster": 6,
+      "named": 1,
+      "ideas": 6,
+      "identifiers": 8,
+      "publicFacts": 5,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_07262021_CB-120126",
+      "kaggleId": "SeattleCityCouncil_07262021_CB 120126",
+      "meetingUid": "SeattleCityCouncil_07262021",
+      "sessionDate": "2021-07-26",
+      "turns": 31,
+      "roster": 5,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 8,
+      "publicFacts": 3,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_08142017_Res-31764",
+      "kaggleId": "SeattleCityCouncil_08142017_Res 31764",
+      "meetingUid": "SeattleCityCouncil_08142017",
+      "sessionDate": "2017-08-14",
+      "turns": 22,
+      "roster": 6,
+      "named": 0,
+      "ideas": 7,
+      "identifiers": 11,
+      "publicFacts": 8,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_10052020_Res-31971",
+      "kaggleId": "SeattleCityCouncil_10052020_Res 31971",
+      "meetingUid": "SeattleCityCouncil_10052020",
+      "sessionDate": "2020-10-05",
+      "turns": 25,
+      "roster": 5,
+      "named": 2,
+      "ideas": 9,
+      "identifiers": 10,
+      "publicFacts": 4,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_07132020_Res-31955",
+      "kaggleId": "SeattleCityCouncil_07132020_Res 31955",
+      "meetingUid": "SeattleCityCouncil_07132020",
+      "sessionDate": "2020-07-13",
+      "turns": 27,
+      "roster": 6,
+      "named": 3,
+      "ideas": 10,
+      "identifiers": 17,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_05182020_Res-31946",
+      "kaggleId": "SeattleCityCouncil_05182020_Res 31946",
+      "meetingUid": "SeattleCityCouncil_05182020",
+      "sessionDate": "2020-05-18",
+      "turns": 24,
+      "roster": 4,
+      "named": 1,
+      "ideas": 8,
+      "identifiers": 11,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_08062018_CF-314356",
+      "kaggleId": "SeattleCityCouncil_08062018_CF 314356",
+      "meetingUid": "SeattleCityCouncil_08062018",
+      "sessionDate": "2018-08-06",
+      "turns": 25,
+      "roster": 5,
+      "named": 3,
+      "ideas": 8,
+      "identifiers": 5,
+      "publicFacts": 8,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_05042015_CB-118369",
+      "kaggleId": "SeattleCityCouncil_05042015_CB 118369",
+      "meetingUid": "SeattleCityCouncil_05042015",
+      "sessionDate": "2015-05-04",
+      "turns": 18,
+      "roster": 6,
+      "named": 3,
+      "ideas": 7,
+      "identifiers": 8,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_09142020_CB-119827",
+      "kaggleId": "SeattleCityCouncil_09142020_CB 119827",
+      "meetingUid": "SeattleCityCouncil_09142020",
+      "sessionDate": "2020-09-14",
+      "turns": 27,
+      "roster": 5,
+      "named": 3,
+      "ideas": 8,
+      "identifiers": 16,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_11182019_CB-119697",
+      "kaggleId": "SeattleCityCouncil_11182019_CB 119697",
+      "meetingUid": "SeattleCityCouncil_11182019",
+      "sessionDate": "2019-11-18",
+      "turns": 22,
+      "roster": 5,
+      "named": 3,
+      "ideas": 9,
+      "identifiers": 7,
+      "publicFacts": 5,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_06192017_CB-118993",
+      "kaggleId": "SeattleCityCouncil_06192017_CB 118993",
+      "meetingUid": "SeattleCityCouncil_06192017",
+      "sessionDate": "2017-06-19",
+      "turns": 25,
+      "roster": 4,
+      "named": 2,
+      "ideas": 9,
+      "identifiers": 9,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_11232020_CB-119933",
+      "kaggleId": "SeattleCityCouncil_11232020_CB 119933",
+      "meetingUid": "SeattleCityCouncil_11232020",
+      "sessionDate": "2020-11-23",
+      "turns": 39,
+      "roster": 7,
+      "named": 3,
+      "ideas": 7,
+      "identifiers": 18,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "third_party",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_07202020_CB-119832",
+      "kaggleId": "SeattleCityCouncil_07202020_CB 119832",
+      "meetingUid": "SeattleCityCouncil_07202020",
+      "sessionDate": "2020-07-20",
+      "turns": 26,
+      "roster": 6,
+      "named": 3,
+      "ideas": 7,
+      "identifiers": 10,
+      "publicFacts": 7,
+      "questions": 1,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "district_numbers",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "SeattleCityCouncil",
+      "id": "pub-SeattleCityCouncil_10072019_CB-119288",
+      "kaggleId": "SeattleCityCouncil_10072019_CB 119288",
+      "meetingUid": "SeattleCityCouncil_10072019",
+      "sessionDate": "2019-10-07",
+      "turns": 23,
+      "roster": 6,
+      "named": 1,
+      "ideas": 5,
+      "identifiers": 3,
+      "publicFacts": 4,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_10202015_2015-2128",
+      "kaggleId": "AlamedaCC_10202015_2015-2128",
+      "meetingUid": "AlamedaCC_10202015",
+      "sessionDate": "2015-10-20",
+      "turns": 24,
+      "roster": 6,
+      "named": 1,
+      "ideas": 9,
+      "identifiers": 7,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_06162020_2020-7999",
+      "kaggleId": "AlamedaCC_06162020_2020-7999",
+      "meetingUid": "AlamedaCC_06162020",
+      "sessionDate": "2020-06-16",
+      "turns": 36,
+      "roster": 4,
+      "named": 2,
+      "ideas": 5,
+      "identifiers": 8,
+      "publicFacts": 5,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "roll_call",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_04052016_2016-2724",
+      "kaggleId": "AlamedaCC_04052016_2016-2724",
+      "meetingUid": "AlamedaCC_04052016",
+      "sessionDate": "2016-04-05",
+      "turns": 31,
+      "roster": 5,
+      "named": 1,
+      "ideas": 5,
+      "identifiers": 4,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_01072020_2020-7556",
+      "kaggleId": "AlamedaCC_01072020_2020-7556",
+      "meetingUid": "AlamedaCC_01072020",
+      "sessionDate": "2020-01-07",
+      "turns": 27,
+      "roster": 4,
+      "named": 1,
+      "ideas": 5,
+      "identifiers": 6,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_04182017_2017-4155",
+      "kaggleId": "AlamedaCC_04182017_2017-4155",
+      "meetingUid": "AlamedaCC_04182017",
+      "sessionDate": "2017-04-18",
+      "turns": 20,
+      "roster": 4,
+      "named": 0,
+      "ideas": 7,
+      "identifiers": 8,
+      "publicFacts": 5,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_02052019_2019-6387",
+      "kaggleId": "AlamedaCC_02052019_2019-6387",
+      "meetingUid": "AlamedaCC_02052019",
+      "sessionDate": "2019-02-05",
+      "turns": 22,
+      "roster": 6,
+      "named": 2,
+      "ideas": 7,
+      "identifiers": 9,
+      "publicFacts": 7,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_06022015_2015-1701",
+      "kaggleId": "AlamedaCC_06022015_2015-1701",
+      "meetingUid": "AlamedaCC_06022015",
+      "sessionDate": "2015-06-02",
+      "turns": 53,
+      "roster": 7,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 13,
+      "publicFacts": 7,
+      "questions": 2,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_11012016_2016-3338",
+      "kaggleId": "AlamedaCC_11012016_2016-3338",
+      "meetingUid": "AlamedaCC_11012016",
+      "sessionDate": "2016-11-01",
+      "turns": 21,
+      "roster": 5,
+      "named": 1,
+      "ideas": 6,
+      "identifiers": 4,
+      "publicFacts": 7,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_12032019_2019-7447",
+      "kaggleId": "AlamedaCC_12032019_2019-7447",
+      "meetingUid": "AlamedaCC_12032019",
+      "sessionDate": "2019-12-03",
+      "turns": 28,
+      "roster": 6,
+      "named": 3,
+      "ideas": 8,
+      "identifiers": 12,
+      "publicFacts": 3,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "roll_call",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_04162019_2019-6741",
+      "kaggleId": "AlamedaCC_04162019_2019-6741",
+      "meetingUid": "AlamedaCC_04162019",
+      "sessionDate": "2019-04-16",
+      "turns": 21,
+      "roster": 7,
+      "named": 2,
+      "ideas": 6,
+      "identifiers": 10,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_11172015_2015-2171",
+      "kaggleId": "AlamedaCC_11172015_2015-2171",
+      "meetingUid": "AlamedaCC_11172015",
+      "sessionDate": "2015-11-17",
+      "turns": 27,
+      "roster": 7,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 19,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_09202016_2016-3321",
+      "kaggleId": "AlamedaCC_09202016_2016-3321",
+      "meetingUid": "AlamedaCC_09202016",
+      "sessionDate": "2016-09-20",
+      "turns": 36,
+      "roster": 6,
+      "named": 0,
+      "ideas": 8,
+      "identifiers": 6,
+      "publicFacts": 8,
+      "questions": 0,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "staff_presenters",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_10152019_2019-7331",
+      "kaggleId": "AlamedaCC_10152019_2019-7331",
+      "meetingUid": "AlamedaCC_10152019",
+      "sessionDate": "2019-10-15",
+      "turns": 32,
+      "roster": 6,
+      "named": 0,
+      "ideas": 5,
+      "identifiers": 4,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "staff_presenters",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    },
+    {
+      "split": "test",
+      "city": "AlamedaCC",
+      "id": "pub-AlamedaCC_06042019_2019-6450",
+      "kaggleId": "AlamedaCC_06042019_2019-6450",
+      "meetingUid": "AlamedaCC_06042019",
+      "sessionDate": "2019-06-04",
+      "turns": 35,
+      "roster": 5,
+      "named": 1,
+      "ideas": 7,
+      "identifiers": 17,
+      "publicFacts": 6,
+      "questions": 3,
+      "categories": [
+        "public_officials",
+        "titles_as_identifiers",
+        "natural_asr_noise",
+        "public_commenters",
+        "third_party",
+        "public_facts",
+        "unnamed_speakers"
+      ]
+    }
+  ]
+}
