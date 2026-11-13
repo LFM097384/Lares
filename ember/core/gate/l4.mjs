@@ -89,9 +89,12 @@ const asClaim = (c) => (typeof c === 'string' ? { text: c } : { ...c });
 // marked risk:'role-revealing' (+flag 'role-revealing') for human k-of-n review. Claims whose tone is still
 // flagged after the last round get flag 'tone-residual' and risk 'role-revealing' (tone itself identifies).
 // `reason`/`guess` may name an attendee: review-only metadata, never exported.
-export async function verify(sections, roster, { llm = null, stats, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, lang, shared = null } = {}) {
+// strictness (public-body mode only; null/1 = default behaviour): fixAll → every cue kind is generalised (not only binding cues);
+// withholdAll → residual guesses of every cue kind are withheld; strictNote → extra generaliser instruction.
+export const STRICT_NOTE = `\n\nSTRICT MODE: also generalise roles and seats ("a council member", not the office held), tenure, residence and other self-described facts, neighbourhood-level specifics tied to one person, and any first-person figures; keep public civic record (bill numbers, votes, codes, addresses of the subject property) verbatim.`;
+export async function verify(sections, roster, { llm = null, stats, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, lang, shared = null, fixAll = false, withholdAll = false, strictNote = false } = {}) {
   const civicNote = shared?.length ? `\n\nThis is a public meeting of ${shared[0]}: keep its civic record verbatim — bill / resolution / item numbers, codes, vote counts and outcomes, public departments and the properties an item concerns; never change a number or a vote.` : '';
-  const langNote = civicNote + (/^zh/i.test(String(lang || '')) ? '\n\nWrite every rewrite in Chinese (中文).' : /^en/i.test(String(lang || '')) ? '\n\nWrite every rewrite in English.' : '');
+  const langNote = civicNote + (strictNote && shared?.length ? STRICT_NOTE : '') + (/^zh/i.test(String(lang || '')) ? '\n\nWrite every rewrite in Chinese (中文).' : /^en/i.test(String(lang || '')) ? '\n\nWrite every rewrite in English.' : '');
   const flat = [];
   sections.forEach((s, si) => s.claims.forEach((c) => { const o = asClaim(c); flat.push({ ...o, i: flat.length + 1, si, flags: [...(o.flags || [])] }); }));
   const flaggedAll = [];
@@ -116,7 +119,7 @@ export async function verify(sections, roster, { llm = null, stats, threshold = 
       const r = await attackRound(llm, live, pub, { stats, threshold, cueNote: shared?.length ? CUE_NOTE : '' });
       // public-body mode: only binding cues (name, seat, affiliation, self-trait, style) are generalised; a guess resting on
       // the claim's own content (role knowledge, a stance, a procedural act) would only be fixed by deleting the content
-      flagged = shared?.length ? r.flagged.filter((f) => !f.cue || BINDING_CUES.has(f.cue)) : r.flagged;
+      flagged = shared?.length && !fixAll ? r.flagged.filter((f) => !f.cue || BINDING_CUES.has(f.cue)) : r.flagged;
       toneSet = r.tone;
       const toFix = new Map(flagged.map((f) => [f.i, f]));
       for (const i of toneSet) if (!toFix.has(i)) toFix.set(i, { i, guess: null, confidence: 0, reason: 'residual tone', tone: true });
@@ -157,7 +160,7 @@ export async function verify(sections, roster, { llm = null, stats, threshold = 
         const r = await attackRound(llm, live2, pub, { stats, threshold: Math.max(threshold, flagThreshold), cueNote: shared?.length ? CUE_NOTE : '' });
         // public-body mode: a residual guess resting on a stance, a procedural act or content-inherent role knowledge is
         // not a binding leak (measured by the re-identification excess instead): the claim is released, not withheld
-        residual = shared?.length ? r.flagged.filter((f) => !f.cue || BINDING_CUES.has(f.cue)) : r.flagged;
+        residual = shared?.length && !withholdAll ? r.flagged.filter((f) => !f.cue || BINDING_CUES.has(f.cue)) : r.flagged;
         // public-body mode: residual tone withholds only when a deterministic tone marker (sarcasm / catchphrase shape)
         // is still present — the attacker's tone flag alone fires on ordinary procedural and rhetorical lines
         residualTone = shared?.length ? new Set([...r.tone].filter((i) => hasToneMarker(live2.find((c) => c.i === i)?.text || ''))) : r.tone;

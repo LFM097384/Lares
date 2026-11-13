@@ -185,5 +185,8 @@ test('run.mjs --schema: v2 default, v3 public-only', async () => {
   assert.equal(parseArgs([]).schema, 'v2');
   assert.equal(parseArgs(['--track', 'public', '--schema', 'v3']).schema, 'v3');
   assert.throws(() => parseArgs(['--schema', 'v3']), /public only/);
-  assert.throws(() => parseArgs(['--track', 'public', '--schema', 'v4']), /v2\|v3/);
+  assert.equal(parseArgs(['--track', 'public', '--schema', 'v4']).schema, 'v4');
+  assert.throws(() => parseArgs(['--schema', 'v4']), /public only/);
+  assert.throws(() => parseArgs(['--track', 'public', '--schema', 'v5']), /v2\|v3\|v4/);
+  assert.throws(() => parseArgs(['--track', 'public', '--schema', 'v4', '--strictness', '7']), /strictness/);
 });

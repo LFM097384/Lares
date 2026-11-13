@@ -88,3 +88,4 @@ export function circles(ts) {
   for (const t of ts) if (t.circle) { if (!m.has(t.circle)) m.set(t.circle, []); m.get(t.circle).push(t); }
   return [...m].map(([circle, s]) => ({ circle, sessions: s.sort((x, y) => x.session - y.session) }));
 }
+export const V4_TEST_SPLIT = 'test-v4';

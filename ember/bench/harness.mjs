@@ -19,11 +19,11 @@ async function timed(meter, fn) { const t0 = now(); try { return await fn(); } f
 const safe = async (errors, label, fn) => { try { return await fn(); } catch (e) { errors.push(`${label}: ${String(e?.message || e).slice(0, 200)}`); return null; } };
 
 /** Run core Ember (+L4) on one transcript. memory may be shared across a circle's sessions. */
-export async function runCore(t, { llm, memory, seed = 1 }) {
+export async function runCore(t, { llm, memory, seed = 1, strictness = null }) {
   const roster = t.roster;
   const sid = `${t.id}-r${seed}`;
   // public track: the host-declared convening body (transcript metadata, never gold) → opt-in public-body mode (METHOD P3)
-  const policy = { k: Math.min(2, roster.length), ...(Array.isArray(t.publicContext) && t.publicContext.length ? { publicContext: t.publicContext } : {}) };
+  const policy = { k: Math.min(2, roster.length), ...(Array.isArray(t.publicContext) && t.publicContext.length ? { publicContext: t.publicContext } : {}), ...(strictness != null ? { strictness } : {}) };
   const s = createSession({ sid, roster, policy, llm, memory });
   const keys = {};
   for (const m of roster) { keys[m.id] = generateEd25519(); s.join({ ...m, pubKey: keys[m.id].pubB64 }); }
@@ -178,7 +178,7 @@ export function pairOutsider(recs) {
 }
 
 /** One task = one transcript (or one whole circle, sequentially, shared memory) × one run seed, all configs. */
-export async function runTask(task, { gate, attacker, judge, configs, seed, log = () => {} }) {
+export async function runTask(task, { gate, attacker, judge, configs, seed, log = () => {}, strictness = null, v4 = null }) {
   const sessions = task.sessions;
   const records = [];
   const memory = createMemory({ circleId: `bench-${task.key}-r${seed}`, roster: sessions[0].roster, llm: gate });
@@ -187,7 +187,7 @@ export async function runTask(task, { gate, attacker, judge, configs, seed, log 
     let core = null;
     if (configs.includes('+L4')) {
       const t0 = now();
-      core = await runCore(t, { llm: gate, memory, seed }).catch((e) => ({ error: String(e.message), release: '', answers: [] }));
+      core = await runCore(t, { llm: gate, memory, seed, strictness }).catch((e) => ({ error: String(e.message), release: '', answers: [] }));
       core.memory = await memoryChannel(memory, t).catch(() => '');
       core.ms = now() - t0;
       outs.push(core);
@@ -196,6 +196,9 @@ export async function runTask(task, { gate, attacker, judge, configs, seed, log 
       const channels = cfg === 'raw' ? { release: rawRelease(t), memory: '', answers: [] } : cfg === '+L4' ? core : { release: null };
       const r = await scoreConfig(cfg, t, channels, { attacker, judge, seed });
       if (cfg === '+L4') { r.gateMs = core.ms; r.items = core.items; r.withheld = core.withheld; if (core.error) r.errors.push(`gate: ${core.error}`); }
+      if (strictness != null) r.strictness = strictness;
+      // EmberBench v4 (METHOD §9.2): per-claim stranger distributions from every attacker
+      if (v4) r.v4 = await v4.score(cfg, t, r).catch((e) => { r.errors.push(`v4: ${e.message}`); return null; });
       records.push(r);
     }
     pairOutsider(records.filter((r) => r.tid === t.id));

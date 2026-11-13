@@ -14,7 +14,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { makeLLM, newMeter, costUSD, loadDashscopeKeyFile, parseSpec } from './providers.mjs';
-import { loadSplit, verifyManifest, hashSplit, checkDisjoint, readSeal, writeSeal, circles, TRACKS, V3_TEST_SPLIT } from './data.mjs';
+import { loadSplit, verifyManifest, hashSplit, checkDisjoint, readSeal, writeSeal, circles, TRACKS, V3_TEST_SPLIT, V4_TEST_SPLIT } from './data.mjs';
+import { scoreV4Record, summariseV4, renderV4, fitCalibration, calibDiagnostics, v4RecordFields, runProbe, BENCH_VERSION_V4 } from './v4/score-v4.mjs';
+import { readFileSync, existsSync } from 'node:fs';
 import { rescoreRecords, summarise, THRESHOLDS_V3, BENCH_VERSION_V3 } from './rescore-v3.mjs';
 import { runTask, CONFIGS } from './harness.mjs';
 import { aggregate, judgeThresholds, renderCard, extractFailures, BENCH_VERSION } from './trustcard.mjs';
@@ -45,20 +47,28 @@ export function parseArgs(argv) {
     else if (k === '--break-seal') a.breakSeal = v();
     else if (k === '--seal') a.seal = true;
     else if (k === '--out') { a.out = v(); a.outSet = true; }
+    else if (k === '--strictness') a.strictness = Number(v());
+    else if (k === '--attacker2') a.attacker2 = v();
+    else if (k === '--aligner') a.aligner = v();
+    else if (k === '--no-baseline') a.noBaseline = true;
+    else if (k === '--no-probe') a.noProbe = true;
     else throw new Error(`unknown arg ${k}`);
   }
   if (!['dev', 'test'].includes(a.split)) throw new Error('--split must be dev|test');
   if (!TRACKS[a.track]) throw new Error(`--track must be ${Object.keys(TRACKS).join('|')}`);
-  if (!['v2', 'v3'].includes(a.schema)) throw new Error('--schema must be v2|v3');
+  if (!['v2', 'v3', 'v4'].includes(a.schema)) throw new Error('--schema must be v2|v3|v4');
+  if (a.schema === 'v4' && a.track !== 'public') throw new Error('--schema v4 is defined for --track public only (METHOD §9)');
+  if (a.strictness != null && ![0, 1, 2, 3].includes(a.strictness)) throw new Error('--strictness must be 0|1|2|3');
   if (a.schema === 'v3' && a.track !== 'public') throw new Error('--schema v3 is defined for --track public only (METHOD §8.5: synthetic v3 = v2)');
   if (a.track === 'public' && !a.outSet) a.out = path.join(HERE, 'results', 'public');
   for (const c of a.configs) if (!CONFIGS.includes(c)) throw new Error(`unknown config ${c} (have ${CONFIGS.join(', ')})`);
-  if (a.configs.includes('+L4') && !a.configs.includes('ideas-only')) a.configs.push('ideas-only'); // excess needs the baseline
+  if (a.configs.includes('+L4') && !a.configs.includes('ideas-only') && !(a.schema === 'v4' && a.noBaseline)) a.configs.push('ideas-only'); // excess needs the baseline
   if (a.mock) { a.gate = 'mock:gate'; a.attacker = 'mock:attacker'; a.judge = 'mock:judge'; a.altJudge = a.altJudge ? 'mock:alt' : null; }
   a.gate ||= `deepseek:${process.env.LARES_AI_LLM_MODEL || 'deepseek-flash'}`;
   a.attacker ||= 'dashscope:qwen-plus';
   a.judge ||= 'dashscope:qwen-plus';
   if (a.altJudge === undefined) a.altJudge = a.mock ? null : 'deepseek:deepseek-flash';
+  if (a.schema === 'v4') { a.attacker2 ||= a.mock ? 'mock:attacker2' : 'dashscope:kimi-k3'; a.aligner ||= a.judge; }
   return a;
 }
 
@@ -115,8 +125,10 @@ export async function main(argv = process.argv.slice(2)) {
 
   // ---- data integrity
   const T = TRACKS[a.track];
-  const v3 = a.schema === 'v3';
-  const testSplit = v3 ? V3_TEST_SPLIT : 'test';
+  const v4 = a.schema === 'v4';
+  // v4 reuses the v3 gold (spansV3) and the v3 data checks; its test split is test-v4 (METHOD §9.9)
+  const v3 = a.schema === 'v3' || v4;
+  const testSplit = v4 ? V4_TEST_SPLIT : v3 ? V3_TEST_SPLIT : 'test';
   const dataSplit = a.split === 'test' ? testSplit : 'dev';
   const manifest = verifyManifest(dataSplit, T.data, T.meta);
   const dev = loadSplit('dev', T.data), test = loadSplit(testSplit, T.data);
@@ -150,6 +162,14 @@ export async function main(argv = process.argv.slice(2)) {
   const attacker = mk(a.attacker, meters.attacker);
   const judge = a.attacker === a.judge ? attacker : mk(a.judge, meters.judge);
   const alt = a.altJudge ? mk(a.altJudge, meters.altJudge) : null;
+  let v4ctx = null;
+  if (v4) {
+    checkIndependence({ gate: a.gate, attacker: a.attacker2, judge: a.aligner }, a.allowSameFamily);
+    meters.attacker2 = newMeter(); meters.aligner = newMeter();
+    const att2 = mk(a.attacker2, meters.attacker2), aligner = a.aligner === a.judge ? judge : mk(a.aligner, meters.aligner);
+    const attackers = [{ name: a.attacker, llm: attacker }, { name: a.attacker2, llm: att2 }];
+    v4ctx = { attackers, aligner, score: null };
+  }
 
   // ---- tasks: standalone transcripts and whole mosaic circles (sequential sessions, shared memory)
   const groups = [...ts.filter((t) => !t.circle).map((t) => ({ key: t.id, sessions: [t] })), ...circles(ts).map((c) => ({ key: c.circle, sessions: c.sessions }))];
@@ -167,7 +187,7 @@ export async function main(argv = process.argv.slice(2)) {
   const t0 = Date.now();
   let done = 0;
   const results = await pool(tasks, a.concurrency, async (task) => {
-    const r = await runTask(task, { gate, attacker, judge, configs: a.configs, seed: task.seed }).catch((e) => ({ records: [], mosaic: null, fatal: `${task.key} r${task.seed}: ${e.stack || e.message}` }));
+    const r = await runTask(task, { gate, attacker, judge, configs: a.configs, seed: task.seed, strictness: a.strictness ?? null, v4: v4ctx && { score: (cfg, t, rec) => scoreV4Record(cfg, t, rec, { attackers: v4ctx.attackers, aligner: v4ctx.aligner, seed: task.seed }) } }).catch((e) => ({ records: [], mosaic: null, fatal: `${task.key} r${task.seed}: ${e.stack || e.message}` }));
     for (const rec of r.records) appendFileSync(recFile, JSON.stringify(rec) + '\n');
     if (r.fatal) console.error(`[bench] FATAL ${r.fatal}`);
     console.error(`[bench] ${++done}/${tasks.length} ${task.key} r${task.seed} (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
@@ -193,18 +213,20 @@ export async function main(argv = process.argv.slice(2)) {
     const mk = (t) => ({ id: t.id, key: `v3.${t.id}`, label: t.label, kind: t.kind, ...(t.value != null ? { value: t.value } : {}), observed: obs[t.id] ?? null, pass: obs[t.id] == null ? null : t.kind === 'zero' ? obs[t.id] === 0 : t.kind === 'mean≥' ? obs[t.id] >= t.value : obs[t.id] <= t.value });
     verdicts = [...verdicts.map((v) => (rep.has(v.id) ? mk(rep.get(v.id)) : v)), mk(rep.get('T9b'))];
   }
+  let v4card = null;
+  if (v4) v4card = await finishV4({ a, ts, records, dir, recDir, v4ctx, datasetHash });
   let agreement = null;
   if (alt && a.agreementSample > 0) {
     const sample = records.filter((r) => r.config === '+L4' && r.seed === 1 && r.release).slice(0, a.agreementSample);
     agreement = await agreementStudy(sample, ts, judge, alt);
   }
-  const roles = [['gate', a.gate, meters.gate], ['attacker', a.attacker, meters.attacker], ['judge', a.judge, meters.judge], ['alt-judge', a.altJudge, meters.altJudge]]
+  const roles = [['gate', a.gate, meters.gate], ['attacker', a.attacker, meters.attacker], ['judge', a.judge, meters.judge], ['alt-judge', a.altJudge, meters.altJudge], ['attacker2', a.attacker2, meters.attacker2], ['aligner', a.aligner, meters.aligner]]
     .filter(([, s, m]) => s && m.calls).map(([role, spec, m]) => ({ role, model: spec, ...m, usd: costUSD(parseSpec(spec).model, m) }));
   const gateRecs = records.filter((r) => r.config === '+L4' && r.gateMs);
   const cost = { roles, usd: roles.reduce((s, r) => s + r.usd, 0), wallMs: Date.now() - t0, gateMsPerTranscript: gateRecs.length ? gateRecs.reduce((s, r) => s + r.gateMs, 0) / gateRecs.length : null };
   const g = git();
   const meta = {
-    runId, when, version: v3 ? BENCH_VERSION_V3 : BENCH_VERSION, schema: a.schema, track: a.track, na, split: a.split, config: '+L4', configs: a.configs, gitSha: g.sha, gitDirty: g.dirty, mock: a.mock,
+    runId, when, version: v4 ? BENCH_VERSION_V4 : v3 ? BENCH_VERSION_V3 : BENCH_VERSION, schema: a.schema, ...(v4 ? { strictness: a.strictness ?? 1, attackers: v4ctx.attackers.map((x) => x.name), aligner: a.aligner } : {}), track: a.track, na, split: a.split, config: '+L4', configs: a.configs, gitSha: g.sha, gitDirty: g.dirty, mock: a.mock,
     models: { gate: a.gate, attacker: a.attacker, judge: a.judge, altJudge: a.altJudge }, datasetHash, transcripts: ts.length, circles: groups.filter((x) => x.sessions.length > 1).length,
     runs: a.runs, seeds, bootSeed: a.seed, sealNote: a.split === 'test' ? (unrun ? 'first v3 test run (seal was sealed-unrun)' : seal ? `re-run, seal broken: ${a.breakSeal}` : a.seal ? 'first (pre-tuning) test run — seal written after this run' : 'unsealed') : null, fatal,
   };
@@ -212,9 +234,12 @@ export async function main(argv = process.argv.slice(2)) {
   const failures = extractFailures(records).map((f) => (a.track === 'public' && f.kind === 'verbatim-quote' ? { ...f, detail: f.detail.replace(/: ".*"$/, ': ⟦excerpt withheld — public track⟧') } : f));
   const { md, overall } = renderCard({ meta, metrics, raw, verdicts, agreement, cost, failures });
   writeFileSync(path.join(dir, 'trustcard.md'), md);
-  writeFileSync(path.join(dir, 'trustcard.json'), JSON.stringify({ meta, overall, verdicts, metrics: strip(metrics), raw: raw && strip(raw), ...(v3card ? { v3: v3card } : {}), agreement, cost, failures, mosaics }, null, 1) + '\n');
-  if (unrun && a.split === 'test' && !a.only) writeSeal({ ...seal, status: 'sealed-run', firstRun: { runId, gitSha: g.sha, overall, models: meta.models } }, T.meta, testSplit);
+  writeFileSync(path.join(dir, 'trustcard.json'), JSON.stringify({ meta, overall, verdicts, metrics: strip(metrics), raw: raw && strip(raw), ...(v3card ? { v3: v3card } : {}), ...(v4card ? { v4: v4card.summary } : {}), agreement, cost, failures, mosaics }, null, 1) + '\n');
+  if (v4card) { writeFileSync(path.join(dir, 'trustcard-v4.md'), renderV4(v4card.summary, { title: `EmberBench v4 — ${runId} (strictness ${a.strictness ?? 1})`, meta: { lines: [`split ${a.split} · ${ts.length} items · runs ${a.runs} · gate ${a.gate} · aligner ${a.aligner} · git ${g.sha}${g.dirty ? ' (dirty)' : ''} · datasetHash ${datasetHash.slice(0, 12)}…`, `calibration: ${v4card.calibSource}`] } }) + `\n## Calibration ECE (10 bins, top-1)\n\n` + JSON.stringify(v4card.diag, null, 1) + '\n`\n'); }
+  const sealOverall = v4card ? v4card.summary.overall : overall;
+  if (unrun && a.split === 'test' && !a.only) writeSeal({ ...seal, status: 'sealed-run', firstRun: { runId, gitSha: g.sha, overall: sealOverall, models: meta.models, ...(v4 ? { strictness: a.strictness ?? 1, attackers: meta.attackers } : {}) } }, T.meta, testSplit);
   else if (!v3 && a.split === 'test' && a.seal && !seal && !a.only) writeSeal({ runId, datasetHash, gitSha: g.sha, overall, models: meta.models, ...(a.track === 'public' ? { track: 'public' } : {}) }, T.meta);
+  if (v4card) console.error(`[bench] v4 ${v4card.summary.overall}: P1 ${JSON.stringify(v4card.summary.P1)} C ${v4card.summary.content.C}`);
   console.error(`[bench] ${overall} → ${path.relative(process.cwd(), path.join(dir, 'trustcard.md'))}  cost $${cost.usd.toFixed(4)}`);
   return { dir, overall, metrics, verdicts, cost, records, mosaics };
 }
@@ -227,6 +252,31 @@ export function publicNA(ts) {
   if (!ts.some((t) => (t.gold.injections || []).length)) na.T3 = 'real meetings carry no planted injection; no canary to measure';
   if (!ts.some((t) => t.circle)) na.T7 = 'no same-meeting circle in this split';
   return na;
+}
+export const CALIB_FILE = (meta) => path.join(meta, 'calibration-v4.json');
+/** v4 aggregation (METHOD §9): v3-derived fields, calibration (fit on dev raw if no frozen file), probe, summary. */
+async function finishV4({ a, ts, records, dir, recDir, v4ctx, datasetHash }) {
+  const T = TRACKS[a.track];
+  const byId = new Map(ts.map((t) => [t.id, t]));
+  const ctl = new Map(records.filter((r) => r.config === 'ideas-only').map((r) => [`${r.tid}|${r.seed}`, r.outsiderControl?.named || []]));
+  for (const r of records) if (r.config === '+L4' && byId.has(r.tid)) Object.assign(r, v4RecordFields(r, byId.get(r.tid), ctl.get(`${r.tid}|${r.seed}`)));
+  const names = v4ctx.attackers.map((x) => x.name);
+  const blocks = records.filter((r) => r.v4).map((r) => ({ tid: r.tid, config: r.config, seed: r.seed, v4: r.v4 }));
+  const cf = CALIB_FILE(T.meta);
+  let calibFile = existsSync(cf) ? JSON.parse(readFileSync(cf, 'utf8')) : null, calibSource;
+  if (calibFile && names.every((n) => calibFile.attackers?.[n])) calibSource = `frozen ${path.basename(cf)} (${calibFile.fittedAt}, dev ${String(calibFile.datasetHash).slice(0, 12)}…)`;
+  else if (a.split === 'dev' && a.configs.includes('raw')) {
+    calibFile = { ...fitCalibration(blocks, ts, names, { datasetHash, fittedAt: new Date().toISOString(), runId: path.basename(dir) }) };
+    if (!a.mock && !a.only) writeFileSync(cf, JSON.stringify(calibFile, null, 1) + '\n');
+    calibSource = `fitted in this run on dev raw${a.mock || a.only ? ' (not written: mock/--only)' : ' → ' + path.basename(cf)}`;
+  } else throw new Error('v4: no frozen calibration for these attackers (calibration-v4.json) and this run cannot fit one (dev + raw required)');
+  const calib = calibFile.attackers;
+  let probes = [];
+  if (a.split === 'dev' && !a.noProbe) probes = (await Promise.all(ts.map(async (t) => ({ tid: t.id, ...(await runProbe(t, { attackers: v4ctx.attackers })) })))).filter(Boolean);
+  if (probes.length) writeFileSync(path.join(recDir, 'probe-v4.jsonl'), probes.map((p) => JSON.stringify(p)).join('\n') + '\n');
+  const summary = summariseV4({ blocks, records, items: ts, attackers: names, calib, probes });
+  summary.strictness = a.strictness ?? 1;
+  return { summary, calibSource, diag: calibDiagnostics(blocks, ts, names, calib) };
 }
 const strip = (m) => JSON.parse(JSON.stringify(m, (k, v) => (k === 'per' ? undefined : v)));
 

@@ -8,6 +8,7 @@ import { verify } from './l4.mjs';
 import { chatJSON } from './llm.mjs';
 import { shieldPublic, civicKind, CIVIC_KINDS, SHIELD_NOTE } from './shield.mjs';
 import { isPublicEntity, coListedOrgs, unbindAffiliations, resolveReferents, boundSeats, stripSelfTraits, stripSelfTraitsOut, neutraliseOfficers, restoreCivic } from './binding.mjs';
+import { strictnessProfile } from './strictness.mjs';
 import { dominantLang, isInjection, dropInjection, verbatimIndex, verbatimRuns, stripEchoedTokens, selfFigures, maskSelfFigures } from './guard.mjs';
 
 export const NOTICE = '会议纪要 · 不署名 / Minutes · no attribution';
@@ -34,7 +35,7 @@ const normClaim = (c) => {
 //  -> { digest, digestStrict, claims:[{ topic, text, kind, flags[], risk?, confidence?, reason?, guess? }], meta }
 export async function runGate(transcript, {
   llm = null, layers = ['L0', 'L1', 'L2', 'L3', 'L4'], threshold = 0.5, flagThreshold = 0.7,
-  maxVerifierRounds = 2, seed = 1, allowPublicFacts = true, stats, trace = null, publicContext = null,
+  maxVerifierRounds = 2, seed = 1, allowPublicFacts = true, stats, trace = null, publicContext = null, strictness = 1,
 } = {}) {
   const t0 = Date.now();
   const lines = transcript?.lines || [];
@@ -42,6 +43,8 @@ export async function runGate(transcript, {
   // its jurisdiction are shared context, the meeting's civic record (bill numbers, votes, codes, subject properties) is
   // public, and the bodies an official says they partner with / chair are treated as identifying. Unset → unchanged.
   const shared = Array.isArray(publicContext) && publicContext.length ? expandPublicContext(publicContext) : null;
+  // strictness knob (METHOD §9.8): public-body mode only; level 1 (default) leaves every parameter as passed
+  const SP = shared ? strictnessProfile(strictness, { threshold, maxRounds: maxVerifierRounds }) : strictnessProfile(1, { threshold, maxRounds: maxVerifierRounds });
   // Orgs a participant self-declares anywhere in the transcript (我是张伟，在星辰科技负责产品) are treated as that
   // speaker's roster org for the whole run: redacted in every line, by every layer (L2, L4 roster scan, final scrub).
   const learned = new Map();
@@ -108,7 +111,7 @@ export async function runGate(transcript, {
   // orgs — a public one becomes the named entity as a topic subject, anything else "a <category>"; (3) affiliation
   // constructions around bound public orgs ("on behalf of the Parks Department") are unbound.
   if (shared && L.has('L2')) content = content.map((l) => {
-    const t = unbindAffiliations(resolveReferents(stripSelfTraits(l.text), speakerOrgs.get(String(l?.speakerId)) || [], { shared }), unbind);
+    const t = unbindAffiliations(resolveReferents(SP.stripSelfTraits ? stripSelfTraits(l.text) : l.text, speakerOrgs.get(String(l?.speakerId)) || [], { shared }), unbind);
     return { ...l, text: t };
   }).filter((l) => String(l.text).trim());
   let clusters = L.has('L0') ? structural(content, { seed }) : [{ topic: 'Discussion', segments: content.map((l) => l.text) }];
@@ -129,7 +132,7 @@ export async function runGate(transcript, {
   trace?.('L3', sections);
   let verifierRounds = 0, dropped = 0;
   if (L.has('L4')) {
-    const v = await verify(sections, roster, { llm, stats, threshold, flagThreshold, maxRounds: maxVerifierRounds, lang, shared });
+    const v = await verify(sections, roster, { llm, stats, threshold: SP.threshold, flagThreshold, maxRounds: SP.maxRounds, lang, shared, fixAll: SP.fixAll, withholdAll: SP.withholdAll, strictNote: SP.strictNote });
     sections = v.sections; verifierRounds = v.rounds; dropped = v.dropped;
     trace?.('L4', sections);
   }
@@ -181,7 +184,7 @@ export async function runGate(transcript, {
   // unbound ("a representative of the Parks Department said" → "Regarding the Parks Department, …"), third-person
   // self-trait echoes and meeting-officer references ("the chair", "the clerk") are neutralised.
   if (shared && L.has('L2')) {
-    const fix = (t) => neutraliseOfficers(stripSelfTraitsOut(unbindAffiliations(t, unbind)));
+    const fix = (t) => neutraliseOfficers((SP.stripSelfTraits ? stripSelfTraitsOut : (x) => x)(unbindAffiliations(t, unbind)));
     sections = sections.map((s) => ({ ...s, topic: neutraliseOfficers(s.topic), claims: s.claims.map((c) => ({ ...c, text: fix(c.text) })).filter((c) => c.text.trim()) })).filter((s) => s.claims.length);
   }
   // public-body mode, verbatim civic record (runs last, after every paraphrase pass): a civic span (bill / item number,
@@ -229,13 +232,15 @@ export async function runGate(transcript, {
 // Runs L4 over a flat list (single section). items[k] corresponds to texts[k]; a dropped claim is the string 'DROP'.
 // Used by memory for the output-time mosaic check.
 export const DROP = 'DROP';
-export async function verifyClaims(texts, roster, { llm = null, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, stats, lang = null, publicContext = null } = {}) {
+export async function verifyClaims(texts, roster, { llm = null, threshold = 0.5, flagThreshold = 0.7, maxRounds = 2, stats, lang = null, publicContext = null, strictness = 1 } = {}) {
   const list = (texts || []).map((t) => String(t ?? ''));
   if (!list.length) return { items: [], flagged: 0 };
   // rewrites stay in the items' own language (the generaliser otherwise drifts to Chinese on English memory)
   const L = lang || dominantLang(list);
   const shared = Array.isArray(publicContext) && publicContext.length ? expandPublicContext(publicContext) : null;
-  const v = await verify([{ topic: 'recall', claims: list.map((text, k) => ({ text, _k: k, flags: [] })) }], roster || [], { llm, stats, threshold, flagThreshold, maxRounds, lang: L, shared });
+  // strictness knob (METHOD §9.8): public-body mode only; level 1 (default) leaves every parameter as passed
+  const SP = strictnessProfile(shared ? strictness : 1, { threshold, maxRounds });
+  const v = await verify([{ topic: 'recall', claims: list.map((text, k) => ({ text, _k: k, flags: [] })) }], roster || [], { llm, stats, threshold: SP.threshold, flagThreshold, maxRounds: SP.maxRounds, lang: L, shared, fixAll: SP.fixAll, withholdAll: SP.withholdAll, strictNote: SP.strictNote });
   const items = list.map(() => DROP);
   for (const c of v.sections.flatMap((s) => s.claims)) {
     const it = { text: c.text };
