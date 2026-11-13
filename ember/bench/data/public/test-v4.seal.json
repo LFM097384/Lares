@@ -1,6 +1,6 @@
 {
   "sealedAt": "2026-11-13T09:50:09.724Z",
-  "status": "sealed-unrun",
+  "status": "sealed-run",
   "split": "test-v4",
   "version": "emberbench-4",
   "datasetHash": "4ae36afd66ff25aea7df393b3fe878e9fcf0f40a9b1b0d76bcde258bcd6cc6ea",
@@ -24,5 +24,21 @@
   "disputeRate": {
     "v2gold": 0.1002,
     "v3spans": 0.1258
+  },
+  "firstRun": {
+    "runId": "2026-11-13T1042-public-test",
+    "gitSha": "557436160951",
+    "overall": "FAIL",
+    "models": {
+      "gate": "deepseek:deepseek-flash",
+      "attacker": "dashscope:qwen-plus",
+      "judge": "dashscope:qwen-plus",
+      "altJudge": "deepseek:deepseek-flash"
+    },
+    "strictness": 1,
+    "attackers": [
+      "dashscope:qwen-plus",
+      "dashscope:kimi-k3"
+    ]
   }
 }
