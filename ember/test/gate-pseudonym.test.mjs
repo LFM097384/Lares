@@ -64,17 +64,18 @@ test('adjudicate + finalize: public topic mention revealed, private / bound / no
     { token: J, sentence: `${J}'s letter was discussed.`, reason: 'topic' },
     { token: C, sentence: `Thank you, ${C}.`, reason: 'x' },
     { token: C, sentence: `The ${C} plan`, reason: '' },
+    { token: H, sentence: `The amendment was proposed by ${H}.`, reason: 'topic' },
     { token: '[Person 99]', sentence: 'x', reason: 'y' },
   ]);
-  assert.deepEqual(log.map((r) => r.decision), ['granted', 'denied', 'denied', 'denied', 'denied']);
-  assert.deepEqual(log.slice(1).map((r) => r.why), ['private', 'bound-position', 'no-reason', 'unknown-token']);
+  assert.deepEqual(log.map((r) => r.decision), ['granted', 'denied', 'denied', 'denied', 'denied', 'denied']);
+  assert.deepEqual(log.slice(1).map((r) => r.why), ['private', 'speaker', 'no-reason', 'bound-position', 'unknown-token']);
   assert.equal(P.finalize(`The ${H} amendment raised the height limit.`), 'The Herndon amendment raised the height limit.');
   assert.equal(P.finalize(`${H} said the limit was too low.`), 'A participant said the limit was too low.');
   assert.equal(P.finalize(`The ${J} letter about parking was discussed.`), `The ${J} letter about parking was discussed.`);
   // a real name reappearing (hallucinated or restored by a later layer) is re-masked
   assert.ok(!P.finalize('Jessie Parris opposed the bill.').includes('Parris'));
   const s = P.summary();
-  assert.equal(s.mode, 'two-pass'); assert.equal(s.requests, 5); assert.equal(s.granted, 1); assert.equal(s.denied.private, 1);
+  assert.equal(s.mode, 'two-pass'); assert.equal(s.requests, 6); assert.equal(s.granted, 1); assert.equal(s.denied.private, 1);
   assert.ok(!JSON.stringify(s.log).includes('Herndon'), 'log carries tokens, not names');
 });
 
@@ -128,6 +129,11 @@ const item = {
       { text: 'I live in my district', kind: 'selfTrait', binding: 'bound', boundTo: 's2' },
     ] },
 };
+test('mask: private speakers own orgs and clerk / secretary titles', () => {
+  const P = buildPseudonyms({ roster: [...roster, { id: 's9', name: 'Al Ray', title: 'public speaker', org: 'National corporation (event security)' }], lines }, { shared });
+  assert.equal(P.mask('We hired National corporation. The council secretary will call the roll.').text, 'We hired an organisation. meeting staff will call the roll.');
+});
+
 test('T1 v5: private names anywhere, public names only bound, tokens never', () => {
   assert.equal(bindingLeaksV5('The Herndon amendment raised the height limit. [Speaker 2] and [Person 1] were mentioned.', item).total, 0);
   const a = bindingLeaksV5('Thank you, Herndon. Cashman said the bill was fine.', item);

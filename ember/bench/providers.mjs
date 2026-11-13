@@ -58,7 +58,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // usage meter shared by a role: { calls, promptTokens, completionTokens, ms, errors }
 export const newMeter = () => ({ calls: 0, promptTokens: 0, completionTokens: 0, ms: 0, errors: 0 });
 
-function openAICompat({ base, key, model, timeoutMs = 300000, retries = 4, extraBody = {}, jsonMode = true }) {
+function openAICompat({ base, key, model, timeoutMs = 300000, retries = 7, extraBody = {}, jsonMode = true }) {
   const scrub = (s) => String(s ?? '').split(key).join('***');
   return async function chat(messages, { json = false, temperature = 0, maxTokens = 4096 } = {}) {
     const body = { model, messages, max_tokens: maxTokens, ...extraBody };

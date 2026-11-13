@@ -338,10 +338,28 @@ async function mainV4(args) {
   writeFileSync(path.join(out, 'selection.json'), JSON.stringify(summary, null, 2) + '\n');
   console.log(JSON.stringify({ usedIds: usedIds.size, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity: sel.perCity, picked: sel.picked.length }, null, 1));
 }
+// ---------------------------------------------------------------- v5 test selection (METHOD §10.7)
+export const V5_QUOTAS = { LongBeachCC: 16, DenverCityCouncil: 16, SeattleCityCouncil: 14, AlamedaCC: 14 };
+async function mainV5(args) {
+  const src = path.resolve(args.src || path.join(REPO, '.data', 'kaggle-meeting'));
+  const out = path.resolve(args.out || path.join(PUBLIC_ROOT, 'raw-v5'));
+  const rows = loadRows(src);
+  const usedIds = new Set();
+  for (const f of ['raw', 'raw-v3', 'raw-v4']) { const p = path.join(PUBLIC_ROOT, f, 'selection.json'); if (existsSync(p)) for (const x of JSON.parse(readFileSync(p, 'utf8')).picked) usedIds.add(x.id); }
+  for (const sp of ['dev', 'test', 'test-v3', 'test-v4']) { const d = path.join(PUBLIC_ROOT, 'data', sp); if (existsSync(d)) for (const f of readdirSync(d).filter((n) => n.endsWith('.json'))) usedIds.add(f.replace(/\.json$/, '')); }
+  const seed = args.seed || 'emberbench-v5-test';
+  const sel = selectV4(rows, usedIds, { quotas: V5_QUOTAS, seed });
+  mkdirSync(path.join(out, 'test'), { recursive: true });
+  for (const x of sel.picked) { const t = toSkeleton(x.r, 'test'); writeFileSync(path.join(out, 'test', `${t.id}.json`), JSON.stringify(t, null, 2) + '\n'); }
+  const summary = { createdAt: new Date().toISOString(), rule: 'METHOD §10.7', seed, usedIds: usedIds.size, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity: sel.perCity, picked: sel.picked.map((x) => ({ id: transcriptId(x.r), split: 'test', city: x.city, meeting: x.r.meeting, words: x.p.words, speakers: x.p.speakers, turns: x.p.turns, rank: x.rank, quota: x.quota })) };
+  writeFileSync(path.join(out, 'selection.json'), JSON.stringify(summary, null, 2) + '\n');
+  console.log(JSON.stringify({ usedIds: usedIds.size, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity: sel.perCity, picked: sel.picked.length }, null, 1));
+}
 async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map((a, i, xs) => (a.startsWith('--') ? [a.slice(2), xs[i + 1] && !xs[i + 1].startsWith('--') ? xs[i + 1] : true] : null)).filter(Boolean));
   if (args.v3) return mainV3(args);
   if (args.v4) return mainV4(args);
+  if (args.v5) return mainV5(args);
   const src = path.resolve(args.src || path.join(REPO, '.data', 'kaggle-meeting'));
   const out = path.resolve(args.out || path.join(PUBLIC_ROOT, 'raw'));
   const rows = loadRows(src);

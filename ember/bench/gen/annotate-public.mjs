@@ -333,8 +333,9 @@ function buildV3(args) {
 }
 
 /** v4 test base (METHOD §9.9): raw-v4 + ann-v4, same check / repair / validation; per city the first `quota` valid candidates in rank order. → test-v4-base/ */
-function buildV4() {
-  const RAWD = path.join(PUBLIC_ROOT, 'raw-v4'), ANND = path.join(PUBLIC_ROOT, 'ann-v4');
+function buildV4(args = {}, ver = 'v4') {
+  // v5 (METHOD §10.7) reuses this build unchanged on raw-v5 + ann-v5 → test-v5-base/
+  const RAWD = path.join(PUBLIC_ROOT, `raw-${ver}`), ANND = path.join(PUBLIC_ROOT, `ann-${ver}`);
   const sel = JSON.parse(readFileSync(path.join(RAWD, 'selection.json'), 'utf8'));
   const stats = { items: 0, rejected: [], goldItems: 0, disputedItems: 0, rosterDemoted: 0, checkFailed: 0 };
   const final = [], taken = {};
@@ -352,14 +353,14 @@ function buildV4() {
     if (!v.ok) { stats.rejected.push({ id: t.id, why: v.errors.slice(0, 3).join(' | ') }); continue; }
     final.push({ city: p.city, t }); taken[p.city] = (taken[p.city] || 0) + 1;
   }
-  const out = path.join(PUBLIC_ROOT, 'test-v4-base');
+  const out = path.join(PUBLIC_ROOT, `test-${ver}-base`);
   rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true });
   for (const { t } of final) { const { proposal, ...clean } = t; for (const r of clean.roster) delete r.label; clean.split = 'test'; writeFileSync(path.join(out, `${t.id}.json`), JSON.stringify(clean, null, 2) + '\n'); }
   stats.disputeRate = stats.goldItems ? stats.disputedItems / stats.goldItems : null;
   const items = final.map(({ city, t }) => ({ split: 'test', city, id: t.id, kaggleId: t.kaggleId, meetingUid: t.meetingUid, sessionDate: t.sessionDate, turns: t.lines.length, roster: t.roster.length, named: t.roster.filter((r) => !r.unnamed).length, ideas: t.gold.ideas.length, identifiers: t.gold.identifiers.length, publicFacts: t.gold.publicFacts.length, questions: t.questions.filter((q) => q.answer).length, categories: t.categories }));
   const perCity = Object.fromEntries(Object.entries(sel.perCity).map(([c, v]) => [c, { ...v, built: taken[c] || 0 }]));
-  const summary = { builtAt: new Date().toISOString(), rule: 'METHOD §9.9 (stratified city quotas, unused meetings)', seed: sel.seed, usedIds: sel.usedIds, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity, candidates: sel.picked.map((x) => ({ id: x.id, city: x.city, meeting: x.meeting, rank: x.rank })), counts: { test: items.length, meetings: new Set(items.map((x) => x.meetingUid)).size }, stats, items };
-  writeFileSync(path.join(PUBLIC_META_DIR, 'selection-v4.json'), JSON.stringify(summary, null, 2) + '\n');
+  const summary = { builtAt: new Date().toISOString(), rule: ver === 'v5' ? 'METHOD §10.7 (stratified city quotas, unused meetings)' : 'METHOD §9.9 (stratified city quotas, unused meetings)', seed: sel.seed, usedIds: sel.usedIds, usedMeetings: sel.usedMeetings, poolItems: sel.poolItems, perCity, candidates: sel.picked.map((x) => ({ id: x.id, city: x.city, meeting: x.meeting, rank: x.rank })), counts: { test: items.length, meetings: new Set(items.map((x) => x.meetingUid)).size }, stats, items };
+  writeFileSync(path.join(PUBLIC_META_DIR, `selection-${ver}.json`), JSON.stringify(summary, null, 2) + '\n');
   console.log(JSON.stringify({ counts: summary.counts, perCity, stats: { ...stats, rejected: stats.rejected.length }, rejected: stats.rejected }, null, 1));
 }
 async function main() {
@@ -369,6 +370,7 @@ async function main() {
   else if (cmd === 'build') build(args);
   else if (cmd === 'build-v3') buildV3(args);
   else if (cmd === 'build-v4') buildV4(args);
+  else if (cmd === 'build-v5') buildV4(args, 'v5');
   else throw new Error('usage: annotate-public.mjs annotate|build|build-v3');
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((e) => { console.error(e.stack || e.message); process.exit(1); });

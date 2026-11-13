@@ -6,7 +6,7 @@
 // shared public context, the curated public-figure list) in a TOPIC position are revealed; speaker labels never exist.
 import { createHash } from 'node:crypto';
 import { learnThirdNames, PUBLIC_FIGURES, isPersonShaped } from './l1.mjs';
-import { boundSeats } from './binding.mjs';
+import { boundSeats, isPublicEntity } from './binding.mjs';
 
 const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const ci = (s) => [...String(s)].map((ch) => (/\p{L}/u.test(ch) && ch.toLowerCase() !== ch.toUpperCase() ? `[${esc(ch.toLowerCase())}${esc(ch.toUpperCase())}]` : /\s/.test(ch) ? '\\s+' : esc(ch))).join('');
@@ -31,7 +31,7 @@ const NOT_NAME = new RegExp(`^(?:${['Council', 'City', 'County', 'District', 'Bi
 const AMBIG = new Set('Bill Will May Mark Grant Price Rich Hope Joy Art Chase Dean Frank Long Rose Faith Grace Hall Street Park Lane Ray Wade Young Brown Black White Green Gray Grey King Bell Ward Field Wood Woods Hill Love Case Page Hunt Little Small Rice Cook Fox Lake Day Moore Best Hardy Strong Sharp Stone Rivers Banks Ford Lee Kelly Carter Major Judge Bishop Mayor Chair Council Price Gay Low Pierce Wise Sage Star Jay Dawn June April Summer Winter Autumn Sky Royal Noble Bond Cash Penny Cole Bush Marsh Moss Pool Glass Joyce'.split(' '));
 
 // ---- bound positions (§10.2 (b); same rule as the v5 metric, implemented here independently) -------------------------
-const PRE = /(?:\bthank(?:s|\s+you)?(?:\s+(?:so|very)\s+much)?(?:\s+(?:also|again))?(?:\s+to)?|\bthanked|\bgrateful\s+to|\brecogni[sz](?:e|es|ed|ing)|\bmoved\s+by|\bseconded\s+by|\bsecond(?:ed)?\s+(?:from|by)|\bmotion\s+(?:by|from)|\b(?:over|back)\s+to|\bcall(?:s|ed|ing)?\s+(?:up)?on|\baccording\s+to|\bwelcom(?:e|es|ed|ing)|\bhand(?:s|ed|ing)?\s+(?:it\s+)?(?:over\s+)?to|\byield(?:s|ed|ing)?\s+(?:the\s+floor\s+)?to|\bask(?:s|ed|ing)?|\bper|感谢|谢谢|有请)\s*,?\s*(?:(?:the|a)\s+)?$/i;
+const PRE = /(?:\bthank(?:s|\s+you)?(?:\s+(?:so|very)\s+much)?(?:\s+(?:also|again))?(?:\s+to)?|\bthanked|\bgrateful\s+to|\brecogni[sz](?:e|es|ed|ing)|\bmoved\s+by|\bseconded\s+by|\bsecond(?:ed)?\s+(?:from|by)|\bmotion\s+(?:by|from)|\b(?:over|back)\s+to|\bcall(?:s|ed|ing)?\s+(?:up)?on|\baccording\s+to|\bwelcom(?:e|es|ed|ing)|\bhand(?:s|ed|ing)?\s+(?:it\s+)?(?:over\s+)?to|\byield(?:s|ed|ing)?\s+(?:the\s+floor\s+)?to|\bask(?:s|ed|ing)?|\bper|\b(?:proposed|introduced|offered|brought(?:\s+forward)?|put\s+forward|raised|requested|asked|suggested|presented|made|sponsored|moved|seconded|led|chaired|opened|closed|noted|stated|argued|explained|described|recommended|supported|opposed|questioned)\s+by|\bjoined\s+by|\bby|\bfrom|\bwith|感谢|谢谢|有请)\s*,?\s*(?:(?:the|a)\s+)?$/i;
 const SPEECH_V = '(?:said|says|asked|asks|noted|notes|argued|argues|moved|moves|seconded|seconds|proposed|voted|votes|agreed|agrees|objected|objects|stated|states|explained|suggested|added|responded|commented|thanked|mentioned|urged|requested|recommended|recused|abstained|motioned|replied|remarked|answered|clarified|indicated|expressed|presented|introduced|spoke|testified)';
 const POST = new RegExp(`^(?:'s|’s)?\\s*(?:,[^,.;!?]{0,60},\\s*)?(?:[\\p{L}\\p{N}'’-]+\\s+){0,3}?${SPEECH_V}\\b`, 'iu');
 const ROLLCALL = /^\s*[,:]?\s*(?:aye|yes|no|nay|present|here)\b/i;
@@ -62,6 +62,8 @@ const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eig
 const seatNum = (s) => { const m = String(s).toLowerCase().match(/(\d+)|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\b/); return m ? Number(m[1] || NUMW[m[2]]) : null; };
 const ORDW = '(?:\\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen)';
 const DISTRICT = new RegExp(`\\b(?:(?:the\\s+)?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|1st|2nd|3rd|[4-9]th)\\s+(?:council\\s+)?district|(?:Council\\s+)?District\\s+(?:No\\.?\\s*)?${ORDW})\\b`, 'gi');
+// clerk / secretary titles are bound to the meeting's own staff wherever they appear (gold: 'council secretary', 'Madam Clerk')
+const STAFF_TITLE = /\b(?:(?:the|a|our)\s+)?(?:(?:deputy\s+)?(?:city|council|county)\s+(?:clerk|secretary)|[Mm]adam\s+(?:[Cc]ity\s+)?(?:[Mm]anager|[Aa]ttorney)|M[Rr]\.?\s+[Cc]ity\s+(?:[Mm]anagers?|[Aa]ttorneys?))\b/gi;
 const OFFICER_VOC = /\b(?:[Mm]adam|[Mm]adame|[Mm]ister|M[Rr]\.?)\s+(?:(?:[Vv]ice|[Dd]eputy)\s+)?(?:[Cc]ouncil\s+)?(?:[Pp]resident|[Cc]hair(?:man|woman|person)?|[Mm]ayor|[Ss]peaker|[Cc]lerk|[Ss]ecretary)(?:\s+pro\s+tem)?\b/g;
 
 // loose form for requests (the model may drop the brackets); strict bracketed form in the output pass
@@ -181,10 +183,25 @@ export function buildPseudonyms(transcript, { seed = 1, lang = 'en', shared = []
   const seatNums = new Set([...boundSeats(transcript?.lines || [])].map(seatNum).filter((x) => x != null));
   for (const p of roster) for (const m of String(p?.title || '').matchAll(DISTRICT)) { const k = seatNum(m[0]); if (k != null) seatNums.add(k); }
   const generic = lang === 'zh' ? '一位参与者' : 'a participant';
+  // private speakers' own roster organisations (members of the public; not staff, clerks or office-holders), unless a public
+  // entity: masked in any case ("National corporation" → "an organisation")
+  const orgs = [];
+  for (const p of roster) {
+    const t = String(p?.title || '');
+    if (isPublicTitle(t) || /^staff\b|clerk|secretary/i.test(t)) continue;
+    for (const o0 of [p?.org, ...(p?.orgs || [])]) {
+      const o = String(o0 || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+      if (o.length < 4 || isPublicEntity(o, shared) || sharedLow.includes(o.toLowerCase()) || isPublicEntity(String(o0), shared)) continue;
+      orgs.push(o);
+    }
+  }
+  const ORG_RE = orgs.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...new Set(orgs)].sort((a, b) => b.length - a.length).map((o) => esc(o).replace(/\s+/g, '\\s+')).join('|')})(?![\\p{L}\\p{N}])`, 'giu') : null;
 
   function mask(text) {
     let s = String(text ?? ''), n = 0;
     s = s.replace(OFFICER_VOC, (m) => { n++; return /clerk|secretary/i.test(m) ? 'meeting staff' : 'the presiding officer'; });
+    s = s.replace(STAFF_TITLE, () => { n++; return 'meeting staff'; });
+    if (ORG_RE) s = s.replace(ORG_RE, () => { n++; return 'an organisation'; });
     if (RE) s = s.replace(RE, (...args) => {
       const g = args.at(-1);
       const core = g.full ?? g.part ?? g.amb;
@@ -212,6 +229,8 @@ export function buildPseudonyms(transcript, { seed = 1, lang = 'en', shared = []
       if (!e) why = 'unknown-token';
       else if (!reason) why = 'no-reason';
       else if (!e.public || !e.display) why = 'private';
+      // P9: a roster speaker is never revealed — the name would disclose who attended (T6), whatever the position
+      else if (e.kind === 'speaker') why = 'speaker';
       else {
         const occ = [...sentence.matchAll(TOKEN_RE)].filter((x) => keyOfToken(x[1], Number(x[2])) === `${e.kind}:${e.n}`);
         if (!occ.length) why = 'not-in-sentence';

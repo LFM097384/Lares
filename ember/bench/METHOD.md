@@ -689,4 +689,9 @@ BENCH_VERSION = `emberbench-5`。本节在任何 v5 代码运行于数据之前�
 
 **修订记录（v5）**
 
-- P8（2026-11-13，任何 v5 代码运行于数据之前）：预注册 v5（本节 §10.1–§10.8）。
+- P8（2026-11-13，任何 v5 代码运行于数据之前）：预注册 v5（本节 §10.1–§10.8）。- P9（2026-11-13，dev 第 1 轮之后，未触 test-v5）：通用修正，均只在 dev 上发现。
+  (a) 闸门 L0P 掩码：members of the public 自己的 roster 机构（非公共实体）改为 "an organisation"；"council/city clerk/secretary"、"Madam City Manager"、"Mr. City Manager(s)" 改为 "meeting staff"。
+  (b) reveal 裁决新增拒绝理由 `speaker`：roster 发言者即使有公职也不揭名（揭名会泄露出席者，触发 T6；dev 上唯一一次授权正是这种情况）。只有非发言者的公共人物可以揭名。
+  (c) 约束位置扩展："proposed/introduced/moved/… by X"、"by/from/with X" 一律视为约束位置。闸门与指标两侧都改。
+  (d) 指标：gold thirdParties 的 public=true 条目里混有机构、品牌、地名（RCA、Nissan、San Diego）。它们只有在 gold 名称或转录里带人物头衔时，才算"公共人物"，进入 T1 v5 (ii) 的约束名检测。
+  (e) 基础设施：provider 重试从 4 次增至 7 次。dev 第 1 轮有 14/54 条 +L4 记录因 `fetch failed` 网络错误作废，该轮不作为 dev 结论。
