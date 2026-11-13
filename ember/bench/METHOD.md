@@ -580,3 +580,10 @@
 **修订记录（v4）**
 
 - P6（2026-11-13，任何 v4 代码运行于数据之前）：预注册 v4（本节 §9.1–§9.10）。实现、校准文件、test-v4 构建与封存、dev 运行在随后的独立 commit 中。
+- P7（2026-11-13，实现与封存；定义与阈值未改）：
+  - 实现：`ember/bench/v4/`（estimator / attack-v4 / score-v4 / rescore-v4 / frontier），`run.mjs --schema v4 [--strictness 0..3] [--attacker2] [--aligner]`；闸门严格度旋钮 `ember/core/gate/strictness.mjs`，默认 1 与此前逐字节相同（单测），只在公开模式生效。
+  - 校准：τ 在 dev raw 上拟合，攻击者分布取自 v3 dev 存档记录（闸门 commit 2f90bb1；raw 配置不经过闸门，所以与闸门版本无关）。qwen-plus τ = 1.233，kimi-k3 τ = 1.049（都 > 1，轻微过度自信，校准后变保守方向）。文件 `data/public/calibration-v4.json`，在 test-v4 任何运行之前冻结。
+  - 第 1 级的 dev 数字由 `rescore-v4.mjs --attack` 在同一份存档记录上重算（不重跑闸门）；第 0、2、3 级是新的 `--schema v4` 闸门运行。记忆探针与闸门无关，只在第 1 级的重算中跑一次。
+  - test-v4：按 §9.9 选出 74 个候选、送标、按配额构建 60 条（60 个会议，无圆圈）；Boston 只有 4 个合格会议，配额 4 没有备选（全部有效）。6 条候选因 gold 校验失败被跳过（列在 `selection-v4.json`）。封存：`data/public/test-v4.seal.json`（sealed-unrun）。合格条件按导入时的 profile 字数计算；构建后按空白切分的字数最低为 538（ASR 段落合并造成的计数差，不影响选取规则）。
+  - 解读注意（只报告，不改判定）：+L4 每条记录的 claim 数约为 ideas-only 的 6 倍，所以「每说话人比特」（求和）在 +L4 上天然偏大，不能跨配置比较；P1 按预注册使用每 claim 均值。
+  - dev 结果（只用于诊断，不选级）：四级 P1 都通过（CI 上界 0.16–0.25），C 都在 0.76–0.79，**都未达 0.80**，所以四级整体都是 FAIL；短板是 T9（剥离附录后的公共事实保留，0.70–0.74）。第 2、3 级各出现 1–2 个 T1 v4 硬零违规（第 0、1 级为 0），说明「更严」的泛化重写本身会引入新表述。没有级别同时更私密、更有用，未做 dev 迭代（预算已用约 8.9 美元，并且没有清晰的通用改进）。前沿见 `results/public-v4/frontier-dev/frontier.md`。
