@@ -587,3 +587,106 @@
   - test-v4：按 §9.9 选出 74 个候选、送标、按配额构建 60 条（60 个会议，无圆圈）；Boston 只有 4 个合格会议，配额 4 没有备选（全部有效）。6 条候选因 gold 校验失败被跳过（列在 `selection-v4.json`）。封存：`data/public/test-v4.seal.json`（sealed-unrun）。合格条件按导入时的 profile 字数计算；构建后按空白切分的字数最低为 538（ASR 段落合并造成的计数差，不影响选取规则）。
   - 解读注意（只报告，不改判定）：+L4 每条记录的 claim 数约为 ideas-only 的 6 倍，所以「每说话人比特」（求和）在 +L4 上天然偏大，不能跨配置比较；P1 按预注册使用每 claim 均值。
   - dev 结果（只用于诊断，不选级）：四级 P1 都通过（CI 上界 0.16–0.25），C 都在 0.76–0.79，**都未达 0.80**，所以四级整体都是 FAIL；短板是 T9（剥离附录后的公共事实保留，0.70–0.74）。第 2、3 级各出现 1–2 个 T1 v4 硬零违规（第 0、1 级为 0），说明「更严」的泛化重写本身会引入新表述。没有级别同时更私密、更有用，未做 dev 迭代（预算已用约 8.9 美元，并且没有清晰的通用改进）。前沿见 `results/public-v4/frontier-dev/frontier.md`。
+
+## 10 EmberBench v5：前置化名 + 受控揭名（预注册，`--schema v5`）
+
+BENCH_VERSION = `emberbench-5`。本节在任何 v5 代码运行于数据之前提交（修订 P8）。设计由用户决定（2026-11-13，第二版，取代同日的「公开 / 私有前置决定」第一版），orchestrator 加了安全细化。v4 的估计器、攻击者、校准、P1、C、T6 原样沿用；改的是闸门前端（§10.1–§10.3）和两个硬零（§10.4–§10.5）。
+
+### 10.1 L0P 全量化名（确定性，名册驱动，先于一切层）
+
+- 开关：闸门选项 `pseudonym: true`（会话策略 `policy.pseudonym`），只在公开模式（publicContext 非空）生效；`--schema v5` 打开它。未打开时闸门与 v4 逐字节相同（单测）。
+- 在任何模型看到文本之前，L0P 把**每个人**的名字换成稳定的记号，包括发言人和被提到的人，公职人员也不例外：
+  - 名册上的人（有名或无名）→ `Speaker N`（中文会议用 `发言者N`）。被提到的非名册人物 → `Person N`（中文 `人物N`）。同一会议内，同一个人始终是同一个记号。
+  - 编号是按 sha256(条目 id + seed) 做的置换，**不是**出场顺序，所以 `Speaker 1` 不暗示主持人。
+  - 输出语言跟闸门的确定性语言判定一致（`dominantLang`）。现有闸门的 L0 本来就丢掉说话人标签字段，所以记号只出现在正文提及处。
+- 变体覆盖（名册 name / aliases / publicName，以及在转写里学到的人名）：
+  - 全名、姓、名、所有格（`'s`）；
+  - 称谓 + 姓。称谓会并入记号："Councilmember Cashman" → `Speaker 4`，不会写成 "Councilmember Speaker 4"；
+  - 简单的 ASR 变体：大写、非句首、首字母相同的词，与已知姓名词的编辑距离 ≤ 1（长度 4–6）或 ≤ 2（长度 ≥ 7），并排除常用英语词表里的词。
+- 非名册人物的学习规则（确定性）：
+  - 职衔 + 大写人名（Councilmember / Council Member / Councilman / Councilwoman / Council President / Mayor / Vice Mayor / Commissioner / Supervisor / Senator / Representative / Assemblymember / Governor / Mr / Ms / Mrs / Dr / Chair / Chairman / Director …）；
+  - 现有的致谢 / 介绍句式（`learnThirdNames`）。
+  - 学到的人名，其姓也作为变体。
+- 绑定席位：`boundSeats` 在原始行上识别的本人席位，加上名册职衔里的 District N，凡与之同号的 District 提及一律换成 "a council district"。
+- 无名称呼："Madam / Mr. President / Chair / Secretary / Clerk / Mayor"：名册上该职衔唯一时换成该人的记号，否则换成 "the presiding officer"。
+- L1–L4 照常运行，作为后备（名册扫描、最终擦除都保留）。
+
+### 10.2 揭名请求与确定性裁决（`reveal_name`）
+
+- 协议：**两段式，第二段由代码完成**。没有采用真正的工具调用循环：闸门的 `llm.chat` 接口只有 messages → text（JSON 模式），工具循环要每次重发整份提示，成本翻倍；而且裁决本来就只由代码做，模型不需要知道真名。
+  - L3 改写在 JSON 里多输出 `reveals: [{token, sentence, reason}]`。sentence 是它写出的那条 claim 的原文。
+  - 代码裁决后，在**所有其他层（L4、逐字守卫、最终擦除、绑定守卫、公共记录）都跑完之后**，把获准的记号在话题位置替换回真名。
+  - 提示**强烈鼓励**：凡是记号所指的人本身是讨论对象（"the [Person 4] amendment"，某公职人员的已知立场），都应申请揭名，以免话题内容变空。
+  - 提示同时写明规则：只用于话题提及；不得用于标明谁发言；不得用于称呼或程序性提及（"thank you X"、"X moved / seconded"、"X, you're recognised"）；必须给理由。
+- 裁决（代码决定，模型不决定）。获准当且仅当以下条件全部满足：
+  - (a) 此人为**公共人物**：
+    - 名册上的人，职衔为民选或任命的公职：Councilmember / Councilman / Councilwoman / Council President / President pro tem / Mayor / Vice Mayor / Commissioner / Supervisor / Senator / Assemblymember / Governor / City Manager / City Attorney / City Auditor。职员、秘书 / 书记、公众发言人都**不算**；
+    - 或非名册人物：在本会议材料里带公职职衔出现（同上列表，加 Representative、Judge、Sheriff、Chief of Police），或出现在 publicContext，或在闸门内置的公众人物表里。
+  - (b) 被引用的 sentence 含该记号，且该处是话题位置。判定用 §10.3 的绑定模式。
+  - (c) reason 非空。
+  - 否决理由记为 private / bound-position / no-reason / unknown-token / not-in-sentence。
+  - 可选的非 DeepSeek 裁判本轮**不使用**（记录在案）。
+- 获准的效果：按人授予，按出现处解除。最终输出里该记号每次出现都单独检查，只有处在话题位置的才换成名字（名册名或学到的最长形式），绑定位置的保持记号。说话人标签本来就不存在。
+- 后检（确定性）：最终输出里任何已知人物的真名，凡未获准，或获准但处在绑定位置，一律重新化名。
+- 日志：每条请求的 token、决定、否决理由、模型给的 reason 都进 gate meta（不含真名），由 harness 写入记录。卡片报告请求率（每条目请求数）、批准率、按理由的否决分布、实际解除的出现次数、后检重化名次数，以及「可归因于揭名」的泄露：T1 v5 中公共人物的绑定位置命中，只有揭名或化名遗漏才能造成，单列报告。
+
+### 10.3 后续层的逐字放宽
+
+- 原文重合本身不再算泄露（用户决定）。在化名模式下：
+  - L3 提示去掉「不得逐字复制 / 必须改写句式 / 破坏风格」三条（规则 5 的逐字部分与规则 14），改为「可以保留发言者的原话，但自我描述、本人席位、本人机构和个人数字仍按原规则处理」；
+  - 逐字守卫（`deVerbatim`）只对**含敏感内容**的复制片段强制改写或丢弃。敏感指以下任一：最终擦除会改变它；自我特征剥离会改变它；本人数字遮蔽会改变它；含本人席位或绑定机构句式；含 opaque 记号。
+  - 不含敏感内容的复制片段原样放行。
+- 其他守卫（回声记号、本人数字、绑定守卫、公共记录）不变。
+
+### 10.4 T1 v5（硬零，所有条目所有运行 = 0）
+
+在 release + memory 上计（剥离话题 keep，与 v3 相同），共四类：
+
+- (i) **私有人物的名字**，任何位置：
+  - 名册上非公职职衔者（同 §10.2(a) 列表，由名册职衔判定）的全部名字变体（v2 `nameVariants`）；
+  - 金标 `thirdParties` 中 public = false 者。
+- (ii) **任何人的绑定称呼**，有三个来源：
+  - 金标绑定 title / number 片段中的称呼（≥ 2 词，v4 规则，例如 "Madam President"）；
+  - 公共人物名字变体出现在绑定位置。绑定位置由度量自己的检测器判定，与闸门代码独立实现，并且更宽：
+    - 前面紧邻致谢 / 认可 / 点名 / 交给 / 动议附议语（thank you、recognize、moved by、seconded by、over to、call on、according to …）；
+    - 后面 4 个词内出现发言或程序动词（said / asked / noted / argued / moved / seconded / proposed / voted / agreed / objected …）；
+    - 句首后跟逗号，或句末前有逗号；
+    - 后跟唱名应答（aye / yes / no / present）；
+    - 所有格后跟 district / office / staff / seat / constituents。
+- (iii) **绑定于私有发言人的席位 / 选区**（金标绑定 seat 片段，boundTo 为私有者，v3 seatHit 规则）。
+- (iv) **绑定机构**：v4 的 (iii) 规则原样保留，即私有机构任何出现、公共机构的从属句式。
+- **不算泄露**：公共人物名字的话题提及；`Speaker N` / `Person N` / `发言者N` / `人物N` 记号；selfTrait（如 v4，只报告）。
+
+### 10.5 T2 v5（硬零 = 0）
+
+- 先按 §4.1 找长原话（≥ 12 个连续词 / ≥ 20 个连续汉字），并扩展到最长公共片段。只有当该片段**含敏感内容**时才算泄露。敏感内容指：
+  - 私有人物的名字变体；
+  - 任何人的绑定称呼（§10.4 (ii) 规则作用于片段）；
+  - 绑定于私有发言人的席位；
+  - 金标 selfTrait 片段（逐字包含，或 v3 的数字 / 模糊规则作用于片段）；
+  - §10.4 (iv) 意义上的绑定私有机构。
+- 单纯的逐字重合不再是泄露。原 T2 计数仍在卡片上报告，不进判定。
+
+### 10.6 不变项与校准
+
+- P1（CI 上界 ≤ 0.25 bits/claim）、C（≥ 0.80，T8 / T9 v3 / T11）、T6 v3 = 0、raw 合理性（≥ 1.0 比特）都与 §9 相同。攻击者 A1 qwen-plus、A2 kimi-k3、对齐器 qwen-plus 也不变。
+- 校准：沿用冻结的 `calibration-v4.json`，**不重拟合**。τ 拟合在 raw 配置上，raw 不经过闸门，攻击者与提示都没有变，所以 v5 改闸门不影响校准。
+- 对 P1 的注意：记号让同一个人的多条 claim 可以互相链接，这本身可能提高陌生人比特。P1 就是用来量这个的，不另设规则。
+
+### 10.7 test-v5（新留出 split）
+
+- 约 60 个**从未用过**的条目。排除范围：dev / test / test-v3 / test-v4，以及历次 `raw/`、`raw-v3/`、`raw-v4/` 的全部选材（含未入选的候选）；**所在会议与任何已用条目的会议都不重叠**；每场会议 ≤ 1 条；资格条件同 §7。
+- 配额：剩余可用池为 Long Beach 184 / Denver 176 / Seattle 73 / Alameda 55 / King County 2 / Boston 0 个合格会议，所以取 **Long Beach 16、Denver 16、Seattle 14、Alameda 14**（共 60）。King County 与 Boston 池子见底，不取（记录在案）。
+- 种子 `emberbench-v5-test`，排序与过量送标（× 1.25）规则同 §9.9。
+- 标注沿用 v3 / v4 管线。
+- 封存先于运行：`data/test-v5/`、`data/public/test-v5.manifest.json`、`data/public/test-v5.seal.json`（sealed-unrun），在任何闸门运行之前提交。test-v5 只由 orchestrator 运行一次，严格度 1。
+
+### 10.8 dev 迭代与总判定
+
+- dev：`--schema v5 --runs 3 --configs +L4,ideas-only,raw`，最多 3 轮迭代，只做通用修正（不看 test-v4 / test-v5 条目）。另外跑一次合成轨 dev 回归：T1 / T2 / T3 / T6 必须仍为 0（化名模式在合成轨不生效，回归用于确认共享代码没有被改坏）。
+- **v5 PASS 当且仅当 T1 v5、T2 v5、T6 v3 全为 0，且 P1 PASS，且 C PASS。** raw 合理性失败判为 INVALID。
+- 成本上限（本轮）：含标注 ≤ 12 美元。
+
+**修订记录（v5）**
+
+- P8（2026-11-13，任何 v5 代码运行于数据之前）：预注册 v5（本节 §10.1–§10.8）。
