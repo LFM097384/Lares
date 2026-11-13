@@ -89,3 +89,4 @@ export function circles(ts) {
   return [...m].map(([circle, s]) => ({ circle, sessions: s.sort((x, y) => x.session - y.session) }));
 }
 export const V4_TEST_SPLIT = 'test-v4';
+export const V5_TEST_SPLIT = 'test-v5';

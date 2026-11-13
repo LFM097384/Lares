@@ -69,7 +69,7 @@ export const isSeatRef = (text) => SEAT.test(normFact(text)) || /\b(?:district|w
 // tokens are counted after dropping articles / determiners (P5): "the chair", "the clerk" are bare one-word titles (T12), not vocatives
 const DET = new Set(['the', 'a', 'an', 'this', 'that', 'our', 'my', 'your']);
 export const isVocative = (text) => String(text).trim().split(/\s+/).filter((w) => !DET.has(w.toLowerCase())).length >= 2;
-function seatHit(out, x) {
+export function seatHit(out, x) {
   const nx = normFact(x);
   if (normHas(out, x)) return true;
   const runs = nx.match(/\d+/g) || [];
@@ -77,18 +77,18 @@ function seatHit(out, x) {
   if (!runs.length || !head) return false;
   return sentences(out).some((l) => { const nl = normFact(l); return runs.every((r) => new RegExp(`\\b${head}\\s*${r}\\b|\\b${r}\\s*${head}\\b`).test(nl)); });
 }
-const wordHit = (out, v) => {
+export const wordHit = (out, v) => {
   const n = normText(out), w = normText(v).trim();
   return !!w && new RegExp(`(^|[^\\p{L}\\p{N}])${esc(w)}($|[^\\p{L}\\p{N}])`, 'u').test(n);
 };
-function selfTraitHit(out, text) {
+export function selfTraitHit(out, text) {
   if (containsVariant(out, text)) return true;
   if ((String(text).match(/\d{2,}/g) || []).length) { const runs = String(text).match(/\d{2,}/g); return sentences(out).some((l) => runs.every((r) => l.includes(r)) && bigramOverlap(text, l) >= 0.5); }
   return fuzzyQuasi(text, out);
 }
 
 /** Strip only TOPIC keeps (+ public context) before leak scanning: a bound keep (the speaker's own address) is not protected. */
-function stripTopicKeeps(text, t) {
+export function stripTopicKeeps(text, t) {
   const bound = new Set(v3Spans(t).filter((s) => s.kind === 'keep' && s.binding === 'bound').map((s) => s.text));
   const tt = { ...t, gold: { ...t.gold, publicFacts: (t.gold?.publicFacts || []).map((f) => ({ ...f, keep: (f.keep || []).filter((k) => !bound.has(k)) })) } };
   return stripKeeps(text, tt);

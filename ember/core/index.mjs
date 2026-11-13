@@ -222,7 +222,7 @@ export function createSession({ sid = randomUUID(), roster = [], policy = {}, ll
       const lines = sel.map((u) => ({ speakerId: u.speakerId, speakerName: members.get(u.speakerId)?.name || u.speakerId, text: u.text }));
       const now = clock();
       const transcript = { roster, lines, sessionDate: isoDate(now), lang: pol.lang };
-      const opts = { llm, mock: !llm, threshold: pol.threshold, flagThreshold: pol.flagThreshold, allowPublicFacts: pol.allowPublicFacts, ...(Array.isArray(pol.publicContext) && pol.publicContext.length ? { publicContext: pol.publicContext } : {}), ...(pol.strictness != null ? { strictness: pol.strictness } : {}) };
+      const opts = { llm, mock: !llm, threshold: pol.threshold, flagThreshold: pol.flagThreshold, allowPublicFacts: pol.allowPublicFacts, ...(Array.isArray(pol.publicContext) && pol.publicContext.length ? { publicContext: pol.publicContext } : {}), ...(pol.strictness != null ? { strictness: pol.strictness } : {}), ...(pol.pseudonym ? { pseudonym: true } : {}) };
       const out = await g.runGate(transcript, opts);
       const draftId = randomUUID();
       const items = (out?.claims || []).map((c, n) => {
@@ -238,7 +238,7 @@ export function createSession({ sid = randomUUID(), roster = [], policy = {}, ll
       }).filter((i) => i.text);
       const m = out?.meta || {};
       const d = { draftId, items, draftHash: '', approvals: new Map(), version: 0, sessionDate: transcript.sessionDate,
-        metrics: { lines: sel.length, gateMs: m.ms, llmCalls: m.llmCalls, dropped: m.dropped, verifierRounds: m.verifierRounds, mock: !llm } };
+        metrics: { lines: sel.length, gateMs: m.ms, llmCalls: m.llmCalls, dropped: m.dropped, verifierRounds: m.verifierRounds, mock: !llm, ...(m.pseudonym ? { pseudonym: m.pseudonym } : {}) } };
       rehash(d);
       d.version = 1;
       drafts.set(draftId, d);

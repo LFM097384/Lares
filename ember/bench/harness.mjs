@@ -19,11 +19,11 @@ async function timed(meter, fn) { const t0 = now(); try { return await fn(); } f
 const safe = async (errors, label, fn) => { try { return await fn(); } catch (e) { errors.push(`${label}: ${String(e?.message || e).slice(0, 200)}`); return null; } };
 
 /** Run core Ember (+L4) on one transcript. memory may be shared across a circle's sessions. */
-export async function runCore(t, { llm, memory, seed = 1, strictness = null }) {
+export async function runCore(t, { llm, memory, seed = 1, strictness = null, pseudonym = false }) {
   const roster = t.roster;
   const sid = `${t.id}-r${seed}`;
   // public track: the host-declared convening body (transcript metadata, never gold) → opt-in public-body mode (METHOD P3)
-  const policy = { k: Math.min(2, roster.length), ...(Array.isArray(t.publicContext) && t.publicContext.length ? { publicContext: t.publicContext } : {}), ...(strictness != null ? { strictness } : {}) };
+  const policy = { k: Math.min(2, roster.length), ...(Array.isArray(t.publicContext) && t.publicContext.length ? { publicContext: t.publicContext } : {}), ...(strictness != null ? { strictness } : {}), ...(pseudonym && t.publicContext?.length ? { pseudonym: true } : {}) };
   const s = createSession({ sid, roster, policy, llm, memory });
   const keys = {};
   for (const m of roster) { keys[m.id] = generateEd25519(); s.join({ ...m, pubKey: keys[m.id].pubB64 }); }
@@ -49,7 +49,7 @@ export async function runCore(t, { llm, memory, seed = 1, strictness = null }) {
     if (r.released) { released = s.released(d.draftId); break; }
   }
   s.end();
-  return { release: released?.text ?? '', items: d.items.length, withheld: d.items.filter((i) => i.roleRisk).length, answers };
+  return { release: released?.text ?? '', items: d.items.length, withheld: d.items.filter((i) => i.roleRisk).length, answers, ...(d.metrics?.pseudonym ? { pseudonym: d.metrics.pseudonym } : {}) };
 }
 
 /** Memory channel: what recallForOutput returns for title + (non-injection) questions + topic probes. */
@@ -178,7 +178,7 @@ export function pairOutsider(recs) {
 }
 
 /** One task = one transcript (or one whole circle, sequentially, shared memory) × one run seed, all configs. */
-export async function runTask(task, { gate, attacker, judge, configs, seed, log = () => {}, strictness = null, v4 = null }) {
+export async function runTask(task, { gate, attacker, judge, configs, seed, log = () => {}, strictness = null, v4 = null, pseudonym = false }) {
   const sessions = task.sessions;
   const records = [];
   const memory = createMemory({ circleId: `bench-${task.key}-r${seed}`, roster: sessions[0].roster, llm: gate });
@@ -187,7 +187,7 @@ export async function runTask(task, { gate, attacker, judge, configs, seed, log 
     let core = null;
     if (configs.includes('+L4')) {
       const t0 = now();
-      core = await runCore(t, { llm: gate, memory, seed, strictness }).catch((e) => ({ error: String(e.message), release: '', answers: [] }));
+      core = await runCore(t, { llm: gate, memory, seed, strictness, pseudonym }).catch((e) => ({ error: String(e.message), release: '', answers: [] }));
       core.memory = await memoryChannel(memory, t).catch(() => '');
       core.ms = now() - t0;
       outs.push(core);
@@ -195,7 +195,7 @@ export async function runTask(task, { gate, attacker, judge, configs, seed, log 
     for (const cfg of configs) {
       const channels = cfg === 'raw' ? { release: rawRelease(t), memory: '', answers: [] } : cfg === '+L4' ? core : { release: null };
       const r = await scoreConfig(cfg, t, channels, { attacker, judge, seed });
-      if (cfg === '+L4') { r.gateMs = core.ms; r.items = core.items; r.withheld = core.withheld; if (core.error) r.errors.push(`gate: ${core.error}`); }
+      if (cfg === '+L4') { r.gateMs = core.ms; r.items = core.items; r.withheld = core.withheld; if (core.pseudonym) r.pseudonym = core.pseudonym; if (core.error) r.errors.push(`gate: ${core.error}`); }
       if (strictness != null) r.strictness = strictness;
       // EmberBench v4 (METHOD §9.2): per-claim stranger distributions from every attacker
       if (v4) r.v4 = await v4.score(cfg, t, r).catch((e) => { r.errors.push(`v4: ${e.message}`); return null; });

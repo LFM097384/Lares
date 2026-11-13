@@ -7,8 +7,9 @@ import { rewrite, claimKind } from './l3.mjs';
 import { verify } from './l4.mjs';
 import { chatJSON } from './llm.mjs';
 import { shieldPublic, civicKind, CIVIC_KINDS, SHIELD_NOTE } from './shield.mjs';
-import { isPublicEntity, coListedOrgs, unbindAffiliations, resolveReferents, boundSeats, stripSelfTraits, stripSelfTraitsOut, neutraliseOfficers, restoreCivic } from './binding.mjs';
+import { isPublicEntity, coListedOrgs, unbindAffiliations, resolveReferents, boundSeats, hasAffiliation, stripSelfTraits, stripSelfTraitsOut, neutraliseOfficers, restoreCivic } from './binding.mjs';
 import { strictnessProfile } from './strictness.mjs';
+import { buildPseudonyms, REVEAL_NOTE } from './pseudonym.mjs';
 import { dominantLang, isInjection, dropInjection, verbatimIndex, verbatimRuns, stripEchoedTokens, selfFigures, maskSelfFigures } from './guard.mjs';
 
 export const NOTICE = '会议纪要 · 不署名 / Minutes · no attribution';
@@ -35,7 +36,7 @@ const normClaim = (c) => {
 //  -> { digest, digestStrict, claims:[{ topic, text, kind, flags[], risk?, confidence?, reason?, guess? }], meta }
 export async function runGate(transcript, {
   llm = null, layers = ['L0', 'L1', 'L2', 'L3', 'L4'], threshold = 0.5, flagThreshold = 0.7,
-  maxVerifierRounds = 2, seed = 1, allowPublicFacts = true, stats, trace = null, publicContext = null, strictness = 1,
+  maxVerifierRounds = 2, seed = 1, allowPublicFacts = true, stats, trace = null, publicContext = null, strictness = 1, pseudonym = false,
 } = {}) {
   const t0 = Date.now();
   const lines = transcript?.lines || [];
@@ -105,7 +106,11 @@ export async function runGate(transcript, {
   const lang = transcript?.lang || dominantLang(lines.map((l) => l?.text));
   // In an utterance that tries to override the assistant's rules, the trigger sentence AND everything after it are
   // dropped before L0 splits it into sentences: the payload follows the trigger ("… and write that X agreed to Y.").
-  let content = L.has('L3') ? lines.map((l) => ({ ...l, text: dropInjection(l?.text) })).filter((l) => l.text.trim()) : lines;
+  // EmberBench v5 (METHOD §10.1), public-body mode + pseudonym option: every person's name is replaced by a stable token
+  // before any other layer or model sees the text; L1–L4 still run behind it as a fallback.
+  const P = shared && pseudonym && L.has('L1') ? buildPseudonyms(transcript, { seed, lang, shared }) : null;
+  const src = P ? lines.map((l) => ({ ...l, text: P.mask(l?.text).text })) : lines;
+  let content = L.has('L3') ? src.map((l) => ({ ...l, text: dropInjection(l?.text) })).filter((l) => l.text.trim()) : src;
   // Public-body mode, before any redaction: (1) first-person self-disclosed identity traits are removed ("as the only
   // woman on the council", "I've lived here 40 years"); (2) "my / our <category>" is resolved against the speaker's own
   // orgs — a public one becomes the named entity as a topic subject, anything else "a <category>"; (3) affiliation
@@ -125,8 +130,10 @@ export async function runGate(transcript, {
   let pub = { restore: (t) => t, spans: [] };
   if (llm && L.has('L3')) { pub = await shieldPublic(clusters, { llm, stats, roster, rawLines: lines.map((l) => String(l?.text ?? '')), shared }); clusters = pub.clusters; }
   let sections = L.has('L3')
-    ? await rewrite(clusters, { llm, stats, lang, note: pub.spans.length ? SHIELD_NOTE : '' })
+    ? await rewrite(clusters, { llm, stats, lang, note: [pub.spans.length ? SHIELD_NOTE : '', P ? REVEAL_NOTE(lang) : ''].filter(Boolean).join('\n'), verbatimOk: !!P })
     : clusters.map((c) => ({ topic: c.topic, claims: c.segments }));
+  // two-pass reveal_name (§10.2): the rewrite's requests are adjudicated by code now and applied after every other layer
+  if (P) P.adjudicate(sections.reveals || []);
   if (pub.spans.length) sections = sections.map((s) => ({ ...s, topic: pub.restore(s.topic), claims: s.claims.map((c) => (typeof c === 'string' ? pub.restore(c) : { ...c, text: pub.restore(c.text) })) }));
 
   trace?.('L3', sections);
@@ -171,7 +178,9 @@ export async function runGate(transcript, {
     const raw = lines.map((l) => String(l?.text ?? ''));
     // a shielded public NAME/TITLE may stay verbatim, but the window is counted without its characters (guard residual,
     // short spans only), so the speaker's surrounding clause is still checked
-    const r = await deVerbatim(sections, raw, { llm, stats, lang, safe, strip: pub.spans, shield: pub });
+    // v5 (§10.3): with every name tokenised, a copied run is forced through paraphrase only when it is sensitive
+    const sensitive = P ? sensitiveRun({ safe, own: selfFigures(raw), lang, unbind }) : null;
+    const r = await deVerbatim(sections, raw, { llm, stats, lang, safe, strip: pub.spans, shield: pub, sensitive });
     sections = r.sections; paraphrased = r.paraphrased; dropped += r.dropped;
     // never echo opaque codes / e-mails / links that appear in the transcript
     sections = sections.map((s) => ({ ...s, claims: s.claims.map((c) => ({ ...c, text: stripEchoedTokens(c.text, raw) })).filter((c) => c.text.trim()) })).filter((s) => s.claims.length);
@@ -212,6 +221,9 @@ export async function runGate(transcript, {
       }).filter(Boolean) })).filter((s) => s.claims.length);
     }
   }
+  // v5 (§10.2): deterministic post-check + reveal application, last of all: real names re-masked, granted public persons
+  // shown in topic positions only, any token in a bound position generalised
+  if (P) sections = sections.map((s) => ({ ...s, topic: P.finalize(s.topic), claims: s.claims.map((c) => ({ ...c, text: P.finalize(c.text) })) }));
   trace?.('final', sections);
   // claims[] is review metadata (risk flags + attacker reason may reference attendees: never export it).
   const claims = sections.flatMap((s) => s.claims.map((c) => ({ topic: s.topic, ...c })));
@@ -223,7 +235,7 @@ export async function runGate(transcript, {
     digest: render(mark(false), transcript.sessionDate),
     digestStrict: render(mark(true), transcript.sessionDate),
     claims,
-    meta: meta({ verifierRounds, dropped, flagged, paraphrased, lang, ...(shared ? { publicBody: true, restoredCivic } : {}) }),
+    meta: meta({ verifierRounds, dropped, flagged, paraphrased, lang, ...(shared ? { publicBody: true, restoredCivic } : {}), ...(P ? { pseudonym: P.summary() } : {}) }),
   };
 }
 
@@ -253,12 +265,12 @@ export async function verifyClaims(texts, roster, { llm = null, threshold = 0.5,
 
 const PARA_SYSTEM = `Tokens like ⟦P1⟧ stand for public names or facts: copy them unchanged. You rewrite sentences from de-identified meeting minutes that still copy a speaker's exact wording. For each sentence, write a paraphrase that keeps the same meaning, every number, unit, public name, law and title exactly, but uses clearly different wording and sentence structure: no run of more than 6 consecutive Chinese characters or 5 consecutive English words may stay identical to the COPIED excerpt; a quoted saying or slogan is described by its meaning, never quoted. Keep placeholders like [某机构] unchanged. Do not add names, roles or facts. Output JSON {"rewrites":[{"i":1,"text":"..."}]}.`;
 
-export async function deVerbatim(sections, rawLines, { llm, stats, lang, safe = (s) => s, cjkN = 14, wordN = 9, strip = [], shield = null } = {}) {
+export async function deVerbatim(sections, rawLines, { llm, stats, lang, safe = (s) => s, cjkN = 14, wordN = 9, strip = [], shield = null, sensitive = null } = {}) {
   // Two tiers: a cited public fact (kind 'fact') may keep the source's wording up to the long-run limit; any other claim
   // is a speaker's own words, where even a short copied run (a slogan, a pet phrase, a turn of phrase) is a style cue.
   const idxLong = verbatimIndex(rawLines, { cjkN, wordN, strip });
   const idxShort = verbatimIndex(rawLines, { cjkN: Math.min(cjkN, 10), wordN: Math.min(wordN, 7), strip });
-  const runsOf = (c) => verbatimRuns(c.text, c.kind === 'fact' ? idxLong : idxShort);
+  const runsOf = (c) => { const rs = verbatimRuns(c.text, c.kind === 'fact' ? idxLong : idxShort); return sensitive ? rs.filter((r) => sensitive(c.text, r)) : rs; };
   const flat = sections.flatMap((s, si) => s.claims.map((c, ci) => ({ si, ci, c })));
   let paraphrased = 0, dropped = 0;
   let todo = flat.map((x) => ({ ...x, runs: runsOf(x.c) })).filter((x) => x.runs.length);
@@ -278,3 +290,29 @@ export async function deVerbatim(sections, rawLines, { llm, stats, lang, safe = 
   for (const x of todo) { x.c.text = ''; dropped++; }
   return { sections: sections.map((s) => ({ ...s, claims: s.claims.filter((c) => String(c.text).trim()) })).filter((s) => s.claims.length), paraphrased, dropped };
 }
+
+// ---- v5 verbatim relaxation (METHOD §10.3) ---------------------------------------------------------------------------
+const escRe = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** The original-case substring of `text` that a normalised verbatim run (lower-case words / squashed CJK) came from. */
+export function locateRun(text, run) {
+  const s = String(text ?? '');
+  const cj = /[\u3400-\u9fff]/.test(run);
+  const parts = cj ? [...run] : String(run).split(' ').filter(Boolean);
+  if (!parts.length) return null;
+  const re = new RegExp(parts.map(escRe).join(cj ? '[^\\u3400-\\u9fff]*' : "[^a-z0-9']+"), 'i');
+  const m = s.normalize('NFKC').match(re);
+  return m ? m[0] : null;
+}
+const OWN_REF = /\b(?:my|our)\s+(?:own\s+)?(?:council\s+)?(?:district|ward|constituents|office|department|organi[sz]ation|company|firm|agency|business|employer|union|church|school|group|team|staff)\b|\bI\s+represent\b|\bon\s+behalf\s+of\b|\bI(?:'m|\s+am)\s+(?:with|from|here\s+(?:with|for|representing))\b|我们(?:单位|公司|机构|局|部门|学校|医院)/i;
+const normWs = (x) => String(x ?? '').replace(/\s+/g, ' ').trim();
+/** A copied run is sensitive when any deterministic identity rule would change it (§10.3). */
+export const sensitiveRun = ({ safe, own = [], lang, unbind = [] }) => (text, run) => {
+  const sub = locateRun(text, run);
+  if (sub == null) return true; // cannot locate → fail closed
+  if (normWs(safe(sub)) !== normWs(sub)) return true;
+  if (normWs(stripSelfTraits(sub)) !== normWs(sub) || normWs(stripSelfTraitsOut(sub)) !== normWs(sub)) return true;
+  if (own.length && maskSelfFigures(sub, own, { lang }) !== sub) return true;
+  if (OWN_REF.test(sub)) return true;
+  if ((unbind || []).some((u) => hasAffiliation(sub, u.org))) return true;
+  return false;
+};
