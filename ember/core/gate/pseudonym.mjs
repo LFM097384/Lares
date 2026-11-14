@@ -36,6 +36,9 @@ const SPEECH_V = '(?:said|says|asked|asks|noted|notes|argued|argues|moved|moves|
 const POST = new RegExp(`^(?:'s|’s)?\\s*(?:,[^,.;!?]{0,60},\\s*)?(?:[\\p{L}\\p{N}'’-]+\\s+){0,3}?${SPEECH_V}\\b`, 'iu');
 const ROLLCALL = /^\s*[,:]?\s*(?:aye|yes|no|nay|present|here)\b/i;
 const POSS_OFFICE = /^(?:'s|’s)\s+(?:own\s+)?(?:council\s+)?(?:district|office|staff|seat|constituents|aide|aides|team)\b/i;
+// P10 (Chatham rule): attributing a statement / speech act in this meeting to X — X's view, remarks, question, motion …
+const POSS_SPEECH = /^(?:'s|’s)\s+(?:own\s+)?(?:(?:earlier|initial|final|closing|opening|main|specific)\s+)?(?:view|views|position|argument|arguments|remarks?|comments?|statement|question|questions|concerns?|point|points|motion|testimony|objection|objections|vote|suggestion|request|answer|response|reply|words|opinion|stance)\b/i;
+const QUOTE_MARK = /["“”«»「」『』]/;
 const SENT_END = /[.!?。！？;；\n]/;
 /** true when the span text[start, end) is a vocative / procedural / speaker-binding position (never revealed). */
 export function boundAt(text, start, end) {
@@ -44,7 +47,8 @@ export function boundAt(text, start, end) {
   let b = end; while (b < s.length && !SENT_END.test(s[b])) b++;
   const before = s.slice(a, start), after = s.slice(end, b);
   if (PRE.test(before)) return true;
-  if (POST.test(after) || ROLLCALL.test(after) || POSS_OFFICE.test(after)) return true;
+  if (POST.test(after) || ROLLCALL.test(after) || POSS_OFFICE.test(after) || POSS_SPEECH.test(after)) return true;
+  if (QUOTE_MARK.test(before + after)) return true; // a quote in the same sentence would be attributed to X
   if (!before.trim() && /^\s*,/.test(after)) return true; // "X, you're recognised"
   if (/,\s*$/.test(before) && !after.replace(/["”’')\]\s]/g, '')) return true; // "… thank you, X."
   return false;
@@ -229,19 +233,17 @@ export function buildPseudonyms(transcript, { seed = 1, lang = 'en', shared = []
       if (!e) why = 'unknown-token';
       else if (!reason) why = 'no-reason';
       else if (!e.public || !e.display) why = 'private';
-      // P9: a roster speaker is never revealed — the name would disclose who attended (T6), whatever the position
-      else if (e.kind === 'speaker') why = 'speaker';
       else {
         const occ = [...sentence.matchAll(TOKEN_RE)].filter((x) => keyOfToken(x[1], Number(x[2])) === `${e.kind}:${e.n}`);
         if (!occ.length) why = 'not-in-sentence';
         else if (occ.some((x) => boundAt(sentence, x.index, x.index + x[0].length))) why = 'bound-position';
       }
       if (!why) granted.add(`${e.kind}:${e.n}`);
-      log.push({ token: e ? e.token : tok.slice(0, 24), decision: why ? 'denied' : 'granted', why: why || (e.why), reason: mask(reason).text.slice(0, 160) });
+      log.push({ token: e ? e.token : tok.slice(0, 24), decision: why ? 'denied' : 'granted', why: why || (e.why), reason: mask(reason).text.slice(0, 160), ...(why ? {} : { kind: e.kind, display: e.display }) });
     }
     return log;
   }
-  const stat = { unmasked: 0, boundTokens: 0, remasked: 0 };
+  const stat = { unmasked: 0, boundTokens: 0, remasked: 0, grantedBound: 0, examples: [] };
   /**
    * Final pass (after every other layer) + deterministic post-check: any real name that reappears (hallucinated, restored
    * by a later layer) is re-masked first; then each token occurrence is decided on its own: a bound position (vocative,
@@ -256,15 +258,21 @@ export function buildPseudonyms(transcript, { seed = 1, lang = 'en', shared = []
       const k = keyOfToken(m[1], Number(m[2])), e = byKey.get(k);
       if (!e) continue;
       let rep = e.token;
-      if (boundAt(s, m.index, m.index + m[0].length)) { rep = generic; stat.boundTokens++; }
-      else if (granted.has(k) && e.display) { rep = e.display; stat.unmasked++; }
+      // post-check (P10 attribution check): a granted person in a bound / attributive position stays generic, per occurrence
+      if (boundAt(s, m.index, m.index + m[0].length)) { rep = generic; stat.boundTokens++; if (granted.has(k)) stat.grantedBound++; }
+      else if (granted.has(k) && e.display) {
+        rep = e.display; stat.unmasked++;
+        let a = m.index; while (a > 0 && !SENT_END.test(s[a - 1])) a--;
+        let b = m.index; while (b < s.length && !SENT_END.test(s[b])) b++;
+        if (stat.examples.length < 6) stat.examples.push((s.slice(a, m.index) + e.display + s.slice(m.index + m[0].length, b)).trim().slice(0, 240));
+      }
       out += s.slice(last, m.index) + rep; last = m.index + m[0].length;
     }
     return (out + s.slice(last)).replace(/\b(a participant)(?:'s|’s)/g, "$1's").replace(/^a participant/, 'A participant');
   }  function summary() {
     const denied = {};
     for (const r of log) if (r.decision === 'denied') denied[r.why] = (denied[r.why] || 0) + 1;
-    return { mode: 'two-pass', requests: log.length, granted: log.filter((r) => r.decision === 'granted').length, grantedPersons: granted.size, denied, unmasked: stat.unmasked, boundTokens: stat.boundTokens, remasked: stat.remasked,
+    return { mode: 'two-pass', requests: log.length, granted: log.filter((r) => r.decision === 'granted').length, grantedPersons: granted.size, denied, unmasked: stat.unmasked, boundTokens: stat.boundTokens, remasked: stat.remasked, grantedBound: stat.grantedBound, grantedKinds: { speaker: log.filter((r) => r.decision === 'granted' && r.kind === 'speaker').length, person: log.filter((r) => r.decision === 'granted' && r.kind === 'person').length }, examples: stat.examples,
       entries: { speakers: entries.filter((e) => e.kind === 'speaker').length, persons: entries.filter((e) => e.kind === 'person').length, public: entries.filter((e) => e.public && e.display).length, asrVariants: entries.reduce((s, e) => s + (e.asr || 0), 0) }, log };
   }
   return { entries, mask, adjudicate, finalize, summary, granted };

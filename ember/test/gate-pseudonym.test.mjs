@@ -68,7 +68,7 @@ test('adjudicate + finalize: public topic mention revealed, private / bound / no
     { token: '[Person 99]', sentence: 'x', reason: 'y' },
   ]);
   assert.deepEqual(log.map((r) => r.decision), ['granted', 'denied', 'denied', 'denied', 'denied', 'denied']);
-  assert.deepEqual(log.slice(1).map((r) => r.why), ['private', 'speaker', 'no-reason', 'bound-position', 'unknown-token']);
+  assert.deepEqual(log.slice(1).map((r) => r.why), ['private', 'bound-position', 'no-reason', 'bound-position', 'unknown-token']);
   assert.equal(P.finalize(`The ${H} amendment raised the height limit.`), 'The Herndon amendment raised the height limit.');
   assert.equal(P.finalize(`${H} said the limit was too low.`), 'A participant said the limit was too low.');
   assert.equal(P.finalize(`The ${J} letter about parking was discussed.`), `The ${J} letter about parking was discussed.`);
@@ -76,7 +76,7 @@ test('adjudicate + finalize: public topic mention revealed, private / bound / no
   assert.ok(!P.finalize('Jessie Parris opposed the bill.').includes('Parris'));
   const s = P.summary();
   assert.equal(s.mode, 'two-pass'); assert.equal(s.requests, 6); assert.equal(s.granted, 1); assert.equal(s.denied.private, 1);
-  assert.ok(!JSON.stringify(s.log).includes('Herndon'), 'log carries tokens, not names');
+  assert.ok(!JSON.stringify(s.log.filter((r) => r.decision === 'denied')).includes('Herndon'), 'denied rows carry tokens, not names');
 });
 
 test('runGate: pseudonym mode off → byte-identical to v4; on (mock) → no roster names, meta.pseudonym present', async () => {
@@ -132,6 +132,42 @@ const item = {
 test('mask: private speakers own orgs and clerk / secretary titles', () => {
   const P = buildPseudonyms({ roster: [...roster, { id: 's9', name: 'Al Ray', title: 'public speaker', org: 'National corporation (event security)' }], lines }, { shared });
   assert.equal(P.mask('We hired National corporation. The council secretary will call the roll.').text, 'We hired an organisation. meeting staff will call the roll.');
+});
+
+test('P10 (Chatham rule): a public roster speaker is revealable in a topic mention only; attribution is never revealed', () => {
+  const P = buildPseudonyms(T, { shared, seed: 1, lang: 'en' });
+  const C = P.entries.find((e) => e.id === 's1').token, J = P.entries.find((e) => e.id === 's2').token;
+  const log = P.adjudicate([
+    { token: C, sentence: `The ${C} amendment on parking was adopted.`, reason: 'the amendment is named after the councilmember' },
+    { token: J, sentence: `The ${J} petition was discussed.`, reason: 'topic' },
+    { token: C, sentence: `${C}'s view was that the limit was too low.`, reason: 'topic' },
+    { token: C, sentence: `"We need more parking," ${C} noted.`, reason: 'topic' },
+  ]);
+  assert.deepEqual(log.map((r) => r.why), ['roster office title', 'private', 'bound-position', 'bound-position']);
+  assert.equal(P.finalize(`The ${C} amendment on parking was adopted.`), 'The Dana Cashman amendment on parking was adopted.');
+  // post-check: the granted speaker in an attributive position anywhere else stays generic
+  for (const s of [`${C} said the limit was too low.`, `${C} moved the bill.`, `The bill was introduced by ${C}.`, `Thank you, ${C}.`, `${C}'s remarks focused on parking.`, `The amendment, "a sensible fix", came from ${C}.`, `${C} also argued for a delay.`, `As ${C} put it, "parking matters".`])
+    assert.ok(!P.finalize(s).includes('Cashman'), s);
+  assert.ok(P.finalize(`${C}'s district plan was discussed.`).includes('Cashman') === false, 'possessive office (district) is bound');
+  assert.ok(P.finalize(`The council discussed the ${C} proposal for parks.`).includes('Dana Cashman'));
+  const s = P.summary();
+  assert.equal(s.grantedKinds.speaker, 1); assert.ok(s.grantedBound >= 8); assert.ok(s.examples.some((e) => /Dana Cashman amendment/.test(e)));
+});
+
+test('P10 metrics: granted public topic mention is neither T1 v5 nor T6 v5; attributive public name is T1 v5 + T6 v5', async () => {
+  const { outsiderV5, v5RecordFields } = await import('../bench/metrics-v5.mjs');
+  const t = { ...T, gold: { spansV3: [], thirdParties: [], identifiers: [] }, roster };
+  const topic = 'The Cashman amendment on parking was adopted.';
+  assert.equal(bindingLeaksV5(topic, t).total, 0);
+  assert.equal(outsiderV5(['Dana Cashman'], topic, t).count, 0);
+  const attr = 'Cashman said the limit was too low.';
+  assert.equal(bindingLeaksV5(attr, t).vocatives, 1);
+  assert.equal(outsiderV5(['Dana Cashman'], attr, t).count, 1);
+  // a private speaker named anywhere is still evidence
+  assert.equal(outsiderV5(['Jessie Parris'], 'The Parris petition was discussed.', t).count, 1);
+  const r = { release: attr, memoryText: '', pseudonym: { log: [{ decision: 'granted', display: 'Dana Cashman', kind: 'speaker' }] }, outsider: { named: ['Dana Cashman'] } };
+  const f = v5RecordFields(r, t);
+  assert.equal(f.v5bind.revealLeaks, 1); assert.equal(f.v5out6, 1);
 });
 
 test('T1 v5: private names anywhere, public names only bound, tokens never', () => {

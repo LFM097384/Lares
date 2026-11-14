@@ -695,3 +695,15 @@ BENCH_VERSION = `emberbench-5`。本节在任何 v5 代码运行于数据之前�
   (c) 约束位置扩展："proposed/introduced/moved/… by X"、"by/from/with X" 一律视为约束位置。闸门与指标两侧都改。
   (d) 指标：gold thirdParties 的 public=true 条目里混有机构、品牌、地名（RCA、Nissan、San Diego）。它们只有在 gold 名称或转录里带人物头衔时，才算"公共人物"，进入 T1 v5 (ii) 的约束名检测。
   (e) 基础设施：provider 重试从 4 次增至 7 次。dev 第 1 轮有 14/54 条 +L4 记录因 `fetch failed` 网络错误作废，该轮不作为 dev 结论。
+- P10（2026-11-14，dev 第 2 轮之后，test-v5 已封存未运行、未触）：用户决定，部分撤回 P9(b)。理由是 Chatham House 联系人（Robbie Ward）的澄清："We just want to avoid disclosure of information that directly identifies the speaker … a participant can share anything that was said … but not share who said it."
+  (a) 裁决：撤销对有公职头衔的 roster 发言者（公共人物）的一律拒绝 `speaker`。其余拒绝理由保留：private、bound-position、no-reason、unknown-token、not-in-sentence。发言者标签本身永不揭示。
+  (b) 约束 / 归属位置扩展（闸门与指标两侧同步）：
+      - "X's view / remarks / question / motion / position …"（把本次会上的言论归给 X）；
+      - 同句含引号（引语会被归给 X）。
+      原有的呼语、"X moved / seconded / said / argued"、"proposed / introduced by X"、"by / from / with X" 照旧。
+  (c) post-check 归属检查：已授权的名字在 finalize 中逐次判定，处于约束 / 归属位置的出现一律回退为 "a participant"，并计数 grantedBound。
+  (d) 指标：
+      - T1 v5：公共人物（含公职发言者）的主题提及不算泄露；处于约束 / 归属位置仍算 vocatives（public-name-bound）。另报其中可归因于授权揭名的条数（revealLeaks）。
+      - T6 v5：v3 outsider 规则不变，唯一的改动是公共人物的名字只有出现在约束 / 归属位置时才算证据（主题提及只说明谈了什么，不说明谁说的）。私人与私有机构照旧，出现即算证据。T6 v3 照旧报告。
+      - P1 不变（按预注册）；若因公共名字出现而上升，如实报告。
+  (e) 这是 dev 第 3 轮，也是允许的最后一轮。数据封存不受影响（同一 datasetHash），闸门 SHA 在报告中另记。
