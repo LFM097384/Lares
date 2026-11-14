@@ -2,13 +2,16 @@
 // "provider:model" spec, configurable from the CLI. Keys come from env only and are never logged or written.
 //   deepseek   → LARES_AI_LLM_KEY,  LARES_AI_LLM_BASE_URL (default https://api.deepseek.com)
 //   dashscope  → DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL    (default https://dashscope.aliyuncs.com/compatible-mode/v1)
+//   chatgpt    → ChatGPT (Codex) subscription OAuth tokens read from CHATGPT_AUTH_FILE (default ~/.dsh/plugins/subscriptions/auth.json); see chatgpt.mjs
 // loadDashscopeKeyFile(csv) reads the Aliyun console CSV ("apiKey,<key>") into process.env at runtime.
 import { readFileSync, existsSync } from 'node:fs';
 import { createDeepSeekLLM, parseJSON } from '../core/gate/llm.mjs';
+import { createChatGPTLLM } from './chatgpt.mjs';
 
 export const PROVIDERS = {
   deepseek: { family: 'deepseek', keyEnv: 'LARES_AI_LLM_KEY', baseEnv: 'LARES_AI_LLM_BASE_URL', base: 'https://api.deepseek.com' },
   dashscope: { family: 'qwen', keyEnv: 'DASHSCOPE_API_KEY', baseEnv: 'DASHSCOPE_BASE_URL', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  chatgpt: { family: 'openai', keyEnv: null, base: 'https://chatgpt.com/backend-api/codex' },
   mock: { family: 'mock', keyEnv: null, base: null },
 };
 
@@ -24,6 +27,11 @@ export const PRICES = {
   'qwen3.7-plus': { in: 0.11, out: 0.28 },
   'qwen3.8-max': { in: 0.34, out: 1.35 },
   'kimi-k3': { in: 0.56, out: 2.25 }, // ASSUMPTION ¥4/¥16 per 1M (Kimi list price on DashScope); unverified
+  // chatgpt:* runs on a flat-rate ChatGPT subscription (usage windows, not per-token billing) → marginal USD 0.
+  'gpt-5.6-luna': { in: 0, out: 0, subscription: true },
+  'gpt-5.6-terra': { in: 0, out: 0, subscription: true },
+  'gpt-5.6-sol': { in: 0, out: 0, subscription: true },
+  'gpt-6-astra': { in: 0, out: 0, subscription: true },
   mock: { in: 0, out: 0 },
 };
 export const priceOf = (model) => PRICES[model] || PRICES[String(model).replace(/-latest$/, '')] || { in: 1, out: 4, unknown: true };
@@ -93,6 +101,9 @@ export function makeLLM(spec, { meter = newMeter(), mockHandler = null, timeoutM
       const out = mockHandler ? await mockHandler(messages, opts) : {};
       return { text: typeof out === 'string' ? out : JSON.stringify(out), usage: {}, finish: 'stop' };
     };
+  } else if (p.provider === 'chatgpt') {
+    const c = createChatGPTLLM({ model: p.model, ...(timeoutMs ? { timeoutMs } : {}) });
+    raw = (m, o) => c.chat(m, o);
   } else {
     const P = PROVIDERS[p.provider];
     const key = process.env[P.keyEnv];
