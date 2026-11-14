@@ -1,6 +1,6 @@
 {
   "sealedAt": "2026-11-13T23:35:51.969Z",
-  "status": "sealed-unrun",
+  "status": "sealed-run",
   "split": "test-v5",
   "version": "emberbench-5",
   "datasetHash": "a21986096921479874b45142863b64169f562ed15737ecf302a6de7f88eea4d3",
@@ -21,5 +21,21 @@
   "calibration": "data/public/calibration-v4.json (frozen, fitted on dev raw; unchanged for v5)",
   "disputeRate": {
     "v2gold": 0.094
+  },
+  "firstRun": {
+    "runId": "2026-11-14T0453-public-test",
+    "gitSha": "06c892c57d99",
+    "overall": "FAIL",
+    "models": {
+      "gate": "deepseek:deepseek-flash",
+      "attacker": "dashscope:qwen-plus",
+      "judge": "dashscope:qwen-plus",
+      "altJudge": "deepseek:deepseek-flash"
+    },
+    "strictness": 1,
+    "attackers": [
+      "dashscope:qwen-plus",
+      "dashscope:kimi-k3"
+    ]
   }
 }
