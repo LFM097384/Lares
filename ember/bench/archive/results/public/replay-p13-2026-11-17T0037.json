@@ -1,0 +1,85 @@
+{
+  "label": "post-hoc offline replay on the spent test-v5 outputs, not a fresh confirmation, optimistic by construction",
+  "run": ".data/emberbench-public/runs/2026-11-17T0037-public-test",
+  "before": {
+    "records": 180,
+    "T1v5": 34,
+    "names": 14,
+    "vocatives": 18,
+    "seats": 1,
+    "orgs": 1,
+    "publicBound": 8,
+    "T2v5": 5,
+    "T6v5": 3
+  },
+  "after": {
+    "records": 180,
+    "T1v5": 7,
+    "names": 1,
+    "vocatives": 6,
+    "seats": 0,
+    "orgs": 0,
+    "publicBound": 6,
+    "T2v5": 0,
+    "T6v5": 0
+  },
+  "recordsChanged": 38,
+  "residual": [
+    {
+      "tid": "pub-LongBeachCC_05202014_14-0379",
+      "seed": 1,
+      "metric": "T1v5",
+      "cat": "names",
+      "rule": "",
+      "text": "R. of N."
+    },
+    {
+      "tid": "pub-LongBeachCC_05242016_16-0463",
+      "seed": 1,
+      "metric": "T1v5",
+      "cat": "vocatives",
+      "rule": "public-name-bound",
+      "text": "D. house"
+    },
+    {
+      "tid": "pub-SeattleCityCouncil_10072019_CB-119288",
+      "seed": 1,
+      "metric": "T1v5",
+      "cat": "vocatives",
+      "rule": "public-name-bound",
+      "text": "M."
+    },
+    {
+      "tid": "pub-LongBeachCC_05242016_16-0463",
+      "seed": 2,
+      "metric": "T1v5",
+      "cat": "vocatives",
+      "rule": "public-name-bound",
+      "text": "D. house"
+    },
+    {
+      "tid": "pub-SeattleCityCouncil_10072019_CB-119288",
+      "seed": 2,
+      "metric": "T1v5",
+      "cat": "vocatives",
+      "rule": "public-name-bound",
+      "text": "M."
+    },
+    {
+      "tid": "pub-LongBeachCC_05242016_16-0463",
+      "seed": 3,
+      "metric": "T1v5",
+      "cat": "vocatives",
+      "rule": "public-name-bound",
+      "text": "D. house"
+    },
+    {
+      "tid": "pub-SeattleCityCouncil_10072019_CB-119288",
+      "seed": 3,
+      "metric": "T1v5",
+      "cat": "vocatives",
+      "rule": "public-name-bound",
+      "text": "M."
+    }
+  ]
+}

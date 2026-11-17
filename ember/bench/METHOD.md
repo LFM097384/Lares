@@ -711,3 +711,26 @@ BENCH_VERSION = `emberbench-5`。本节在任何 v5 代码运行于数据之前�
 - P11（2026-11-14，测试运行作废）：test-v5 第一次运行 `2026-11-14T0453-public-test`（闸门 b263f5e）中 DeepSeek 余额耗尽，+L4 有 140/180 条记录是 HTTP 402 错误，只有 40 条有效；C 0.42 等数字是仪器故障而非闸门结果，整次运行作废（同 v3 的 0804 先例）。只看过汇总数字，未据此修改任何代码、阈值或提示词。充值后用同一闸门 commit、同一命令重跑一次，作为 test-v5 的唯一有效确认；作废的卡片保留以备核查。
 
 - P12（2026-11-15，测试前登记）：DeepSeek 余额耗尽期间，在 public dev 上试过三个 ChatGPT 订阅模型作关口（chatgpt:gpt-5.6-luna / gpt-6-astra / gpt-5.6-terra；卡片 2026-11-14T2246、2026-11-15T0408、2026-11-15T2050）。结果：硬零全为 0，但 C 分别为 0.74 / 0.44（astra 37/54 条撞订阅限额，作废）/ 0.62（terra 11/54 条撞限额）。这些只作参考，不据此改任何关口逻辑、提示词或阈值。用户充值后，关口回到原方案 deepseek:deepseek-flash，在 test-v5 上按 P11 原样重跑一次。代码相对 b263f5e 只多了 1541d39 的 chatgpt 提供者，不影响 deepseek 路径。
+
+- P13（2026-11-17，测试结束后登记；无新的确认运行）：用户已结束测试（"不测了"）。之后据**已用掉的** test-v5 运行 `2026-11-17T0037-public-test` 的记录做了离线泄露审计（`ember/bench/v5/leak-audit.mjs`），并按审计结果修补了化名器。这些修补来自已看过的 test 输出，test-v5 因此不再是留出集，**没有新的确认运行**。下面的回放数字都是事后数字。
+  (a) 审计结果：只看 +L4，34 条 T1 v5 / 5 条 T2 v5 / 3 条 T6 v5，按根因分为：
+      - (a) 化名器漏学变体：15 条，7 个条目；
+      - (b) 约束位置漏判：1 条（"appreciation for X's"，授权揭名）；
+      - (c) 模型改写或引入名字：0 条；
+      - (d) 席位 / 机构 / 职衔模式：12 条（在场职员职衔 10 条、"resident of the Nth district" 1 条、"My name is X with <机构>" 1 条）；
+      - (e) 敏感长原话：5 条（都含在场职员的职衔）；
+      - (f) 指标假阳性：6 条（一个地名 house ×3，"The mayor's office" ×3），只记录，不修。
+      T6 的 3 条分别继承了同一记录中 (a)×2 和 (b)×1 的证据。
+  (b) 修补（只在化名模式下生效，`pseudonym:false` 输出逐字节不变，默认严格度不变；规则只用转写、名册和 publicContext，不硬编码任何名字）：
+      - 学名：人物语境中的两词大写名（", a / is here representing / met with / we have …"；排除地名、机构词、小写出现过的词和 publicContext 词）；军警衔前缀 Captain / Sergeant / Lieutenant / Detective；在会上只以单独一行出现的大写词；"the X estate / household"。
+      - 约束位置：appreciation / congratulations / kudos / credit to、(co-)sponsored / authored / championed / carried / made by、"X and Y sponsored"、句中同位语 ", X,"。
+      - finalize 后置检查：约束位置上与已知名字编辑距离 ≤1（6 字母以内）或 ≤2 的大写词，一律泛化。
+      - 在场非民选发言者的名册职衔（含 manager / engineer / director / attorney 等职能词）一律改写为 "city staff"。代价：话题性的 "the city manager" 也会被改写。
+      - "a / I'm a resident of / I live in the Nth district" 视为本人席位。
+      - "My name is X with <机构>" 视为约束机构，按 L2 的 unbind 规则处理。
+      - L3 逐字放宽的 sensitiveRun 增加一条：化名器会改动的片段算敏感。
+  (c) 离线回放（`ember/bench/v5/replay-p13.mjs`）：**post-hoc offline replay on the spent test-v5 outputs, not a fresh confirmation, optimistic by construction**。记录里只有最终 release / memoryText，所以只能对已发布文本重做确定性的最后一步 finalize（按 P13 规则重新学名、重新遮蔽、泛化约束位置），并重放原运行的授权揭名。P13 中作用于 LLM 输入的部分无法回放（L0P 遮蔽、sensitiveRun 迫使改写），因为模型当时看到的是旧文本。指标代码未改。
+      - 结果：T1 v5 34 → 7（names 14→1、vocatives 18→6、seats 1→0、orgs 1→0），T2 v5 5 → 0，T6 v5 3 → 0。180 条 +L4 记录中有 38 条文本被改动。
+      - 剩余 7 条：一个 ASR 误写的名字（"X of Y"）×1，以及 (f) 类 6 条。
+      - P1 / C 需要攻击者和评审 LLM，**未重算**。已知的效用代价："executive director"、"management analyst"、"deputy district attorney" 等职衔被改写为 "city staff"，个别同名的话题提及被泛化。
+      - 硬零仍未达成；回放数字不能作为通过的证据。

@@ -179,7 +179,7 @@ export async function runGate(transcript, {
     // a shielded public NAME/TITLE may stay verbatim, but the window is counted without its characters (guard residual,
     // short spans only), so the speaker's surrounding clause is still checked
     // v5 (§10.3): with every name tokenised, a copied run is forced through paraphrase only when it is sensitive
-    const sensitive = P ? sensitiveRun({ safe, own: selfFigures(raw), lang, unbind }) : null;
+    const sensitive = P ? sensitiveRun({ safe, own: selfFigures(raw), lang, unbind, mask: (x) => P.mask(x).text }) : null;
     const r = await deVerbatim(sections, raw, { llm, stats, lang, safe, strip: pub.spans, shield: pub, sensitive });
     sections = r.sections; paraphrased = r.paraphrased; dropped += r.dropped;
     // never echo opaque codes / e-mails / links that appear in the transcript
@@ -306,7 +306,7 @@ export function locateRun(text, run) {
 const OWN_REF = /\b(?:my|our)\s+(?:own\s+)?(?:council\s+)?(?:district|ward|constituents|office|department|organi[sz]ation|company|firm|agency|business|employer|union|church|school|group|team|staff)\b|\bI\s+represent\b|\bon\s+behalf\s+of\b|\bI(?:'m|\s+am)\s+(?:with|from|here\s+(?:with|for|representing))\b|我们(?:单位|公司|机构|局|部门|学校|医院)/i;
 const normWs = (x) => String(x ?? '').replace(/\s+/g, ' ').trim();
 /** A copied run is sensitive when any deterministic identity rule would change it (§10.3). */
-export const sensitiveRun = ({ safe, own = [], lang, unbind = [] }) => (text, run) => {
+export const sensitiveRun = ({ safe, own = [], lang, unbind = [], mask = null }) => (text, run) => {
   const sub = locateRun(text, run);
   if (sub == null) return true; // cannot locate → fail closed
   if (normWs(safe(sub)) !== normWs(sub)) return true;
@@ -314,5 +314,7 @@ export const sensitiveRun = ({ safe, own = [], lang, unbind = [] }) => (text, ru
   if (own.length && maskSelfFigures(sub, own, { lang }) !== sub) return true;
   if (OWN_REF.test(sub)) return true;
   if ((unbind || []).some((u) => hasAffiliation(sub, u.org))) return true;
+  // P13 (e): any run the pseudonymiser would change (a name, a staff title, a bound seat or org) is sensitive
+  if (mask && normWs(mask(sub)) !== normWs(sub)) return true;
   return false;
 };

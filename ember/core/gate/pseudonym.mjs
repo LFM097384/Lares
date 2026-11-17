@@ -6,7 +6,7 @@
 // shared public context, the curated public-figure list) in a TOPIC position are revealed; speaker labels never exist.
 import { createHash } from 'node:crypto';
 import { learnThirdNames, PUBLIC_FIGURES, isPersonShaped } from './l1.mjs';
-import { boundSeats, isPublicEntity } from './binding.mjs';
+import { boundSeats, isPublicEntity, unbindAffiliations } from './binding.mjs';
 
 const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const ci = (s) => [...String(s)].map((ch) => (/\p{L}/u.test(ch) && ch.toLowerCase() !== ch.toUpperCase() ? `[${esc(ch.toLowerCase())}${esc(ch.toUpperCase())}]` : /\s/.test(ch) ? '\\s+' : esc(ch))).join('');
@@ -15,11 +15,14 @@ const isCJK = (s) => /[\u3400-\u9fff]/.test(String(s));
 // ---- public office titles (§10.2 (a)) -------------------------------------------------------------------------------
 // roster titles: elected / appointed office. Staff ("staff — City Attorney's Office"), clerks, secretaries and members of
 // the public are NOT public persons.
+const ROLE_W = /\b(?:director|manager|engineer|attorney|officer|analyst|planner|chief|superintendent|administrator|coordinator|specialist|auditor|treasurer|controller|inspector|marshal|architect|counsel|librarian|assessor|surveyor)\b/i;
+const ELECTED_RE = /\b(?:council\s*(?:member|man|woman|president)|council\s+member|councilor|president|vice\s+mayor|deputy\s+mayor|mayor|commissioner|supervisor|senator|assembly\s*(?:member|man|woman)|governor|alder(?:man|woman|person)|chair(?:man|woman|person)?|board\s+(?:member|director)|congress(?:man|woman|member))\b/i;
 const OFFICE_RE = /\b(?:council\s*(?:member|man|woman|president)|council\s+member|president\s+pro\s+tem|vice\s+mayor|deputy\s+mayor|mayor|commissioner|supervisor|senator|assembly\s*(?:member|man|woman)|governor|city\s+manager|city\s+attorney|city\s+auditor|alder(?:man|woman|person))\b/i;
 export const isPublicTitle = (title) => { const t = String(title ?? '').trim(); return !!t && !/^staff\b/i.test(t) && OFFICE_RE.test(t); };
 // a name dropped in the meeting with one of these titles is a public office-holder (non-roster persons)
 const OFFICE_WORDS = ['Council\\s*[Mm]ember', 'Council\\s+Member', 'Council\\s*[Mm]an', 'Council\\s*[Ww]oman', 'Council\\s+President', 'Vice\\s+Mayor', 'Deputy\\s+Mayor', 'Mayor', 'President', 'Commissioner', 'Supervisor', 'Senator', 'Representative', 'Assembly\\s*[Mm]ember', 'Governor', 'Judge', 'Sheriff', 'Chief(?:\\s+of\\s+Police)?', 'Alder(?:man|woman)'];
-const HONORIFIC_WORDS = ['Mr', 'Ms', 'Mrs', 'Dr', 'Mister', 'Miss', 'Chair(?:man|woman|person)?', 'Vice\\s+Chair', 'Director', 'Professor', 'Officer', 'Pastor', 'Father'];
+// P13: rank titles (Captain, Sergeant, Lieutenant, Detective) carry a name exactly like Officer does
+const HONORIFIC_WORDS = ['Mr', 'Ms', 'Mrs', 'Dr', 'Mister', 'Miss', 'Chair(?:man|woman|person)?', 'Vice\\s+Chair', 'Director', 'Professor', 'Officer', 'Pastor', 'Father', 'Captain', 'Sergeant', 'Lieutenant', 'Detective'];
 const capFirst = (w) => w.replace(/^([A-Z])/, (m) => `[${m}${m.toLowerCase()}]`);
 const OFFICE_PFX = `(?:${OFFICE_WORDS.map(capFirst).join('|')})`;
 const HON_PFX = `(?:${HONORIFIC_WORDS.map(capFirst).join('|')})`;
@@ -27,13 +30,18 @@ const HON_PFX = `(?:${HONORIFIC_WORDS.map(capFirst).join('|')})`;
 const TITLE_PFX = `(?:(?:${OFFICE_PFX}|${HON_PFX}|[Mm]adam|[Mm]adame)\\.{0,2}\\s+(?:(?:pro\\s+tem|elect)\\s+)?)`;
 const NAME_W = "[A-Z][a-z][\\p{L}'’-]*";
 const NOT_NAME = new RegExp(`^(?:${['Council', 'City', 'County', 'District', 'Bill', 'Item', 'Resolution', 'Ordinance', 'Clerk', 'Secretary', 'Members?', 'Pro', 'Tem', 'Elect', 'President', 'Mayor', 'Chair', 'Vice', 'Deputy', 'Office', 'Department', 'Staff', 'General', 'Attorney', 'Manager', 'Auditor', 'Board', 'Committee', 'Commission', 'The', 'And', 'Of', 'Thank', 'Thanks', 'Yes', 'No', 'Aye', 'Please', 'Here', 'Present', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Public', 'Speaker', 'Person', 'Madam', 'Mister', 'Pro-Tem', 'Councilmember', 'Councilman', 'Councilwoman', 'Councilor', 'Commissioner', 'Recommendation', 'All', 'This', 'That', 'These', 'Those', 'Was', 'Were', 'Is', 'It', 'One', 'Two', 'Can', 'We', 'You', 'They', 'He', 'She', 'Our', 'My', 'Your', 'So', 'But', 'Or', 'If', 'In', 'On', 'At', 'To', 'For', 'With', 'Just', 'Okay', 'Right', 'Well', 'Now', 'Then', 'There', 'Again', 'Also', 'Everyone', 'Good', 'Evening', 'Morning', 'Afternoon', 'Hello', 'Hey', 'Sorry', 'Great', 'Sure', 'Next', 'First', 'Last', 'Motion', 'Second', 'Seconded', 'Amendment', 'Agenda', 'Report', 'Street', 'Avenue', 'Boulevard', 'North', 'South', 'East', 'West', 'Beach', 'Customer', 'Black', 'White', 'God', 'SWAT'].join('|')})$`);
+// P13: words that make a capitalised pair an org / place / programme rather than a person
+const NOT_PERSON_W = /^(?:Street|Avenue|Road|Boulevard|Drive|Way|Lane|Park|Parks|Center|Centre|Department|Office|Council|Committee|Commission|Board|Program|Programme|Project|Fund|Plan|Act|Club|Association|Society|Foundation|Trust|Company|Inc|Corporation|Group|Partners|Authority|District|School|Schools|College|University|Library|Hospital|Church|Bank|House|Hall|Building|Plaza|Square|Market|Bridge|River|Lake|Bay|Island|Valley|Beach|County|City|State|Service|Services|Works|Unified|International|National|Estate|Airport|Port|Harbor|Harbour|Transit|Police|Fire|Health|Housing|Development|Management|Finance|Planning|Community|Neighborhood|Neighbourhood|Federal|Federation|Coalition|Alliance|Network|Institute|Agency|Bureau|Division|Unit|Team|Task|Force|Center|Village|Heights|Hills|Gardens|Terrace|Court|Place|Circle|Highway|Freeway|Route|Avenue|Tower|Towers|Apartments|Hotel|Theatre|Theater|Museum|Stadium|Arena|Station|Line|Corridor|Zone|Area|Region|Northern|Southern|Eastern|Western|Central|Downtown|Pride|Month|Week|Day|Year|Day|Black|Latino|Asian|American|Americans|Native|Indigenous|Jewish|Muslim|Christian|Catholic|Mexican|Chinese|Filipino|Vietnamese|Korean|Japanese|African|English|Spanish|Supreme|Superior|Municipal|Metropolitan|Regional|General|Special|Senior|Youth|Veterans|Affairs|Human|Relations|Rights|Social|Civil|Public|Private|Small|Business|Economic|Climate|Green|Energy|Water|Power|Light|Gas|Electric|Safety|Emergency|Medical|Arts|Art|Culture|Cultural|Recreation|Sports|Education|Learning|Children|Family|Families|Women|Men|Girls|Boys|Kids|Tenants|Renters|Homeowners|Residents|Workers|Union|Local|Chapter|Mission|Ministries|Ministry|Temple|Synagogue|Mosque|Cathedral|Chapel|Cemetery|Memorial|Monument|Library|Academy|Elementary|Middle|High|Prep|Charter|Metals|Industries|Manufacturing|Products|Systems|Solutions|Technologies|Labs|Motors|Holdings|Enterprises|Properties|Realty|Partners|Capital|Ventures|Media|News|Times|Post|Press|Foods|Farms|Brewing|Coffee|Operation|Lagoon|Creek|Point|Harbor|Shores|Ranch|Rancho|Mesa|Canyon)$/;
 // single name parts that are ordinary words: masked only next to a title or another name part
 const AMBIG = new Set('Bill Will May Mark Grant Price Rich Hope Joy Art Chase Dean Frank Long Rose Faith Grace Hall Street Park Lane Ray Wade Young Brown Black White Green Gray Grey King Bell Ward Field Wood Woods Hill Love Case Page Hunt Little Small Rice Cook Fox Lake Day Moore Best Hardy Strong Sharp Stone Rivers Banks Ford Lee Kelly Carter Major Judge Bishop Mayor Chair Council Price Gay Low Pierce Wise Sage Star Jay Dawn June April Summer Winter Autumn Sky Royal Noble Bond Cash Penny Cole Bush Marsh Moss Pool Glass Joyce'.split(' '));
 
 // ---- bound positions (§10.2 (b); same rule as the v5 metric, implemented here independently) -------------------------
-const PRE = /(?:\bthank(?:s|\s+you)?(?:\s+(?:so|very)\s+much)?(?:\s+(?:also|again))?(?:\s+to)?|\bthanked|\bgrateful\s+to|\brecogni[sz](?:e|es|ed|ing)|\bmoved\s+by|\bseconded\s+by|\bsecond(?:ed)?\s+(?:from|by)|\bmotion\s+(?:by|from)|\b(?:over|back)\s+to|\bcall(?:s|ed|ing)?\s+(?:up)?on|\baccording\s+to|\bwelcom(?:e|es|ed|ing)|\bhand(?:s|ed|ing)?\s+(?:it\s+)?(?:over\s+)?to|\byield(?:s|ed|ing)?\s+(?:the\s+floor\s+)?to|\bask(?:s|ed|ing)?|\bper|\b(?:proposed|introduced|offered|brought(?:\s+forward)?|put\s+forward|raised|requested|asked|suggested|presented|made|sponsored|moved|seconded|led|chaired|opened|closed|noted|stated|argued|explained|described|recommended|supported|opposed|questioned)\s+by|\bjoined\s+by|\bby|\bfrom|\bwith|感谢|谢谢|有请)\s*,?\s*(?:(?:the|a)\s+)?$/i;
-const SPEECH_V = '(?:said|says|asked|asks|noted|notes|argued|argues|moved|moves|seconded|seconds|proposed|voted|votes|agreed|agrees|objected|objects|stated|states|explained|suggested|added|responded|commented|thanked|mentioned|urged|requested|recommended|recused|abstained|motioned|replied|remarked|answered|clarified|indicated|expressed|presented|introduced|spoke|testified)';
-const POST = new RegExp(`^(?:'s|’s)?\\s*(?:,[^,.;!?]{0,60},\\s*)?(?:[\\p{L}\\p{N}'’-]+\\s+){0,3}?${SPEECH_V}\\b`, 'iu');
+// P13 additions: appreciation / congratulation / credit constructions, authorship and sponsorship verbs ("co-sponsored by",
+// "authored by", "championed by", "carried by", "made by"), "motion of"
+const PRE = /(?:\bthank(?:s|\s+you)?(?:\s+(?:so|very)\s+much)?(?:\s+(?:also|again|both))?(?:\s+to)?|\bthanked|\bgrateful\s+to|\bappreciat(?:e|es|ed|ing|ion)(?:\s+(?:to|for|of))?|\bcongratulat(?:e|es|ed|ing|ions?)(?:\s+(?:(?:were|was)\s+)?(?:extended\s+|offered\s+|given\s+)?(?:to|for))?|\bkudos\s+to|\bcredit(?:ed)?\s+to|\bshout[- ]?out\s+to|\b(?:co-?)?(?:authored|sponsored)\s+by|\b(?:championed|carried|spearheaded|initiated|made|drafted|written)\s+by|\bmotion\s+of|\bleadership\s+of|\brecogni[sz](?:e|es|ed|ing)|\bmoved\s+by|\bseconded\s+by|\bsecond(?:ed)?\s+(?:from|by)|\bmotion\s+(?:by|from)|\b(?:over|back)\s+to|\bcall(?:s|ed|ing)?\s+(?:up)?on|\baccording\s+to|\bwelcom(?:e|es|ed|ing)|\bhand(?:s|ed|ing)?\s+(?:it\s+)?(?:over\s+)?to|\byield(?:s|ed|ing)?\s+(?:the\s+floor\s+)?to|\bask(?:s|ed|ing)?|\bper|\b(?:proposed|introduced|offered|brought(?:\s+forward)?|put\s+forward|raised|requested|asked|suggested|presented|made|sponsored|moved|seconded|led|chaired|opened|closed|noted|stated|argued|explained|described|recommended|supported|opposed|questioned)\s+by|\bjoined\s+by|\bby|\bfrom|\bwith|感谢|谢谢|有请)\s*,?\s*(?:(?:the|a)\s+)?$/i;
+const SPEECH_V = '(?:sponsored|co-?sponsored|authored|co-?authored|championed|spearheaded|led|brought|carried|drafted|wrote|introduced|said|says|asked|asks|noted|notes|argued|argues|moved|moves|seconded|seconds|proposed|voted|votes|agreed|agrees|objected|objects|stated|states|explained|suggested|added|responded|commented|thanked|mentioned|urged|requested|recommended|recused|abstained|motioned|replied|remarked|answered|clarified|indicated|expressed|presented|introduced|spoke|testified)';
+// P13: co-actors before the verb ("X and [Person 2] sponsored", "X, Y and Z co-sponsored")
+const POST = new RegExp(`^(?:'s|’s)?\\s*(?:(?:,\\s*|\\s+and\\s+|\\s*&\\s*)(?:\\[[^\\]]+\\]|[A-Z][\\p{L}'’-]+(?:\\s+[A-Z][\\p{L}'’-]+)?)\\s*)*(?:,[^,.;!?]{0,60},\\s*)?(?:[\\p{L}\\p{N}'’-]+\\s+){0,3}?${SPEECH_V}\\b`, 'iu');
 const ROLLCALL = /^\s*[,:]?\s*(?:aye|yes|no|nay|present|here)\b/i;
 const POSS_OFFICE = /^(?:'s|’s)\s+(?:own\s+)?(?:council\s+)?(?:district|office|staff|seat|constituents|aide|aides|team)\b/i;
 // P10 (Chatham rule): attributing a statement / speech act in this meeting to X — X's view, remarks, question, motion …
@@ -51,6 +59,9 @@ export function boundAt(text, start, end) {
   if (QUOTE_MARK.test(before + after)) return true; // a quote in the same sentence would be attributed to X
   if (!before.trim() && /^\s*,/.test(after)) return true; // "X, you're recognised"
   if (/,\s*$/.test(before) && !after.replace(/["”’')\]\s]/g, '')) return true; // "… thank you, X."
+  // P13: appositive / vocative inside a sentence ("Congratulations to a council member, X, on …"; "Ms. Chair, X, …")
+  if (/,\s*$/.test(before) && /^\s*,/.test(after)) return true;
+  if (/\band\s+I\b/i.test(after.slice(0, 8)) || /\bI\s+and\s*$/i.test(before)) return true; // "X and I concur"
   return false;
 }
 
@@ -117,6 +128,37 @@ export function buildPseudonyms(transcript, { seed = 1, lang = 'en', shared = []
     const ws = m[1].split(/\s+/);
     const nm = ws.length === 2 && NOT_NAME.test(ws[1]) ? ws[0] : m[1];
     if (isPersonShaped(nm) && !learned.has(nm) && !sharedWords.has(nm.toLowerCase())) learned.set(nm, { office: false });
+  }
+  // P13 (a): names the learners above miss. (1) a capitalised two-word name in a person context — never used in lower case
+  // in the meeting, not after "the", not part of a longer capitalised run, no org / place word; sentence-initial only
+  // with a person cue ("Ana Bell is here tonight representing …", "first we have Ana Bell, a sixth grader", "met with Rob
+  // Lee"); (2) a line that is only a capitalised word (a name called out: "Bellamy."); (3) a surname that owns an estate /
+  // family / household ("the Lopez estate").
+  const BIGRAM = new RegExp(`(?<![\\p{L}'’-])(${NAME_W})\\s+(${NAME_W})(?![\\p{L}'’-])`, 'gu');
+  const PERSON_CUE = /^(?:\s*,\s*(?:a|an|our|my|who|from|with|representing)\b|\s+(?:is|was)\s+(?:here|present|representing|joining|with)\b|\s+(?:representing|who)\b)/i;
+  const PERSON_PRE = new RegExp(`(?:\\b(?:met|meet|meeting|spoke|speak|talked|talk|worked|work)\\s+with|\\bwe\\s+have|\\b(?:introduce|introducing|welcome|welcoming|named|called|joined\\s+by|thank(?:s|\\s+you)?(?:\\s+to)?|congratulat(?:e|ions)(?:\\s+to)?)|(?:${TITLE_PFX})${NAME_W},)\\s*$`, 'u');
+  const NOT_PERSON_APPOS = /^\s*,\s*(?:a|an|the)\s+(?:\w+\s+)?(?:unincorporated|city|town|village|community|company|firm|business|nonprofit|non-profit|organi[sz]ation|group|neighbo(?:u)?rhood|area|region|county|district|corporation|manufacturer|facility|plant|program|programme|project|school|church|park|street|building|site|development|store|shop|restaurant)\b/i;
+  const TITLE_ONLY = new RegExp(`^(?:${[...OFFICE_WORDS, ...HONORIFIC_WORDS].join('|')}|Congress(?:man|woman|member)|Senator|Representative|Rep|Judge|Justice|Governor|Sheriff|Ambassador|Bishop|Reverend|Rabbi|Imam|Saint|St)$`, 'u');
+  const quiet = (w) => NOT_NAME.test(w) || NOT_PERSON_W.test(w) || lowerSeen.has(w.toLowerCase()) || sharedWords.has(w.toLowerCase());
+  for (const t of texts) for (const m of t.matchAll(BIGRAM)) {
+    const pre = t.slice(0, m.index), post = t.slice(m.index + m[0].length);
+    if (/\p{Lu}[\p{L}'’.-]*\s+$/u.test(pre) || /^\s+\p{Lu}/u.test(post) || /\b(?:[Tt]he|of|in|at|on|near)\s+$/.test(pre) || NOT_PERSON_APPOS.test(post)) continue;
+    if (quiet(m[1]) || quiet(m[2]) || TITLE_ONLY.test(m[1])) continue;
+    // a person cue is required on one side: after (', a sixth grader', 'is here representing') or before ('met with',
+    // 'we have', a titled name in a list of names)
+    if (!PERSON_CUE.test(post) && !PERSON_PRE.test(pre)) continue;
+    const nm = `${m[1]} ${m[2]}`;
+    if (!learned.has(nm)) learned.set(nm, { office: false });
+  }
+  // a word that occurs in the meeting ONLY as a whole line by itself is a name called out (never a topic word)
+  const alone = new Map();
+  for (const t of texts) { const m = t.trim().match(/^([A-Z][a-z][\p{L}'’-]{2,})[.?!]?$/u); if (m) alone.set(m[1], (alone.get(m[1]) || 0) + 1); }
+  for (const [w, k] of alone) {
+    const all = texts.reduce((s, t) => s + (t.match(new RegExp(`(?<![\\p{L}])${esc(w)}(?![\\p{L}])`, 'gu')) || []).length, 0);
+    if (all === k && !quiet(w) && !AMBIG.has(w) && !/ly$/.test(w) && !learned.has(w)) learned.set(w, { office: false });
+  }
+  for (const t of texts) for (const m of t.matchAll(/\b[Tt]he\s+([A-Z][a-z][\p{L}'’-]+)\s+(?:estate|household|residence)\b/gu)) {
+    if (!quiet(m[1]) && !learned.has(m[1])) learned.set(m[1], { office: false });
   }
   // roll calls: in a line that answers a vote ("Sandoval, I. Sawyer, I. Torres. I. CdeBaca. Clarke."), every capitalised
   // word not used in lower case anywhere in the meeting is a member's name (an office-holder: council members vote)
@@ -199,12 +241,40 @@ export function buildPseudonyms(transcript, { seed = 1, lang = 'en', shared = []
       orgs.push(o);
     }
   }
+  // P13 (d): titles of the meeting's own non-elected speakers (staff, appointed officers: "city engineer", "finance
+  // director", "city manager") point at one person in the room wherever they appear → "city staff"
+  const staffTitles = new Set();
+  for (const p of roster) {
+    const t = String(p?.title || '');
+    if (!t || ELECTED_RE.test(t) || /\b(?:public\s+speaker|speaker|attendee|resident|member\s+of\s+the\s+public|reading|clerk|secretary)\b/i.test(t)) continue;
+    for (const part of t.replace(/^staff\s*(?:[—–-]+|:)?\s*/i, '').split(/[,;/()]|\s[—–-]\s|\band\b/)) {
+      const x = part.trim().replace(/^(?:the|a|an)\s+/i, '');
+      if (x.split(/\s+/).length >= 2 && x.length >= 6 && ROLE_W.test(x)) staffTitles.add(x.toLowerCase());
+    }
+  }
+  const STAFF_RE = staffTitles.size ? new RegExp(`\\b(?:(?:the|our|a|an|your|my|their)\\s+)?(?:(?:deputy|assistant|acting|interim)\\s+)?(?:${[...staffTitles].sort((a, b) => b.length - a.length).map((x) => esc(x).replace(/\s+/g, '\\s+')).join('|')})(?![\\p{L}])`, 'giu') : null;
+  // P13 (d): a district the speaker says they live in / are a resident of is bound like "my district"
+  for (const l of transcript?.lines || []) {
+    const t = String(l?.text ?? '');
+    const RES = new RegExp(`(?:\\b(?:I|I'm|I\\s+am|a|proud)\\b[^.!?]{0,30}?\\bresident\\s+(?:of|in)|\\bI\\s+(?:live|reside)\\s+in)\\s+(?:the\\s+)?(${DISTRICT.source})`, 'giu');
+    for (const m of t.matchAll(RES)) if (seatNum(m[1]) != null) seatNums.add(seatNum(m[1]));
+  }
+  // P13 (d): orgs a speaker binds to themself in a self-introduction ("My name is X with the Parks Department") are
+  // unbound in the output like the gate's own bound orgs (public entity → "Regarding …", private → "an organisation")
+  const selfOrgs = new Map();
+  const SELF_ORG = new RegExp(`\\b(?:[Mm]y\\s+name\\s+is|I'?m|I\\s+am|[Tt]his\\s+is)\\s+${NAME_W}(?:\\s+${NAME_W})?\\s*,?\\s+(?:with|from|representing|of)\\s+(?:the\\s+)?([A-Z][\\w&'’-]*(?:\\s+(?:&\\s+|of\\s+|and\\s+|for\\s+|the\\s+)?[A-Z][\\w&'’-]*){0,5})`, 'gu');
+  for (const t of texts) for (const m of t.matchAll(SELF_ORG)) {
+    const o = m[1].replace(/\s+(?:and|of|for|the|&)$/i, '').trim();
+    if (o.split(/\s+/).length >= 2 && !sharedLow.includes(o.toLowerCase()) && !/^(?:Council|City|Mayor|Madam|Mr|Ms)\b/.test(o)) selfOrgs.set(o, isPublicEntity(o, shared));
+  }
+  const unbindList = [...selfOrgs].map(([org, pub]) => ({ org, public: !!pub }));
   const ORG_RE = orgs.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...new Set(orgs)].sort((a, b) => b.length - a.length).map((o) => esc(o).replace(/\s+/g, '\\s+')).join('|')})(?![\\p{L}\\p{N}])`, 'giu') : null;
 
   function mask(text) {
     let s = String(text ?? ''), n = 0;
     s = s.replace(OFFICER_VOC, (m) => { n++; return /clerk|secretary/i.test(m) ? 'meeting staff' : 'the presiding officer'; });
     s = s.replace(STAFF_TITLE, () => { n++; return 'meeting staff'; });
+    if (STAFF_RE) s = s.replace(STAFF_RE, (m) => { n++; return /^[A-Z]/.test(m) ? 'City staff' : 'city staff'; });
     if (ORG_RE) s = s.replace(ORG_RE, () => { n++; return 'an organisation'; });
     if (RE) s = s.replace(RE, (...args) => {
       const g = args.at(-1);
@@ -243,16 +313,27 @@ export function buildPseudonyms(transcript, { seed = 1, lang = 'en', shared = []
     }
     return log;
   }
-  const stat = { unmasked: 0, boundTokens: 0, remasked: 0, grantedBound: 0, examples: [] };
+  const stat = { unmasked: 0, boundTokens: 0, remasked: 0, grantedBound: 0, fuzzy: 0, examples: [] };
   /**
    * Final pass (after every other layer) + deterministic post-check: any real name that reappears (hallucinated, restored
    * by a later layer) is re-masked first; then each token occurrence is decided on its own: a bound position (vocative,
    * procedural, speaker-binding) → generic "a participant"; a granted person in a topic position → the real name.
    */
   function finalize(text) {
-    const r = mask(text);
+    const r = mask(unbindList.length ? unbindAffiliations(text, unbindList) : text);
     stat.remasked += r.n;
-    const s = r.text;
+    // P13 post-check: a capitalised word in a bound position that is a near variant of a known name part (the model's
+    // respelling: "Neil" for "Neal") is generalised as well
+    const s = r.text.replace(/(?<![\p{L}'’\[])([A-Z][a-z]{2,})(?![\p{L}])/gu, (w, _g, off, str) => {
+      if (known.has(w) || NOT_NAME.test(w) || NOT_PERSON_W.test(w) || sharedWords.has(w.toLowerCase()) || AMBIG.has(w)) return w;
+      if (!boundAt(str, off, off + w.length)) return w;
+      for (const k of known.keys()) {
+        if (k[0] !== w[0] || w === k + 's' || w === k + 'es') continue;
+        const len = Math.max(k.length, w.length), d = lev(k.toLowerCase(), w.toLowerCase());
+        if ((len <= 6 && d <= 1) || (len >= 7 && d <= 2)) { stat.remasked++; stat.fuzzy++; return generic; }
+      }
+      return w;
+    });
     let out = '', last = 0;
     for (const m of s.matchAll(TOKEN_B)) {
       const k = keyOfToken(m[1], Number(m[2])), e = byKey.get(k);
