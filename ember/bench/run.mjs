@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // EmberBench CLI.
 //   node ember/bench/run.mjs --split dev|test --runs 3 --configs +L4,ideas-only,raw --concurrency 6
-//        [--mock] [--gate deepseek:deepseek-flash] [--attacker dashscope:qwen-plus] [--judge dashscope:qwen-plus]
-//        [--alt-judge deepseek:deepseek-flash] [--agreement-sample 10] [--only id1,id2] [--seed 12345]
+//        [--mock] [--gate deepseek:deepseek-flash] [--attacker deepseek:deepseek-flash] [--judge deepseek:deepseek-flash]
+//        [--attacker2 <spec>] [--alt-judge deepseek:deepseek-flash] [--agreement-sample 10] [--only id1,id2] [--seed 12345]
 //        [--allow-same-family] [--break-seal "<reason>"] [--seal] [--out ember/bench/results] [--track synthetic|public]
 // --track public (METHOD §7): real council transcripts from .data/emberbench-public/data (git-excluded), manifest/seal in
 // data/public/, results default to results/public/<run-id>/ with records.jsonl written to .data/ (it carries transcript text).
@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { makeLLM, newMeter, costUSD, loadDashscopeKeyFile, parseSpec } from './providers.mjs';
+import { makeLLM, newMeter, costUSD, parseSpec } from './providers.mjs';
 import { loadSplit, verifyManifest, hashSplit, checkDisjoint, readSeal, writeSeal, circles, TRACKS, V3_TEST_SPLIT, V4_TEST_SPLIT, V5_TEST_SPLIT } from './data.mjs';
 import { summariseV5, renderV5, v5Fields, BENCH_VERSION_V5 } from './v4/score-v5.mjs';
 import { scoreV4Record, summariseV4, renderV4, fitCalibration, calibDiagnostics, v4RecordFields, runProbe, BENCH_VERSION_V4 } from './v4/score-v4.mjs';
@@ -66,10 +66,11 @@ export function parseArgs(argv) {
   if (a.configs.includes('+L4') && !a.configs.includes('ideas-only') && !(['v4', 'v5'].includes(a.schema) && a.noBaseline)) a.configs.push('ideas-only'); // excess needs the baseline
   if (a.mock) { a.gate = 'mock:gate'; a.attacker = 'mock:attacker'; a.judge = 'mock:judge'; a.altJudge = a.altJudge ? 'mock:alt' : null; }
   a.gate ||= `deepseek:${process.env.LARES_AI_LLM_MODEL || 'deepseek-flash'}`;
-  a.attacker ||= 'dashscope:qwen-plus';
-  a.judge ||= 'dashscope:qwen-plus';
+  // DeepSeek only (README · Model providers). Attacker/judge share the gate's family, so a real run needs --allow-same-family.
+  a.attacker ||= 'deepseek:deepseek-flash';
+  a.judge ||= 'deepseek:deepseek-flash';
   if (a.altJudge === undefined) a.altJudge = a.mock ? null : 'deepseek:deepseek-flash';
-  if (['v4', 'v5'].includes(a.schema)) { a.attacker2 ||= a.mock ? 'mock:attacker2' : 'dashscope:kimi-k3'; a.aligner ||= a.judge; }
+  if (['v4', 'v5'].includes(a.schema)) { if (a.mock) a.attacker2 ||= 'mock:attacker2'; a.attacker2 ||= null; a.aligner ||= a.judge; }
   return a;
 }
 
@@ -96,8 +97,8 @@ function git() {
   } catch { return { sha: 'unknown', dirty: null }; }
 }
 
-/** Judge agreement on a sample of +L4 records: retention labels Qwen vs alt (DeepSeek) vs deterministic keyword recall. */
-async function agreementStudy(sample, ts, judge, alt) {
+/** Judge agreement on a sample of +L4 records: retention labels judge vs alt-judge vs deterministic keyword recall. */
+async function agreementStudy(sample, ts, judge, alt, { judgeName = 'judge', altName = 'alt-judge' } = {}) {
   const rows = [];
   await pool(sample, 4, async (r) => {
     const t = ts.find((x) => x.id === r.tid);
@@ -111,17 +112,16 @@ async function agreementStudy(sample, ts, judge, alt) {
   const qa = rows.filter((x) => x.q && x.a), qd = rows.filter((x) => x.q), ad = rows.filter((x) => x.a);
   const injRows = sample.flatMap((r) => (r.injection?.per || []).filter((x) => x.judge != null).map((x) => [x.complied ? 'y' : 'n', x.judge ? 'y' : 'n']));
   return [
-    { name: '保留：Qwen vs DeepSeek（3 类）', ...cohensKappa(qa.map((x) => x.q), qa.map((x) => x.a)) },
-    { name: '保留：Qwen vs DeepSeek（二值）', ...cohensKappa(qa.map((x) => bin(x.q)), qa.map((x) => bin(x.a))) },
-    { name: '保留：Qwen vs 确定性关键词（二值）', ...cohensKappa(qd.map((x) => bin(x.q)), qd.map((x) => x.d)) },
-    { name: '保留：DeepSeek vs 确定性关键词（二值）', ...cohensKappa(ad.map((x) => bin(x.a)), ad.map((x) => x.d)) },
-    ...(injRows.length ? [{ name: '注入：canary/marker vs Qwen 评审', ...cohensKappa(injRows.map((x) => x[0]), injRows.map((x) => x[1])) }] : []),
+    { name: `保留：${judgeName} vs ${altName}（3 类）`, ...cohensKappa(qa.map((x) => x.q), qa.map((x) => x.a)) },
+    { name: `保留：${judgeName} vs ${altName}（二值）`, ...cohensKappa(qa.map((x) => bin(x.q)), qa.map((x) => bin(x.a))) },
+    { name: `保留：${judgeName} vs 确定性关键词（二值）`, ...cohensKappa(qd.map((x) => bin(x.q)), qd.map((x) => x.d)) },
+    { name: `保留：${altName} vs 确定性关键词（二值）`, ...cohensKappa(ad.map((x) => bin(x.a)), ad.map((x) => x.d)) },
+    ...(injRows.length ? [{ name: `注入：canary/marker vs ${judgeName} 评审`, ...cohensKappa(injRows.map((x) => x[0]), injRows.map((x) => x[1])) }] : []),
   ];
 }
 
 export async function main(argv = process.argv.slice(2)) {
   const a = parseArgs(argv);
-  if (process.env.DASHSCOPE_KEY_FILE && !process.env.DASHSCOPE_API_KEY) loadDashscopeKeyFile(process.env.DASHSCOPE_KEY_FILE);
   checkIndependence(a, a.allowSameFamily);
 
   // ---- data integrity
@@ -168,10 +168,11 @@ export async function main(argv = process.argv.slice(2)) {
   const alt = a.altJudge ? mk(a.altJudge, meters.altJudge) : null;
   let v4ctx = null;
   if (v4) {
-    checkIndependence({ gate: a.gate, attacker: a.attacker2, judge: a.aligner }, a.allowSameFamily);
+    // attacker2 is optional: without it the v4/v5 scoring runs with the single primary attacker
+    checkIndependence({ gate: a.gate, attacker: a.attacker2 || a.attacker, judge: a.aligner }, a.allowSameFamily);
     meters.attacker2 = newMeter(); meters.aligner = newMeter();
-    const att2 = mk(a.attacker2, meters.attacker2), aligner = a.aligner === a.judge ? judge : mk(a.aligner, meters.aligner);
-    const attackers = [{ name: a.attacker, llm: attacker }, { name: a.attacker2, llm: att2 }];
+    const aligner = a.aligner === a.judge ? judge : mk(a.aligner, meters.aligner);
+    const attackers = [{ name: a.attacker, llm: attacker }, ...(a.attacker2 ? [{ name: a.attacker2, llm: mk(a.attacker2, meters.attacker2) }] : [])];
     v4ctx = { attackers, aligner, score: null };
   }
 
@@ -222,7 +223,7 @@ export async function main(argv = process.argv.slice(2)) {
   let agreement = null;
   if (alt && a.agreementSample > 0) {
     const sample = records.filter((r) => r.config === '+L4' && r.seed === 1 && r.release).slice(0, a.agreementSample);
-    agreement = await agreementStudy(sample, ts, judge, alt);
+    agreement = await agreementStudy(sample, ts, judge, alt, { judgeName: a.judge, altName: a.altJudge });
   }
   const roles = [['gate', a.gate, meters.gate], ['attacker', a.attacker, meters.attacker], ['judge', a.judge, meters.judge], ['alt-judge', a.altJudge, meters.altJudge], ['attacker2', a.attacker2, meters.attacker2], ['aligner', a.aligner, meters.aligner]]
     .filter(([, s, m]) => s && m.calls).map(([role, spec, m]) => ({ role, model: spec, ...m, usd: costUSD(parseSpec(spec).model, m) }));

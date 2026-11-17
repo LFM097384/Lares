@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 // EmberBench-Public · gold annotation for imported council transcripts (METHOD §7.2).
-//   annotate: annotator (dashscope:kimi-k3) maps "Speaker N" → real name / role / org where the text reveals it, and writes
+//   annotate: annotator (--ann, default deepseek:deepseek-flash) maps "Speaker N" → real name / role / org where the text reveals it, and writes
 //             gold (identifiers, ideas+owner, stances, public facts, room questions, categories); a cross-family checker
-//             (dashscope:qwen-plus) reviews roster mapping + gold. Neither model is DeepSeek (the gate's family).
+//             (--check, default deepseek:deepseek-flash) reviews roster mapping + gold. Earlier gold (v1–v5) was annotated with
+//             DashScope kimi-k3 / qwen-plus (README · Model providers); defaults are now DeepSeek only.
 //   build:    deterministic — apply the check (finalize.applyCheck; roster disputes demote the speaker to unnamed), unify the
 //             mosaic circle roster by name, repair + validate, keep the first `--per-city` valid items per city (hash order),
 //             write .data/emberbench-public/data/{dev,test}/ and the hash-only manifests in ember/bench/data/public/.
 //   node ember/bench/gen/annotate-public.mjs annotate [--only id,…] [--concurrency 4]
 //   node ember/bench/gen/annotate-public.mjs build [--per-city 6]
 //   v3 (METHOD §8.6): annotate --raw raw-v3 --ann-dir ann-v3, then build-v3 [--singles 15] → test-v3-base/ (+ data/public/selection-v3.json)
-// Needs DASHSCOPE_API_KEY or DASHSCOPE_KEY_FILE for annotate. Text stays under .data/ (git-excluded).
+// Needs LARES_AI_LLM_KEY for annotate (no key file is loaded automatically). Text stays under .data/ (git-excluded).
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { makeLLM, newMeter, askJSON, loadDashscopeKeyFile, costUSD } from '../providers.mjs';
+import { makeLLM, newMeter, askJSON, costUSD } from '../providers.mjs';
 import { applyCheck } from './finalize.mjs';
 import { validate, repair } from './validate.mjs';
 import { PUBLIC_ROOT, CITIES, buildAliases, isCommonWord, placeholderName } from './import-public.mjs';
@@ -194,10 +195,9 @@ export function validatePublic(t) {
 }
 
 export async function annotate(args) {
-  if (process.env.DASHSCOPE_KEY_FILE && !process.env.DASHSCOPE_API_KEY) loadDashscopeKeyFile(process.env.DASHSCOPE_KEY_FILE);
   const am = newMeter(), cm = newMeter();
-  const ann = makeLLM(args.ann || 'dashscope:kimi-k3', { meter: am });
-  const check = makeLLM(args.check || 'dashscope:qwen-plus', { meter: cm });
+  const ann = makeLLM(args.ann || 'deepseek:deepseek-flash', { meter: am });
+  const check = makeLLM(args.check || 'deepseek:deepseek-flash', { meter: cm });
   const only = args.only ? new Set(String(args.only).split(',')) : null;
   const RAWD = args.raw ? path.join(PUBLIC_ROOT, args.raw) : RAW, ANND = args['ann-dir'] ? path.join(PUBLIC_ROOT, args['ann-dir']) : ANN;
   const items = ['dev', 'test'].flatMap((s) => (existsSync(path.join(RAWD, s)) ? readdirSync(path.join(RAWD, s)).filter((f) => f.endsWith('.json')).map((f) => ({ s, f })) : []))
@@ -223,8 +223,8 @@ export async function annotate(args) {
       } catch (e) { console.log(`[ann] FAIL ${s}/${t.id}: ${String(e.message).slice(0, 200)}`); }
     }
   }));
-  const usd = costUSD('kimi-k3', am) + costUSD('qwen-plus', cm);
-  console.log(JSON.stringify({ annotator: { ...am, usd: costUSD('kimi-k3', am) }, checker: { ...cm, usd: costUSD('qwen-plus', cm) }, usd }));
+  const usd = costUSD(ann.model, am) + costUSD(check.model, cm);
+  console.log(JSON.stringify({ annotator: { ...am, usd: costUSD(ann.model, am) }, checker: { ...cm, usd: costUSD(check.model, cm) }, usd }));
   const cf = path.join(PUBLIC_ROOT, 'annotation-cost.json');
   const prev = existsSync(cf) ? JSON.parse(readFileSync(cf, 'utf8')) : { usd: 0, runs: [] };
   prev.runs.push({ at: new Date().toISOString(), annotator: am, checker: cm, usd }); prev.usd += usd;

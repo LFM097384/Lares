@@ -14,7 +14,7 @@ EmberBench 用来度量炉灵**放出去的一切**（不署名纪要、房内�
 | `trustcard.mjs` | 汇总、预注册阈值判定、卡片渲染 |
 | `data.mjs` | 读数据、test manifest 校验、dev/test 不相交检查、封存 |
 | `providers.mjs` | 可配置模型（`provider:model`）、计量、价格假设 |
-| `gen/` | 数据生成：`specs.mjs`（场景规格）、`generate.mjs`（Kimi 生成 + Qwen 复核）、`validate.mjs`（确定性 schema 校验）、`import-legacy.mjs`（旧 10 段映射） |
+| `gen/` | 数据生成：`specs.mjs`（场景规格）、`generate.mjs`（LLM 生成 + 复核；以往用 Kimi / Qwen，现默认 DeepSeek）、`validate.mjs`（确定性 schema 校验）、`import-legacy.mjs`（旧 10 段映射） |
 | `data/dev/`、`data/test/` | 转写（`*.check.json` 是复核记录，`*.rejected.json` 是被拒稿，不属于数据集） |
 | `data/test.manifest.json` | test 冻结：逐文件 SHA-256 + datasetHash |
 | `data/test.seal.json` | 首次（调参前）test 运行后写入；之后再跑 test 需要 `--break-seal "<理由>"` |
@@ -26,10 +26,9 @@ EmberBench 用来度量炉灵**放出去的一切**（不署名纪要、房内�
 # 离线（不联网，确定性 mock；数字不代表炉灵）
 node ember/bench/run.mjs --split dev --runs 3 --mock
 
-# 真跑：闸门 DeepSeek，攻击者 / 评审 Qwen（DashScope）
-$env:LARES_AI_LLM_KEY = '…'            # DeepSeek，闸门
-$env:DASHSCOPE_API_KEY = '…'           # 或 $env:DASHSCOPE_KEY_FILE = '<控制台导出的 csv>'
-node ember/bench/run.mjs --split dev --runs 3 --configs +L4,ideas-only,raw --concurrency 6
+# 真跑：闸门、攻击者、评审都用 DeepSeek（同一家族，必须加 --allow-same-family）
+$env:LARES_AI_LLM_KEY = '…'            # DeepSeek
+node ember/bench/run.mjs --split dev --runs 3 --configs +L4,ideas-only,raw --concurrency 6 --allow-same-family
 
 # 调参前跑一次 test 并封存
 node ember/bench/run.mjs --split test --runs 3 --configs +L4,ideas-only,raw --seal
@@ -37,8 +36,8 @@ node ember/bench/run.mjs --split test --runs 3 --configs +L4,ideas-only,raw --se
 
 常用参数：
 
-- `--gate / --attacker / --judge / --alt-judge provider:model`：provider 可取 `deepseek`、`dashscope`、`mock`。
-  - 默认值：闸门 `deepseek:deepseek-flash`，攻击者和评审 `dashscope:qwen-plus`，备评审 `deepseek:deepseek-flash`（只用于一致性统计）。
+- `--gate / --attacker / --judge / --alt-judge provider:model`：provider 可取 `deepseek`、`mock`（`dashscope` 只为解析旧结果保留，见下文 Model providers）。
+  - 默认值：闸门 `deepseek:deepseek-flash`，攻击者和评审也是 `deepseek:deepseek-flash`，第二攻击者默认不设（`--attacker2` 可选），备评审 `deepseek:deepseek-flash`（只用于一致性统计）。
   - 攻击者或评审与闸门同一模型家族时，运行会拒绝启动，除非加 `--allow-same-family`。
 - `--only id,…`：只跑指定转写，用于调试。带 `--only` 的 test 运行不会封存。
 - `--agreement-sample N`：评审一致性抽样的段数，默认 10。
@@ -49,9 +48,15 @@ node ember/bench/run.mjs --split test --runs 3 --configs +L4,ideas-only,raw --se
 重新生成数据（会花钱，test 一旦封存就不要再动）：
 
 ```pwsh
-node ember/bench/gen/generate.mjs --only g01-hospital-ops --gen dashscope:kimi-k3 --check dashscope:qwen-plus
+node ember/bench/gen/generate.mjs --only g01-hospital-ops --gen deepseek:deepseek-flash --check deepseek:deepseek-flash   # 以往数据用 Kimi 生成、Qwen 复核
 node ember/bench/gen/import-legacy.mjs
 ```
+
+## Model providers
+
+Earlier runs (v1–v5, including the final v5 test run `2026-11-17T0037`) used DashScope models as attackers and judge (`dashscope:qwen-plus`, `dashscope:kimi-k3`) through the DashScope API, and the stored gold annotations were made the same way. Those results stay as recorded.
+
+From now on every default is DeepSeek only: `run.mjs` (attacker, judge, alt-judge), `rescore-v4.mjs` (attacker, aligner) and the `gen/` annotators and checkers all default to `deepseek:deepseek-flash`, and there is no default second attacker (`--attacker2` is optional). Because attacker and judge now share the gate's model family, a real run needs `--allow-same-family`. No DashScope key is loaded automatically: `DASHSCOPE_KEY_FILE` is no longer read, and the key-file loader has been removed. The commands above use DeepSeek; remarks about Qwen / Kimi describe how the earlier runs were made. The `dashscope` provider stays in `providers.mjs` only so specs stored in earlier results still parse.
 
 ## Public 轨（真实议会转写，METHOD §7）
 
@@ -59,7 +64,7 @@ node ember/bench/gen/import-legacy.mjs
 
 ```pwsh
 node ember/bench/gen/import-public.mjs                       # 确定性选材 → .data/emberbench-public/raw/
-$env:DASHSCOPE_KEY_FILE='…'                                  # 标注 Kimi，校验 Qwen（约 $0.4）
+$env:LARES_AI_LLM_KEY='…'                                    # 标注与校验默认 DeepSeek（以往用 Kimi / Qwen）
 node ember/bench/gen/annotate-public.mjs annotate --concurrency 6
 node ember/bench/gen/annotate-public.mjs build               # 争议排除、validate → .data/emberbench-public/data/ + data/public/ 下的 manifest
 node ember/bench/run.mjs --track public --split dev --runs 3 --configs +L4,ideas-only,raw --concurrency 6

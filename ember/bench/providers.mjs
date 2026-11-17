@@ -2,9 +2,9 @@
 // "provider:model" spec, configurable from the CLI. Keys come from env only and are never logged or written.
 //   deepseek   → LARES_AI_LLM_KEY,  LARES_AI_LLM_BASE_URL (default https://api.deepseek.com)
 //   dashscope  → DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL    (default https://dashscope.aliyuncs.com/compatible-mode/v1)
+//                kept only so specs stored in earlier (v1–v5) results still parse; no default uses it (README · Model providers)
 //   chatgpt    → ChatGPT (Codex) subscription OAuth tokens read from CHATGPT_AUTH_FILE (default ~/.dsh/plugins/subscriptions/auth.json); see chatgpt.mjs
-// loadDashscopeKeyFile(csv) reads the Aliyun console CSV ("apiKey,<key>") into process.env at runtime.
-import { readFileSync, existsSync } from 'node:fs';
+// No DashScope key file is read automatically: DASHSCOPE_API_KEY must be set in the environment explicitly.
 import { createDeepSeekLLM, parseJSON } from '../core/gate/llm.mjs';
 import { createChatGPTLLM } from './chatgpt.mjs';
 
@@ -50,15 +50,6 @@ export function familyOf(provider, model) {
   const m = String(model).toLowerCase();
   for (const f of ['deepseek', 'qwen', 'kimi', 'glm', 'minimax']) if (m.includes(f)) return f;
   return PROVIDERS[provider]?.family ?? provider;
-}
-
-export function loadDashscopeKeyFile(file) {
-  if (!file || !existsSync(file)) return false;
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*apiKey\s*,\s*(\S+)\s*$/);
-    if (m) { process.env.DASHSCOPE_API_KEY = m[1]; return true; }
-  }
-  return false;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

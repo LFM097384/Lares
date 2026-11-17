@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // EmberBench · scenario generator. Writes ember/bench/data/{dev,test}/<id>.json (+ <id>.check.json).
-//   node ember/bench/gen/generate.mjs [--only id,id] [--gen dashscope:kimi-k3] [--check dashscope:qwen-plus] [--concurrency 4] [--force]
+//   node ember/bench/gen/generate.mjs [--only id,id] [--gen deepseek:deepseek-flash] [--check deepseek:deepseek-flash] [--concurrency 4] [--force]
 // Pipeline per spec: generator LLM → deterministic validate() → (retry with errors, ≤3 tries) → second-model
 // consistency check → if the checker reports "error"-severity issues, regenerate once with that feedback.
 // Mosaic sessions 2/3 reuse the roster (and the facts) of session 1 of the same circle.
@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SPECS } from './specs.mjs';
 import { validate, repair } from './validate.mjs';
-import { makeLLM, newMeter, askJSON, loadDashscopeKeyFile, costUSD } from '../providers.mjs';
+import { makeLLM, newMeter, askJSON, costUSD } from '../providers.mjs';
 import { parseJSON } from '../../core/gate/llm.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -126,10 +126,9 @@ async function genOne(spec, { gen, check, force, log }) {
 
 async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map((a, i, xs) => (a.startsWith('--') ? [a.slice(2), xs[i + 1] && !xs[i + 1].startsWith('--') ? xs[i + 1] : true] : null)).filter(Boolean));
-  if (process.env.DASHSCOPE_KEY_FILE) loadDashscopeKeyFile(process.env.DASHSCOPE_KEY_FILE);
   const gm = newMeter(), cm = newMeter();
-  const gen = makeLLM(args.gen || 'dashscope:kimi-k3', { meter: gm });
-  const check = makeLLM(args.check || 'dashscope:qwen-plus', { meter: cm });
+  const gen = makeLLM(args.gen || 'deepseek:deepseek-flash', { meter: gm });
+  const check = makeLLM(args.check || 'deepseek:deepseek-flash', { meter: cm });
   const only = args.only ? new Set(String(args.only).split(',')) : null;
   const specs = SPECS.filter((s) => !only || only.has(s.id));
   const log = (m) => console.log(`[gen] ${m}`);

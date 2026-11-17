@@ -58,3 +58,9 @@ app/.l10n_verify_moderation/
 
 # 本机当服务器的本地栈(livekit-server.exe / 数据 / 日志;见 server/tool/local_stack.ps1)
 .local-server/
+
+# EmberBench archive: local copy of raw records / datasets (index README is committed)
+ember/bench/archive/data/*
+!ember/bench/archive/data/README.md
+# EmberBench archive: run logs are part of the record
+!ember/bench/archive/results/**/*.log

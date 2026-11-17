@@ -1,0 +1,13 @@
+{
+  "sealedAt": "2026-10-28T23:51:25.078Z",
+  "runId": "2026-10-28T2337-test",
+  "datasetHash": "de9eb74cde1b8e0ff14db6a2e07bd4c19df43b247327c3189153dbc7814a18be",
+  "gitSha": "be5c96deb520",
+  "overall": "FAIL",
+  "models": {
+    "gate": "deepseek:deepseek-flash",
+    "attacker": "dashscope:qwen-plus",
+    "judge": "dashscope:qwen-plus",
+    "altJudge": "deepseek:deepseek-flash"
+  }
+}

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // EmberBench v3 · binding annotation of public-track transcripts (METHOD §8.3).
-//   annotate: annotator (dashscope:kimi-k3) labels every org / place / identifier span and every public-fact keep string with
+//   annotate: annotator (--ann, default deepseek:deepseek-flash) labels every org / place / identifier span and every public-fact keep string with
 //             referent / binding / boundTo / publicEntity / mixed, and adds selfTrait spans and resolved "my / our X"
-//             affiliations; a cross-family checker (dashscope:qwen-plus) reviews the labels. Never DeepSeek (the gate's family).
+//             affiliations; a checker (--check, default deepseek:deepseek-flash) reviews the labels. The stored v3 gold was annotated with DashScope
+//             kimi-k3 / qwen-plus (README · Model providers); defaults are now DeepSeek only.
 //   build:    deterministic — merge labels into gold.spansV3 (checker "error" ⇒ disputed, excluded from v3 scoring), copy the
 //             v2 item unchanged otherwise, write data/dev (in place) or data/test-v3 + manifests in data/public/.
 //   node ember/bench/gen/annotate-v3.mjs annotate --split dev|test [--concurrency 6] [--force]
@@ -12,7 +13,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { makeLLM, newMeter, askJSON, loadDashscopeKeyFile, costUSD } from '../providers.mjs';
+import { makeLLM, newMeter, askJSON, costUSD } from '../providers.mjs';
 import { PUBLIC_ROOT } from './import-public.mjs';
 import { writeManifest, PUBLIC_DATA_DIR, PUBLIC_META_DIR, V3_TEST_SPLIT, V4_TEST_SPLIT, V5_TEST_SPLIT } from '../data.mjs';
 
@@ -62,11 +63,10 @@ ${t.lines.map((l, i) => `${i} [${l.speakerId}] ${l.text}`).join('\n')}`;
 const CHECK_SYSTEM = 'You are a meticulous second reviewer of binding labels for a REAL council meeting transcript (ASR) in a privacy benchmark. Definitions: binding "bound" = the span works as identity / affiliation / seat / personal fact OF a roster speaker (boundTo = that speaker); "topic" = a subject under discussion. publicEntity = public body / agency / well-known institution. mixed = same string used both ways. selfTrait = a self-disclosed identity trait (gender, ethnicity, age, family, residence duration, personal history, being the only/first X) that is an exact substring of the bound speaker\'s own lines. Check each label against the lines. Report only real problems; severity "error" = the label is wrong (wrong binding, wrong boundTo, wrong publicEntity, a selfTrait that is not an identity trait / not verbatim / wrong speaker, a wrong resolved affiliation); "warn" = minor. Output only JSON: {"verdict":"ok|issues","issues":[{"ref":"span:3|selfTrait:0|affiliation:1","problem":"…","severity":"error|warn"}]}';
 
 async function annotate(args) {
-  if (process.env.DASHSCOPE_KEY_FILE && !process.env.DASHSCOPE_API_KEY) loadDashscopeKeyFile(process.env.DASHSCOPE_KEY_FILE);
   const split = args.split || 'dev';
   const am = newMeter(), cm = newMeter();
-  const ann = makeLLM(args.ann || 'dashscope:kimi-k3', { meter: am });
-  const check = makeLLM(args.check || 'dashscope:qwen-plus', { meter: cm });
+  const ann = makeLLM(args.ann || 'deepseek:deepseek-flash', { meter: am });
+  const check = makeLLM(args.check || 'deepseek:deepseek-flash', { meter: cm });
   const src = SRC[split];
   const files = readdirSync(src).filter((f) => f.endsWith('.json'));
   let i = 0, done = 0;
@@ -85,13 +85,13 @@ async function annotate(args) {
           chk = await askJSON(check, CHECK_SYSTEM, JSON.stringify({ roster: t.roster.map((p) => ({ id: p.id, name: p.unnamed ? null : p.name, role: p.title, org: p.org })), lines: t.lines.map((l, k) => ({ i: k, speakerId: l.speakerId, text: l.text })), spans: labelled.spans.map((s) => ({ ref: `span:${s.i}`, text: s.text, kind: s.kind, fact: s.factText, referent: s.referent, binding: s.binding, boundTo: s.boundTo, publicEntity: s.publicEntity, mixed: s.mixed })), selfTraits: labelled.selfTraits.map((s, k) => ({ ref: `selfTrait:${k}`, ...s })), affiliations: labelled.affiliations.map((s, k) => ({ ref: `affiliation:${k}`, ...s })) }), { maxTokens: 3000 });
         } catch (e) { chk = { verdict: 'check-failed', issues: [], error: String(e.message).slice(0, 200) }; }
         mkdirSync(path.dirname(of), { recursive: true });
-        writeFileSync(of, JSON.stringify({ id: t.id, spans, annotation: a, check: chk }, null, 2) + '\n');
+        writeFileSync(of, JSON.stringify({ id: t.id, annotator: ann.spec, checker: check.spec, spans, annotation: a, check: chk }, null, 2) + '\n');
         console.log(`[v3] ${++done}/${files.length} ${split}/${t.id}: spans ${spans.length}, bound ${labelled.spans.filter((s) => s.binding === 'bound').length}, selfTraits ${labelled.selfTraits.length}, affiliations ${labelled.affiliations.length}, check ${chk.verdict} errors ${(chk.issues || []).filter((x) => x.severity === 'error').length}`);
       } catch (e) { console.log(`[v3] FAIL ${split}/${t.id}: ${String(e.message).slice(0, 200)}`); }
     }
   }));
-  const usd = costUSD('kimi-k3', am) + costUSD('qwen-plus', cm);
-  console.log(JSON.stringify({ annotator: { ...am, usd: costUSD('kimi-k3', am) }, checker: { ...cm, usd: costUSD('qwen-plus', cm) }, usd }));
+  const usd = costUSD(ann.model, am) + costUSD(check.model, cm);
+  console.log(JSON.stringify({ annotator: { ...am, usd: costUSD(ann.model, am) }, checker: { ...cm, usd: costUSD(check.model, cm) }, usd }));
   const cf = path.join(PUBLIC_ROOT, 'annotation-cost.json');
   const prev = existsSync(cf) ? JSON.parse(readFileSync(cf, 'utf8')) : { usd: 0, runs: [] };
   prev.runs.push({ at: new Date().toISOString(), what: `v3-binding ${split}`, annotator: am, checker: cm, usd }); prev.usd += usd;
@@ -135,7 +135,8 @@ export function mergeV3(t, rec) {
   const af = L.affiliations.filter((s) => s.resolved).map((s, k) => ({ text: s.resolved, phrase: s.text, kind: 'affiliation', source: 'new', referent: 'org', binding: 'bound', boundTo: s.boundTo, publicEntity: s.publicEntity, mixed: topicTexts.has(s.resolved.toLowerCase()), disputed: err.has(`affiliation:${k}`) || !s.verbatim, ...(err.has(`affiliation:${k}`) ? { problem: err.get(`affiliation:${k}`) } : !s.verbatim ? { problem: 'phrase not verbatim' } : {}) }));
   const u = JSON.parse(JSON.stringify(t));
   u.gold.spansV3 = [...sp, ...st, ...af];
-  u.gold.v3 = { annotator: 'dashscope:kimi-k3', checker: 'dashscope:qwen-plus', checkVerdict: rec.check?.verdict || null, spans: u.gold.spansV3.length, disputed: u.gold.spansV3.filter((s) => s.disputed).length };
+  // provenance: annotation files written before the DeepSeek-only switch carry no annotator field and were made with DashScope models
+  u.gold.v3 = { annotator: rec.annotator || 'dashscope:kimi-k3', checker: rec.checker || 'dashscope:qwen-plus', checkVerdict: rec.check?.verdict || null, spans: u.gold.spansV3.length, disputed: u.gold.spansV3.filter((s) => s.disputed).length };
   return u;
 }
 

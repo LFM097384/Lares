@@ -1,0 +1,41 @@
+{
+  "sealedAt": "2026-11-13T23:35:51.969Z",
+  "status": "sealed-run",
+  "split": "test-v5",
+  "version": "emberbench-5",
+  "datasetHash": "a21986096921479874b45142863b64169f562ed15737ecf302a6de7f88eea4d3",
+  "files": 60,
+  "gitShaAtSeal": "9ee84c8bd93d",
+  "note": "Written after v2 + v3 annotation and BEFORE any gate run on test-v5 (METHOD §10.7). No gate, attacker or judge has seen these items. Run once, strictness 1, by the orchestrator: `run.mjs --track public --schema v5 --split test --runs 3`; that run flips status to sealed-run; later runs need --break-seal.",
+  "composition": {
+    "test": 60,
+    "meetings": 60,
+    "circles": 0,
+    "perCity": {
+      "AlamedaCC": 14,
+      "DenverCityCouncil": 16,
+      "LongBeachCC": 16,
+      "SeattleCityCouncil": 14
+    }
+  },
+  "calibration": "data/public/calibration-v4.json (frozen, fitted on dev raw; unchanged for v5)",
+  "disputeRate": {
+    "v2gold": 0.094
+  },
+  "firstRun": {
+    "runId": "2026-11-14T0453-public-test",
+    "gitSha": "06c892c57d99",
+    "overall": "FAIL",
+    "models": {
+      "gate": "deepseek:deepseek-flash",
+      "attacker": "dashscope:qwen-plus",
+      "judge": "dashscope:qwen-plus",
+      "altJudge": "deepseek:deepseek-flash"
+    },
+    "strictness": 1,
+    "attackers": [
+      "dashscope:qwen-plus",
+      "dashscope:kimi-k3"
+    ]
+  }
+}

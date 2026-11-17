@@ -1,0 +1,55 @@
+{
+  "version": "emberbench-4",
+  "fittedOn": "dev raw",
+  "grid": "[0.2, 5] log, 201 points",
+  "eps": 0.02,
+  "datasetHash": "30092028f3d097c7e6a46e1cf611240ca9dacfc052d07cafc847b1e95c4edce7",
+  "fittedAt": "2026-11-13T09:29:03.708Z",
+  "runId": "2026-11-07T1730-public-dev",
+  "attackers": {
+    "dashscope:qwen-plus": {
+      "tau": 1.232724707304363,
+      "nll": 0.5870124054348991,
+      "nllAtTau1": 0.6128779138745246,
+      "n": 366,
+      "atBoundary": false,
+      "ece": {
+        "before": {
+          "ece": 0.07068142076502643,
+          "n": 366,
+          "acc": 0.8524590163934426,
+          "conf": 0.910572131147541
+        },
+        "after": {
+          "ece": 0.04756959450385643,
+          "n": 366,
+          "acc": 0.8524590163934426,
+          "conf": 0.8386998968130913
+        }
+      }
+    },
+    "dashscope:kimi-k3": {
+      "tau": 1.0494677568059536,
+      "nll": 0.48732035591012685,
+      "nllAtTau1": 0.4884317233306398,
+      "n": 366,
+      "atBoundary": false,
+      "ece": {
+        "before": {
+          "ece": 0.06071038251366119,
+          "n": 366,
+          "acc": 0.8770491803278688,
+          "conf": 0.8796174863387961
+        },
+        "after": {
+          "ece": 0.06986956567617911,
+          "n": 366,
+          "acc": 0.8770491803278688,
+          "conf": 0.8532662261869622
+        }
+      }
+    }
+  },
+  "gitSha": "30d5e88",
+  "note": "fitted by ember/bench/v4/rescore-v4.mjs --attack --fit-calibration at code commit 30d5e88 on stored v3 dev records (gate commit 2f90bb1); frozen before any test-v4 run"
+}
