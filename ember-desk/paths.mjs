@@ -8,6 +8,7 @@ export const NAME = '炉灵';
 export const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const REPO = path.join(HERE, '..');
 export const JITSI_ENTRY = path.join(REPO, 'ember-jitsi', 'index.mjs');
+export const MEET_ENTRY = path.join(REPO, 'ember-meet', 'index.mjs');
 export const ZOOM_ENTRY = path.join(REPO, 'ember-zoom', 'index.mjs');
 export const DAEMON_ENTRY = path.join(HERE, 'daemon.mjs');
 

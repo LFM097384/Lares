@@ -64,3 +64,7 @@ ember/bench/archive/data/*
 !ember/bench/archive/data/README.md
 # EmberBench archive: run logs are part of the record
 !ember/bench/archive/results/**/*.log
+
+# 本地运行数据(ember-meet 浏览器 profile / cookie / 生成的 WAV;绝不提交)
+.data/
+

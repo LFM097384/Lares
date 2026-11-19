@@ -8,7 +8,7 @@ import readline from 'node:readline';
 import { parseLink, LinkError } from './links.mjs';
 
 export const STOP_TIMEOUT_MS = 15_000;
-const ADAPTER_NAMES = { jitsi: 'Jitsi', zoom: 'Zoom', lares: 'Lares' };
+const ADAPTER_NAMES = { jitsi: 'Jitsi', zoom: 'Zoom', lares: 'Lares', teams: 'Teams' };
 
 export class SessionError extends Error {
   constructor(status, code, message) { super(message); this.name = 'SessionError'; this.status = status; this.code = code; }

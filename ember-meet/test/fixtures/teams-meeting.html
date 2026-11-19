@@ -1,0 +1,111 @@
+<!doctype html>
+<!-- 夹具:Teams 会中界面(挂断 / 更多 → 语言和语音 → 打开实时字幕 / 聊天面板)。
+     结构仿 Teams 的 data-tid:字幕 closed-caption-renderer-wrapper > … > author + closed-caption-text;
+     聊天 message-pane-list-runway > chat-pane-message(连续同一人的消息不重复作者名;自己发的带 data-tid=chat-pane-message-mine 子节点)。
+     测试钩子 window.fx:
+       caption(speaker, text) → idx        新增一条字幕
+       setCaption(idx, text)               就地改字(逐词变长 / 改写)
+       rerender(idx)                       把这条换成新 DOM 节点(虚拟列表重渲染)
+       dropCaption(idx)                    滚出窗口(删节点)
+       chat(author, text)                  别人发一条聊天(author 为空 = 与上一条同一人,不显示作者)
+       sent() → [text]                     炉灵发出的聊天
+       end()                               会议结束页
+     ?captionsDisabled=1 菜单里没有字幕项;?nochat=1 没有聊天按钮;?history=1 预置两条历史聊天 -->
+<html lang="en"><head><meta charset="utf-8"><title>Meeting (fixture)</title>
+<style>.hidden{display:none} #menu,#submenu{border:1px solid #888;padding:4px} #compose{min-height:24px;border:1px solid #888}</style></head>
+<body>
+<div id="stage">
+  <div id="calling-buttons">
+    <button id="chat-button" aria-label="Chat">Chat</button>
+    <button id="callingButtons-showMoreBtn" aria-label="More">More</button>
+    <button id="hangup-button" aria-label="Leave">Leave</button>
+  </div>
+  <div id="menu" role="menu" class="hidden">
+    <div role="menuitem" id="lang-item">Language and speech</div>
+    <div role="menuitem">Settings</div>
+  </div>
+  <div id="submenu" role="menu" class="hidden">
+    <div role="menuitem" id="cc-item">Turn on live captions</div>
+  </div>
+  <div id="leave-menu" role="menu" class="hidden">
+    <div role="menuitem" id="leave-only">Leave</div>
+    <div role="menuitem" id="end-for-all">End meeting</div>
+  </div>
+  <div id="captions-host"></div>
+  <div id="chat-pane" class="hidden">
+    <div data-tid="message-pane-list-runway" id="chat-list"></div>
+    <div data-tid="ckeditor" role="textbox" contenteditable="true" aria-label="Type a message" id="compose"></div>
+  </div>
+</div>
+<div id="ended" class="hidden" data-tid="post-call-screen"><p>You left the meeting</p></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const $ = (id) => document.getElementById(id);
+  const toggle = (id, on) => $(id).classList.toggle('hidden', !on);
+  window.__fxLog = { endedForAll: false, left: false };
+  if (q.get('nochat') === '1') $('chat-button').remove();
+  if (q.get('captionsDisabled') === '1') $('cc-item').remove();
+  $('callingButtons-showMoreBtn').onclick = () => { toggle('menu', $('menu').classList.contains('hidden')); toggle('submenu', false); };
+  $('lang-item').onclick = () => toggle('submenu', true);
+  let list = null;
+  $('cc-item')?.addEventListener('click', () => {
+    toggle('menu', false); toggle('submenu', false);
+    if (list) return;
+    const w = document.createElement('div');
+    w.setAttribute('data-tid', 'closed-caption-renderer-wrapper');
+    list = document.createElement('div');
+    list.setAttribute('data-tid', 'closed-caption-v2-virtual-list-content');
+    w.appendChild(list);
+    $('captions-host').appendChild(w);
+  });
+  $('chat-button').onclick = () => toggle('chat-pane', true);
+  $('hangup-button').onclick = () => toggle('leave-menu', true);
+  $('leave-only').onclick = () => { window.__fxLog.left = true; toggle('stage', false); toggle('ended', true); };
+  $('end-for-all').onclick = () => { window.__fxLog.endedForAll = true; };
+
+  const caps = [];
+  const mkCap = (speaker, text) => {
+    const item = document.createElement('div');
+    item.className = 'fui-ChatMessageCompact';
+    const a = document.createElement('span'); a.setAttribute('data-tid', 'author'); a.textContent = speaker;
+    const t = document.createElement('span'); t.setAttribute('data-tid', 'closed-caption-text'); t.textContent = text;
+    item.append(a, t);
+    return item;
+  };
+  const sent = [];
+  let lastAuthor = null;
+  let mid = 1000;
+  const addMsg = (author, text, mine) => {
+    const m = document.createElement('div');
+    m.setAttribute('data-tid', 'chat-pane-message');
+    m.setAttribute('data-mid', String(++mid));
+    if (mine) { const mk = document.createElement('span'); mk.setAttribute('data-tid', 'chat-pane-message-mine'); m.appendChild(mk); lastAuthor = null; } else if (author) {
+      const a = document.createElement('span'); a.setAttribute('data-tid', 'message-author-name'); a.textContent = author; m.appendChild(a); lastAuthor = author;
+    }
+    const b = document.createElement('div'); b.setAttribute('data-tid', 'messageBodyContent'); b.innerText = text; m.appendChild(b);
+    $('chat-list').appendChild(m);
+  };
+  if (q.get('history') === '1') { addMsg('Alice', 'old message before the bot joined'); addMsg('Bob', '@炉灵 帮助'); }
+  $('compose').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = $('compose').innerText.replace(/\n$/, '');
+      if (text.trim()) { sent.push(text); addMsg('', text, true); }
+      $('compose').innerHTML = '';
+    }
+  });
+  window.fx = {
+    caption(speaker, text) {
+      if (!list) throw new Error('captions are off');
+      const el = mkCap(speaker, text); list.appendChild(el); caps.push(el); return caps.length - 1;
+    },
+    setCaption(i, text) { caps[i].querySelector('[data-tid="closed-caption-text"]').textContent = text; },
+    rerender(i) { const old = caps[i]; const el = mkCap(old.querySelector('[data-tid="author"]').textContent, old.querySelector('[data-tid="closed-caption-text"]').textContent); old.replaceWith(el); caps[i] = el; },
+    dropCaption(i) { caps[i].remove(); },
+    chat(author, text) { addMsg(author, text, false); },
+    sent: () => [...sent],
+    end() { toggle('stage', false); $('ended').innerHTML = '<p>The meeting has ended</p>'; toggle('ended', true); },
+    params: () => Object.fromEntries(q),
+  };
+</script>
+</body></html>

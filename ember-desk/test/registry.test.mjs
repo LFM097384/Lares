@@ -17,7 +17,7 @@ test('loads the real channels dir with the uniform interface', async (t) => {
   const dir = tmpDir(t);
   const r = await new Registry({ ctx: ctxFor(dir) }).loadDir();
   const ids = r.all().map((c) => c.id).sort();
-  assert.deepEqual(ids, ['ask', 'feed', 'meeting-chat', 'meeting-jitsi', 'meeting-lares', 'meeting-zoom', 'mic', 'toast', 'tts']);
+  assert.deepEqual(ids, ['ask', 'feed', 'meeting-chat', 'meeting-jitsi', 'meeting-lares', 'meeting-teams', 'meeting-zoom', 'mic', 'toast', 'tts']);
   for (const s of r.list()) {
     assert.deepEqual(Object.keys(s).filter((k) => k !== 'extra').sort(), ['configured', 'detail', 'enabled', 'id', 'kind', 'name', 'running']);
     assert.equal(typeof s.detail, 'string');

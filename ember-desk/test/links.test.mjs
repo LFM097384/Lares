@@ -61,3 +61,18 @@ test('rejects non-https, javascript:, credentials, control chars, bad room, too 
   }
   await assert.rejects(parseLink(42, { jitsiHosts: hosts }), { code: 'empty' });
 });
+
+test('teams links route to ember-meet before the Jitsi probe; Google Meet / Tencent refused as not implemented', async () => {
+  const link = 'https://teams.microsoft.com/l/meetup-join/19%3ameeting_ZjA2NzQ5%40thread.v2/0?context=%7b%22Tid%22%3a%22x%22%7d';
+  const r = await parseLink(link, { jitsiHosts: hosts, probe: noProbe });
+  assert.deepEqual([r.adapter, r.meetingKey, r.link], ['teams', 'thread:19:meeting_ZjA2NzQ5@thread.v2', link]);
+  assert.ok(r.room.length <= 41);
+  const f = await parseLink('https://teams.live.com/meet/9876543210123?p=AbC', { jitsiHosts: hosts, probe: noProbe });
+  assert.deepEqual([f.adapter, f.room], ['teams', 'meet:9876543210123']);
+  assert.equal((await parseLink('https://gov.teams.microsoft.com/meet/123456789?p=x', { probe: noProbe })).adapter, 'teams');
+  await assert.rejects(parseLink('https://teams.microsoft.com/_#/conversations', { probe: noProbe }), (e) => e instanceof LinkError && e.code === 'teams_bad_path' && /Teams/.test(e.message));
+  await assert.rejects(parseLink('https://meet.google.com/abc-defg-hij', { probe: noProbe }), (e) => e.code === 'not_implemented' && /Google Meet/.test(e.message));
+  await assert.rejects(parseLink('https://meeting.tencent.com/dm/AbCd1234', { probe: noProbe }), (e) => e.code === 'not_implemented' && /腾讯会议/.test(e.message));
+  // 长得像但不是 Teams 的主机照常走 Jitsi 判断
+  await assert.rejects(parseLink('https://teams.microsoft.com.evil.example/l/meetup-join/x', { probe: async () => false }), { code: 'unknown_host' });
+});

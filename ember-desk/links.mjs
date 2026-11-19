@@ -1,8 +1,11 @@
 // ember-desk · 会议链接解析与路由。只收 https:;拒绝 URL 内凭据、控制字符、超长。
 //   Jitsi:host[:port] 在 config.jitsiHosts 里,或异步探测(GET /config.js 或 /libs/lib-jitsi-meet.min.js 返回 200)
 //   Zoom:*.zoom.us/j/<digits> 或 /wc/<digits>(含 /wc/join/<digits>)
+//   Teams:teams.microsoft.com / *.teams.microsoft.com / teams.live.com 的会议链接 → ember-meet(模拟访客网页客户端)
+//   Google Meet / 腾讯会议:认得,但 ember-meet 还没实现 → 明确拒绝
 //   Lares:host 含 lares,或路径以 /circle/ 开头 → 由 Lares 服务器按圈拉起,不由桌面端启动
 import https from 'node:https';
+import { matchMeetingUrl, MeetUrlError } from '../ember-meet/urls.mjs';
 
 export const MAX_LINK = 2048;
 export const ROOM_RE = /^[A-Za-z0-9_.-]{1,64}$/;
@@ -37,6 +40,18 @@ function zoomOf(u) {
   const m = u.pathname.match(/^\/(?:j|wc(?:\/join)?|s)\/(\d{9,12})(?:\/|$)/) ?? u.pathname.match(/^\/wc\/(\d{9,12})\/(?:join|start)$/);
   if (!m) throw new LinkError('zoom_bad_path', 'Zoom 链接格式不认识(应为 https://xxx.zoom.us/j/<会议号>)');
   return { adapter: 'zoom', meetingId: m[1], host: h, url: `https://${h}`, passcodePresent: u.searchParams.has('pwd') };
+}
+
+/// ember-meet 管的平台(Teams 已实现;Google Meet / 腾讯会议只认形状)
+function meetOf(u) {
+  let r;
+  try { r = matchMeetingUrl(u); } catch (e) {
+    if (e instanceof MeetUrlError) throw new LinkError(e.code, e.message);
+    throw e;
+  }
+  if (!r) return null;
+  if (!r.implemented) throw new LinkError('not_implemented', `${r.label} 还不支持(ember-meet 目前只实现了 Microsoft Teams 网页访客加入)`);
+  return { adapter: r.platform, host: r.host, meetingKey: r.meetingKey, room: r.meetingKey.length > 40 ? `${r.meetingKey.slice(0, 37)}…` : r.meetingKey };
 }
 
 function laresOf(u) {
@@ -85,6 +100,8 @@ export async function parseLink(link, { jitsiHosts = [], probe = defaultProbe } 
   const clean = u.href;
   const z = zoomOf(u);
   if (z) return { ...z, link: clean };
+  const m = meetOf(u);
+  if (m) return { ...m, link: clean };
   const l = laresOf(u);
   if (l) return { ...l, link: clean };
   const hk = hostKey(u);

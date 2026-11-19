@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- 夹具:Teams 大厅。测试调 window.fx.admit() 放行(→ teams-meeting.html)或 window.fx.deny() 拒绝。?autoAdmitMs=n 自动放行 -->
+<html lang="en"><head><meta charset="utf-8"><title>Lobby (fixture)</title></head>
+<body>
+<div data-tid="lobby-screen-fixture">
+  <p id="msg">Someone in the meeting should let you in soon</p>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get('lang') === 'zh') document.getElementById('msg').textContent = '会议中的某人应该很快就会让你进入';
+  window.fx = {
+    admit() { location.href = `teams-meeting.html?${q}`; },
+    deny() { document.getElementById('msg').textContent = 'Sorry, but you were denied access to the meeting.'; },
+  };
+  const ms = Number(q.get('autoAdmitMs'));
+  if (ms > 0) setTimeout(() => window.fx.admit(), ms);
+</script>
+</body></html>

@@ -74,7 +74,7 @@ test('ask (mock without key), speak (stubbed SAPI), feed, channels start/stop pe
   assert.equal(off.body.enabled, false);
   assert.equal((await req(d, 'POST', '/channels/meeting-lares/start')).status, 400);
   assert.equal((await req(d, 'POST', '/channels/nope/start')).status, 404);
-  assert.equal((await req(d, 'GET', '/channels')).body.length, 9);
+  assert.equal((await req(d, 'GET', '/channels')).body.length, 10); // + meeting-teams
 });
 
 test('SSE /events sends status then feed events', async (t) => {

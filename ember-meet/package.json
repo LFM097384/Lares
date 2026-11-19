@@ -1,0 +1,12 @@
+{
+  "name": "ember-meet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ember(炉灵)的网页会议插件:模拟真人访客进 Teams 网页会议(不注册机器人),读实时字幕、会议聊天 = 房间、k-of-n 放行",
+  "bin": { "ember-meet": "./index.mjs" },
+  "exports": { ".": "./index.mjs", "./port": "./port.mjs", "./driver": "./driver.mjs", "./captions": "./captions.mjs", "./urls": "./urls.mjs", "./adapters": "./adapters/index.mjs" },
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node index.mjs", "test": "node --test ./", "live": "node tool/live.mjs", "reach": "node tool/reachability.mjs" },
+  "//deps": "playwright 由 ../ember-jitsi/deps.mjs 解析:裸 import → server/node_modules → npx 缓存;Ember 本体走相对路径 ../ember"
+}

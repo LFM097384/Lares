@@ -43,7 +43,7 @@ test('MCP stdio: handshake, tools/list, tools/call against a live daemon with fa
   const ask = await m.rpc({ jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'ember_ask', arguments: { text: '你好' } } });
   assert.equal(JSON.parse(ask.result.content[0].text).llm, false);
   const ch = await m.rpc({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'ember_channels', arguments: {} } });
-  assert.equal(JSON.parse(ch.result.content[0].text).length, 9);
+  assert.equal(JSON.parse(ch.result.content[0].text).length, 10); // + meeting-teams
   assert.equal((await m.rpc({ jsonrpc: '2.0', id: 10, method: 'nope/x' })).error.code, -32601);
   assert.equal((await m.rpc('{not json')).error.code, -32700);
   assert.equal((await m.rpc({ jsonrpc: '2.0', id: 11, method: 'tools/call', params: { name: 'no_such_tool' } })).error.code, -32602);

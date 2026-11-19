@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- 夹具:Teams 网页版「你想怎么加入?」启动页 + 预加入页(静态仿制,只保留 adapter 依赖的 data-tid / 文案;不含任何微软资源)。
+     ?nolauncher=1 跳过启动页;?mediaModal=1 先弹「不使用音视频继续」;?lang=zh 中文文案;?next=lobby|meeting 加入后去哪;?notFound=1 加入后显示「找不到此会议」(真 Teams 对不存在会议号的实测文案) -->
+<html lang="en"><head><meta charset="utf-8"><title>Microsoft Teams (fixture)</title>
+<style>body{font-family:sans-serif} .hidden{display:none} [role=switch]{padding:4px 10px;border:1px solid #888}</style></head>
+<body>
+<div id="launcher">
+  <h1 id="launcher-title">How do you want to join your Teams meeting?</h1>
+  <button data-tid="joinOnWeb" id="web-btn">Continue on this browser</button>
+  <button id="app-btn">Join on the Teams app</button>
+</div>
+<div id="modal" class="hidden" role="dialog">
+  <p>Are you sure you don't want audio or video?</p>
+  <button id="no-media">Continue without audio or video</button>
+</div>
+<div id="prejoin" class="hidden" data-tid="prejoin-screen">
+  <h2 id="prejoin-title">Choose your video and audio options</h2>
+  <input type="text" data-tid="prejoin-display-name-input" id="name" placeholder="Type your name">
+  <div role="switch" data-tid="toggle-video" id="cam" aria-checked="true" aria-label="Camera" tabindex="0">Camera</div>
+  <div role="switch" data-tid="toggle-mute" id="mic" aria-checked="true" aria-label="Microphone" tabindex="0">Mic</div>
+  <button data-tid="prejoin-join-button" id="join" disabled>Join now</button>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const zh = q.get('lang') === 'zh';
+  const $ = (id) => document.getElementById(id);
+  if (zh) {
+    $('launcher-title').textContent = '你想如何加入 Teams 会议?';
+    $('web-btn').textContent = '在此浏览器上继续';
+    $('join').textContent = '立即加入';
+    $('name').placeholder = '键入你的姓名';
+    $('no-media').textContent = '在没有音频或视频的情况下继续';
+  }
+  const show = (id) => $(id).classList.remove('hidden');
+  const hide = (id) => $(id).classList.add('hidden');
+  const toPrejoin = () => { hide('launcher'); if (q.get('mediaModal') === '1') show('modal'); else show('prejoin'); };
+  if (q.get('nolauncher') === '1') toPrejoin();
+  $('web-btn').onclick = () => setTimeout(toPrejoin, 50);
+  $('no-media').onclick = () => { hide('modal'); show('prejoin'); };
+  $('name').addEventListener('input', () => { $('join').disabled = !$('name').value.trim(); });
+  for (const id of ['cam', 'mic']) $(id).onclick = () => { const el = $(id); el.setAttribute('aria-checked', el.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); };
+  $('join').onclick = () => {
+    const p = new URLSearchParams({ name: $('name').value, cam: $('cam').getAttribute('aria-checked'), mic: $('mic').getAttribute('aria-checked') });
+    if (zh) p.set('lang', 'zh');
+    if (q.get('notFound') === '1') { setTimeout(() => { document.body.innerHTML = '<h2>找不到此会议</h2><p>此会议可能已结束、已被删除，或者链接可能不正确。</p>'; }, 80); return; }
+    const next = q.get('next') || 'lobby';
+    setTimeout(() => { location.href = `teams-${next}.html?${p}`; }, 80);
+  };
+</script>
+</body></html>
